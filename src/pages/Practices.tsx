@@ -1,13 +1,31 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { PracticesTable } from "@/components/practices/PracticesTable";
+import { PracticesFilters, PracticeFilters } from "@/components/practices/PracticesFilters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Filter } from "lucide-react";
+import { Search } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Practices = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [filters, setFilters] = useState<PracticeFilters>({
+    practiceType: "all",
+    status: "all",
+    dateFrom: undefined,
+    dateTo: undefined,
+    userId: "all",
+  });
+
+  const handleClearFilters = () => {
+    setFilters({
+      practiceType: "all",
+      status: "all",
+      dateFrom: undefined,
+      dateTo: undefined,
+      userId: "all",
+    });
+  };
 
   return (
     <DashboardLayout>
@@ -34,13 +52,14 @@ const Practices = () => {
               className="pl-10"
             />
           </div>
-          <Button variant="outline">
-            <Filter className="mr-2 h-4 w-4" />
-            Filtri
-          </Button>
+          <PracticesFilters
+            filters={filters}
+            onFiltersChange={setFilters}
+            onClearFilters={handleClearFilters}
+          />
         </div>
 
-        <PracticesTable searchQuery={searchQuery} />
+        <PracticesTable searchQuery={searchQuery} filters={filters} />
       </div>
     </DashboardLayout>
   );
