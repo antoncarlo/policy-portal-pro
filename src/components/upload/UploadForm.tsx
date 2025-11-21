@@ -44,6 +44,50 @@ export const UploadForm = () => {
     const policyNumber = formData.get("policyNumber") as string;
     const notes = formData.get("notes") as string;
 
+    // Validate inputs
+    if (!practiceType || !clientName.trim() || !clientPhone.trim() || !clientEmail.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Errore validazione",
+        description: "Compila tutti i campi obbligatori.",
+      });
+      setLoading(false);
+      return;
+    }
+
+    // Validate files
+    const maxFileSize = 10 * 1024 * 1024; // 10MB
+    const allowedTypes = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+    ];
+
+    for (const file of files) {
+      if (file.size > maxFileSize) {
+        toast({
+          variant: "destructive",
+          title: "File troppo grande",
+          description: `${file.name} supera i 10MB consentiti.`,
+        });
+        setLoading(false);
+        return;
+      }
+
+      if (!allowedTypes.includes(file.type)) {
+        toast({
+          variant: "destructive",
+          title: "Tipo file non consentito",
+          description: `${file.name} non è un tipo di file consentito.`,
+        });
+        setLoading(false);
+        return;
+      }
+    }
+
     // Get current user
     const { data: { session } } = await supabase.auth.getSession();
     
@@ -57,43 +101,80 @@ export const UploadForm = () => {
       return;
     }
 
-    // Insert practice into database (practice_number auto-generated)
-    const { data: practice, error } = await supabase
-      .from("practices")
-      .insert([{
-        practice_type: practiceType as any,
-        client_name: clientName,
-        client_phone: clientPhone,
-        client_email: clientEmail,
-        policy_number: policyNumber || null,
-        notes: notes || null,
-        user_id: session.user.id,
-      }])
-      .select()
-      .single();
+    try {
+      // Insert practice into database (practice_number auto-generated)
+      const { data: practice, error: practiceError } = await supabase
+        .from("practices")
+        .insert([{
+          practice_type: practiceType as any,
+          client_name: clientName.trim(),
+          client_phone: clientPhone.trim(),
+          client_email: clientEmail.trim(),
+          policy_number: policyNumber?.trim() || null,
+          notes: notes?.trim() || null,
+          user_id: session.user.id,
+        }])
+        .select()
+        .single();
 
-    setLoading(false);
+      if (practiceError) throw practiceError;
 
-    if (error) {
+      // Upload documents if any
+      if (files.length > 0) {
+        const uploadPromises = files.map(async (file) => {
+          const fileExt = file.name.split(".").pop();
+          const fileName = `${practice.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+          // Upload to storage
+          const { error: uploadError } = await supabase.storage
+            .from("practice-documents")
+            .upload(fileName, file);
+
+          if (uploadError) throw uploadError;
+
+          // Create document record
+          const { error: docError } = await supabase
+            .from("practice_documents")
+            .insert({
+              practice_id: practice.id,
+              file_name: file.name,
+              file_path: fileName,
+              file_size: file.size,
+              mime_type: file.type,
+              uploaded_by: session.user.id,
+            });
+
+          if (docError) throw docError;
+        });
+
+        await Promise.all(uploadPromises);
+
+        toast({
+          title: "Pratica caricata con successo",
+          description: `Pratica creata con ${files.length} documento/i allegato/i.`,
+        });
+      } else {
+        toast({
+          title: "Pratica caricata con successo",
+          description: "La pratica è stata creata correttamente.",
+        });
+      }
+
+      // Reset form
+      e.currentTarget.reset();
+      setFiles([]);
+      
+      // Navigate to practices page
+      navigate("/practices");
+    } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Errore caricamento pratica",
-        description: error.message,
+        title: "Errore caricamento",
+        description: error.message || "Si è verificato un errore durante il caricamento.",
       });
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    toast({
-      title: "Pratica caricata con successo",
-      description: "La pratica è stata creata correttamente.",
-    });
-
-    // Reset form
-    e.currentTarget.reset();
-    setFiles([]);
-    
-    // Navigate to practices page
-    navigate("/practices");
   };
 
   return (
@@ -124,6 +205,7 @@ export const UploadForm = () => {
               name="clientName"
               placeholder="Mario Rossi"
               required
+              maxLength={100}
             />
           </div>
 
@@ -135,6 +217,7 @@ export const UploadForm = () => {
               type="tel"
               placeholder="+39 123 456 7890"
               required
+              maxLength={20}
             />
           </div>
 
@@ -146,6 +229,7 @@ export const UploadForm = () => {
               type="email"
               placeholder="mario.rossi@example.com"
               required
+              maxLength={255}
             />
           </div>
 
@@ -155,6 +239,7 @@ export const UploadForm = () => {
               id="policyNumber"
               name="policyNumber"
               placeholder="POL-2024-001"
+              maxLength={50}
             />
           </div>
         </div>
@@ -166,11 +251,19 @@ export const UploadForm = () => {
             name="notes"
             placeholder="Inserisci eventuali note o dettagli aggiuntivi sulla pratica..."
             rows={4}
+            maxLength={2000}
           />
         </div>
 
         <div className="space-y-4">
-          <Label>Documenti</Label>
+          <div className="flex items-center justify-between">
+            <Label>Documenti Allegati</Label>
+            {files.length > 0 && (
+              <span className="text-sm text-muted-foreground">
+                {files.length} file selezionato/i
+              </span>
+            )}
+          </div>
           
           <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
             <input
