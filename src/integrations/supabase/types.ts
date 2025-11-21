@@ -14,6 +14,82 @@ export type Database = {
   }
   public: {
     Tables: {
+      practice_documents: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_path: string
+          file_size: number
+          id: string
+          mime_type: string
+          practice_id: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_path: string
+          file_size: number
+          id?: string
+          mime_type: string
+          practice_id: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          id?: string
+          mime_type?: string
+          practice_id?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_documents_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      practice_events: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string
+          event_type: string
+          id: string
+          practice_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description: string
+          event_type: string
+          id?: string
+          practice_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string
+          event_type?: string
+          id?: string
+          practice_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_events_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       practices: {
         Row: {
           client_email: string
@@ -124,6 +200,7 @@ export type Database = {
       }
       generate_practice_number: { Args: never; Returns: string }
       get_parent_agent: { Args: { _user_id: string }; Returns: string }
+      get_practice_id_from_path: { Args: { path: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
