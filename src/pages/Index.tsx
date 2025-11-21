@@ -3,10 +3,12 @@ import { Button } from "@/components/ui/button";
 import { FileText, Shield, Upload, Users, Clock, CheckCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { LoginDialog } from "@/components/LoginDialog";
 import type { User } from "@supabase/supabase-js";
 
 const Index = () => {
   const [user, setUser] = useState<User | null>(null);
+  const [loginOpen, setLoginOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -40,9 +42,7 @@ const Index = () => {
                 </Link>
               </>
             ) : (
-              <Link to="/auth">
-                <Button>Accedi</Button>
-              </Link>
+              <Button onClick={() => setLoginOpen(true)}>Accedi</Button>
             )}
           </nav>
         </div>
@@ -75,11 +75,13 @@ const Index = () => {
                 </Link>
               </>
             ) : (
-              <Link to="/auth">
-                <Button size="lg" className="text-lg px-8">
-                  Accedi al Portale
-                </Button>
-              </Link>
+              <Button 
+                size="lg" 
+                className="text-lg px-8"
+                onClick={() => setLoginOpen(true)}
+              >
+                Accedi al Portale
+              </Button>
             )}
           </div>
         </div>
@@ -185,6 +187,8 @@ const Index = () => {
           <p>© 2024 AssicuraPortal. Tutti i diritti riservati.</p>
         </div>
       </footer>
+
+      <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,7 +9,9 @@ import {
   Users,
   Settings,
   LogOut,
+  UserCog,
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -17,6 +19,25 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const location = useLocation();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    checkAdminStatus();
+  }, []);
+
+  const checkAdminStatus = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", session.user.id)
+      .eq("role", "admin")
+      .single();
+
+    setIsAdmin(!!roleData);
+  };
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -26,6 +47,10 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { path: "/upload", icon: Upload, label: "Carica Pratica" },
     { path: "/clients", icon: Users, label: "Clienti" },
     { path: "/settings", icon: Settings, label: "Impostazioni" },
+  ];
+
+  const adminNavItems = [
+    { path: "/admin/users", icon: UserCog, label: "Gestione Utenti" },
   ];
 
   return (
@@ -54,6 +79,30 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               </Link>
             );
           })}
+
+          {isAdmin && (
+            <>
+              <div className="pt-4 pb-2">
+                <p className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Amministrazione
+                </p>
+              </div>
+              {adminNavItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link key={item.path} to={item.path}>
+                    <Button
+                      variant={isActive(item.path) ? "secondary" : "ghost"}
+                      className="w-full justify-start"
+                    >
+                      <Icon className="mr-2 h-4 w-4" />
+                      {item.label}
+                    </Button>
+                  </Link>
+                );
+              })}
+            </>
+          )}
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
