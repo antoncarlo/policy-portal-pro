@@ -1,8 +1,25 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { FileText, Shield, Upload, Users, Clock, CheckCircle } from "lucide-react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import type { User } from "@supabase/supabase-js";
 
 const Index = () => {
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -13,12 +30,20 @@ const Index = () => {
             <span className="text-2xl font-bold text-foreground">AssicuraPortal</span>
           </div>
           <nav className="flex items-center gap-4">
-            <Link to="/dashboard">
-              <Button variant="ghost">Dashboard</Button>
-            </Link>
-            <Link to="/dashboard">
-              <Button>Accedi</Button>
-            </Link>
+            {user ? (
+              <>
+                <Link to="/dashboard">
+                  <Button variant="ghost">Dashboard</Button>
+                </Link>
+                <Link to="/dashboard">
+                  <Button>Vai al Portale</Button>
+                </Link>
+              </>
+            ) : (
+              <Link to="/auth">
+                <Button>Accedi</Button>
+              </Link>
+            )}
           </nav>
         </div>
       </header>
@@ -34,18 +59,28 @@ const Index = () => {
             Carica, gestisci e monitora tutte le tue pratiche assicurative in un unico portale sicuro e intuitivo
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
-            <Link to="/dashboard">
-              <Button size="lg" className="text-lg px-8">
-                <Upload className="mr-2 h-5 w-5" />
-                Carica Pratica
-              </Button>
-            </Link>
-            <Link to="/dashboard">
-              <Button size="lg" variant="outline" className="text-lg px-8">
-                <FileText className="mr-2 h-5 w-5" />
-                Visualizza Dashboard
-              </Button>
-            </Link>
+            {user ? (
+              <>
+                <Link to="/upload">
+                  <Button size="lg" className="text-lg px-8">
+                    <Upload className="mr-2 h-5 w-5" />
+                    Carica Pratica
+                  </Button>
+                </Link>
+                <Link to="/dashboard">
+                  <Button size="lg" variant="outline" className="text-lg px-8">
+                    <FileText className="mr-2 h-5 w-5" />
+                    Visualizza Dashboard
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <Link to="/auth">
+                <Button size="lg" className="text-lg px-8">
+                  Accedi al Portale
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </section>
