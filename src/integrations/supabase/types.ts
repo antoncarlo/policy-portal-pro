@@ -37,7 +37,7 @@ export type Database = {
           id?: string
           notes?: string | null
           policy_number?: string | null
-          practice_number: string
+          practice_number?: string
           practice_type: Database["public"]["Enums"]["practice_type"]
           status?: Database["public"]["Enums"]["practice_status"]
           updated_at?: string
@@ -122,6 +122,7 @@ export type Database = {
         Args: { _practice_user_id: string; _user_id: string }
         Returns: boolean
       }
+      generate_practice_number: { Args: never; Returns: string }
       get_parent_agent: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {

@@ -37,7 +37,6 @@ export const UploadForm = () => {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const practiceNumber = formData.get("practiceNumber") as string;
     const practiceType = formData.get("practiceType") as string;
     const clientName = formData.get("clientName") as string;
     const clientPhone = formData.get("clientPhone") as string;
@@ -58,11 +57,10 @@ export const UploadForm = () => {
       return;
     }
 
-    // Insert practice into database
+    // Insert practice into database (practice_number auto-generated)
     const { data: practice, error } = await supabase
       .from("practices")
       .insert([{
-        practice_number: practiceNumber,
         practice_type: practiceType as any,
         client_name: clientName,
         client_phone: clientPhone,
@@ -103,15 +101,6 @@ export const UploadForm = () => {
       <Card className="p-6 space-y-6">
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <Label htmlFor="practiceNumber">Numero Pratica</Label>
-            <Input
-              id="practiceNumber"
-              placeholder="PR-2024-001"
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="practiceType">Tipo Pratica</Label>
             <Select name="practiceType" required>
               <SelectTrigger id="practiceType">
@@ -132,6 +121,7 @@ export const UploadForm = () => {
             <Label htmlFor="clientName">Nome Cliente</Label>
             <Input
               id="clientName"
+              name="clientName"
               placeholder="Mario Rossi"
               required
             />
@@ -141,6 +131,7 @@ export const UploadForm = () => {
             <Label htmlFor="clientPhone">Telefono Cliente</Label>
             <Input
               id="clientPhone"
+              name="clientPhone"
               type="tel"
               placeholder="+39 123 456 7890"
               required
@@ -151,6 +142,7 @@ export const UploadForm = () => {
             <Label htmlFor="clientEmail">Email Cliente</Label>
             <Input
               id="clientEmail"
+              name="clientEmail"
               type="email"
               placeholder="mario.rossi@example.com"
               required
@@ -161,6 +153,7 @@ export const UploadForm = () => {
             <Label htmlFor="policyNumber">Numero Polizza</Label>
             <Input
               id="policyNumber"
+              name="policyNumber"
               placeholder="POL-2024-001"
             />
           </div>
@@ -170,6 +163,7 @@ export const UploadForm = () => {
           <Label htmlFor="notes">Note e Dettagli</Label>
           <Textarea
             id="notes"
+            name="notes"
             placeholder="Inserisci eventuali note o dettagli aggiuntivi sulla pratica..."
             rows={4}
           />
