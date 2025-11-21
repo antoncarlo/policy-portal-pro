@@ -1,5 +1,5 @@
 import { ReactNode, useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Shield,
@@ -12,6 +12,7 @@ import {
   UserCog,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -19,6 +20,8 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
@@ -37,6 +40,24 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       .single();
 
     setIsAdmin(!!roleData);
+  };
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Errore",
+        description: "Impossibile disconnettersi.",
+      });
+    } else {
+      toast({
+        title: "Disconnesso",
+        description: "Sei stato disconnesso con successo.",
+      });
+      navigate("/auth");
+    }
   };
 
   const isActive = (path: string) => location.pathname === path;
@@ -106,7 +127,11 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
-          <Button variant="ghost" className="w-full justify-start text-muted-foreground">
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start text-muted-foreground hover:text-foreground"
+            onClick={handleLogout}
+          >
             <LogOut className="mr-2 h-4 w-4" />
             Esci
           </Button>
