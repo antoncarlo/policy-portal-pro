@@ -13,9 +13,12 @@ import {
 } from "@/components/ui/table";
 import { Eye, Download, MoreVertical } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { PracticesExport } from "./PracticesExport";
+import { PracticeFilters } from "./PracticesFilters";
 
 interface PracticesTableProps {
   searchQuery: string;
+  filters: PracticeFilters;
 }
 
 type PracticeStatus = "in_lavorazione" | "in_attesa" | "approvata" | "rifiutata" | "completata";
@@ -31,22 +34,48 @@ interface Practice {
   created_at: string;
 }
 
-export const PracticesTable = ({ searchQuery }: PracticesTableProps) => {
+export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) => {
   const navigate = useNavigate();
   const [practices, setPractices] = useState<Practice[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadPractices();
-  }, []);
+  }, [filters]);
 
   const loadPractices = async () => {
     setLoading(true);
     
-    const { data, error } = await supabase
+    let query = supabase
       .from("practices")
-      .select("id, practice_number, practice_type, client_name, policy_number, status, created_at")
-      .order("created_at", { ascending: false });
+      .select("id, practice_number, practice_type, client_name, policy_number, status, created_at, user_id");
+
+    // Apply filters
+    if (filters.practiceType !== "all") {
+      query = query.eq("practice_type", filters.practiceType as PracticeType);
+    }
+
+    if (filters.status !== "all") {
+      query = query.eq("status", filters.status as PracticeStatus);
+    }
+
+    if (filters.dateFrom) {
+      query = query.gte("created_at", filters.dateFrom.toISOString());
+    }
+
+    if (filters.dateTo) {
+      const endOfDay = new Date(filters.dateTo);
+      endOfDay.setHours(23, 59, 59, 999);
+      query = query.lte("created_at", endOfDay.toISOString());
+    }
+
+    if (filters.userId !== "all") {
+      query = query.eq("user_id", filters.userId);
+    }
+
+    query = query.order("created_at", { ascending: false });
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Error loading practices:", error);
@@ -102,8 +131,12 @@ export const PracticesTable = ({ searchQuery }: PracticesTableProps) => {
   });
 
   return (
-    <Card>
-      <Table>
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <PracticesExport practices={filteredPractices} />
+      </div>
+      <Card>
+        <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Numero Pratica</TableHead>
@@ -168,5 +201,6 @@ export const PracticesTable = ({ searchQuery }: PracticesTableProps) => {
         </TableBody>
       </Table>
     </Card>
+    </div>
   );
 };
