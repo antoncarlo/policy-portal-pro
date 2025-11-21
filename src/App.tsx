@@ -9,6 +9,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import UploadPractice from "./pages/UploadPractice";
 import Practices from "./pages/Practices";
+import PracticeDetail from "./pages/PracticeDetail";
 import Clients from "./pages/Clients";
 import Settings from "./pages/Settings";
 import AdminUsers from "./pages/AdminUsers";
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/upload" element={<ProtectedRoute><UploadPractice /></ProtectedRoute>} />
           <Route path="/practices" element={<ProtectedRoute><Practices /></ProtectedRoute>} />
+          <Route path="/practices/:id" element={<ProtectedRoute><PracticeDetail /></ProtectedRoute>} />
           <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
