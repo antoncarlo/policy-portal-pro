@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      practices: {
+        Row: {
+          client_email: string
+          client_name: string
+          client_phone: string
+          created_at: string
+          id: string
+          notes: string | null
+          policy_number: string | null
+          practice_number: string
+          practice_type: Database["public"]["Enums"]["practice_type"]
+          status: Database["public"]["Enums"]["practice_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_email: string
+          client_name: string
+          client_phone: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          policy_number?: string | null
+          practice_number: string
+          practice_type: Database["public"]["Enums"]["practice_type"]
+          status?: Database["public"]["Enums"]["practice_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_email?: string
+          client_name?: string
+          client_phone?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          policy_number?: string | null
+          practice_number?: string
+          practice_type?: Database["public"]["Enums"]["practice_type"]
+          status?: Database["public"]["Enums"]["practice_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -73,6 +118,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_view_practice: {
+        Args: { _practice_user_id: string; _user_id: string }
+        Returns: boolean
+      }
       get_parent_agent: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
@@ -84,6 +133,19 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "agente" | "collaboratore"
+      practice_status:
+        | "in_lavorazione"
+        | "in_attesa"
+        | "approvata"
+        | "rifiutata"
+        | "completata"
+      practice_type:
+        | "auto"
+        | "casa"
+        | "vita"
+        | "salute"
+        | "responsabilita"
+        | "altro"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -212,6 +274,21 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "agente", "collaboratore"],
+      practice_status: [
+        "in_lavorazione",
+        "in_attesa",
+        "approvata",
+        "rifiutata",
+        "completata",
+      ],
+      practice_type: [
+        "auto",
+        "casa",
+        "vita",
+        "salute",
+        "responsabilita",
+        "altro",
+      ],
     },
   },
 } as const
