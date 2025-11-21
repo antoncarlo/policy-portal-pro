@@ -13,10 +13,14 @@ import {
 } from "@/components/ui/select";
 import { Upload, FileText, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 export const UploadForm = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [files, setFiles] = useState<File[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -28,12 +32,70 @@ export const UploadForm = () => {
     setFiles(files.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const practiceNumber = formData.get("practiceNumber") as string;
+    const practiceType = formData.get("practiceType") as string;
+    const clientName = formData.get("clientName") as string;
+    const clientPhone = formData.get("clientPhone") as string;
+    const clientEmail = formData.get("clientEmail") as string;
+    const policyNumber = formData.get("policyNumber") as string;
+    const notes = formData.get("notes") as string;
+
+    // Get current user
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      toast({
+        variant: "destructive",
+        title: "Errore",
+        description: "Devi essere autenticato per caricare una pratica.",
+      });
+      setLoading(false);
+      return;
+    }
+
+    // Insert practice into database
+    const { data: practice, error } = await supabase
+      .from("practices")
+      .insert([{
+        practice_number: practiceNumber,
+        practice_type: practiceType as any,
+        client_name: clientName,
+        client_phone: clientPhone,
+        client_email: clientEmail,
+        policy_number: policyNumber || null,
+        notes: notes || null,
+        user_id: session.user.id,
+      }])
+      .select()
+      .single();
+
+    setLoading(false);
+
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Errore caricamento pratica",
+        description: error.message,
+      });
+      return;
+    }
+
     toast({
       title: "Pratica caricata con successo",
-      description: "La pratica è stata creata e i documenti sono stati caricati.",
+      description: "La pratica è stata creata correttamente.",
     });
+
+    // Reset form
+    e.currentTarget.reset();
+    setFiles([]);
+    
+    // Navigate to practices page
+    navigate("/practices");
   };
 
   return (
@@ -51,7 +113,7 @@ export const UploadForm = () => {
 
           <div className="space-y-2">
             <Label htmlFor="practiceType">Tipo Pratica</Label>
-            <Select required>
+            <Select name="practiceType" required>
               <SelectTrigger id="practiceType">
                 <SelectValue placeholder="Seleziona tipo" />
               </SelectTrigger>
@@ -179,11 +241,8 @@ export const UploadForm = () => {
         </div>
 
         <div className="flex gap-4 pt-4">
-          <Button type="submit" size="lg">
-            Carica Pratica
-          </Button>
-          <Button type="button" variant="outline" size="lg">
-            Salva come Bozza
+          <Button type="submit" size="lg" disabled={loading}>
+            {loading ? "Caricamento..." : "Carica Pratica"}
           </Button>
         </div>
       </Card>
