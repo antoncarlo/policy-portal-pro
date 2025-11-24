@@ -11,10 +11,28 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Eye, Download, MoreVertical } from "lucide-react";
+import { Eye, Download, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PracticesExport } from "./PracticesExport";
 import { PracticeFilters } from "./PracticesFilters";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface PracticesTableProps {
   searchQuery: string;
@@ -36,14 +54,100 @@ interface Practice {
 
 export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [practices, setPractices] = useState<Practice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [practiceToDelete, setPracticeToDelete] = useState<Practice | null>(null);
 
   useEffect(() => {
     loadPractices();
   }, [filters]);
 
-  const loadPractices = async () => {
+  const handleDownloadDocuments = async (practice: Practice) => {
+    try {
+      const { data: documents, error } = await supabase
+        .from("practice_documents")
+        .select("*")
+        .eq("practice_id", practice.id);
+
+      if (error) throw error;
+
+      if (!documents || documents.length === 0) {
+        toast({
+          title: "Nessun documento",
+          description: "Non ci sono documenti da scaricare per questa pratica.",
+        });
+        return;
+      }
+
+      // Download each document
+      for (const doc of documents) {
+        const { data, error: downloadError } = await supabase.storage
+          .from("practice-documents")
+          .download(doc.file_path);
+
+        if (downloadError) {
+          console.error("Error downloading:", doc.file_name, downloadError);
+          continue;
+        }
+
+        // Create download link
+        const url = URL.createObjectURL(data);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = doc.file_name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      toast({
+        title: "Download completato",
+        description: `${documents.length} documento/i scaricato/i con successo.`,
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Errore download",
+        description: error.message,
+      });
+    }
+  };
+
+  const handleDeletePractice = async () => {
+    if (!practiceToDelete) return;
+
+    try {
+      // Delete practice (cascade will delete related records)
+      const { error } = await supabase
+        .from("practices")
+        .delete()
+        .eq("id", practiceToDelete.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Pratica eliminata",
+        description: `La pratica ${practiceToDelete.practice_number} è stata eliminata con successo.`,
+      });
+
+      // Reload practices
+      loadPractices();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Errore eliminazione",
+        description: error.message,
+      });
+    } finally {
+      setDeleteDialogOpen(false);
+      setPracticeToDelete(null);
+    }
+  };
+
+  const loadPractices = async () {
     setLoading(true);
     
     let query = supabase
@@ -187,12 +291,40 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="sm">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => handleDownloadDocuments(practice)}
+                      title="Scarica documenti"
+                    >
                       <Download className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="sm">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => navigate(`/practices/${practice.id}`)}
+                        >
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Modifica
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => {
+                            setPracticeToDelete(practice);
+                            setDeleteDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Elimina
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </TableCell>
               </TableRow>
@@ -201,6 +333,27 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
         </TableBody>
       </Table>
     </Card>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Conferma Eliminazione</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sei sicuro di voler eliminare la pratica {practiceToDelete?.practice_number}?
+              Questa azione eliminerà anche tutti i documenti e gli eventi associati e non può essere annullata.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePractice}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Elimina
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
