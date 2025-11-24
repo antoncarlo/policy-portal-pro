@@ -60,7 +60,7 @@ export const CollaboratorsSettings = () => {
           id,
           user_id,
           created_at,
-          profiles:user_id (
+          profiles!user_roles_user_id_fkey (
             full_name,
             email,
             phone
