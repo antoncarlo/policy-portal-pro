@@ -71,7 +71,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   ];
 
   const adminNavItems = [
-    { path: "/admin/users", icon: UserCog, label: "Gestione Utenti" },
+    { path: "/user-management", icon: UserCog, label: "Gestione Utenti" },
   ];
 
   return (
