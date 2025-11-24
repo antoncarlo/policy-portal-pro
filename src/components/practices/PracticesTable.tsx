@@ -60,6 +60,49 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [practiceToDelete, setPracticeToDelete] = useState<Practice | null>(null);
 
+  const loadPractices = async () => {
+    setLoading(true);
+    
+    let query = supabase
+      .from("practices")
+      .select("id, practice_number, practice_type, client_name, policy_number, status, created_at, user_id");
+
+    // Apply filters
+    if (filters.practiceType !== "all") {
+      query = query.eq("practice_type", filters.practiceType as PracticeType);
+    }
+
+    if (filters.status !== "all") {
+      query = query.eq("status", filters.status as PracticeStatus);
+    }
+
+    if (filters.dateFrom) {
+      query = query.gte("created_at", filters.dateFrom.toISOString());
+    }
+
+    if (filters.dateTo) {
+      const endOfDay = new Date(filters.dateTo);
+      endOfDay.setHours(23, 59, 59, 999);
+      query = query.lte("created_at", endOfDay.toISOString());
+    }
+
+    if (filters.userId !== "all") {
+      query = query.eq("user_id", filters.userId);
+    }
+
+    query = query.order("created_at", { ascending: false });
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("Error loading practices:", error);
+    } else {
+      setPractices(data || []);
+    }
+
+    setLoading(false);
+  };
+
   useEffect(() => {
     loadPractices();
   }, [filters]);
@@ -146,50 +189,6 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
       setPracticeToDelete(null);
     }
   };
-
-  const loadPractices = async () {
-    setLoading(true);
-    
-    let query = supabase
-      .from("practices")
-      .select("id, practice_number, practice_type, client_name, policy_number, status, created_at, user_id");
-
-    // Apply filters
-    if (filters.practiceType !== "all") {
-      query = query.eq("practice_type", filters.practiceType as PracticeType);
-    }
-
-    if (filters.status !== "all") {
-      query = query.eq("status", filters.status as PracticeStatus);
-    }
-
-    if (filters.dateFrom) {
-      query = query.gte("created_at", filters.dateFrom.toISOString());
-    }
-
-    if (filters.dateTo) {
-      const endOfDay = new Date(filters.dateTo);
-      endOfDay.setHours(23, 59, 59, 999);
-      query = query.lte("created_at", endOfDay.toISOString());
-    }
-
-    if (filters.userId !== "all") {
-      query = query.eq("user_id", filters.userId);
-    }
-
-    query = query.order("created_at", { ascending: false });
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error("Error loading practices:", error);
-    } else {
-      setPractices(data || []);
-    }
-
-    setLoading(false);
-  };
-
   const getStatusColor = (status: PracticeStatus) => {
     const colors: Record<PracticeStatus, string> = {
       completata: "bg-green-600/10 text-green-600 border-green-600/20",
