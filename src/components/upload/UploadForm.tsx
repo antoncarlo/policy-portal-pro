@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ export const UploadForm = () => {
   const navigate = useNavigate();
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -170,7 +171,9 @@ export const UploadForm = () => {
       }
 
       // Reset form
-      e.currentTarget.reset();
+      if (formRef.current) {
+        formRef.current.reset();
+      }
       setFiles([]);
       
       // Navigate to practices page
@@ -188,7 +191,7 @@ export const UploadForm = () => {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form ref={formRef} onSubmit={handleSubmit}>
       <Card className="p-6 space-y-6">
         {/* Info message about automatic practice number */}
         <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
