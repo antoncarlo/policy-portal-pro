@@ -103,6 +103,60 @@ export const UploadForm = () => {
     }
 
     try {
+      // Find or create client first
+      let clientId: string | null = null;
+      
+      // Try to find existing client by email
+      if (clientEmail.trim()) {
+        const { data: existingClient } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("email", clientEmail.trim().toLowerCase())
+          .eq("user_id", session.user.id)
+          .single();
+        
+        if (existingClient) {
+          clientId = existingClient.id;
+        }
+      }
+      
+      // If not found by email, try by phone and name
+      if (!clientId && clientPhone.trim()) {
+        const { data: existingClient } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("phone", clientPhone.trim())
+          .eq("user_id", session.user.id)
+          .single();
+        
+        if (existingClient) {
+          clientId = existingClient.id;
+        }
+      }
+      
+      // If client doesn't exist, create a new one
+      if (!clientId) {
+        const nameParts = clientName.trim().split(' ');
+        const firstName = nameParts[0] || clientName.trim();
+        const lastName = nameParts.slice(1).join(' ') || 'N/A';
+        
+        const { data: newClient, error: clientError } = await supabase
+          .from("clients")
+          .insert({
+            first_name: firstName,
+            last_name: lastName,
+            email: clientEmail.trim() || null,
+            phone: clientPhone.trim() || null,
+            user_id: session.user.id,
+          })
+          .select("id")
+          .single();
+        
+        if (!clientError && newClient) {
+          clientId = newClient.id;
+        }
+      }
+      
       // Insert practice into database (practice_number auto-generated)
       const { data: practice, error: practiceError } = await supabase
         .from("practices")
@@ -114,6 +168,7 @@ export const UploadForm = () => {
           policy_number: policyNumber?.trim() || null,
           notes: notes?.trim() || null,
           user_id: session.user.id,
+          client_id: clientId,
         }])
         .select()
         .single();
