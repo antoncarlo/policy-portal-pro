@@ -117,7 +117,16 @@ export const UploadForm = () => {
         .select()
         .single();
 
-      if (practiceError) throw practiceError;
+      if (practiceError) {
+        console.error("Practice insert error:", practiceError);
+        throw new Error(practiceError.message || "Errore durante l'inserimento della pratica");
+      }
+
+      if (!practice) {
+        throw new Error("La pratica non è stata creata correttamente");
+      }
+
+      console.log("Practice created successfully:", practice);
 
       // Upload documents if any
       if (files.length > 0) {
@@ -151,12 +160,12 @@ export const UploadForm = () => {
 
         toast({
           title: "Pratica caricata con successo",
-          description: `Pratica creata con ${files.length} documento/i allegato/i.`,
+          description: `Pratica ${practice.practice_number} creata con ${files.length} documento/i allegato/i.`,
         });
       } else {
         toast({
           title: "Pratica caricata con successo",
-          description: "La pratica è stata creata correttamente.",
+          description: `Pratica ${practice.practice_number} creata correttamente.`,
         });
       }
 
@@ -167,10 +176,11 @@ export const UploadForm = () => {
       // Navigate to practices page
       navigate("/practices");
     } catch (error: any) {
+      console.error("Upload error:", error);
       toast({
         variant: "destructive",
         title: "Errore caricamento",
-        description: error.message || "Si è verificato un errore durante il caricamento.",
+        description: error.message || "Si è verificato un errore durante il caricamento. Verifica i permessi e riprova.",
       });
     } finally {
       setLoading(false);
@@ -180,6 +190,13 @@ export const UploadForm = () => {
   return (
     <form onSubmit={handleSubmit}>
       <Card className="p-6 space-y-6">
+        {/* Info message about automatic practice number */}
+        <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <p className="text-sm text-blue-800 dark:text-blue-200">
+            ℹ️ <strong>Numero Pratica Automatico:</strong> Il numero della pratica verrà generato automaticamente dal sistema nel formato PR-YYYY-NNNN
+          </p>
+        </div>
+
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label htmlFor="practiceType">Tipo Pratica</Label>
