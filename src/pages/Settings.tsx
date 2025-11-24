@@ -6,7 +6,10 @@ import { SecuritySettings } from "@/components/settings/SecuritySettings";
 import { PreferencesSettings } from "@/components/settings/PreferencesSettings";
 import { CollaboratorsSettings } from "@/components/settings/CollaboratorsSettings";
 import { PracticeTemplatesSettings } from "@/components/settings/PracticeTemplatesSettings";
-import { User, Lock, Settings2, Users, FileText } from "lucide-react";
+import { SystemSettings } from "@/components/settings/admin/SystemSettings";
+import { PortalStatistics } from "@/components/settings/admin/PortalStatistics";
+import { ActivityLogs } from "@/components/settings/admin/ActivityLogs";
+import { User, Lock, Settings2, Users, FileText, Shield, BarChart3, Activity } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const Settings = () => {
@@ -38,6 +41,7 @@ const Settings = () => {
   const isAgent = userRole === "agente";
   const isAdmin = userRole === "admin";
   const showAgentTabs = isAgent || isAdmin;
+  const showAdminTabs = isAdmin;
 
   return (
     <DashboardLayout>
@@ -50,7 +54,7 @@ const Settings = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className={`grid w-full ${showAgentTabs ? 'grid-cols-5' : 'grid-cols-3'} lg:w-auto lg:inline-grid`}>
+          <TabsList className={`grid w-full ${showAdminTabs ? 'grid-cols-8' : showAgentTabs ? 'grid-cols-5' : 'grid-cols-3'} lg:w-auto lg:inline-grid`}>
             <TabsTrigger value="profile" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">Profilo</span>
@@ -76,6 +80,23 @@ const Settings = () => {
                 </TabsTrigger>
               </>
             )}
+            
+            {showAdminTabs && (
+              <>
+                <TabsTrigger value="system" className="flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  <span className="hidden sm:inline">Sistema</span>
+                </TabsTrigger>
+                <TabsTrigger value="statistics" className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Statistiche</span>
+                </TabsTrigger>
+                <TabsTrigger value="logs" className="flex items-center gap-2">
+                  <Activity className="h-4 w-4" />
+                  <span className="hidden sm:inline">Log</span>
+                </TabsTrigger>
+              </>
+            )}
           </TabsList>
 
           <TabsContent value="profile" className="space-y-4">
@@ -98,6 +119,22 @@ const Settings = () => {
 
               <TabsContent value="templates" className="space-y-4">
                 <PracticeTemplatesSettings />
+              </TabsContent>
+            </>
+          )}
+          
+          {showAdminTabs && (
+            <>
+              <TabsContent value="system" className="space-y-4">
+                <SystemSettings />
+              </TabsContent>
+
+              <TabsContent value="statistics" className="space-y-4">
+                <PortalStatistics />
+              </TabsContent>
+
+              <TabsContent value="logs" className="space-y-4">
+                <ActivityLogs />
               </TabsContent>
             </>
           )}
