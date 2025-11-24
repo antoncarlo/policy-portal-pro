@@ -9,7 +9,10 @@ import { PracticeTemplatesSettings } from "@/components/settings/PracticeTemplat
 import { SystemSettings } from "@/components/settings/admin/SystemSettings";
 import { PortalStatistics } from "@/components/settings/admin/PortalStatistics";
 import { ActivityLogs } from "@/components/settings/admin/ActivityLogs";
-import { User, Lock, Settings2, Users, FileText, Shield, BarChart3, Activity } from "lucide-react";
+import { BackupSettings } from "@/components/settings/admin/BackupSettings";
+import { SMTPSettings } from "@/components/settings/admin/SMTPSettings";
+import { SessionsSettings } from "@/components/settings/SessionsSettings";
+import { User, Lock, Settings2, Users, FileText, Shield, BarChart3, Activity, Database, Mail, Monitor } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const Settings = () => {
@@ -54,7 +57,7 @@ const Settings = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className={`grid w-full ${showAdminTabs ? 'grid-cols-8' : showAgentTabs ? 'grid-cols-5' : 'grid-cols-3'} lg:w-auto lg:inline-grid`}>
+          <TabsList className={`grid w-full ${showAdminTabs ? 'grid-cols-12' : showAgentTabs ? 'grid-cols-5' : 'grid-cols-4'} lg:w-auto lg:inline-grid`}>
             <TabsTrigger value="profile" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">Profilo</span>
@@ -66,6 +69,11 @@ const Settings = () => {
             <TabsTrigger value="preferences" className="flex items-center gap-2">
               <Settings2 className="h-4 w-4" />
               <span className="hidden sm:inline">Preferenze</span>
+            </TabsTrigger>
+            
+            <TabsTrigger value="sessions" className="flex items-center gap-2">
+              <Monitor className="h-4 w-4" />
+              <span className="hidden sm:inline">Sessioni</span>
             </TabsTrigger>
             
             {showAgentTabs && (
@@ -95,6 +103,14 @@ const Settings = () => {
                   <Activity className="h-4 w-4" />
                   <span className="hidden sm:inline">Log</span>
                 </TabsTrigger>
+                <TabsTrigger value="backup" className="flex items-center gap-2">
+                  <Database className="h-4 w-4" />
+                  <span className="hidden sm:inline">Backup</span>
+                </TabsTrigger>
+                <TabsTrigger value="smtp" className="flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  <span className="hidden sm:inline">Email</span>
+                </TabsTrigger>
               </>
             )}
           </TabsList>
@@ -109,6 +125,10 @@ const Settings = () => {
 
           <TabsContent value="preferences" className="space-y-4">
             <PreferencesSettings />
+          </TabsContent>
+          
+          <TabsContent value="sessions" className="space-y-4">
+            <SessionsSettings />
           </TabsContent>
 
           {showAgentTabs && (
@@ -135,6 +155,14 @@ const Settings = () => {
 
               <TabsContent value="logs" className="space-y-4">
                 <ActivityLogs />
+              </TabsContent>
+              
+              <TabsContent value="backup" className="space-y-4">
+                <BackupSettings />
+              </TabsContent>
+              
+              <TabsContent value="smtp" className="space-y-4">
+                <SMTPSettings />
               </TabsContent>
             </>
           )}
