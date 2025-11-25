@@ -24,16 +24,21 @@ interface Practice {
   payment_date: string | null;
   commission_received_date: string | null;
   created_at: string;
+  user_id?: string;
+  user_full_name?: string;
+  user_role?: string;
 }
 
 interface FinancialPracticesTableProps {
   practices: Practice[];
   onEditFinancial: (practice: Practice) => void;
+  showUserColumn?: boolean;
 }
 
 export const FinancialPracticesTable = ({
   practices,
   onEditFinancial,
+  showUserColumn = false,
 }: FinancialPracticesTableProps) => {
   const navigate = useNavigate();
 
@@ -106,6 +111,7 @@ export const FinancialPracticesTable = ({
             <TableHead>Numero Pratica</TableHead>
             <TableHead>Tipo</TableHead>
             <TableHead>Cliente</TableHead>
+            {showUserColumn && <TableHead>Utente</TableHead>}
             <TableHead className="text-right">Premio</TableHead>
             <TableHead className="text-right">Provv. %</TableHead>
             <TableHead className="text-right">Provvigione</TableHead>
@@ -123,6 +129,18 @@ export const FinancialPracticesTable = ({
               </TableCell>
               <TableCell>{getPracticeTypeLabel(practice.practice_type)}</TableCell>
               <TableCell>{practice.client_name}</TableCell>
+              {showUserColumn && (
+                <TableCell>
+                  <div className="flex flex-col">
+                    <span className="font-medium">{practice.user_full_name}</span>
+                    {practice.user_role && (
+                      <span className="text-xs text-muted-foreground capitalize">
+                        {practice.user_role}
+                      </span>
+                    )}
+                  </div>
+                </TableCell>
+              )}
               <TableCell className="text-right">
                 {formatCurrency(practice.premium_amount)}
               </TableCell>
