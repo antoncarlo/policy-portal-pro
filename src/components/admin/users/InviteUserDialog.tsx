@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Mail, User, Phone, Shield } from "lucide-react";
+import { Loader2, Mail, User, Phone, Shield, Percent } from "lucide-react";
 
 interface InviteUserDialogProps {
   open: boolean;
@@ -40,6 +40,7 @@ export const InviteUserDialog = ({
     phone: "",
     role: "collaboratore",
     password: "",
+    default_commission_percentage: "0",
   });
 
   const handleChange = (field: string, value: string) => {
@@ -88,6 +89,7 @@ export const InviteUserDialog = ({
         email: formData.email,
         full_name: formData.full_name,
         phone: formData.phone,
+        default_commission_percentage: parseFloat(formData.default_commission_percentage) || 0,
       });
 
       if (profileError) throw profileError;
@@ -120,6 +122,7 @@ export const InviteUserDialog = ({
         phone: "",
         role: "collaboratore",
         password: "",
+        default_commission_percentage: "0",
       });
     } catch (error: any) {
       toast({
@@ -221,6 +224,29 @@ export const InviteUserDialog = ({
                 </SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="commission">
+              Provvigione Default (%)
+            </Label>
+            <div className="relative">
+              <Percent className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                id="commission"
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                placeholder="15.00"
+                value={formData.default_commission_percentage}
+                onChange={(e) => handleChange("default_commission_percentage", e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <p className="text-xs text-gray-500">
+              Percentuale che verrà pre-compilata automaticamente quando l'utente crea una pratica
+            </p>
           </div>
 
           <div className="space-y-2">
