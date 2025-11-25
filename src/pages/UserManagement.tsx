@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -189,6 +190,7 @@ const UserManagement = () => {
   };
 
   return (
+    <DashboardLayout>
     <div className="container mx-auto p-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
@@ -261,6 +263,7 @@ const UserManagement = () => {
         onSuccess={loadUsers}
       />
     </div>
+    </DashboardLayout>
   );
 };
 
