@@ -43,7 +43,6 @@ export const UploadForm = () => {
     const clientPhone = formData.get("clientPhone") as string;
     const clientEmail = formData.get("clientEmail") as string;
     const clientAddress = formData.get("clientAddress") as string;
-    const policyNumber = formData.get("policyNumber") as string;
     const beneficiary = formData.get("beneficiary") as string;
     const policyStartDate = formData.get("policyStartDate") as string;
     const policyEndDate = formData.get("policyEndDate") as string;
@@ -208,7 +207,6 @@ export const UploadForm = () => {
           client_name: clientName.trim(),
           client_phone: clientPhone.trim(),
           client_email: clientEmail.trim(),
-          policy_number: policyNumber?.trim() || null,
           beneficiary: beneficiary?.trim() || null,
           policy_start_date: policyStartDate || null,
           policy_end_date: policyEndDate || null,
@@ -367,16 +365,6 @@ export const UploadForm = () => {
               name="clientAddress"
               placeholder="Via Roma 123, 00100 Roma"
               maxLength={255}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="policyNumber">Numero Polizza</Label>
-            <Input
-              id="policyNumber"
-              name="policyNumber"
-              placeholder="POL-2024-001"
-              maxLength={50}
             />
           </div>
 
