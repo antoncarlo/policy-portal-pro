@@ -13,7 +13,7 @@ import { PracticeStatusForm } from "@/components/practice/PracticeStatusForm";
 import { PracticeNotes } from "@/components/practice/PracticeNotes";
 
 type PracticeStatus = "in_lavorazione" | "in_attesa" | "approvata" | "rifiutata" | "completata";
-type PracticeType = "auto" | "casa" | "vita" | "salute" | "responsabilita" | "altro";
+type PracticeType = "fidejussioni" | "car" | "postuma_decennale" | "all_risk" | "responsabilita_civile" | "pet" | "fotovoltaico" | "catastrofali" | "azienda" | "casa" | "risparmio" | "salute" | "auto" | "vita" | "responsabilita" | "altro";
 
 interface Practice {
   id: string;
@@ -24,6 +24,9 @@ interface Practice {
   client_phone: string;
   client_email: string;
   policy_number: string | null;
+  beneficiary: string | null;
+  policy_start_date: string | null;
+  policy_end_date: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -87,11 +90,21 @@ const PracticeDetail = () => {
   };
 
   const getPracticeTypeLabel = (type: PracticeType) => {
-    const labels = {
-      auto: "Auto",
+    const labels: Record<string, string> = {
+      fidejussioni: "Fidejussioni",
+      car: "Car",
+      postuma_decennale: "Postuma Decennale",
+      all_risk: "All Risk",
+      responsabilita_civile: "Responsabilità Civile",
+      pet: "Pet",
+      fotovoltaico: "Fotovoltaico",
+      catastrofali: "Catastrofali",
+      azienda: "Azienda",
       casa: "Casa",
-      vita: "Vita",
+      risparmio: "Risparmio",
       salute: "Salute",
+      auto: "Auto",
+      vita: "Vita",
       responsabilita: "Responsabilità Civile",
       altro: "Altro",
     };
@@ -169,7 +182,13 @@ const PracticeDetail = () => {
                 {practice.policy_number && (
                   <div className="flex items-center gap-2">
                     <FileText className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">{practice.policy_number}</span>
+                    <span className="text-muted-foreground">Polizza: {practice.policy_number}</span>
+                  </div>
+                )}
+                {practice.beneficiary && (
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Beneficiario: {practice.beneficiary}</span>
                   </div>
                 )}
               </div>
@@ -193,6 +212,30 @@ const PracticeDetail = () => {
                     {new Date(practice.updated_at).toLocaleDateString("it-IT")}
                   </span>
                 </div>
+                {practice.policy_start_date && (
+                  <div>
+                    <span className="text-muted-foreground">Inizio Polizza: </span>
+                    <span className="text-foreground">
+                      {new Date(practice.policy_start_date).toLocaleDateString("it-IT")}
+                    </span>
+                  </div>
+                )}
+                {practice.policy_end_date && (
+                  <div>
+                    <span className="text-muted-foreground">Fine Polizza: </span>
+                    <span className="text-foreground">
+                      {new Date(practice.policy_end_date).toLocaleDateString("it-IT")}
+                    </span>
+                  </div>
+                )}
+                {practice.policy_start_date && practice.policy_end_date && (
+                  <div>
+                    <span className="text-muted-foreground">Durata: </span>
+                    <span className="text-foreground font-medium">
+                      {Math.ceil((new Date(practice.policy_end_date).getTime() - new Date(practice.policy_start_date).getTime()) / (1000 * 60 * 60 * 24 * 365))} anni
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -42,7 +42,11 @@ export const UploadForm = () => {
     const clientName = formData.get("clientName") as string;
     const clientPhone = formData.get("clientPhone") as string;
     const clientEmail = formData.get("clientEmail") as string;
+    const clientAddress = formData.get("clientAddress") as string;
     const policyNumber = formData.get("policyNumber") as string;
+    const beneficiary = formData.get("beneficiary") as string;
+    const policyStartDate = formData.get("policyStartDate") as string;
+    const policyEndDate = formData.get("policyEndDate") as string;
     const notes = formData.get("notes") as string;
 
     // Validate inputs
@@ -54,6 +58,21 @@ export const UploadForm = () => {
       });
       setLoading(false);
       return;
+    }
+
+    // Validate dates if provided
+    if (policyStartDate && policyEndDate) {
+      const startDate = new Date(policyStartDate);
+      const endDate = new Date(policyEndDate);
+      if (endDate < startDate) {
+        toast({
+          variant: "destructive",
+          title: "Errore validazione",
+          description: "La data di fine polizza non può essere precedente alla data di inizio.",
+        });
+        setLoading(false);
+        return;
+      }
     }
 
     // Validate files
@@ -117,6 +136,14 @@ export const UploadForm = () => {
         
         if (existingClient) {
           clientId = existingClient.id;
+          
+          // Update client address if provided
+          if (clientAddress.trim()) {
+            await supabase
+              .from("profiles")
+              .update({ address: clientAddress.trim() })
+              .eq("id", clientId);
+          }
         }
       }
       
@@ -131,6 +158,14 @@ export const UploadForm = () => {
         
         if (existingClient) {
           clientId = existingClient.id;
+          
+          // Update client address if provided
+          if (clientAddress.trim()) {
+            await supabase
+              .from("profiles")
+              .update({ address: clientAddress.trim() })
+              .eq("id", clientId);
+          }
         }
       }
       
@@ -154,6 +189,14 @@ export const UploadForm = () => {
         
         if (!clientError && newClient) {
           clientId = newClient.id;
+          
+          // Add address to profile if provided
+          if (clientAddress.trim()) {
+            await supabase
+              .from("profiles")
+              .update({ address: clientAddress.trim() })
+              .eq("id", clientId);
+          }
         }
       }
       
@@ -166,6 +209,9 @@ export const UploadForm = () => {
           client_phone: clientPhone.trim(),
           client_email: clientEmail.trim(),
           policy_number: policyNumber?.trim() || null,
+          beneficiary: beneficiary?.trim() || null,
+          policy_start_date: policyStartDate || null,
+          policy_end_date: policyEndDate || null,
           notes: notes?.trim() || null,
           user_id: session.user.id,
           client_id: clientId,
@@ -257,24 +303,30 @@ export const UploadForm = () => {
 
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <Label htmlFor="practiceType">Tipo Pratica</Label>
+            <Label htmlFor="practiceType">Tipo Pratica *</Label>
             <Select name="practiceType" required>
               <SelectTrigger id="practiceType">
                 <SelectValue placeholder="Seleziona tipo" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="auto">Auto</SelectItem>
+                <SelectItem value="fidejussioni">Fidejussioni</SelectItem>
+                <SelectItem value="car">Car</SelectItem>
+                <SelectItem value="postuma_decennale">Postuma Decennale</SelectItem>
+                <SelectItem value="all_risk">All Risk</SelectItem>
+                <SelectItem value="responsabilita_civile">Responsabilità Civile</SelectItem>
+                <SelectItem value="pet">Pet</SelectItem>
+                <SelectItem value="fotovoltaico">Fotovoltaico</SelectItem>
+                <SelectItem value="catastrofali">Catastrofali</SelectItem>
+                <SelectItem value="azienda">Azienda</SelectItem>
                 <SelectItem value="casa">Casa</SelectItem>
-                <SelectItem value="vita">Vita</SelectItem>
+                <SelectItem value="risparmio">Risparmio</SelectItem>
                 <SelectItem value="salute">Salute</SelectItem>
-                <SelectItem value="responsabilita">Responsabilità Civile</SelectItem>
-                <SelectItem value="altro">Altro</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="clientName">Nome Cliente</Label>
+            <Label htmlFor="clientName">Nome Cliente *</Label>
             <Input
               id="clientName"
               name="clientName"
@@ -285,7 +337,7 @@ export const UploadForm = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="clientPhone">Telefono Cliente</Label>
+            <Label htmlFor="clientPhone">Telefono Cliente *</Label>
             <Input
               id="clientPhone"
               name="clientPhone"
@@ -297,13 +349,23 @@ export const UploadForm = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="clientEmail">Email Cliente</Label>
+            <Label htmlFor="clientEmail">Email Cliente *</Label>
             <Input
               id="clientEmail"
               name="clientEmail"
               type="email"
               placeholder="mario.rossi@example.com"
               required
+              maxLength={255}
+            />
+          </div>
+
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="clientAddress">Indirizzo Cliente</Label>
+            <Input
+              id="clientAddress"
+              name="clientAddress"
+              placeholder="Via Roma 123, 00100 Roma"
               maxLength={255}
             />
           </div>
@@ -315,6 +377,34 @@ export const UploadForm = () => {
               name="policyNumber"
               placeholder="POL-2024-001"
               maxLength={50}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="beneficiary">Beneficiario</Label>
+            <Input
+              id="beneficiary"
+              name="beneficiary"
+              placeholder="Nome del beneficiario"
+              maxLength={100}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="policyStartDate">Data Inizio Polizza</Label>
+            <Input
+              id="policyStartDate"
+              name="policyStartDate"
+              type="date"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="policyEndDate">Data Fine Polizza</Label>
+            <Input
+              id="policyEndDate"
+              name="policyEndDate"
+              type="date"
             />
           </div>
         </div>
@@ -331,80 +421,70 @@ export const UploadForm = () => {
         </div>
 
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label>Documenti Allegati</Label>
-            {files.length > 0 && (
-              <span className="text-sm text-muted-foreground">
-                {files.length} file selezionato/i
-              </span>
-            )}
-          </div>
-          
-          <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
-            <input
-              type="file"
-              multiple
-              onChange={handleFileChange}
-              className="hidden"
-              id="file-upload"
-              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-            />
-            <label
-              htmlFor="file-upload"
-              className="cursor-pointer flex flex-col items-center gap-2"
-            >
-              <div className="p-3 rounded-full bg-primary/10">
-                <Upload className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  Clicca per caricare o trascina i file
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  PDF, DOC, DOCX, JPG, PNG (max 10MB per file)
-                </p>
-              </div>
-            </label>
+          <div>
+            <Label htmlFor="file-upload">Documenti Allegati</Label>
+            <p className="text-sm text-muted-foreground mb-2">
+              Carica i documenti relativi alla pratica (PDF, Word, Immagini - Max 10MB per file)
+            </p>
+            <div className="flex items-center gap-2">
+              <Input
+                id="file-upload"
+                type="file"
+                multiple
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                onChange={handleFileChange}
+                className="cursor-pointer"
+              />
+              <Upload className="h-5 w-5 text-muted-foreground" />
+            </div>
           </div>
 
           {files.length > 0 && (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-foreground">
-                File caricati ({files.length})
-              </p>
-              {files.map((file, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 rounded-lg border border-border bg-accent/50"
-                >
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-4 w-4 text-primary" />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {file.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {(file.size / 1024).toFixed(2)} KB
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeFile(index)}
+              <Label>File selezionati ({files.length})</Label>
+              <div className="space-y-2">
+                {files.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-muted rounded-lg"
                   >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-primary" />
+                      <span className="text-sm">{file.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFile(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
 
         <div className="flex gap-4 pt-4">
-          <Button type="submit" size="lg" disabled={loading}>
+          <Button
+            type="submit"
+            disabled={loading}
+            className="flex-1"
+          >
             {loading ? "Caricamento..." : "Carica Pratica"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => navigate("/practices")}
+            disabled={loading}
+          >
+            Annulla
           </Button>
         </div>
       </Card>
