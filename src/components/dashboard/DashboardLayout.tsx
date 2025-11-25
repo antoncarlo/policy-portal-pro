@@ -10,6 +10,7 @@ import {
   Settings,
   LogOut,
   UserCog,
+  Euro,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -67,6 +68,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { path: "/practices", icon: FileText, label: "Pratiche" },
     { path: "/upload", icon: Upload, label: "Carica Pratica" },
     { path: "/clients", icon: Users, label: "Clienti" },
+    { path: "/administration", icon: Euro, label: "Amministrazione" },
     { path: "/settings", icon: Settings, label: "Impostazioni" },
   ];
 
