@@ -77,20 +77,32 @@ export const InviteUserDialog = ({
         throw new Error("Devi essere autenticato per creare utenti");
       }
 
-      // Call Edge Function to create user
-      const { data, error } = await supabase.functions.invoke('create-user', {
-        body: {
+      // Call API route to create user
+      const response = await fetch('/api/create-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
           email: formData.email,
           password: formData.password,
           full_name: formData.full_name,
           phone: formData.phone,
           role: formData.role,
           default_commission_percentage: parseFloat(formData.default_commission_percentage) || 0,
-        },
+        }),
       });
 
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Errore durante la creazione dell\'utente');
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
 
       toast({
         title: "Successo",
