@@ -3,17 +3,14 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { 
   Shield, 
   Heart, 
   Users, 
   Scale, 
-  Euro, 
   Check,
-  Info,
-  Calculator
+  Info
 } from "lucide-react";
 import {
   petCoverages,
@@ -48,10 +45,8 @@ export const PetInsuranceCalculator = ({ onQuoteGenerated }: PetInsuranceCalcula
   const [totalMonthly, setTotalMonthly] = useState<number>(0);
 
   // Get coverages by category
-  const assistenzaCoverages = getCoveragesByCategory('assistenza');
   const rsvCoverages = getCoveragesByCategory('rsv');
   const rctCoverages = getCoveragesByCategory('rct');
-  const tlCoverages = getCoveragesByCategory('tl');
 
   // Calculate total when selections change
   useEffect(() => {
@@ -84,44 +79,14 @@ export const PetInsuranceCalculator = ({ onQuoteGenerated }: PetInsuranceCalcula
     }
   }, [selectedAssistenza, selectedRSV, selectedRCT, includeTL, animalType, onQuoteGenerated]);
 
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'assistenza':
-        return <Shield className="h-5 w-5" />;
-      case 'rsv':
-        return <Heart className="h-5 w-5" />;
-      case 'rct':
-        return <Users className="h-5 w-5" />;
-      case 'tl':
-        return <Scale className="h-5 w-5" />;
-      default:
-        return null;
-    }
-  };
-
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'assistenza':
-        return 'text-blue-600 dark:text-blue-400';
-      case 'rsv':
-        return 'text-red-600 dark:text-red-400';
-      case 'rct':
-        return 'text-green-600 dark:text-green-400';
-      case 'tl':
-        return 'text-purple-600 dark:text-purple-400';
-      default:
-        return '';
-    }
-  };
-
   return (
     <Card className="p-6 space-y-6">
       <div className="flex items-center gap-3">
-        <Calculator className="h-6 w-6 text-primary" />
+        <Shield className="h-6 w-6" />
         <div>
-          <h3 className="text-xl font-bold">Preventivatore Polizza Pet</h3>
+          <h3 className="text-xl font-bold">Configuratore Polizza Pet</h3>
           <p className="text-sm text-muted-foreground">
-            Seleziona le coperture desiderate per calcolare il premio
+            Personalizza la tua copertura assicurativa
           </p>
         </div>
       </div>
@@ -130,43 +95,29 @@ export const PetInsuranceCalculator = ({ onQuoteGenerated }: PetInsuranceCalcula
 
       {/* Step 1: Animal Type */}
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-bold">
-            1
-          </span>
-          <Label className="text-base font-semibold">Tipo di Animale</Label>
-        </div>
+        <Label className="text-base font-semibold">1. Tipo di Animale</Label>
         
         <RadioGroup value={animalType} onValueChange={setAnimalType}>
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid md:grid-cols-3 gap-3">
             <label className={`flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
-              animalType === 'gatti' ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-gray-300'
+              animalType === 'gatti' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
             }`}>
               <RadioGroupItem value="gatti" id="gatti" />
-              <div>
-                <div className="font-medium">🐱 Gatti</div>
-                <div className="text-xs text-muted-foreground">€227 - €434/anno</div>
-              </div>
+              <div className="font-medium">🐱 Gatti</div>
             </label>
 
             <label className={`flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
-              animalType === 'cani_0_20kg' ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-gray-300'
+              animalType === 'cani_0_20kg' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
             }`}>
               <RadioGroupItem value="cani_0_20kg" id="cani_0_20kg" />
-              <div>
-                <div className="font-medium">🐕 Cani 0-20 kg</div>
-                <div className="text-xs text-muted-foreground">€227 - €440/anno</div>
-              </div>
+              <div className="font-medium">🐕 Cani 0-20 kg</div>
             </label>
 
             <label className={`flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
-              animalType === 'cani_oltre_20kg' ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-gray-300'
+              animalType === 'cani_oltre_20kg' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
             }`}>
               <RadioGroupItem value="cani_oltre_20kg" id="cani_oltre_20kg" />
-              <div>
-                <div className="font-medium">🐕 Cani oltre 20 kg</div>
-                <div className="text-xs text-muted-foreground">€406 - €446/anno</div>
-              </div>
+              <div className="font-medium">🐕 Cani oltre 20 kg</div>
             </label>
           </div>
         </RadioGroup>
@@ -178,65 +129,49 @@ export const PetInsuranceCalculator = ({ onQuoteGenerated }: PetInsuranceCalcula
 
           {/* Step 2: Coverage Selection */}
           <div className="space-y-6">
-            <div className="flex items-center gap-2">
-              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-bold">
-                2
-              </span>
-              <Label className="text-base font-semibold">Seleziona Coperture</Label>
-            </div>
+            <Label className="text-base font-semibold">2. Seleziona Coperture</Label>
 
             {/* Assistenza (Always included) */}
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-blue-600" />
-                <Label className="font-semibold">Assistenza Standard</Label>
-                <Badge variant="secondary" className="ml-auto">Inclusa</Badge>
-              </div>
-              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="font-medium text-blue-900 dark:text-blue-100">
-                      Assistenza animali domestici
-                    </div>
-                    <div className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                      Prestazioni in natura - Carenza 30 giorni
-                    </div>
-                  </div>
-                  <div className="text-lg font-bold text-blue-600 dark:text-blue-400 ml-4">
-                    €14
-                  </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  <Label className="font-medium">Assistenza Standard</Label>
                 </div>
+                <span className="text-xs text-muted-foreground">Inclusa</span>
+              </div>
+              <div className="bg-muted/50 rounded-lg p-4">
+                <p className="text-sm text-muted-foreground">
+                  Assistenza animali domestici - Prestazioni in natura - Carenza 30 giorni
+                </p>
               </div>
             </div>
 
             {/* RSV - Rimborso Spese Veterinarie */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <Heart className="h-5 w-5 text-red-600" />
-                <Label className="font-semibold">Rimborso Spese Veterinarie *</Label>
+                <Heart className="h-4 w-4" />
+                <Label className="font-medium">Rimborso Spese Veterinarie *</Label>
               </div>
               <RadioGroup value={selectedRSV} onValueChange={setSelectedRSV}>
                 <div className="space-y-2">
                   {rsvCoverages.map((coverage) => (
                     <label
                       key={coverage.id}
-                      className={`flex items-center justify-between p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      className={`flex items-start justify-between p-4 border-2 rounded-lg cursor-pointer transition-all ${
                         selectedRSV === coverage.id
-                          ? 'border-red-500 bg-red-50 dark:bg-red-950'
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
                       }`}
                     >
-                      <div className="flex items-center space-x-3 flex-1">
-                        <RadioGroupItem value={coverage.id} id={coverage.id} />
+                      <div className="flex items-start space-x-3 flex-1">
+                        <RadioGroupItem value={coverage.id} id={coverage.id} className="mt-1" />
                         <div className="flex-1">
                           <div className="font-medium">{coverage.name}</div>
                           <div className="text-xs text-muted-foreground mt-1">
                             {coverage.description}
                           </div>
                         </div>
-                      </div>
-                      <div className="text-lg font-bold text-red-600 dark:text-red-400 ml-4">
-                        €{coverage.price}
                       </div>
                     </label>
                   ))}
@@ -247,31 +182,28 @@ export const PetInsuranceCalculator = ({ onQuoteGenerated }: PetInsuranceCalcula
             {/* RCT - Responsabilità Civile */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-green-600" />
-                <Label className="font-semibold">Responsabilità Civile verso Terzi *</Label>
+                <Users className="h-4 w-4" />
+                <Label className="font-medium">Responsabilità Civile verso Terzi *</Label>
               </div>
               <RadioGroup value={selectedRCT} onValueChange={setSelectedRCT}>
                 <div className="space-y-2">
                   {rctCoverages.map((coverage) => (
                     <label
                       key={coverage.id}
-                      className={`flex items-center justify-between p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      className={`flex items-start justify-between p-4 border-2 rounded-lg cursor-pointer transition-all ${
                         selectedRCT === coverage.id
-                          ? 'border-green-500 bg-green-50 dark:bg-green-950'
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
                       }`}
                     >
-                      <div className="flex items-center space-x-3 flex-1">
-                        <RadioGroupItem value={coverage.id} id={coverage.id} />
+                      <div className="flex items-start space-x-3 flex-1">
+                        <RadioGroupItem value={coverage.id} id={coverage.id} className="mt-1" />
                         <div className="flex-1">
                           <div className="font-medium">{coverage.name}</div>
                           <div className="text-xs text-muted-foreground mt-1">
                             {coverage.description}
                           </div>
                         </div>
-                      </div>
-                      <div className="text-lg font-bold text-green-600 dark:text-green-400 ml-4">
-                        €{coverage.price}
                       </div>
                     </label>
                   ))}
@@ -282,21 +214,22 @@ export const PetInsuranceCalculator = ({ onQuoteGenerated }: PetInsuranceCalcula
             {/* TL - Tutela Legale (Optional) */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <Scale className="h-5 w-5 text-purple-600" />
-                <Label className="font-semibold">Tutela Legale (Opzionale)</Label>
+                <Scale className="h-4 w-4" />
+                <Label className="font-medium">Tutela Legale (Opzionale)</Label>
               </div>
               <label
-                className={`flex items-center justify-between p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                className={`flex items-start justify-between p-4 border-2 rounded-lg cursor-pointer transition-all ${
                   includeTL
-                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-950'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-primary/50'
                 }`}
               >
-                <div className="flex items-center space-x-3 flex-1">
+                <div className="flex items-start space-x-3 flex-1">
                   <Checkbox
                     id="tl_standard"
                     checked={includeTL}
                     onCheckedChange={(checked) => setIncludeTL(checked as boolean)}
+                    className="mt-1"
                   />
                   <div className="flex-1">
                     <div className="font-medium">Tutela Legale Standard</div>
@@ -304,9 +237,6 @@ export const PetInsuranceCalculator = ({ onQuoteGenerated }: PetInsuranceCalcula
                       Copertura standard - Assistenza legale
                     </div>
                   </div>
-                </div>
-                <div className="text-lg font-bold text-purple-600 dark:text-purple-400 ml-4">
-                  €32
                 </div>
               </label>
             </div>
@@ -317,56 +247,35 @@ export const PetInsuranceCalculator = ({ onQuoteGenerated }: PetInsuranceCalcula
           {/* Summary */}
           {selectedRSV && selectedRCT && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-bold">
-                  3
-                </span>
-                <Label className="text-base font-semibold">Riepilogo e Premio</Label>
-              </div>
+              <Label className="text-base font-semibold">3. Riepilogo Premio</Label>
 
-              <div className="bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary rounded-lg p-6 space-y-4">
+              <div className="bg-primary/5 border-2 border-primary rounded-lg p-6 space-y-4">
                 <div className="space-y-2">
                   <div className="text-sm font-medium text-muted-foreground">Coperture Selezionate:</div>
-                  <div className="space-y-2">
-                    {/* Assistenza */}
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <Check className="h-4 w-4 text-green-600" />
-                        <span>Assistenza Standard</span>
-                      </div>
-                      <span className="font-medium">€14</span>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Check className="h-4 w-4" />
+                      <span>Assistenza Standard</span>
                     </div>
                     
-                    {/* RSV */}
                     {selectedRSV && (
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2">
-                          <Check className="h-4 w-4 text-green-600" />
-                          <span>{getCoverageById(selectedRSV)?.name}</span>
-                        </div>
-                        <span className="font-medium">€{getCoverageById(selectedRSV)?.price}</span>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Check className="h-4 w-4" />
+                        <span>{getCoverageById(selectedRSV)?.name}</span>
                       </div>
                     )}
                     
-                    {/* RCT */}
                     {selectedRCT && (
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2">
-                          <Check className="h-4 w-4 text-green-600" />
-                          <span>{getCoverageById(selectedRCT)?.name}</span>
-                        </div>
-                        <span className="font-medium">€{getCoverageById(selectedRCT)?.price}</span>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Check className="h-4 w-4" />
+                        <span>{getCoverageById(selectedRCT)?.name}</span>
                       </div>
                     )}
                     
-                    {/* TL */}
                     {includeTL && (
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2">
-                          <Check className="h-4 w-4 text-green-600" />
-                          <span>Tutela Legale Standard</span>
-                        </div>
-                        <span className="font-medium">€32</span>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Check className="h-4 w-4" />
+                        <span>Tutela Legale Standard</span>
                       </div>
                     )}
                   </div>
@@ -377,7 +286,7 @@ export const PetInsuranceCalculator = ({ onQuoteGenerated }: PetInsuranceCalcula
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-semibold">Premio Annuale:</span>
-                    <span className="text-2xl font-bold text-primary">
+                    <span className="text-3xl font-bold">
                       €{totalAnnual.toFixed(2)}
                     </span>
                   </div>
@@ -389,10 +298,10 @@ export const PetInsuranceCalculator = ({ onQuoteGenerated }: PetInsuranceCalcula
                   </div>
                 </div>
 
-                <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                  <div className="flex items-start gap-2 text-sm text-blue-800 dark:text-blue-200">
-                    <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <div>
+                <div className="bg-background border rounded-lg p-3">
+                  <div className="flex items-start gap-2 text-sm">
+                    <Info className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
+                    <div className="text-muted-foreground">
                       <strong>Sconto Multi-Animale:</strong> Se assicuri 2 o 3 animali, riceverai uno sconto del 10% sul 2° e 3° animale!
                     </div>
                   </div>
