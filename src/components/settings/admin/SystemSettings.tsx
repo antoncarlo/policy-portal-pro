@@ -16,12 +16,12 @@ export const SystemSettings = () => {
   const [uploading, setUploading] = useState(false);
   const [settings, setSettings] = useState({
     // Identity
-    portal_name: "AssicuraPortal",
-    portal_logo_url: "",
+    portal_name: "Tecno Advance MGA",
+    portal_logo_url: "/logo.svg",
     
     // Email
-    sender_email: "noreply@assicuraportal.com",
-    sender_name: "AssicuraPortal",
+    sender_email: "noreply@tecnomga.com",
+    sender_name: "Tecno Advance MGA",
     support_email: "",
     
     // Security
@@ -56,10 +56,10 @@ export const SystemSettings = () => {
 
       if (data) {
         setSettings({
-          portal_name: data.portal_name || "AssicuraPortal",
-          portal_logo_url: data.portal_logo_url || "",
-          sender_email: data.sender_email || "noreply@assicuraportal.com",
-          sender_name: data.sender_name || "AssicuraPortal",
+          portal_name: data.portal_name || "Tecno Advance MGA",
+          portal_logo_url: data.portal_logo_url || "/logo.svg",
+          sender_email: data.sender_email || "noreply@tecnomga.com",
+          sender_name: data.sender_name || "Tecno Advance MGA",
           support_email: data.support_email || "",
           password_min_length: data.password_min_length || 8,
           password_require_uppercase: data.password_require_uppercase ?? true,
@@ -176,7 +176,7 @@ export const SystemSettings = () => {
               id="portal_name"
               value={settings.portal_name}
               onChange={(e) => setSettings({ ...settings, portal_name: e.target.value })}
-              placeholder="AssicuraPortal"
+              placeholder="Tecno Advance MGA"
             />
           </div>
 
@@ -238,7 +238,7 @@ export const SystemSettings = () => {
               id="sender_name"
               value={settings.sender_name}
               onChange={(e) => setSettings({ ...settings, sender_name: e.target.value })}
-              placeholder="AssicuraPortal"
+              placeholder="Tecno Advance MGA"
             />
           </div>
 

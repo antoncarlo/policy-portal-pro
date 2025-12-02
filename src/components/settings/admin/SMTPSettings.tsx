@@ -245,7 +245,7 @@ export const SMTPSettings = () => {
                   onChange={(e) =>
                     setSettings({ ...settings, smtp_from_email: e.target.value })
                   }
-                  placeholder="noreply@assicuraportal.com"
+                  placeholder="noreply@tecnomga.com"
                 />
               </div>
 
@@ -257,7 +257,7 @@ export const SMTPSettings = () => {
                   onChange={(e) =>
                     setSettings({ ...settings, smtp_from_name: e.target.value })
                   }
-                  placeholder="AssicuraPortal"
+                  placeholder="Tecno Advance MGA"
                 />
               </div>
             </div>
