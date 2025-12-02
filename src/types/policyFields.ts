@@ -39,124 +39,100 @@ export interface PolicyFieldsConfig {
 
 // Configurazione campi per ogni tipologia di polizza
 export const policyFieldsConfig: PolicyFieldsConfig = {
-  // POLIZZA AUTO / RCA
+  // POLIZZA CAR (Contractors All Risk - Cantieri)
   "Car": [
     {
-      name: "vehicle_plate",
-      label: "Targa",
+      name: "company_name",
+      label: "Ragione Sociale",
       type: "text",
-      required: true,
-      placeholder: "Es: AB123CD",
-      validation: { pattern: "^[A-Z]{2}[0-9]{3}[A-Z]{2}$" }
+      required: true
     },
     {
-      name: "vehicle_brand",
-      label: "Marca Veicolo",
+      name: "vat_number",
+      label: "Partita IVA",
       type: "text",
       required: true,
-      placeholder: "Es: Fiat, Volkswagen"
+      validation: { pattern: "^[0-9]{11}$" }
     },
     {
-      name: "vehicle_model",
-      label: "Modello Veicolo",
+      name: "construction_site_address",
+      label: "Indirizzo Cantiere",
       type: "text",
-      required: true,
-      placeholder: "Es: Punto, Golf"
+      required: true
     },
     {
-      name: "vehicle_registration_date",
-      label: "Data Prima Immatricolazione",
+      name: "client_name",
+      label: "Committente",
+      type: "text",
+      required: true
+    },
+    {
+      name: "works_amount",
+      label: "Importo Lavori (€)",
+      type: "number",
+      required: true,
+      validation: { min: 10000, max: 1000000000 }
+    },
+    {
+      name: "work_type",
+      label: "Tipo Opera",
+      type: "select",
+      required: true,
+      options: [
+        { value: "nuova_costruzione", label: "Nuova Costruzione" },
+        { value: "ristrutturazione", label: "Ristrutturazione" },
+        { value: "ampliamento", label: "Ampliamento" },
+        { value: "infrastruttura", label: "Infrastruttura" },
+        { value: "impianti", label: "Impianti" }
+      ]
+    },
+    {
+      name: "works_start_date",
+      label: "Data Inizio Lavori",
       type: "date",
       required: true
     },
     {
-      name: "vehicle_vin",
-      label: "Numero Telaio (VIN)",
+      name: "works_end_date",
+      label: "Data Fine Lavori Prevista",
+      type: "date",
+      required: true
+    },
+    {
+      name: "maintenance_period_months",
+      label: "Periodo Manutenzione (mesi)",
+      type: "number",
+      required: true,
+      validation: { min: 0, max: 24 },
+      defaultValue: 12,
+      description: "Periodo di manutenzione dopo il completamento"
+    },
+    {
+      name: "insured_value",
+      label: "Valore Assicurato (€)",
+      type: "number",
+      required: true,
+      validation: { min: 10000, max: 1000000000 },
+      description: "Valore totale dell'opera da assicurare"
+    },
+    {
+      name: "project_manager",
+      label: "Direttore Lavori",
       type: "text",
-      required: true,
-      placeholder: "17 caratteri alfanumerici",
-      validation: { minLength: 17, maxLength: 17 }
+      required: true
     },
     {
-      name: "vehicle_power",
-      label: "Potenza (kW)",
-      type: "number",
-      required: true,
-      validation: { min: 1, max: 1000 }
+      name: "designer",
+      label: "Progettista",
+      type: "text",
+      required: false
     },
     {
-      name: "vehicle_fuel",
-      label: "Alimentazione",
-      type: "select",
-      required: true,
-      options: [
-        { value: "benzina", label: "Benzina" },
-        { value: "diesel", label: "Diesel" },
-        { value: "gpl", label: "GPL" },
-        { value: "metano", label: "Metano" },
-        { value: "elettrico", label: "Elettrico" },
-        { value: "ibrido", label: "Ibrido" }
-      ]
-    },
-    {
-      name: "vehicle_seats",
-      label: "Numero Posti",
-      type: "number",
-      required: true,
-      validation: { min: 1, max: 50 }
-    },
-    {
-      name: "vehicle_euro_class",
-      label: "Classe Emissioni",
-      type: "select",
-      required: true,
-      options: [
-        { value: "euro0", label: "Euro 0" },
-        { value: "euro1", label: "Euro 1" },
-        { value: "euro2", label: "Euro 2" },
-        { value: "euro3", label: "Euro 3" },
-        { value: "euro4", label: "Euro 4" },
-        { value: "euro5", label: "Euro 5" },
-        { value: "euro6", label: "Euro 6" }
-      ]
-    },
-    {
-      name: "merit_class",
-      label: "Classe di Merito (CU)",
-      type: "number",
-      required: true,
-      validation: { min: 1, max: 18 }
-    },
-    {
-      name: "claims_last_5_years",
-      label: "Sinistri Ultimi 5 Anni",
-      type: "number",
-      required: true,
-      validation: { min: 0, max: 50 },
-      defaultValue: 0
-    },
-    {
-      name: "driving_type",
-      label: "Tipo Guida",
-      type: "select",
-      required: true,
-      options: [
-        { value: "esclusiva", label: "Guida Esclusiva" },
-        { value: "esperta", label: "Guida Esperta" },
-        { value: "libera", label: "Guida Libera" }
-      ]
-    },
-    {
-      name: "coverage_limit",
-      label: "Massimale",
-      type: "select",
-      required: true,
-      options: [
-        { value: "6070000", label: "€ 6.070.000 (Minimo di legge)" },
-        { value: "7500000", label: "€ 7.500.000" },
-        { value: "10000000", label: "€ 10.000.000" },
-        { value: "15000000", label: "€ 15.000.000" }
-      ]
+      name: "subcontractors",
+      label: "Subappaltatori Principali",
+      type: "textarea",
+      required: false,
+      placeholder: "Elenco dei principali subappaltatori coinvolti"
     }
   ],
 
@@ -811,9 +787,8 @@ export const policyFieldsConfig: PolicyFieldsConfig = {
     }
   ],
 
-  // POSTUMA DECENNALE
-  "Postuma Decennale": [
-    {
+  // POLIZZA POSTUMA DECENNALE (Responsabilità Civile Decennale)
+  "Postuma Decennale": [ {
       name: "company_name",
       label: "Ragione Sociale",
       type: "text",
