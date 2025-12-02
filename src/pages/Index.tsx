@@ -27,9 +27,8 @@ const Index = () => {
       {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Shield className="h-8 w-8 text-primary" />
-            <span className="text-2xl font-bold text-foreground">AssicuraPortal</span>
+          <div className="flex items-center">
+            <img src="/logo.svg" alt="Tecno Advance MGA" className="h-12" />
           </div>
           <nav className="flex items-center gap-4">
             {user ? (
@@ -184,7 +183,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="border-t border-border py-8 px-4 bg-card">
         <div className="container mx-auto text-center text-muted-foreground">
-          <p>© 2024 AssicuraPortal. Tutti i diritti riservati.</p>
+          <p>© 2024 Tecno Advance MGA Broker SRL. Tutti i diritti riservati.</p>
         </div>
       </footer>
 
