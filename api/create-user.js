@@ -109,13 +109,15 @@ export default async function handler(req, res) {
 
     console.log('User created in auth:', authData.user.id)
 
-    // Create profile
-    const { error: profileError } = await supabaseAdmin.from('profiles').insert({
+    // Create or update profile (UPSERT in case trigger already created it)
+    const { error: profileError } = await supabaseAdmin.from('profiles').upsert({
       id: authData.user.id,
       email,
       full_name,
       phone: phone || null,
       default_commission_percentage: default_commission_percentage || 0,
+    }, {
+      onConflict: 'id'
     })
 
     if (profileError) {
@@ -127,10 +129,12 @@ export default async function handler(req, res) {
 
     console.log('Profile created')
 
-    // Create user role
-    const { error: roleError } = await supabaseAdmin.from('user_roles').insert({
+    // Create or update user role (UPSERT in case trigger already created it)
+    const { error: roleError } = await supabaseAdmin.from('user_roles').upsert({
       user_id: authData.user.id,
       role,
+    }, {
+      onConflict: 'user_id'
     })
 
     if (roleError) {
