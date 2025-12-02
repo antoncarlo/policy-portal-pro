@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { PetInsuranceCalculator } from "@/components/pet/PetInsuranceCalculator";
+import { DynamicPolicyFields } from "@/components/upload/DynamicPolicyFields";
 
 export const UploadForm = () => {
   const { toast } = useToast();
@@ -34,6 +35,7 @@ export const UploadForm = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [practiceType, setPracticeType] = useState("");
   const [petQuote, setPetQuote] = useState<any>(null);
+  const [dynamicFields, setDynamicFields] = useState<Record<string, any>>({});
 
   // Load user's default commission percentage
   useEffect(() => {
@@ -284,6 +286,13 @@ export const UploadForm = () => {
       if (commissionPercentage) financialData.commission_percentage = parseFloat(commissionPercentage);
       // commission_amount will be auto-calculated by trigger
 
+      // Prepare notes with dynamic fields
+      let finalNotes = notes?.trim() || '';
+      if (Object.keys(dynamicFields).length > 0) {
+        const dynamicFieldsSection = `\n\n--- Dati Specifici Polizza ---\n${JSON.stringify(dynamicFields, null, 2)}`;
+        finalNotes += dynamicFieldsSection;
+      }
+
       // Insert practice into database (practice_number auto-generated)
       const { data: practice, error: practiceError } = await supabase
         .from("practices")
@@ -295,7 +304,7 @@ export const UploadForm = () => {
           beneficiary: beneficiary?.trim() || null,
           policy_start_date: policyStartDate || null,
           policy_end_date: policyEndDate || null,
-          notes: notes?.trim() || null,
+          notes: finalNotes || null,
           user_id: session.user.id,
           client_id: clientId,
           owner_tax_code: ownerTaxCode?.trim() || null,
@@ -401,18 +410,18 @@ export const UploadForm = () => {
                 <SelectValue placeholder="Seleziona tipo" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="fidejussioni">Fidejussioni</SelectItem>
-                <SelectItem value="car">Car</SelectItem>
-                <SelectItem value="postuma_decennale">Postuma Decennale</SelectItem>
-                <SelectItem value="all_risk">All Risk</SelectItem>
-                <SelectItem value="responsabilita_civile">Responsabilità Civile</SelectItem>
-                <SelectItem value="pet">Pet</SelectItem>
-                <SelectItem value="fotovoltaico">Fotovoltaico</SelectItem>
-                <SelectItem value="catastrofali">Catastrofali</SelectItem>
-                <SelectItem value="azienda">Azienda</SelectItem>
-                <SelectItem value="casa">Casa</SelectItem>
-                <SelectItem value="risparmio">Risparmio</SelectItem>
-                <SelectItem value="salute">Salute</SelectItem>
+                <SelectItem value="Fidejussioni">Fidejussioni</SelectItem>
+                <SelectItem value="Car">Car</SelectItem>
+                <SelectItem value="Postuma Decennale">Postuma Decennale</SelectItem>
+                <SelectItem value="All Risk">All Risk</SelectItem>
+                <SelectItem value="RC">RC Professionale</SelectItem>
+                <SelectItem value="Pet">Pet</SelectItem>
+                <SelectItem value="Fotovoltaico">Fotovoltaico</SelectItem>
+                <SelectItem value="Catastrofali">Catastrofali</SelectItem>
+                <SelectItem value="Azienda">Azienda</SelectItem>
+                <SelectItem value="Casa">Casa</SelectItem>
+                <SelectItem value="Risparmio">Risparmio</SelectItem>
+                <SelectItem value="Salute">Salute</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -462,50 +471,17 @@ export const UploadForm = () => {
             />
           </div>
 
-          {/* Pet-specific fields */}
-          {practiceType === 'pet' && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="ownerTaxCode">Codice Fiscale Proprietario *</Label>
-                <Input
-                  id="ownerTaxCode"
-                  name="ownerTaxCode"
-                  placeholder="RSSMRA80A01H501U"
-                  required={practiceType === 'pet'}
-                  maxLength={16}
-                  minLength={16}
-                  pattern="[A-Z0-9]{16}"
-                  className="uppercase"
-                  onChange={(e) => {
-                    e.target.value = e.target.value.toUpperCase();
-                  }}
-                />
-                <p className="text-xs text-muted-foreground">
-                  16 caratteri alfanumerici (es: RSSMRA80A01H501U)
-                </p>
-              </div>
+        </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="petMicrochip">Codice Microchip Animale *</Label>
-                <Input
-                  id="petMicrochip"
-                  name="petMicrochip"
-                  type="text"
-                  placeholder="380260123456789"
-                  required={practiceType === 'pet'}
-                  maxLength={15}
-                  pattern="[0-9]{1,15}"
-                  onChange={(e) => {
-                    // Allow only numbers
-                    e.target.value = e.target.value.replace(/[^0-9]/g, '');
-                  }}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Massimo 15 cifre numeriche
-                </p>
-              </div>
-            </>
-          )}
+        {/* Dynamic Policy-Specific Fields */}
+        {practiceType && (
+          <DynamicPolicyFields 
+            policyType={practiceType} 
+            onFieldsChange={setDynamicFields}
+          />
+        )}
+
+        <div className="grid md:grid-cols-2 gap-6">
 
           <div className="space-y-2">
             <Label htmlFor="beneficiary">Beneficiario</Label>
