@@ -70,37 +70,30 @@ export const InviteUserDialog = ({
 
     setLoading(true);
     try {
-      // Create user in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: formData.email,
-        password: formData.password,
-        email_confirm: true,
-        user_metadata: {
+      // Get session token for authorization
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error("Devi essere autenticato per creare utenti");
+      }
+
+      // Call Edge Function to create user
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        body: {
+          email: formData.email,
+          password: formData.password,
           full_name: formData.full_name,
           phone: formData.phone,
+          role: formData.role,
+          default_commission_percentage: parseFloat(formData.default_commission_percentage) || 0,
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
 
-      if (authError) throw authError;
-
-      // Create profile
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: authData.user.id,
-        email: formData.email,
-        full_name: formData.full_name,
-        phone: formData.phone,
-        default_commission_percentage: parseFloat(formData.default_commission_percentage) || 0,
-      });
-
-      if (profileError) throw profileError;
-
-      // Create user role
-      const { error: roleError } = await supabase.from("user_roles").insert({
-        user_id: authData.user.id,
-        role: formData.role,
-      });
-
-      if (roleError) throw roleError;
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
 
       toast({
         title: "Successo",
