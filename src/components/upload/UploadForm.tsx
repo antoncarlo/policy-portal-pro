@@ -15,6 +15,7 @@ import { Upload, FileText, X, Euro, Calculator } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { PetInsuranceCalculator } from "@/components/pet/PetInsuranceCalculator";
 
 export const UploadForm = () => {
   const { toast } = useToast();
@@ -31,6 +32,8 @@ export const UploadForm = () => {
   const [commissionPercentage, setCommissionPercentage] = useState("");
   const [commissionAmount, setCommissionAmount] = useState("0.00");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [practiceType, setPracticeType] = useState("");
+  const [petQuote, setPetQuote] = useState<any>(null);
 
   // Load user's default commission percentage
   useEffect(() => {
@@ -389,7 +392,7 @@ export const UploadForm = () => {
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label htmlFor="practiceType">Tipo Pratica *</Label>
-            <Select name="practiceType" required>
+            <Select name="practiceType" value={practiceType} onValueChange={setPracticeType} required>
               <SelectTrigger id="practiceType">
                 <SelectValue placeholder="Seleziona tipo" />
               </SelectTrigger>
@@ -483,6 +486,21 @@ export const UploadForm = () => {
             />
           </div>
         </div>
+
+        {/* Pet Insurance Calculator - Only for Pet type */}
+        {practiceType === 'pet' && (
+          <div className="border-t pt-6">
+            <PetInsuranceCalculator
+              onQuoteGenerated={(quote) => {
+                setPetQuote(quote);
+                // Auto-fill financial data if admin
+                if (isAdmin && quote.totalAnnual) {
+                  setPremiumGross(quote.totalAnnual.toString());
+                }
+              }}
+            />
+          </div>
+        )}
 
         {/* Financial Section - Only visible to Admin */}
         {isAdmin && (
