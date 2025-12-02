@@ -130,11 +130,12 @@ export default async function handler(req, res) {
     console.log('Profile created')
 
     // Create or update user role (UPSERT in case trigger already created it)
+    // Note: user_roles has UNIQUE constraint on (user_id, role)
     const { error: roleError } = await supabaseAdmin.from('user_roles').upsert({
       user_id: authData.user.id,
       role,
     }, {
-      onConflict: 'user_id'
+      onConflict: 'user_id,role'
     })
 
     if (roleError) {
