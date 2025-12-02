@@ -30,6 +30,7 @@ export const UploadForm = () => {
   const [premiumGross, setPremiumGross] = useState("");
   const [commissionPercentage, setCommissionPercentage] = useState("");
   const [commissionAmount, setCommissionAmount] = useState("0.00");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Load user's default commission percentage
   useEffect(() => {
@@ -41,6 +42,7 @@ export const UploadForm = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
+      // Load profile with commission
       const { data: profile } = await supabase
         .from("profiles")
         .select("default_commission_percentage")
@@ -50,8 +52,19 @@ export const UploadForm = () => {
       if (profile && profile.default_commission_percentage) {
         setCommissionPercentage(profile.default_commission_percentage.toString());
       }
+
+      // Load user role
+      const { data: userRole } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id)
+        .single();
+
+      if (userRole && userRole.role === 'admin') {
+        setIsAdmin(true);
+      }
     } catch (error) {
-      console.error("Error loading default commission:", error);
+      console.error("Error loading user data:", error);
     }
   };
 
@@ -471,7 +484,8 @@ export const UploadForm = () => {
           </div>
         </div>
 
-        {/* Financial Section */}
+        {/* Financial Section - Only visible to Admin */}
+        {isAdmin && (
         <div className="border-t pt-6">
           <div className="flex items-center gap-2 mb-4">
             <Euro className="h-5 w-5 text-primary" />
@@ -505,26 +519,7 @@ export const UploadForm = () => {
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="commissionPercentage">Provvigione (%)</Label>
-              <div className="relative">
-                <Calculator className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  id="commissionPercentage"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="100"
-                  placeholder="15.00"
-                  value={commissionPercentage}
-                  onChange={(e) => setCommissionPercentage(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Percentuale provvigione (pre-compilata dal tuo profilo)
-              </p>
-            </div>
+            {/* Provvigione nascosta - viene presa automaticamente dal profilo utente */}
 
             {commissionAmount !== "0.00" && (
               <div className="md:col-span-2">
@@ -608,6 +603,7 @@ export const UploadForm = () => {
             </div>
           </div>
         </div>
+        )}
 
         <div className="space-y-2">
           <Label htmlFor="notes">Note e Dettagli</Label>
