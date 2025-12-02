@@ -87,9 +87,6 @@ export const InviteUserDialog = ({
           role: formData.role,
           default_commission_percentage: parseFloat(formData.default_commission_percentage) || 0,
         },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
       });
 
       if (error) throw error;
