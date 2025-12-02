@@ -5,147 +5,147 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/* Design system aligned with Tecno Advance MGA brand colors
+Primary: Navy Blue (#0F3A5C / #1A4D6F)
+Accent: Bronze/Gold (#B08968 / #C9A882)
 */
 
 @layer base {
   :root {
-    --background: 209 40% 96%;
-    --foreground: 222 47% 11%;
+    /* Backgrounds - Light neutral tones */
+    --background: 210 30% 97%;
+    --foreground: 210 50% 15%;
 
-    --card: 210 40% 98%;
-    --card-foreground: 222 47% 11%;
+    --card: 210 25% 99%;
+    --card-foreground: 210 50% 15%;
 
-    --popover: 214 31% 91%;
-    --popover-foreground: 222 47% 11%;
+    --popover: 210 25% 98%;
+    --popover-foreground: 210 50% 15%;
 
-    --primary: 200 98% 39%;
-    --primary-foreground: 204 100% 97%;
+    /* Primary - Navy Blue from logo */
+    --primary: 205 70% 22%;  /* #0F3A5C - Blu scuro logo */
+    --primary-foreground: 210 40% 98%;
 
-    --secondary: 215 24% 26%;
+    /* Secondary - Lighter navy */
+    --secondary: 205 60% 30%;  /* Blu più chiaro per variazioni */
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 215 20% 65%;
-    --muted-foreground: 222 47% 11%;
+    /* Muted - Neutral grays */
+    --muted: 210 15% 85%;
+    --muted-foreground: 210 40% 35%;
 
-    --accent: 210 40% 98%;
-    --accent-foreground: 215 19% 34%;
+    /* Accent - Bronze/Gold from logo (used sparingly) */
+    --accent: 30 30% 55%;  /* #B08968 - Oro/marrone logo */
+    --accent-foreground: 210 50% 15%;
 
+    /* Destructive - Red for errors */
     --destructive: 0 72% 50%;
     --destructive-foreground: 0 85% 97%;
 
-    --border: 212 26% 83%;
-    --input: 212 26% 83%;
-    --ring: 200 98% 39%;
+    /* Borders and inputs */
+    --border: 210 20% 88%;
+    --input: 210 20% 88%;
+    --ring: 30 30% 55%;  /* Gold ring for focus */
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 222 47% 11%;
-
-    --sidebar-primary: 200 98% 39%;
-
-    --sidebar-primary-foreground: 204 100% 97%;
-
-    --sidebar-accent: 215 24% 26%;
-
+    /* Sidebar - Navy blue theme */
+    --sidebar-background: 205 70% 22%;  /* Navy blue */
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 30 30% 55%;  /* Gold accent */
+    --sidebar-primary-foreground: 210 50% 15%;
+    --sidebar-accent: 205 60% 30%;  /* Lighter navy */
     --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 205 50% 35%;
+    --sidebar-ring: 30 30% 55%;  /* Gold ring */
+    --sidebar: 205 70% 22%;
 
-    --sidebar-border: 212 26% 83%;
-
-    --sidebar-ring: 200 98% 39%;
-
-    --chart-1: 198 93% 59%;
-
-    --chart-2: 213 93% 67%;
-
-    --chart-3: 215 20% 65%;
-
-    --chart-4: 215 16% 46%;
-
-    --chart-5: 215 19% 34%;
-
-    --sidebar: 210 40% 98%;
+    /* Charts - Navy and gold palette */
+    --chart-1: 205 70% 22%;  /* Navy */
+    --chart-2: 30 30% 55%;   /* Gold */
+    --chart-3: 205 60% 40%;  /* Light navy */
+    --chart-4: 30 25% 45%;   /* Dark gold */
+    --chart-5: 210 15% 60%;  /* Gray */
 
     --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
-
     --font-serif: 'Lora', ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
-
     --font-mono: 'Space Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 
     --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
-
     --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
-
     --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
-
     --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
-
     --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
-
     --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
-
     --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
-
     --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
 
     --tracking-normal: 0em;
-
     --spacing: 0.25rem;
   }
 
   .dark {
-    --background: 222 47% 11%;
+    /* Dark mode - Darker navy backgrounds */
+    --background: 210 50% 10%;
     --foreground: 210 40% 98%;
 
-    --card: 217 32% 17%;
+    --card: 210 45% 14%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 215 24% 26%;
+    --popover: 210 50% 12%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 198 93% 59%;
-    --primary-foreground: 204 80% 15%;
+    /* Primary - Lighter navy for dark mode */
+    --primary: 205 60% 45%;
+    --primary-foreground: 210 50% 10%;
 
-    --secondary: 212 26% 83%;
-    --secondary-foreground: 228 84% 4%;
+    /* Secondary */
+    --secondary: 210 20% 80%;
+    --secondary-foreground: 210 50% 10%;
 
-    --muted: 215 16% 46%;
-    --muted-foreground: 210 40% 98%;
+    /* Muted */
+    --muted: 210 30% 25%;
+    --muted-foreground: 210 40% 85%;
 
-    --accent: 228 84% 4%;
-    --accent-foreground: 215 20% 65%;
+    /* Accent - Gold (same in dark mode) */
+    --accent: 30 30% 55%;
+    --accent-foreground: 210 40% 98%;
 
+    /* Destructive */
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 85% 97%;
 
-    --border: 215 19% 34%;
-    --input: 215 19% 34%;
-    --ring: 198 93% 59%;
-    --sidebar-background: 240 5.9% 10%;
+    /* Borders */
+    --border: 210 30% 25%;
+    --input: 210 30% 25%;
+    --ring: 30 30% 55%;  /* Gold ring */
+
+    /* Sidebar - Dark navy */
+    --sidebar-background: 210 55% 8%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 198 93% 59%;
-    --sidebar-primary-foreground: 204 80% 15%;
-    --sidebar-accent: 215 20% 65%;
-    --sidebar-accent-foreground: 228 84% 4%;
-    --sidebar-border: 215 19% 34%;
-    --sidebar-ring: 198 93% 59%;
-    --chart-1: 199 95% 73%;
-    --chart-2: 211 96% 78%;
-    --chart-3: 215 20% 65%;
-    --chart-4: 215 16% 46%;
-    --chart-5: 215 19% 34%;
-    --sidebar: 217 32% 17%;
-    --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
-    --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
-    --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
-    --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
-    --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
-    --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
-    --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
-    --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+    --sidebar-primary: 30 30% 55%;  /* Gold accent */
+    --sidebar-primary-foreground: 210 50% 10%;
+    --sidebar-accent: 205 50% 35%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 210 40% 20%;
+    --sidebar-ring: 30 30% 55%;
+    --sidebar: 210 55% 8%;
+
+    /* Charts */
+    --chart-1: 205 60% 50%;
+    --chart-2: 30 30% 60%;
+    --chart-3: 205 50% 40%;
+    --chart-4: 30 25% 50%;
+    --chart-5: 210 20% 50%;
+
+    --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.15);
+    --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.15);
+    --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.2), 0 1px 2px -1px hsl(0 0% 0% / 0.2);
+    --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.2), 0 1px 2px -1px hsl(0 0% 0% / 0.2);
+    --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.2), 0 2px 4px -1px hsl(0 0% 0% / 0.2);
+    --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.2), 0 4px 6px -1px hsl(0 0% 0% / 0.2);
+    --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.2), 0 8px 10px -1px hsl(0 0% 0% / 0.2);
+    --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.35);
   }
 }
 
