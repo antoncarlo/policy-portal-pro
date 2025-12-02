@@ -121,6 +121,8 @@ export const UploadForm = () => {
     const policyStartDate = formData.get("policyStartDate") as string;
     const policyEndDate = formData.get("policyEndDate") as string;
     const notes = formData.get("notes") as string;
+    const ownerTaxCode = formData.get("ownerTaxCode") as string;
+    const petMicrochip = formData.get("petMicrochip") as string;
 
     // Validate inputs
     if (!practiceType || !clientName.trim() || !clientPhone.trim() || !clientEmail.trim()) {
@@ -296,6 +298,8 @@ export const UploadForm = () => {
           notes: notes?.trim() || null,
           user_id: session.user.id,
           client_id: clientId,
+          owner_tax_code: ownerTaxCode?.trim() || null,
+          pet_microchip: petMicrochip?.trim() || null,
           ...financialData,
         }])
         .select()
@@ -457,6 +461,51 @@ export const UploadForm = () => {
               maxLength={255}
             />
           </div>
+
+          {/* Pet-specific fields */}
+          {practiceType === 'pet' && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="ownerTaxCode">Codice Fiscale Proprietario *</Label>
+                <Input
+                  id="ownerTaxCode"
+                  name="ownerTaxCode"
+                  placeholder="RSSMRA80A01H501U"
+                  required={practiceType === 'pet'}
+                  maxLength={16}
+                  minLength={16}
+                  pattern="[A-Z0-9]{16}"
+                  className="uppercase"
+                  onChange={(e) => {
+                    e.target.value = e.target.value.toUpperCase();
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  16 caratteri alfanumerici (es: RSSMRA80A01H501U)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="petMicrochip">Codice Microchip Animale *</Label>
+                <Input
+                  id="petMicrochip"
+                  name="petMicrochip"
+                  type="text"
+                  placeholder="380260123456789"
+                  required={practiceType === 'pet'}
+                  maxLength={15}
+                  pattern="[0-9]{1,15}"
+                  onChange={(e) => {
+                    // Allow only numbers
+                    e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Massimo 15 cifre numeriche
+                </p>
+              </div>
+            </>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="beneficiary">Beneficiario</Label>
