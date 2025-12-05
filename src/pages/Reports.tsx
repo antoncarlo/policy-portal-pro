@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { DashboardLayout } from '../components/dashboard/DashboardLayout';
 import { supabase } from '../integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -207,7 +208,8 @@ export default function Reports() {
   }
 
   return (
-    <div className="space-y-6">
+    <DashboardLayout>
+      <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -482,5 +484,6 @@ export default function Reports() {
         </div>
       )}
     </div>
+    </DashboardLayout>
   );
 }
