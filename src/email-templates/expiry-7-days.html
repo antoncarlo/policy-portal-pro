@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URGENTE - Polizza in Scadenza tra 7 Giorni</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f4;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(244, 67, 54, 0.3);
+            border: 3px solid #f44336;
+        }
+        .header {
+            background: linear-gradient(135deg, #f44336 0%, #e91e63 100%);
+            padding: 40px 20px;
+            text-align: center;
+            color: white;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 32px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .urgent-banner {
+            background-color: #c62828;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            font-weight: 700;
+            font-size: 18px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .greeting {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .info-box {
+            background-color: #ffebee;
+            border: 3px solid #f44336;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 8px;
+        }
+        .info-box h3 {
+            margin: 0 0 15px 0;
+            color: #c62828;
+            font-size: 20px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 2px solid #ffcdd2;
+        }
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        .info-label {
+            font-weight: 700;
+            color: #666;
+        }
+        .info-value {
+            color: #333;
+            text-align: right;
+            font-weight: 600;
+        }
+        .alert-box {
+            background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+            border: 3px solid #d32f2f;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 25px 0;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(211, 47, 47, 0.2);
+        }
+        .alert-box strong {
+            color: #b71c1c;
+            font-size: 24px;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #f44336 0%, #e91e63 100%);
+            color: white;
+            text-decoration: none;
+            padding: 20px 50px;
+            border-radius: 30px;
+            font-weight: 700;
+            font-size: 18px;
+            margin: 20px 0;
+            transition: all 0.3s;
+            box-shadow: 0 6px 20px rgba(244, 67, 54, 0.4);
+            text-transform: uppercase;
+        }
+        .cta-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(244, 67, 54, 0.6);
+        }
+        .text-content {
+            color: #555;
+            line-height: 1.6;
+            font-size: 15px;
+            margin: 15px 0;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+        .footer strong {
+            color: #333;
+            display: block;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .contact-info {
+            margin: 15px 0;
+            line-height: 1.8;
+        }
+        .contact-info a {
+            color: #f44336;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .divider {
+            height: 1px;
+            background-color: #e9ecef;
+            margin: 30px 0;
+        }
+        .countdown-box {
+            background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+            border: 4px solid #d32f2f;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 25px 0;
+            text-align: center;
+            box-shadow: 0 6px 20px rgba(211, 47, 47, 0.3);
+        }
+        .countdown-box h2 {
+            color: #b71c1c;
+            margin: 0 0 10px 0;
+            font-size: 72px;
+            font-weight: 900;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        .countdown-box p {
+            color: #c62828;
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .critical-warning {
+            background-color: #b71c1c;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 25px 0;
+            text-align: center;
+            font-weight: 700;
+            font-size: 16px;
+        }
+        @media only screen and (max-width: 600px) {
+            .content {
+                padding: 30px 20px;
+            }
+            .header h1 {
+                font-size: 26px;
+            }
+            .countdown-box h2 {
+                font-size: 56px;
+            }
+            .info-row {
+                flex-direction: column;
+            }
+            .info-value {
+                text-align: left;
+                margin-top: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Urgent Banner -->
+        <div class="urgent-banner">
+            🚨 URGENTE - AZIONE IMMEDIATA RICHIESTA 🚨
+        </div>
+
+        <!-- Header -->
+        <div class="header">
+            <h1>⚠️ ULTIMA CHIAMATA</h1>
+            <p>La tua polizza scade tra 7 GIORNI!</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <div class="greeting">
+                Gentile <strong>{{client_name}}</strong>,
+            </div>
+
+            <p class="text-content" style="font-size: 17px; font-weight: 600; color: #c62828;">
+                <strong>ATTENZIONE: La tua polizza assicurativa scadrà tra SOLI 7 GIORNI!</strong>
+            </p>
+
+            <p class="text-content" style="font-size: 16px;">
+                Questa è l'ultima opportunità per rinnovare la tua polizza prima della scadenza. 
+                <strong>Dopo questa data, rimarrai SENZA copertura assicurativa.</strong>
+            </p>
+
+            <!-- Countdown Box -->
+            <div class="countdown-box">
+                <h2>{{days_until_expiry}}</h2>
+                <p>GIORNI ALLA SCADENZA</p>
+                <p style="font-size: 14px; margin-top: 10px; font-weight: 600;">
+                    Scadenza: {{policy_end_date}}
+                </p>
+            </div>
+
+            <!-- Critical Warning -->
+            <div class="critical-warning">
+                ⚠️ SENZA RINNOVO IMMEDIATO RIMARRAI SCOPERTO ⚠️
+            </div>
+
+            <!-- Info Box -->
+            <div class="info-box">
+                <h3>🔥 POLIZZA IN SCADENZA CRITICA</h3>
+                <div class="info-row">
+                    <span class="info-label">Numero Pratica:</span>
+                    <span class="info-value">{{practice_number}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Tipo Polizza:</span>
+                    <span class="info-value">{{practice_type}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Data Scadenza:</span>
+                    <span class="info-value"><strong style="color: #b71c1c; font-size: 16px;">{{policy_end_date}}</strong></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Giorni Rimanenti:</span>
+                    <span class="info-value"><strong style="color: #b71c1c; font-size: 20px;">{{days_until_expiry}} GIORNI</strong></span>
+                </div>
+            </div>
+
+            <!-- Alert Box -->
+            <div class="alert-box">
+                <strong>🚨 MANCANO SOLO {{days_until_expiry}} GIORNI!</strong>
+                <p style="margin: 15px 0 0 0; color: #c62828; font-size: 16px; font-weight: 600;">
+                    Contatta IMMEDIATAMENTE il tuo agente per evitare di rimanere scoperto
+                </p>
+            </div>
+
+            <p class="text-content" style="font-size: 16px;">
+                <strong style="color: #c62828;">COSA RISCHI SE NON RINNOVI:</strong>
+            </p>
+            <ul class="text-content" style="padding-left: 20px; font-size: 15px;">
+                <li><strong>Nessuna copertura:</strong> Rimarrai completamente scoperto</li>
+                <li><strong>Costi maggiori:</strong> Riattivare una polizza scaduta costa di più</li>
+                <li><strong>Procedure complesse:</strong> Potrebbero servire nuove perizie o documenti</li>
+                <li><strong>Rischio personale:</strong> Esposizione a danni economici rilevanti</li>
+            </ul>
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="mailto:{{agent_email}}" class="cta-button">
+                    🔥 RINNOVA SUBITO - CHIAMA ORA!
+                </a>
+            </div>
+
+            <div class="divider"></div>
+
+            <div style="background-color: #fff3e0; border-left: 4px solid #ff9800; padding: 20px; border-radius: 4px; margin: 25px 0;">
+                <p style="margin: 0; color: #e65100; font-weight: 700; font-size: 16px;">
+                    ⏰ TEMPO QUASI SCADUTO!
+                </p>
+                <p style="margin: 10px 0 0 0; color: #666; font-size: 14px;">
+                    Il tuo agente è disponibile per assisterti immediatamente. 
+                    Non aspettare l'ultimo giorno - potrebbero servire documenti o verifiche che richiedono tempo.
+                </p>
+            </div>
+
+            <div style="background-color: #ffebee; border: 2px solid #f44336; padding: 20px; border-radius: 8px; text-align: center;">
+                <p style="margin: 0; color: #c62828; font-weight: 700; font-size: 18px;">
+                    📞 CONTATTA IL TUO AGENTE OGGI STESSO
+                </p>
+                <p style="margin: 10px 0 0 0; color: #666; font-size: 14px;">
+                    Ogni giorno che passa riduce le tue opzioni
+                </p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <div style="background-color: #ffebee; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <strong style="color: #c62828; font-size: 18px;">⚡ CONTATTO URGENTE</strong>
+                <div class="contact-info">
+                    <strong style="font-size: 18px;">{{agent_name}}</strong><br>
+                    📧 <a href="mailto:{{agent_email}}" style="font-size: 16px;">{{agent_email}}</a><br>
+                    📱 <a href="tel:{{agent_phone}}" style="font-size: 18px;">{{agent_phone}}</a>
+                </div>
+                <p style="margin: 15px 0 0 0; color: #c62828; font-weight: 600;">
+                    Disponibile per te - Chiama ORA!
+                </p>
+            </div>
+            <div class="divider"></div>
+            <p style="font-size: 12px; color: #999; margin: 15px 0 0 0;">
+                Questa è una comunicazione automatica di promemoria scadenza URGENTE.<br>
+                Per qualsiasi informazione, contatta IMMEDIATAMENTE il tuo agente di riferimento.
+            </p>
+            <p style="font-size: 12px; color: #999; margin: 10px 0 0 0;">
+                © {{current_year}} Tecno Advance MGA - Tutti i diritti riservati
+            </p>
+        </div>
+    </div>
+</body>
+</html>

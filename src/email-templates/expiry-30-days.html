@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Promemoria Urgente Scadenza Polizza - 30 Giorni</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f4;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            padding: 40px 20px;
+            text-align: center;
+            color: white;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        .urgent-banner {
+            background-color: #ff9800;
+            color: white;
+            text-align: center;
+            padding: 15px;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .greeting {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .info-box {
+            background-color: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 4px;
+        }
+        .info-box h3 {
+            margin: 0 0 15px 0;
+            color: #e65100;
+            font-size: 18px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #ffe0b2;
+        }
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #666;
+        }
+        .info-value {
+            color: #333;
+            text-align: right;
+        }
+        .alert-box {
+            background-color: #ffebee;
+            border: 2px solid #f44336;
+            border-radius: 4px;
+            padding: 20px;
+            margin: 25px 0;
+            text-align: center;
+        }
+        .alert-box strong {
+            color: #c62828;
+            font-size: 20px;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+            text-decoration: none;
+            padding: 18px 45px;
+            border-radius: 25px;
+            font-weight: 700;
+            font-size: 17px;
+            margin: 20px 0;
+            transition: transform 0.2s;
+            box-shadow: 0 4px 15px rgba(250, 112, 154, 0.4);
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .text-content {
+            color: #555;
+            line-height: 1.6;
+            font-size: 15px;
+            margin: 15px 0;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+        .footer strong {
+            color: #333;
+            display: block;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .contact-info {
+            margin: 15px 0;
+            line-height: 1.8;
+        }
+        .contact-info a {
+            color: #fa709a;
+            text-decoration: none;
+        }
+        .divider {
+            height: 1px;
+            background-color: #e9ecef;
+            margin: 30px 0;
+        }
+        .countdown-box {
+            background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+            border: 3px solid #ff9800;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 25px 0;
+            text-align: center;
+        }
+        .countdown-box h2 {
+            color: #e65100;
+            margin: 0 0 10px 0;
+            font-size: 48px;
+        }
+        .countdown-box p {
+            color: #666;
+            margin: 0;
+            font-size: 16px;
+        }
+        @media only screen and (max-width: 600px) {
+            .content {
+                padding: 30px 20px;
+            }
+            .header h1 {
+                font-size: 24px;
+            }
+            .info-row {
+                flex-direction: column;
+            }
+            .info-value {
+                text-align: left;
+                margin-top: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Urgent Banner -->
+        <div class="urgent-banner">
+            ⚠️ PROMEMORIA URGENTE - AZIONE RICHIESTA
+        </div>
+
+        <!-- Header -->
+        <div class="header">
+            <h1>🚨 Scadenza Imminente</h1>
+            <p>La tua polizza scade tra 30 giorni</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <div class="greeting">
+                Gentile <strong>{{client_name}}</strong>,
+            </div>
+
+            <p class="text-content" style="font-size: 16px;">
+                <strong>La tua polizza assicurativa scadrà tra soli 30 giorni.</strong> 
+                È fondamentale agire immediatamente per evitare interruzioni nella copertura.
+            </p>
+
+            <!-- Countdown Box -->
+            <div class="countdown-box">
+                <h2>{{days_until_expiry}}</h2>
+                <p><strong>GIORNI ALLA SCADENZA</strong></p>
+            </div>
+
+            <!-- Info Box -->
+            <div class="info-box">
+                <h3>⚡ Dettagli Polizza in Scadenza</h3>
+                <div class="info-row">
+                    <span class="info-label">Numero Pratica:</span>
+                    <span class="info-value">{{practice_number}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Tipo Polizza:</span>
+                    <span class="info-value">{{practice_type}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Data Scadenza:</span>
+                    <span class="info-value"><strong style="color: #f44336;">{{policy_end_date}}</strong></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Giorni Rimanenti:</span>
+                    <span class="info-value"><strong style="color: #f44336; font-size: 18px;">{{days_until_expiry}} giorni</strong></span>
+                </div>
+            </div>
+
+            <!-- Alert Box -->
+            <div class="alert-box">
+                <strong>🚨 ATTENZIONE: Mancano solo {{days_until_expiry}} giorni!</strong>
+                <p style="margin: 10px 0 0 0; color: #666;">
+                    Senza rinnovo, rimarrai senza copertura assicurativa
+                </p>
+            </div>
+
+            <p class="text-content">
+                <strong style="color: #e65100;">Perché è urgente agire ora:</strong>
+            </p>
+            <ul class="text-content" style="padding-left: 20px;">
+                <li><strong>Evita interruzioni:</strong> Rimani protetto senza periodi scoperti</li>
+                <li><strong>Tempistiche strette:</strong> Serve tempo per elaborare il rinnovo</li>
+                <li><strong>Documenti necessari:</strong> Potrebbero servire aggiornamenti</li>
+                <li><strong>Migliori condizioni:</strong> Rinnova prima della scadenza per condizioni vantaggiose</li>
+            </ul>
+
+            <div style="text-align: center;">
+                <a href="mailto:{{agent_email}}" class="cta-button">
+                    🔥 RINNOVA ORA - CONTATTA L'AGENTE
+                </a>
+            </div>
+
+            <div class="divider"></div>
+
+            <p class="text-content" style="font-size: 14px; color: #c62828; background-color: #ffebee; padding: 15px; border-radius: 4px; border-left: 4px solid #f44336;">
+                <strong>⏰ NON ASPETTARE L'ULTIMO MOMENTO!</strong><br>
+                Contatta il tuo agente oggi stesso per garantire la continuità della tua copertura assicurativa. 
+                Dopo la scadenza, potresti dover affrontare procedure più complesse e costi più elevati.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <strong>Contatta Immediatamente il tuo Agente</strong>
+            <div class="contact-info">
+                <strong>{{agent_name}}</strong><br>
+                📧 <a href="mailto:{{agent_email}}">{{agent_email}}</a><br>
+                📱 <a href="tel:{{agent_phone}}">{{agent_phone}}</a>
+            </div>
+            <p style="margin: 15px 0; padding: 15px; background-color: #fff3e0; border-radius: 4px; font-size: 14px;">
+                <strong style="color: #e65100;">Disponibile per te</strong><br>
+                Il tuo agente è pronto ad assisterti immediatamente per il rinnovo
+            </p>
+            <div class="divider"></div>
+            <p style="font-size: 12px; color: #999; margin: 15px 0 0 0;">
+                Questa è una comunicazione automatica di promemoria scadenza urgente.<br>
+                Per qualsiasi informazione, contatta il tuo agente di riferimento.
+            </p>
+            <p style="font-size: 12px; color: #999; margin: 10px 0 0 0;">
+                © {{current_year}} Tecno Advance MGA - Tutti i diritti riservati
+            </p>
+        </div>
+    </div>
+</body>
+</html>

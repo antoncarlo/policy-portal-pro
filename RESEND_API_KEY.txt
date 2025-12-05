@@ -1,0 +1,15 @@
+# RESEND API KEY - Policy Portal Email Automation
+# Generated: 2024-12-05
+# Domain: notifiche.tecnomga.com
+# Status: VERIFIED
+
+VITE_RESEND_API_KEY=re_K7Ck2Qup_ENSGbHVmWKyB8J8QTQXwCocM
+VITE_EMAIL_FROM=notifiche@tecnomga.com
+VITE_EMAIL_FROM_NAME=Tecno Advance MGA
+
+# IMPORTANTE: Aggiungi queste variabili su Vercel:
+# 1. Vai su https://vercel.com/antoncarlo/policy-portal-pro/settings/environment-variables
+# 2. Aggiungi le 3 variabili sopra
+# 3. Redeploy il progetto
+
+# NOTA: Questo file NON deve essere committato su Git per sicurezza

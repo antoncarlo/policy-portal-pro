@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Promemoria Scadenza Polizza - 60 Giorni</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f4;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            padding: 40px 20px;
+            text-align: center;
+            color: white;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .greeting {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .info-box {
+            background-color: #f8f9fa;
+            border-left: 4px solid #f5576c;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 4px;
+        }
+        .info-box h3 {
+            margin: 0 0 15px 0;
+            color: #f5576c;
+            font-size: 18px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #666;
+        }
+        .info-value {
+            color: #333;
+            text-align: right;
+        }
+        .alert-box {
+            background-color: #fff3cd;
+            border: 1px solid #ff9800;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 25px 0;
+            text-align: center;
+        }
+        .alert-box strong {
+            color: #e65100;
+            font-size: 18px;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            text-decoration: none;
+            padding: 15px 40px;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 16px;
+            margin: 20px 0;
+            transition: transform 0.2s;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .text-content {
+            color: #555;
+            line-height: 1.6;
+            font-size: 15px;
+            margin: 15px 0;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+        .footer strong {
+            color: #333;
+            display: block;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .contact-info {
+            margin: 15px 0;
+            line-height: 1.8;
+        }
+        .contact-info a {
+            color: #f5576c;
+            text-decoration: none;
+        }
+        .divider {
+            height: 1px;
+            background-color: #e9ecef;
+            margin: 30px 0;
+        }
+        .highlight-box {
+            background-color: #fff8e1;
+            border: 2px dashed #ff9800;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 25px 0;
+            text-align: center;
+        }
+        .highlight-box h3 {
+            color: #e65100;
+            margin: 0 0 10px 0;
+        }
+        @media only screen and (max-width: 600px) {
+            .content {
+                padding: 30px 20px;
+            }
+            .header h1 {
+                font-size: 24px;
+            }
+            .info-row {
+                flex-direction: column;
+            }
+            .info-value {
+                text-align: left;
+                margin-top: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Header -->
+        <div class="header">
+            <h1>⏰ Promemoria Importante</h1>
+            <p>La tua polizza scade tra 60 giorni</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <div class="greeting">
+                Gentile <strong>{{client_name}}</strong>,
+            </div>
+
+            <p class="text-content">
+                La tua polizza assicurativa scadrà tra <strong>60 giorni</strong>. 
+                È il momento ideale per programmare il rinnovo e valutare eventuali miglioramenti 
+                alla tua copertura.
+            </p>
+
+            <!-- Highlight Box -->
+            <div class="highlight-box">
+                <h3>🎯 È il momento di agire!</h3>
+                <p style="margin: 10px 0 0 0; color: #666;">
+                    Contatta il tuo agente ora per rinnovare senza stress<br>
+                    e assicurarti la migliore copertura
+                </p>
+            </div>
+
+            <!-- Info Box -->
+            <div class="info-box">
+                <h3>Dettagli Polizza</h3>
+                <div class="info-row">
+                    <span class="info-label">Numero Pratica:</span>
+                    <span class="info-value">{{practice_number}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Tipo Polizza:</span>
+                    <span class="info-value">{{practice_type}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Data Scadenza:</span>
+                    <span class="info-value"><strong>{{policy_end_date}}</strong></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Giorni Rimanenti:</span>
+                    <span class="info-value"><strong style="color: #ff9800;">{{days_until_expiry}} giorni</strong></span>
+                </div>
+            </div>
+
+            <!-- Alert Box -->
+            <div class="alert-box">
+                <strong>⚠️ Scadenza tra {{days_until_expiry}} giorni - Agisci ora!</strong>
+            </div>
+
+            <p class="text-content">
+                <strong>Cosa puoi fare ora:</strong>
+            </p>
+            <ul class="text-content" style="padding-left: 20px;">
+                <li>Contatta il tuo agente per un preventivo di rinnovo</li>
+                <li>Valuta se aggiornare la copertura alle tue nuove esigenze</li>
+                <li>Confronta le opzioni disponibili per ottenere il miglior rapporto qualità-prezzo</li>
+                <li>Approfitta di eventuali sconti fedeltà o promozioni</li>
+            </ul>
+
+            <div style="text-align: center;">
+                <a href="mailto:{{agent_email}}" class="cta-button">
+                    📞 Contatta Subito il tuo Agente
+                </a>
+            </div>
+
+            <div class="divider"></div>
+
+            <p class="text-content" style="font-size: 14px; color: #666; background-color: #f8f9fa; padding: 15px; border-radius: 4px;">
+                <strong>💡 Suggerimento:</strong> Rinnovare con 60 giorni di anticipo ti permette di 
+                valutare con calma tutte le opzioni e trovare la soluzione più adatta alle tue esigenze, 
+                senza la pressione dell'ultimo momento.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <strong>Il tuo Agente di Riferimento</strong>
+            <div class="contact-info">
+                <strong>{{agent_name}}</strong><br>
+                📧 <a href="mailto:{{agent_email}}">{{agent_email}}</a><br>
+                📱 <a href="tel:{{agent_phone}}">{{agent_phone}}</a>
+            </div>
+            <div class="divider"></div>
+            <p style="font-size: 12px; color: #999; margin: 15px 0 0 0;">
+                Questa è una comunicazione automatica di promemoria scadenza.<br>
+                Per qualsiasi informazione, contatta il tuo agente di riferimento.
+            </p>
+            <p style="font-size: 12px; color: #999; margin: 10px 0 0 0;">
+                © {{current_year}} Tecno Advance MGA - Tutti i diritti riservati
+            </p>
+        </div>
+    </div>
+</body>
+</html>
