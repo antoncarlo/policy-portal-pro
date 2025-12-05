@@ -513,7 +513,7 @@ export const UploadForm = () => {
         </div>
 
         {/* Pet Insurance Calculator - Only for Pet type */}
-        {practiceType === 'pet' && (
+        {practiceType === 'Pet' && (
           <div className="border-t pt-6">
             <PetInsuranceCalculator
               onQuoteGenerated={(quote) => {
