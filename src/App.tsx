@@ -16,6 +16,7 @@ import Settings from "./pages/Settings";
 import AdminUsers from "./pages/AdminUsers";
 import UserManagement from "./pages/UserManagement";
 import Administration from "./pages/Administration";
+import Expiry from "./pages/Expiry";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
           <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
           <Route path="/user-management" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
           <Route path="/administration" element={<ProtectedRoute><Administration /></ProtectedRoute>} />
+          <Route path="/expiry" element={<ProtectedRoute><Expiry /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

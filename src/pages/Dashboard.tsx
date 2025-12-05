@@ -3,6 +3,7 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { StatsCards } from "@/components/dashboard/StatsCards";
 import { PracticesList } from "@/components/dashboard/PracticesList";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
+import { ExpiryWidget } from "@/components/dashboard/ExpiryWidget";
 
 const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -23,7 +24,8 @@ const Dashboard = () => {
           <div className="lg:col-span-2">
             <PracticesList searchQuery={searchQuery} onSearchChange={setSearchQuery} />
           </div>
-          <div>
+          <div className="space-y-6">
+            <ExpiryWidget />
             <RecentActivity />
           </div>
         </div>
