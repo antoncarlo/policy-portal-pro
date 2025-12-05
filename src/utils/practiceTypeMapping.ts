@@ -5,6 +5,7 @@ export const PRACTICE_TYPE_MAPPING: Record<string, string> = {
   "Postuma Decennale": "postuma_decennale",
   "All Risk": "all_risk",
   "RC": "responsabilita_civile",
+  "RC Professionale": "responsabilita_civile",
   "Pet": "pet",
   "Fotovoltaico": "fotovoltaico",
   "Catastrofali": "catastrofali",
