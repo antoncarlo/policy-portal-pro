@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { PetInsuranceCalculator } from "@/components/pet/PetInsuranceCalculator";
 import { DynamicPolicyFields } from "@/components/upload/DynamicPolicyFields";
+import { mapPracticeTypeToEnum } from "@/utils/practiceTypeMapping";
 
 export const UploadForm = () => {
   const { toast } = useToast();
@@ -297,7 +298,7 @@ export const UploadForm = () => {
       const { data: practice, error: practiceError } = await supabase
         .from("practices")
         .insert([{
-          practice_type: practiceType.toLowerCase().replace(/ /g, '_') as any,
+          practice_type: mapPracticeTypeToEnum(practiceType) as any,
           client_name: clientName.trim(),
           client_phone: clientPhone.trim(),
           client_email: clientEmail.trim(),
