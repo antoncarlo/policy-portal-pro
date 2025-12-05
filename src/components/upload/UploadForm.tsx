@@ -297,7 +297,7 @@ export const UploadForm = () => {
       const { data: practice, error: practiceError } = await supabase
         .from("practices")
         .insert([{
-          practice_type: practiceType as any,
+          practice_type: practiceType.toLowerCase().replace(/ /g, '_') as any,
           client_name: clientName.trim(),
           client_phone: clientPhone.trim(),
           client_email: clientEmail.trim(),
