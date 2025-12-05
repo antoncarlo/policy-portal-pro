@@ -17,6 +17,7 @@ import AdminUsers from "./pages/AdminUsers";
 import UserManagement from "./pages/UserManagement";
 import Administration from "./pages/Administration";
 import Expiry from "./pages/Expiry";
+import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,6 +42,7 @@ const App = () => (
           <Route path="/user-management" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
           <Route path="/administration" element={<ProtectedRoute><Administration /></ProtectedRoute>} />
           <Route path="/expiry" element={<ProtectedRoute><Expiry /></ProtectedRoute>} />
+          <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
