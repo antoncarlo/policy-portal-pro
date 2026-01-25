@@ -38,12 +38,33 @@ const PracticeDetail = () => {
   const { toast } = useToast();
   const [practice, setPractice] = useState<Practice | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string>('');
 
   useEffect(() => {
     if (id) {
       loadPractice();
+      loadUserRole();
     }
   }, [id]);
+
+  const loadUserRole = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id)
+        .single();
+
+      if (roleData) {
+        setUserRole(roleData.role);
+      }
+    } catch (error) {
+      console.error("Error loading user role:", error);
+    }
+  };
 
   const loadPractice = async () => {
     try {
@@ -247,6 +268,7 @@ const PracticeDetail = () => {
               practiceId={practice.id} 
               currentStatus={practice.status}
               onStatusUpdate={handleStatusUpdate}
+              userRole={userRole}
             />
             <PracticeNotes 
               practiceId={practice.id}

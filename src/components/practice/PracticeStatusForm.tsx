@@ -19,16 +19,19 @@ interface PracticeStatusFormProps {
   practiceId: string;
   currentStatus: PracticeStatus;
   onStatusUpdate: () => void;
+  userRole?: string;
 }
 
 export const PracticeStatusForm = ({ 
   practiceId, 
   currentStatus,
-  onStatusUpdate 
+  onStatusUpdate,
+  userRole 
 }: PracticeStatusFormProps) => {
   const { toast } = useToast();
   const [status, setStatus] = useState<PracticeStatus>(currentStatus);
   const [loading, setLoading] = useState(false);
+  const canEditStatus = userRole === 'admin';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,10 +78,16 @@ export const PracticeStatusForm = ({
         Gestione Stato
       </h2>
 
+      {!canEditStatus && (
+        <div className="mb-4 p-3 bg-muted/50 border border-muted rounded-md text-sm text-muted-foreground">
+          ℹ️ Solo gli amministratori possono modificare lo stato delle pratiche.
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="status">Stato Pratica</Label>
-          <Select value={status} onValueChange={(value) => setStatus(value as PracticeStatus)}>
+          <Select value={status} onValueChange={(value) => setStatus(value as PracticeStatus)} disabled={!canEditStatus}>
             <SelectTrigger id="status">
               <SelectValue />
             </SelectTrigger>
@@ -92,7 +101,7 @@ export const PracticeStatusForm = ({
           </Select>
         </div>
 
-        <Button type="submit" disabled={loading || status === currentStatus}>
+        <Button type="submit" disabled={!canEditStatus || loading || status === currentStatus}>
           {loading ? "Aggiornamento..." : "Aggiorna Stato"}
         </Button>
       </form>
