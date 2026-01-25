@@ -189,10 +189,7 @@ export const PetInsuranceCalculator = ({ onQuoteGenerated }: PetInsuranceCalcula
                       <div className="flex items-start space-x-3 flex-1">
                         <RadioGroupItem value={coverage.id} id={coverage.id} className="mt-1" />
                         <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <div className="font-medium">{coverage.name}</div>
-                            <div className="text-sm font-semibold text-primary">€{coverage.price}/anno</div>
-                          </div>
+                          <div className="font-medium">{coverage.name}</div>
                           <div className="text-xs text-muted-foreground mt-1">
                             {coverage.description}
                           </div>
@@ -243,10 +240,7 @@ export const PetInsuranceCalculator = ({ onQuoteGenerated }: PetInsuranceCalcula
                       <div className="flex items-start space-x-3 flex-1">
                         <RadioGroupItem value={coverage.id} id={coverage.id} className="mt-1" />
                         <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <div className="font-medium">{coverage.name}</div>
-                            <div className="text-sm font-semibold text-primary">€{coverage.price}/anno</div>
-                          </div>
+                          <div className="font-medium">{coverage.name}</div>
                           <div className="text-xs text-muted-foreground mt-1">
                             {coverage.description}
                           </div>
@@ -280,10 +274,7 @@ export const PetInsuranceCalculator = ({ onQuoteGenerated }: PetInsuranceCalcula
                     className="mt-1"
                   />
                   <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <div className="font-medium">Tutela Legale Standard</div>
-                      <div className="text-sm font-semibold text-primary">€32/anno</div>
-                    </div>
+                    <div className="font-medium">Tutela Legale Standard</div>
                     <div className="text-xs text-muted-foreground mt-1">
                       Copertura standard - Assistenza legale
                     </div>
