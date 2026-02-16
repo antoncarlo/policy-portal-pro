@@ -118,6 +118,16 @@ const AdminUsers = () => {
   const handleCreateUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
+    // Validate product selection for agente/collaboratore
+    if ((selectedRole === "agente" || selectedRole === "collaboratore") && selectedProducts.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Selezione prodotti richiesta",
+        description: "Seleziona almeno un prodotto per questo ruolo.",
+      });
+      return;
+    }
+    
     const formData = new FormData(e.currentTarget);
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
@@ -319,6 +329,9 @@ const AdminUsers = () => {
                     </Label>
                     <div className="text-sm text-muted-foreground mb-2">
                       Seleziona quali tipologie di polizze l'utente può gestire
+                      {selectedProducts.length > 0 && (
+                        <span className="ml-2 font-semibold text-primary">({selectedProducts.length} selezionati)</span>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto border rounded-md p-3">
                       {[
