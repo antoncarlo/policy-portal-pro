@@ -37,6 +37,7 @@ export const UploadForm = () => {
   const [practiceType, setPracticeType] = useState("");
   const [petQuote, setPetQuote] = useState<any>(null);
   const [dynamicFields, setDynamicFields] = useState<Record<string, any>>({});
+  const [allowedPracticeTypes, setAllowedPracticeTypes] = useState<string[]>([]);
 
   // Load user's default commission percentage
   useEffect(() => {
@@ -68,6 +69,39 @@ export const UploadForm = () => {
 
       if (userRole && userRole.role === 'admin') {
         setIsAdmin(true);
+        // Admin can access all practice types
+        setAllowedPracticeTypes([
+          "Fidejussioni", "Car", "Postuma Decennale", "All Risk", "RC",
+          "Pet", "Fotovoltaico", "Catastrofali", "Azienda", "Casa", "Risparmio", "Salute"
+        ]);
+      } else {
+        // Load user's allowed practice types
+        const { data: permissions } = await supabase
+          .from("user_product_permissions")
+          .select("practice_type")
+          .eq("user_id", session.user.id);
+
+        if (permissions && permissions.length > 0) {
+          // Map enum values back to Title Case for UI
+          const typeMapping: Record<string, string> = {
+            "fidejussioni": "Fidejussioni",
+            "car": "Car",
+            "postuma_decennale": "Postuma Decennale",
+            "all_risk": "All Risk",
+            "responsabilita_civile": "RC",
+            "pet": "Pet",
+            "fotovoltaico": "Fotovoltaico",
+            "catastrofali": "Catastrofali",
+            "azienda": "Azienda",
+            "casa": "Casa",
+            "risparmio": "Risparmio",
+            "salute": "Salute",
+          };
+          const allowed = permissions.map(p => typeMapping[p.practice_type] || p.practice_type);
+          setAllowedPracticeTypes(allowed);
+        } else {
+          setAllowedPracticeTypes([]);
+        }
       }
     } catch (error) {
       console.error("Error loading user data:", error);
@@ -411,18 +445,17 @@ export const UploadForm = () => {
                 <SelectValue placeholder="Seleziona tipo" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Fidejussioni">Fidejussioni</SelectItem>
-                <SelectItem value="Car">Car</SelectItem>
-                <SelectItem value="Postuma Decennale">Postuma Decennale</SelectItem>
-                <SelectItem value="All Risk">All Risk</SelectItem>
-                <SelectItem value="RC">RC Professionale</SelectItem>
-                <SelectItem value="Pet">Pet</SelectItem>
-                <SelectItem value="Fotovoltaico">Fotovoltaico</SelectItem>
-                <SelectItem value="Catastrofali">Catastrofali</SelectItem>
-                <SelectItem value="Azienda">Azienda</SelectItem>
-                <SelectItem value="Casa">Casa</SelectItem>
-                <SelectItem value="Risparmio">Risparmio</SelectItem>
-                <SelectItem value="Salute">Salute</SelectItem>
+                {allowedPracticeTypes.length === 0 ? (
+                  <div className="p-2 text-sm text-muted-foreground text-center">
+                    Nessun prodotto assegnato. Contatta l'amministratore.
+                  </div>
+                ) : (
+                  allowedPracticeTypes.map(type => (
+                    <SelectItem key={type} value={type}>
+                      {type === "RC" ? "RC Professionale" : type}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>

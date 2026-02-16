@@ -63,9 +63,43 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
   const loadPractices = async () => {
     setLoading(true);
     
+    // Get current user's session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setLoading(false);
+      return;
+    }
+
+    // Check if user is admin
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", session.user.id)
+      .single();
+
+    const isAdmin = roleData?.role === 'admin';
+
     let query = supabase
       .from("practices")
       .select("id, practice_number, practice_type, client_name, policy_number, status, created_at, user_id");
+
+    // Filter by allowed practice types if not admin
+    if (!isAdmin) {
+      const { data: permissions } = await supabase
+        .from("user_product_permissions")
+        .select("practice_type")
+        .eq("user_id", session.user.id);
+
+      if (permissions && permissions.length > 0) {
+        const allowedTypes = permissions.map(p => p.practice_type);
+        query = query.in("practice_type", allowedTypes);
+      } else {
+        // User has no permissions, return empty
+        setPractices([]);
+        setLoading(false);
+        return;
+      }
+    }
 
     // Apply filters
     if (filters.practiceType !== "all") {

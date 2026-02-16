@@ -28,7 +28,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Shield, Users as UsersIcon } from "lucide-react";
+import { UserPlus, Shield, Users as UsersIcon, Package } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -50,6 +50,8 @@ const AdminUsers = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [selectedRole, setSelectedRole] = useState<UserRole | "">("");
 
   useEffect(() => {
     checkAdminAccess();
@@ -165,12 +167,38 @@ const AdminUsers = () => {
         return;
       }
 
+      // Assign product permissions for agente and collaboratore
+      if (role === "agente" || role === "collaboratore") {
+        if (selectedProducts.length > 0) {
+          const { error: permError } = await supabase
+            .from("user_product_permissions")
+            .insert(
+              selectedProducts.map(productType => ({
+                user_id: authData.user.id,
+                practice_type: productType,
+                created_by: session?.user.id,
+              }))
+            );
+
+          if (permError) {
+            toast({
+              variant: "destructive",
+              title: "Errore assegnazione prodotti",
+              description: permError.message,
+            });
+            return;
+          }
+        }
+      }
+
       toast({
         title: "Utente creato!",
-        description: `${fullName} è stato creato con ruolo ${role}.`,
+        description: `${fullName} è stato creato con ruolo ${role}${selectedProducts.length > 0 ? ` con ${selectedProducts.length} prodotti assegnati` : ''}.`,
       });
 
       setDialogOpen(false);
+      setSelectedProducts([]);
+      setSelectedRole("");
       loadUsers();
       e.currentTarget.reset();
     }
@@ -256,7 +284,7 @@ const AdminUsers = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="role">Ruolo</Label>
-                  <Select name="role" required>
+                  <Select name="role" required onValueChange={(value) => setSelectedRole(value as UserRole)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Seleziona ruolo" />
                     </SelectTrigger>
@@ -282,6 +310,51 @@ const AdminUsers = () => {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {(selectedRole === "agente" || selectedRole === "collaboratore") && (
+                  <div className="space-y-2">
+                    <Label>
+                      <Package className="h-4 w-4 inline mr-2" />
+                      Prodotti Consentiti
+                    </Label>
+                    <div className="text-sm text-muted-foreground mb-2">
+                      Seleziona quali tipologie di polizze l'utente può gestire
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto border rounded-md p-3">
+                      {[
+                        { value: "pet", label: "Pet" },
+                        { value: "car", label: "Car" },
+                        { value: "casa", label: "Casa" },
+                        { value: "salute", label: "Salute" },
+                        { value: "fidejussioni", label: "Fidejussioni" },
+                        { value: "postuma_decennale", label: "Postuma Decennale" },
+                        { value: "all_risk", label: "All Risk" },
+                        { value: "responsabilita_civile", label: "RC" },
+                        { value: "fotovoltaico", label: "Fotovoltaico" },
+                        { value: "catastrofali", label: "Catastrofali" },
+                        { value: "azienda", label: "Azienda" },
+                        { value: "risparmio", label: "Risparmio" },
+                      ].map((product) => (
+                        <label key={product.value} className="flex items-center space-x-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            value={product.value}
+                            checked={selectedProducts.includes(product.value)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedProducts([...selectedProducts, product.value]);
+                              } else {
+                                setSelectedProducts(selectedProducts.filter(p => p !== product.value));
+                              }
+                            }}
+                            className="rounded border-gray-300"
+                          />
+                          <span className="text-sm">{product.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <Button type="submit" className="w-full">
                   Crea Utente
