@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Mail, User, Phone, Shield, Percent } from "lucide-react";
+import { Loader2, Mail, User, Phone, Shield, Percent, Package } from "lucide-react";
 
 interface InviteUserDialogProps {
   open: boolean;
@@ -34,6 +34,7 @@ export const InviteUserDialog = ({
 }: InviteUserDialogProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     email: "",
     full_name: "",
@@ -68,6 +69,16 @@ export const InviteUserDialog = ({
       return;
     }
 
+    // Validate product selection for agente/collaboratore
+    if ((formData.role === "agente" || formData.role === "collaboratore") && selectedProducts.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Selezione prodotti richiesta",
+        description: "Seleziona almeno un prodotto per questo ruolo.",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       // Get session token for authorization
@@ -91,6 +102,7 @@ export const InviteUserDialog = ({
           phone: formData.phone,
           role: formData.role,
           default_commission_percentage: parseFloat(formData.default_commission_percentage) || 0,
+          allowed_products: selectedProducts,
         }),
       });
 
@@ -118,6 +130,7 @@ export const InviteUserDialog = ({
 
       onSuccess();
       onOpenChange(false);
+      setSelectedProducts([]);
       setFormData({
         email: "",
         full_name: "",
@@ -227,6 +240,54 @@ export const InviteUserDialog = ({
               </SelectContent>
             </Select>
           </div>
+
+          {(formData.role === "agente" || formData.role === "collaboratore") && (
+            <div className="space-y-2">
+              <Label>
+                <Package className="h-4 w-4 inline mr-2" />
+                Prodotti Consentiti
+              </Label>
+              <div className="text-sm text-muted-foreground mb-2">
+                Seleziona quali tipologie di polizze l'utente può gestire
+                {selectedProducts.length > 0 && (
+                  <span className="ml-2 font-semibold text-primary">({selectedProducts.length} selezionati)</span>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto border rounded-md p-3">
+                {[
+                  { value: "pet", label: "Pet" },
+                  { value: "car", label: "Car" },
+                  { value: "casa", label: "Casa" },
+                  { value: "salute", label: "Salute" },
+                  { value: "fidejussioni", label: "Fidejussioni" },
+                  { value: "postuma_decennale", label: "Postuma Decennale" },
+                  { value: "all_risk", label: "All Risk" },
+                  { value: "responsabilita_civile", label: "RC" },
+                  { value: "fotovoltaico", label: "Fotovoltaico" },
+                  { value: "catastrofali", label: "Catastrofali" },
+                  { value: "azienda", label: "Azienda" },
+                  { value: "risparmio", label: "Risparmio" },
+                ].map((product) => (
+                  <label key={product.value} className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      value={product.value}
+                      checked={selectedProducts.includes(product.value)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedProducts([...selectedProducts, product.value]);
+                        } else {
+                          setSelectedProducts(selectedProducts.filter(p => p !== product.value));
+                        }
+                      }}
+                      className="rounded border-gray-300"
+                    />
+                    <span className="text-sm">{product.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="commission">

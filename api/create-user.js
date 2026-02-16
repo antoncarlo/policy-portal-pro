@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   try {
     console.log('=== CREATE USER API START ===')
     
-    const { email, password, full_name, phone, role, default_commission_percentage } = req.body
+    const { email, password, full_name, phone, role, default_commission_percentage, allowed_products } = req.body
 
     // Validate required fields
     if (!email || !password || !full_name || !role) {
@@ -146,7 +146,33 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Errore assegnazione ruolo: ' + roleError.message })
     }
 
-    console.log('Role created, user setup complete')
+    console.log('Role created')
+
+    // Insert product permissions for agente/collaboratore
+    if ((role === 'agente' || role === 'collaboratore') && allowed_products && allowed_products.length > 0) {
+      const { error: permError } = await supabaseAdmin
+        .from('user_product_permissions')
+        .insert(
+          allowed_products.map(productType => ({
+            user_id: authData.user.id,
+            practice_type: productType,
+            created_by: user.id,
+          }))
+        )
+
+      if (permError) {
+        console.error('Product permissions error:', permError)
+        // Rollback
+        await supabaseAdmin.from('user_roles').delete().eq('user_id', authData.user.id)
+        await supabaseAdmin.from('profiles').delete().eq('id', authData.user.id)
+        await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+        return res.status(400).json({ error: 'Errore assegnazione prodotti: ' + permError.message })
+      }
+
+      console.log(`Product permissions created: ${allowed_products.length} products`)
+    }
+
+    console.log('User setup complete')
     console.log('=== CREATE USER API SUCCESS ===')
 
     return res.status(200).json({
