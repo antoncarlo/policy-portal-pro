@@ -152,7 +152,7 @@ export const InviteUserDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Invita Nuovo Utente</DialogTitle>
           <DialogDescription>
@@ -160,7 +160,7 @@ export const InviteUserDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 py-4">
+        <form onSubmit={handleSubmit} className="space-y-4 py-4 overflow-y-auto max-h-[60vh]">
           <div className="space-y-2">
             <Label htmlFor="full_name">
               Nome Completo <span className="text-red-500">*</span>
