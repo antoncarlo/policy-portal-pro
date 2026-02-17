@@ -4,13 +4,14 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, Phone, Mail, FileText } from "lucide-react";
+import { ArrowLeft, Calendar, User, Phone, Mail, FileText, FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { PracticeTimeline } from "@/components/practice/PracticeTimeline";
 import { PracticeDocuments } from "@/components/practice/PracticeDocuments";
 import { PracticeStatusForm } from "@/components/practice/PracticeStatusForm";
 import { PracticeNotes } from "@/components/practice/PracticeNotes";
+import { generatePetPolicyPDF } from "@/utils/petPdfGenerator";
 
 type PracticeStatus = "in_lavorazione" | "in_attesa" | "approvata" | "rifiutata" | "completata";
 type PracticeType = "fidejussioni" | "car" | "postuma_decennale" | "all_risk" | "responsabilita_civile" | "pet" | "fotovoltaico" | "catastrofali" | "azienda" | "casa" | "risparmio" | "salute" | "auto" | "vita" | "responsabilita" | "altro";
@@ -136,6 +137,69 @@ const PracticeDetail = () => {
     loadPractice();
   };
 
+  const handleDownloadPDF = async () => {
+    if (!practice || practice.practice_type !== 'pet') return;
+
+    try {
+      // Parse notes to get pet policy data
+      const notes = practice.notes ? JSON.parse(practice.notes) : {};
+      
+      const pdfData = {
+        practiceNumber: practice.practice_number,
+        clientName: practice.client_name,
+        clientEmail: practice.client_email,
+        clientPhone: practice.client_phone,
+        petName: notes.pet_name || 'N/A',
+        petSpecies: notes.pet_species || 'N/A',
+        petBreed: notes.pet_breed,
+        petBirthDate: notes.pet_birth_date || new Date().toISOString(),
+        petGender: notes.pet_gender || 'N/A',
+        petWeight: notes.pet_weight,
+        coverages: {
+          rsv: notes.rsv_coverage ? {
+            type: notes.rsv_coverage,
+            maxAmount: notes.rsv_max_amount || 'N/A',
+            deductible: notes.rsv_deductible || '10% min 100 EUR',
+            description: 'Rimborso delle spese veterinarie sostenute per cure mediche, interventi chirurgici e ricoveri. Massimo 2 sinistri all'anno.'
+          } : undefined,
+          rct: notes.rct_coverage ? {
+            type: notes.rct_coverage,
+            maxAmount: notes.rct_max_amount || 'N/A',
+            waitingPeriod: notes.rct_waiting_period || '30 giorni',
+            description: 'Copertura per danni involontari causati dal tuo animale a terze persone o cose.'
+          } : undefined,
+          assistance: {
+            included: true,
+            description: 'Servizio di assistenza veterinaria telefonica 24/7, ricerca strutture convenzionate, consulenza medica.'
+          },
+          legalProtection: notes.legal_protection ? {
+            included: true,
+            cost: notes.legal_protection_cost || '32 EUR/anno'
+          } : undefined,
+        },
+        premiumAnnual: notes.premium_annual || 'N/A',
+        premiumMonthly: notes.premium_monthly || 'N/A',
+        policyStartDate: practice.policy_start_date,
+        policyEndDate: practice.policy_end_date,
+      };
+
+      const pdf = generatePetPolicyPDF(pdfData);
+      pdf.save(`Riepilogo_Polizza_Pet_${practice.practice_number}.pdf`);
+
+      toast({
+        title: 'PDF Generato',
+        description: 'Il riepilogo della polizza è stato scaricato con successo.',
+      });
+    } catch (error: any) {
+      console.error('Error generating PDF:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Errore',
+        description: 'Impossibile generare il PDF. Verifica che i dati della polizza siano completi.',
+      });
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -179,6 +243,17 @@ const PracticeDetail = () => {
                 {getPracticeTypeLabel(practice.practice_type)}
               </p>
             </div>
+            {practice.practice_type === 'pet' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadPDF}
+                className="flex items-center gap-2"
+              >
+                <FileDown className="h-4 w-4" />
+                Scarica Riepilogo PDF
+              </Button>
+            )}
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
