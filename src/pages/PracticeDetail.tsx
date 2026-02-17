@@ -142,7 +142,25 @@ const PracticeDetail = () => {
 
     try {
       // Parse notes to get pet policy data
-      const notes = practice.notes ? JSON.parse(practice.notes) : {};
+      let notes = {};
+      if (practice.notes) {
+        // Check if notes contain the header format
+        if (practice.notes.includes('--- Dati Specifici Polizza ---')) {
+          // Extract JSON part after the header
+          const jsonPart = practice.notes.split('--- Dati Specifici Polizza ---')[1]?.trim();
+          if (jsonPart) {
+            notes = JSON.parse(jsonPart);
+          }
+        } else {
+          // Try to parse as plain JSON
+          try {
+            notes = JSON.parse(practice.notes);
+          } catch {
+            // If parsing fails, notes remain empty object
+            notes = {};
+          }
+        }
+      }
       
       const pdfData = {
         practiceNumber: practice.practice_number,
