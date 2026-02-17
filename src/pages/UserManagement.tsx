@@ -12,6 +12,7 @@ import { OrganizationalChart } from "@/components/admin/users/OrganizationalChar
 import { EditRoleDialog } from "@/components/admin/users/EditRoleDialog";
 import { AssignAgentDialog } from "@/components/admin/users/AssignAgentDialog";
 import { InviteUserDialog } from "@/components/admin/users/InviteUserDialog";
+import { EditUserProductsDialog } from "@/components/admin/users/EditUserProductsDialog";
 import * as XLSX from "xlsx";
 
 interface User {
@@ -35,6 +36,7 @@ const UserManagement = () => {
   const [viewMode, setViewMode] = useState<"table" | "org">("table");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [editRoleDialogOpen, setEditRoleDialogOpen] = useState(false);
+  const [editProductsDialogOpen, setEditProductsDialogOpen] = useState(false);
   const [assignAgentDialogOpen, setAssignAgentDialogOpen] = useState(false);
   const [inviteUserDialogOpen, setInviteUserDialogOpen] = useState(false);
 
@@ -113,6 +115,11 @@ const UserManagement = () => {
   const handleAssignAgent = (user: User) => {
     setSelectedUser(user);
     setAssignAgentDialogOpen(true);
+  };
+
+  const handleEditProducts = (user: User) => {
+    setSelectedUser(user);
+    setEditProductsDialogOpen(true);
   };
 
   const handleViewPractices = (user: User) => {
@@ -234,6 +241,7 @@ const UserManagement = () => {
         <UserTable
           users={filteredUsers}
           onEditRole={handleEditRole}
+          onEditProducts={handleEditProducts}
           onAssignAgent={handleAssignAgent}
           onViewPractices={handleViewPractices}
           onDisableUser={handleDisableUser}
@@ -262,6 +270,17 @@ const UserManagement = () => {
         onOpenChange={setInviteUserDialogOpen}
         onSuccess={loadUsers}
       />
+
+      {selectedUser && (
+        <EditUserProductsDialog
+          open={editProductsDialogOpen}
+          onOpenChange={setEditProductsDialogOpen}
+          userId={selectedUser.id}
+          userName={selectedUser.full_name}
+          userRole={selectedUser.role}
+          onSuccess={loadUsers}
+        />
+      )}
     </div>
     </DashboardLayout>
   );

@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MoreVertical, Eye, Edit, Link2, BarChart3, Ban, Trash2 } from "lucide-react";
+import { MoreVertical, Eye, Edit, Link2, BarChart3, Ban, Trash2, Package } from "lucide-react";
 
 interface User {
   id: string;
@@ -33,6 +33,7 @@ interface User {
 interface UserTableProps {
   users: User[];
   onEditRole: (user: User) => void;
+  onEditProducts: (user: User) => void;
   onAssignAgent: (user: User) => void;
   onViewPractices: (user: User) => void;
   onDisableUser: (user: User) => void;
@@ -42,6 +43,7 @@ interface UserTableProps {
 export const UserTable = ({
   users,
   onEditRole,
+  onEditProducts,
   onAssignAgent,
   onViewPractices,
   onDisableUser,
@@ -125,6 +127,12 @@ export const UserTable = ({
                         <Edit className="h-4 w-4 mr-2" />
                         Modifica Ruolo
                       </DropdownMenuItem>
+                      {(user.role === "agente" || user.role === "collaboratore") && (
+                        <DropdownMenuItem onClick={() => onEditProducts(user)}>
+                          <Package className="h-4 w-4 mr-2" />
+                          Gestisci Prodotti
+                        </DropdownMenuItem>
+                      )}
                       {user.role === "collaboratore" && (
                         <DropdownMenuItem onClick={() => onAssignAgent(user)}>
                           <Link2 className="h-4 w-4 mr-2" />
