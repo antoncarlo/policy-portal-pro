@@ -14,7 +14,23 @@ interface PracticeNotesProps {
 
 export const PracticeNotes = ({ practiceId, initialNotes }: PracticeNotesProps) => {
   const { toast } = useToast();
-  const [notes, setNotes] = useState(initialNotes);
+  
+  // Filter out JSON data and show only textual notes
+  const getTextualNotes = (notesContent: string) => {
+    if (!notesContent) return '';
+    
+    try {
+      // Try to parse as JSON
+      JSON.parse(notesContent);
+      // If it's valid JSON (policy data), return empty string
+      return '';
+    } catch {
+      // If it's not JSON, it's textual notes - return as is
+      return notesContent;
+    }
+  };
+  
+  const [notes, setNotes] = useState(getTextualNotes(initialNotes));
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
