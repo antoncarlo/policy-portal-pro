@@ -19,13 +19,19 @@ export const PracticeNotes = ({ practiceId, initialNotes }: PracticeNotesProps) 
   const getTextualNotes = (notesContent: string) => {
     if (!notesContent) return '';
     
+    // Check if content contains the policy data header
+    if (notesContent.includes('--- Dati Specifici Polizza ---')) {
+      // This is policy data, return empty string
+      return '';
+    }
+    
     try {
       // Try to parse as JSON
       JSON.parse(notesContent);
       // If it's valid JSON (policy data), return empty string
       return '';
     } catch {
-      // If it's not JSON, it's textual notes - return as is
+      // If it's not JSON and doesn't have the header, it's textual notes - return as is
       return notesContent;
     }
   };
