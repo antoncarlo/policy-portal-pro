@@ -160,7 +160,7 @@ const PracticeDetail = () => {
             type: notes.rsv_coverage,
             maxAmount: notes.rsv_max_amount || 'N/A',
             deductible: notes.rsv_deductible || '10% min 100 EUR',
-            description: 'Rimborso delle spese veterinarie sostenute per cure mediche, interventi chirurgici e ricoveri. Massimo 2 sinistri all'anno.'
+            description: 'Rimborso delle spese veterinarie sostenute per cure mediche, interventi chirurgici e ricoveri. Massimo 2 sinistri all\'anno.'
           } : undefined,
           rct: notes.rct_coverage ? {
             type: notes.rct_coverage,
