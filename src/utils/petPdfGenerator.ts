@@ -82,17 +82,7 @@ export const generatePetPolicyPDF = (data: PetPolicyData) => {
   yPosition = 50;
   doc.setTextColor(0, 0, 0);
 
-  // Practice Number
-  addText(`Numero Pratica: ${data.practiceNumber}`, 10, true);
-  addSpace(3);
-  if (data.policyStartDate) {
-    addText(`Data Inizio: ${new Date(data.policyStartDate).toLocaleDateString('it-IT')}`, 9);
-  }
-  if (data.policyEndDate) {
-    addText(`Data Fine: ${new Date(data.policyEndDate).toLocaleDateString('it-IT')}`, 9);
-  }
   addSpace(10);
-  addLine();
 
   // Client Information
   addText('DATI CONTRAENTE', 12, true);
