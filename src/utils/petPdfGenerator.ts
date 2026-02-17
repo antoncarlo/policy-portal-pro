@@ -78,7 +78,7 @@ export const generatePetPolicyPDF = (data: PetPolicyData) => {
   doc.setFillColor(41, 98, 255);
   doc.rect(0, 0, pageWidth, 40, 'F');
   doc.setTextColor(255, 255, 255);
-  addText('RIEPILOGO POLIZZA PET', 20, true, 'center');
+  addText('SCHEDA RICHIESTA NUOVA COPERTURA', 20, true, 'center');
   yPosition = 50;
   doc.setTextColor(0, 0, 0);
 
