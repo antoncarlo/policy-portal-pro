@@ -12,8 +12,9 @@ import { ActivityLogs } from "@/components/settings/admin/ActivityLogs";
 import { BackupSettings } from "@/components/settings/admin/BackupSettings";
 import { SMTPSettings } from "@/components/settings/admin/SMTPSettings";
 import { ApiLogsSettings } from "@/components/settings/admin/ApiLogsSettings";
+import { ApiKeysSettings } from "@/components/settings/admin/ApiKeysSettings";
 import { SessionsSettings } from "@/components/settings/SessionsSettings";
-import { User, Lock, Settings2, Users, FileText, Shield, BarChart3, Activity, Database, Mail, Monitor, Webhook } from "lucide-react";
+import { User, Lock, Settings2, Users, FileText, Shield, BarChart3, Activity, Database, Mail, Monitor, Webhook, Key } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const Settings = () => {
@@ -58,7 +59,7 @@ const Settings = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className={`grid w-full ${showAdminTabs ? 'grid-cols-13' : showAgentTabs ? 'grid-cols-6' : 'grid-cols-4'} lg:w-auto lg:inline-grid`}>
+          <TabsList className={`grid w-full ${showAdminTabs ? 'grid-cols-14' : showAgentTabs ? 'grid-cols-6' : 'grid-cols-4'} lg:w-auto lg:inline-grid`}>
             <TabsTrigger value="profile" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">Profilo</span>
@@ -116,6 +117,10 @@ const Settings = () => {
                   <Webhook className="h-4 w-4" />
                   <span className="hidden sm:inline">API Logs</span>
                 </TabsTrigger>
+                <TabsTrigger value="api-keys" className="flex items-center gap-2">
+                  <Key className="h-4 w-4" />
+                  <span className="hidden sm:inline">Chiavi API</span>
+                </TabsTrigger>
               </>
             )}
           </TabsList>
@@ -172,6 +177,10 @@ const Settings = () => {
 
               <TabsContent value="api-logs" className="space-y-4">
                 <ApiLogsSettings />
+              </TabsContent>
+
+              <TabsContent value="api-keys" className="space-y-4">
+                <ApiKeysSettings />
               </TabsContent>
             </>
           )}
