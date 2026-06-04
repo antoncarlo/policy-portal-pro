@@ -205,6 +205,7 @@ async function logRequest(
     practice_id?: string;
     error_message?: string;
     request_body_size: number;
+    api_key_id?: string;
   }
 ): Promise<void> {
   await supabaseAdmin.from('api_logs').insert(data).then(({ error }) => {
@@ -243,6 +244,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const apiKey = req.headers['x-api-key'] as string | undefined;
   const apiKeyMasked = apiKey ? `${apiKey.slice(0, 4)}****` : 'none';
 
+  let resolvedKeyRecord: { id: string; is_active: boolean; expires_at: string | null } | null = null;
+
   const logAndRespond = async (
     statusCode: number,
     body: object,
@@ -258,6 +261,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       practice_id: extraLog?.practice_id,
       error_message: extraLog?.error_message,
       request_body_size: extraLog?.size ?? 0,
+      api_key_id: resolvedKeyRecord?.id,
     });
     return res.status(statusCode).json(body);
   };
@@ -280,18 +284,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return logAndRespond(429, { error: 'Troppe richieste. Riprova tra qualche secondo.', retry_after: retryAfter });
   }
 
-  // 4. API Key
-  const portalApiKey = process.env.PORTAL_API_KEY;
-  if (!portalApiKey || !apiKey) {
+  // 4. API Key — validate against api_keys table (DB-based multi-tenant)
+  if (!apiKey) {
     return logAndRespond(401, { error: 'X-API-Key header mancante.' });
   }
-  const expectedKeyBuf = Buffer.from(portalApiKey, 'utf8');
-  const providedKeyBuf = Buffer.from(apiKey, 'utf8');
-  if (
-    expectedKeyBuf.length !== providedKeyBuf.length ||
-    !crypto.timingSafeEqual(expectedKeyBuf, providedKeyBuf)
-  ) {
-    return logAndRespond(401, { error: 'API Key non valida.' }, { error_message: 'Invalid API key' });
+
+  const keyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
+  const { data: dbKeyRecord } = await supabaseAdmin
+    .from('api_keys')
+    .select('id, is_active, expires_at')
+    .eq('key_hash', keyHash)
+    .maybeSingle();
+  resolvedKeyRecord = dbKeyRecord;
+  const keyRecord = dbKeyRecord;
+
+  // Fallback: accept legacy PORTAL_API_KEY env var if no DB keys exist yet
+  const legacyKey = process.env.PORTAL_API_KEY;
+  const legacyMatch = legacyKey
+    ? (() => {
+        const a = Buffer.from(legacyKey, 'utf8');
+        const b = Buffer.from(apiKey, 'utf8');
+        return a.length === b.length && crypto.timingSafeEqual(a, b);
+      })()
+    : false;
+
+  if (!keyRecord && !legacyMatch) {
+    return logAndRespond(401, { error: 'API Key non valida.' }, { error_message: 'Key not found in DB' });
+  }
+
+  if (keyRecord) {
+    if (!keyRecord.is_active) {
+      return logAndRespond(401, { error: 'API Key disattivata.' }, { error_message: 'Key inactive' });
+    }
+    if (keyRecord.expires_at && new Date(keyRecord.expires_at) < new Date()) {
+      return logAndRespond(401, { error: 'API Key scaduta.' }, { error_message: 'Key expired' });
+    }
+    // Update last_used_at (fire-and-forget)
+    supabaseAdmin
+      .from('api_keys')
+      .update({ last_used_at: new Date().toISOString() })
+      .eq('id', keyRecord.id)
+      .then(() => {});
   }
 
   // 5. HMAC signature
@@ -413,6 +446,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         notes: notes || null,
         user_id: defaultUserId,
         status: 'in_lavorazione',
+        api_key_id: keyRecord?.id ?? null,
       })
       .select('id, practice_number')
       .single();
@@ -462,6 +496,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       status_code: 200,
       practice_id: practice.id,
       request_body_size: bodySize,
+      api_key_id: keyRecord?.id,
     });
 
     return res.status(200).json({
@@ -482,6 +517,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       status_code: 500,
       error_message: message,
       request_body_size: bodySize,
+      api_key_id: keyRecord?.id,
     });
     return res.status(500).json({ error: 'Errore interno del server.' });
   }
