@@ -290,26 +290,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const keyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
-  const { data: dbKeyRecord } = await supabaseAdmin
+  const { data: dbKeyRecord, error: keyLookupError } = await supabaseAdmin
     .from('api_keys')
     .select('id, is_active, expires_at')
     .eq('key_hash', keyHash)
     .maybeSingle();
+
+  if (keyLookupError) {
+    console.error('api_keys lookup failed:', keyLookupError.message);
+    return logAndRespond(503, { error: 'Servizio temporaneamente non disponibile.' }, { error_message: `DB error: ${keyLookupError.message}` });
+  }
+
   resolvedKeyRecord = dbKeyRecord;
   const keyRecord = dbKeyRecord;
 
-  // Fallback: accept legacy PORTAL_API_KEY env var if no DB keys exist yet
-  const legacyKey = process.env.PORTAL_API_KEY;
-  const legacyMatch = legacyKey
-    ? (() => {
-        const a = Buffer.from(legacyKey, 'utf8');
-        const b = Buffer.from(apiKey, 'utf8');
-        return a.length === b.length && crypto.timingSafeEqual(a, b);
-      })()
-    : false;
+  if (!keyRecord) {
+    // Fallback: accept legacy PORTAL_API_KEY env var if no DB keys exist yet
+    const legacyKey = process.env.PORTAL_API_KEY;
+    const legacyMatch = legacyKey
+      ? (() => {
+          const a = Buffer.from(legacyKey, 'utf8');
+          const b = Buffer.from(apiKey, 'utf8');
+          return a.length === b.length && crypto.timingSafeEqual(a, b);
+        })()
+      : false;
 
-  if (!keyRecord && !legacyMatch) {
-    return logAndRespond(401, { error: 'API Key non valida.' }, { error_message: 'Key not found in DB' });
+    if (!legacyMatch) {
+      return logAndRespond(401, { error: 'API Key non valida.' }, { error_message: 'Key not found in DB' });
+    }
   }
 
   if (keyRecord) {
@@ -324,7 +332,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .from('api_keys')
       .update({ last_used_at: new Date().toISOString() })
       .eq('id', keyRecord.id)
-      .then(() => {});
+      .then(() => {})
+      .catch((err: unknown) => console.error('Failed to update last_used_at:', err));
   }
 
   // 5. HMAC signature
