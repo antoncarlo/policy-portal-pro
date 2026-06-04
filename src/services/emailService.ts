@@ -3,7 +3,7 @@
  * Servizio per invio automatico email scadenze polizze
  */
 
-import { supabase } from '../lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 // Configurazione Resend
 const RESEND_API_KEY = import.meta.env.VITE_RESEND_API_KEY;
@@ -324,6 +324,84 @@ export async function processAllPendingNotifications(): Promise<{
     sent,
     failed,
   };
+}
+
+/**
+ * Notifica gli amministratori quando viene caricata una nuova pratica
+ */
+export async function notifyAdminNewPractice(params: {
+  practiceNumber: string;
+  practiceType: string;
+  clientName: string;
+  clientEmail: string;
+  agentName: string;
+  agentEmail: string;
+}): Promise<void> {
+  const dateStr = new Date().toLocaleString('it-IT', { timeZone: 'Europe/Rome' });
+
+  const html = `
+<!DOCTYPE html>
+<html lang="it">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f4f6f8">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:24px 0">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)">
+        <tr><td style="background:#1a2744;padding:24px 32px">
+          <h1 style="margin:0;color:#fff;font-size:20px">🆕 Nuova Pratica Caricata</h1>
+          <p style="margin:4px 0 0;color:#a8b8d8;font-size:14px">Portale Tecno Advance MGA</p>
+        </td></tr>
+        <tr><td style="padding:32px">
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:14px">
+            <tr style="background:#1a2744;color:#fff">
+              <th style="padding:10px 14px;text-align:left">Campo</th>
+              <th style="padding:10px 14px;text-align:left">Valore</th>
+            </tr>
+            <tr style="background:#f9fafb">
+              <td style="padding:10px 14px;font-weight:600;color:#374151">Numero Pratica</td>
+              <td style="padding:10px 14px;color:#111827">${params.practiceNumber}</td>
+            </tr>
+            <tr>
+              <td style="padding:10px 14px;font-weight:600;color:#374151">Tipo Polizza</td>
+              <td style="padding:10px 14px;color:#111827">${params.practiceType}</td>
+            </tr>
+            <tr style="background:#f9fafb">
+              <td style="padding:10px 14px;font-weight:600;color:#374151">Cliente</td>
+              <td style="padding:10px 14px;color:#111827">${params.clientName}</td>
+            </tr>
+            <tr>
+              <td style="padding:10px 14px;font-weight:600;color:#374151">Email Cliente</td>
+              <td style="padding:10px 14px;color:#111827">${params.clientEmail}</td>
+            </tr>
+            <tr style="background:#f9fafb">
+              <td style="padding:10px 14px;font-weight:600;color:#374151">Caricata da</td>
+              <td style="padding:10px 14px;color:#111827">${params.agentName}</td>
+            </tr>
+            <tr>
+              <td style="padding:10px 14px;font-weight:600;color:#374151">Email Agente</td>
+              <td style="padding:10px 14px;color:#111827">${params.agentEmail}</td>
+            </tr>
+            <tr style="background:#f9fafb">
+              <td style="padding:10px 14px;font-weight:600;color:#374151">Data/Ora</td>
+              <td style="padding:10px 14px;color:#111827">${dateStr}</td>
+            </tr>
+          </table>
+        </td></tr>
+        <tr><td style="background:#f4f6f8;padding:16px 32px;text-align:center">
+          <p style="margin:0;font-size:12px;color:#6b7280">Portale Tecno Advance MGA — Notifica automatica</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  const subject = `🆕 Nuova Pratica Caricata: ${params.practiceNumber} — ${params.practiceType}`;
+
+  await Promise.allSettled([
+    sendEmailViaResend('info@tecnomga.com', subject, html),
+    sendEmailViaResend('antoncarlo@tecnomga.com', subject, html),
+  ]);
 }
 
 /**

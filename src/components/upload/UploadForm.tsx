@@ -11,13 +11,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Upload, FileText, X, Euro, Calculator } from "lucide-react";
+import { Upload, FileText, X, Euro, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { PetInsuranceCalculator } from "@/components/pet/PetInsuranceCalculator";
 import { DynamicPolicyFields } from "@/components/upload/DynamicPolicyFields";
 import { mapPracticeTypeToEnum } from "@/utils/practiceTypeMapping";
+import { notifyAdminNewPractice } from "@/services/emailService";
 
 export const UploadForm = () => {
   const { toast } = useToast();
@@ -185,6 +186,35 @@ export const UploadForm = () => {
         setLoading(false);
         return;
       }
+    }
+
+    // Validate required documents per practice type
+    const requiredDocsByType: Record<string, string[]> = {
+      car: ['preventivo_o_contratto', 'visura_camerale'],
+      fidejussioni: ['visura_camerale', 'bilancio_ultimo_anno', 'documento_identita_legale_rappresentante'],
+      postuma_decennale: ['collaudo_statico', 'progetto_esecutivo', 'visura_camerale'],
+      all_risk: ['lista_macchinari', 'visura_camerale'],
+      rc: ['visura_camerale', 'documento_identita'],
+      pet: ['libretto_sanitario_o_microchip'],
+      fotovoltaico: ['progetto_impianto', 'visura_camerale'],
+      catastrofali: ['perizia_immobile', 'visura_catastale'],
+      azienda: ['visura_camerale', 'bilancio'],
+      casa: ['visura_catastale', 'documento_identita'],
+      risparmio: ['documento_identita', 'profilo_rischio_mifid'],
+      salute: ['documento_identita', 'questionario_sanitario'],
+    };
+
+    const practiceTypeKey = mapPracticeTypeToEnum(practiceType).toLowerCase();
+    const requiredDocs = requiredDocsByType[practiceTypeKey] ?? [];
+
+    if (requiredDocs.length > 0 && files.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Documenti obbligatori mancanti",
+        description: `Per la tipologia "${practiceType}" è necessario allegare almeno: ${requiredDocs.join(', ')}`,
+      });
+      setLoading(false);
+      return;
     }
 
     // Validate files
@@ -401,6 +431,16 @@ export const UploadForm = () => {
         });
       }
 
+      // Fire-and-forget admin notification
+      notifyAdminNewPractice({
+        practiceNumber: practice.practice_number,
+        practiceType,
+        clientName,
+        clientEmail,
+        agentName: session.user.email ?? '',
+        agentEmail: session.user.email ?? '',
+      }).catch(err => console.error('Admin notification failed:', err));
+
       // Reset form
       if (formRef.current) {
         formRef.current.reset();
@@ -412,7 +452,7 @@ export const UploadForm = () => {
       setPremiumGross("");
       setCommissionAmount("0.00");
       // Keep commissionPercentage (user's default)
-      
+
       // Navigate to practices page
       navigate("/practices");
     } catch (error: any) {
@@ -711,6 +751,35 @@ export const UploadForm = () => {
               <Upload className="h-5 w-5 text-muted-foreground" />
             </div>
           </div>
+
+          {(() => {
+            const docHintMap: Record<string, string[]> = {
+              car: ['preventivo_o_contratto', 'visura_camerale'],
+              fidejussioni: ['visura_camerale', 'bilancio_ultimo_anno', 'documento_identita_legale_rappresentante'],
+              postuma_decennale: ['collaudo_statico', 'progetto_esecutivo', 'visura_camerale'],
+              all_risk: ['lista_macchinari', 'visura_camerale'],
+              rc: ['visura_camerale', 'documento_identita'],
+              pet: ['libretto_sanitario_o_microchip'],
+              fotovoltaico: ['progetto_impianto', 'visura_camerale'],
+              catastrofali: ['perizia_immobile', 'visura_catastale'],
+              azienda: ['visura_camerale', 'bilancio'],
+              casa: ['visura_catastale', 'documento_identita'],
+              risparmio: ['documento_identita', 'profilo_rischio_mifid'],
+              salute: ['documento_identita', 'questionario_sanitario'],
+            };
+            const key = practiceType ? mapPracticeTypeToEnum(practiceType).toLowerCase() : '';
+            const hints = docHintMap[key];
+            if (!practiceType || !hints || hints.length === 0) return null;
+            return (
+              <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-800 dark:text-blue-200">
+                <Info className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>
+                  <strong>Documenti richiesti per {practiceType}:</strong>{' '}
+                  {hints.join(', ')}
+                </span>
+              </div>
+            );
+          })()}
 
           {files.length > 0 && (
             <div className="space-y-2">

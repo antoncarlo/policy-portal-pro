@@ -2,10 +2,18 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Search, MoreVertical } from "lucide-react";
+import { Search, MoreVertical, Eye, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 interface PracticesListProps {
   searchQuery: string;
@@ -27,6 +35,8 @@ interface Practice {
 export const PracticesList = ({ searchQuery, onSearchChange }: PracticesListProps) => {
   const [practices, setPractices] = useState<Practice[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
     loadPractices();
@@ -171,9 +181,32 @@ export const PracticesList = ({ searchQuery, onSearchChange }: PracticesListProp
                   <span>{new Date(practice.created_at).toLocaleDateString("it-IT")}</span>
                 </div>
               </div>
-              <Button variant="ghost" size="sm">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => navigate(`/practices/${practice.id}`)}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    Visualizza Dettaglio
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      navigator.clipboard.writeText(practice.practice_number);
+                      toast({ description: "Copiato negli appunti" });
+                    }}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copia Numero Pratica
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate(`/practices/${practice.id}`)}>
+                    Apri Cliente
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           ))
         )}
