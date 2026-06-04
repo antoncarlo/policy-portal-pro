@@ -109,9 +109,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (!practice) return res.status(404).json({ error: 'Pratica non trovata.' });
 
-  // Tenant isolation: if key is in DB, practice must belong to that key
-  if (keyRecord && practice.api_key_id !== keyRecord.id) {
-    return res.status(403).json({ error: 'Accesso negato: questa pratica non appartiene alla tua chiave API.' });
+  // Tenant isolation
+  if (keyRecord) {
+    // DB key: practice must belong to this specific key
+    if (practice.api_key_id !== keyRecord.id) {
+      return res.status(403).json({ error: 'Accesso negato: questa pratica non appartiene alla tua chiave API.' });
+    }
+  } else {
+    // Legacy key: can only access practices with no DB key assigned (api_key_id IS NULL)
+    if (practice.api_key_id !== null) {
+      return res.status(403).json({ error: 'Accesso negato: questa pratica è gestita tramite chiave API dedicata.' });
+    }
   }
 
   // Get documents

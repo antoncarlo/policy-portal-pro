@@ -337,7 +337,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // 5. HMAC signature
-  const webhookSecret = process.env.WEBHOOK_SECRET ?? '';
+  const webhookSecret = process.env.WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    const rawBody = JSON.stringify(req.body ?? {});
+    const bodySize = Buffer.byteLength(rawBody, 'utf8');
+    const source = typeof (req.body as Record<string, unknown>)?.source === 'string'
+      ? (req.body as Record<string, unknown>).source
+      : 'unknown';
+    return logAndRespond(503, { error: 'Configurazione server incompleta.' }, { source: source as string, error_message: 'WEBHOOK_SECRET not configured', size: bodySize });
+  }
   const signatureHeader = req.headers['x-signature'] as string | undefined;
   const rawBody = JSON.stringify(req.body ?? {});
 
@@ -436,7 +444,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Insert practice
   // ---------------------------------------------------------------------------
   try {
-    const defaultUserId = process.env.WEBHOOK_DEFAULT_USER_ID ?? '';
+    const defaultUserId = process.env.WEBHOOK_DEFAULT_USER_ID;
+    if (!defaultUserId) {
+      return logAndRespond(503, { error: 'Configurazione server incompleta.' }, { source, error_message: 'WEBHOOK_DEFAULT_USER_ID not configured', size: bodySize });
+    }
 
     const notesPrefix = idempotencyKey ? `idempotency:${idempotencyKey}\n\n` : '';
     const notes = `${notesPrefix}Fonte: ${source}${body.notes ? `\n\n${body.notes}` : ''}`;
