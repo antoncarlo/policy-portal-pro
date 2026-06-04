@@ -14,13 +14,15 @@ CREATE TABLE IF NOT EXISTS public.api_keys (
 
 ALTER TABLE public.api_keys ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admins can manage api_keys" ON public.api_keys;
 CREATE POLICY "Admins can manage api_keys" ON public.api_keys
   FOR ALL
-  USING (public.has_role(auth.uid(), 'admin'))
-  WITH CHECK (public.has_role(auth.uid(), 'admin'));
+  USING (public.has_role((SELECT auth.uid()), 'admin'))
+  WITH CHECK (public.has_role((SELECT auth.uid()), 'admin'));
 
 CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON public.api_keys(key_hash);
 CREATE INDEX IF NOT EXISTS idx_api_keys_is_active ON public.api_keys(is_active);
+CREATE INDEX IF NOT EXISTS idx_api_keys_expires_at ON public.api_keys(expires_at);
 
 -- Add api_key_id to practices
 ALTER TABLE public.practices
