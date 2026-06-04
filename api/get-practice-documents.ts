@@ -123,7 +123,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (docsError) {
     console.error('practice_documents lookup failed:', docsError.message);
-    return res.status(500).json({ error: 'Errore caricamento documenti.' });
+    return res.status(503).json({ error: 'Errore caricamento documenti.' });
   }
 
   // Generate signed URLs
@@ -131,9 +131,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const documentsWithUrls = await Promise.all(
     (docs ?? []).map(async (doc) => {
-      const { data: signed } = await supabaseAdmin.storage
+      const { data: signed, error: signedError } = await supabaseAdmin.storage
         .from('practice-documents')
         .createSignedUrl(doc.file_path, SIGNED_URL_EXPIRY_SECONDS);
+
+      if (signedError) {
+        console.error(`Failed to generate signed URL for ${doc.file_name}:`, signedError.message);
+      }
 
       return {
         id: doc.id,
