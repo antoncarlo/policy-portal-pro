@@ -374,6 +374,11 @@ export default function ApiDocs() {
             </tbody>
           </table>
 
+          <div style={styles.infoBox}>
+            Ogni partner riceve una chiave univoca. Le chiavi vengono create dall&apos;amministratore in{' '}
+            <strong>Impostazioni → Chiavi API</strong>. Non è possibile recuperare una chiave dopo la creazione.
+          </div>
+
           <h3 style={styles.h3}>Come calcolare la firma</h3>
           <p style={styles.p}>La firma va calcolata sull'intero body JSON serializzato, prima dell'invio:</p>
           <pre style={styles.code}>{`// JavaScript
@@ -493,6 +498,54 @@ catastrofali | azienda | postuma_decennale | all_risk | risparmio | salute`}</pr
 // application/vnd.openxmlformats-officedocument.wordprocessingml.document
 // Dimensione massima per documento: 10 MB`}</pre>
         </section>
+
+          <h3 style={styles.h3}>GET /api/get-practice-documents</h3>
+          <p style={styles.p}>
+            Recupera i documenti allegati a una pratica creata con la propria chiave API.
+            I link di download sono URL firmati con scadenza di <strong>1 ora</strong>.
+          </p>
+
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th}>Query Param</th>
+                <th style={styles.th}>Obbligatorio</th>
+                <th style={styles.th}>Descrizione</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={styles.td}><code style={styles.inlineCode}>practice_id</code></td>
+                <td style={styles.td}><span style={styles.badge('#d97706')}>uno dei due</span></td>
+                <td style={styles.td}>UUID della pratica</td>
+              </tr>
+              <tr>
+                <td style={styles.tdAlt}><code style={styles.inlineCode}>practice_number</code></td>
+                <td style={styles.tdAlt}><span style={styles.badge('#d97706')}>uno dei due</span></td>
+                <td style={styles.tdAlt}>Numero pratica (es. PR-2026-1234)</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3 style={styles.h3}>Esempio risposta GET documenti</h3>
+          <pre style={styles.code}>{`GET /api/get-practice-documents?practice_id=550e8400-e29b-41d4-a716-446655440000
+X-API-Key: tmga_a1b2c3d4...
+
+{
+  "practice_id": "550e8400-e29b-41d4-a716-446655440000",
+  "practice_number": "PR-2026-1234",
+  "documents": [
+    {
+      "id": "...",
+      "file_name": "preventivo_o_contratto.pdf",
+      "file_size": 204800,
+      "mime_type": "application/pdf",
+      "created_at": "2026-06-05T10:00:00Z",
+      "download_url": "https://xxx.supabase.co/storage/v1/...",
+      "expires_at": "2026-06-05T11:00:00Z"
+    }
+  ]
+}`}</pre>
 
         {/* 4. Documenti Obbligatori */}
         <section id="documenti" style={styles.section}>
