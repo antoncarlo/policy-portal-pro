@@ -59,32 +59,32 @@ const Settings = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className={`grid w-full ${showAdminTabs ? 'grid-cols-14' : showAgentTabs ? 'grid-cols-6' : 'grid-cols-4'} lg:w-auto lg:inline-grid`}>
-            <TabsTrigger value="profile" className="flex items-center gap-2">
+          <TabsList className="flex h-auto min-h-10 w-full flex-wrap items-start justify-start gap-2 rounded-none bg-transparent p-0 text-muted-foreground">
+            <TabsTrigger value="profile" className="h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">Profilo</span>
             </TabsTrigger>
-            <TabsTrigger value="security" className="flex items-center gap-2">
+            <TabsTrigger value="security" className="h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
               <Lock className="h-4 w-4" />
               <span className="hidden sm:inline">Sicurezza</span>
             </TabsTrigger>
-            <TabsTrigger value="preferences" className="flex items-center gap-2">
+            <TabsTrigger value="preferences" className="h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
               <Settings2 className="h-4 w-4" />
               <span className="hidden sm:inline">Preferenze</span>
             </TabsTrigger>
             
-            <TabsTrigger value="sessions" className="flex items-center gap-2">
+            <TabsTrigger value="sessions" className="h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
               <Monitor className="h-4 w-4" />
               <span className="hidden sm:inline">Sessioni</span>
             </TabsTrigger>
             
             {showAgentTabs && (
               <>
-                <TabsTrigger value="collaborators" className="flex items-center gap-2">
+                <TabsTrigger value="collaborators" className="h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
                   <Users className="h-4 w-4" />
                   <span className="hidden sm:inline">Collaboratori</span>
                 </TabsTrigger>
-                <TabsTrigger value="templates" className="flex items-center gap-2">
+                <TabsTrigger value="templates" className="h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
                   <FileText className="h-4 w-4" />
                   <span className="hidden sm:inline">Pratiche</span>
                 </TabsTrigger>
@@ -93,31 +93,31 @@ const Settings = () => {
             
             {showAdminTabs && (
               <>
-                <TabsTrigger value="system" className="flex items-center gap-2">
+                <TabsTrigger value="system" className="h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
                   <Shield className="h-4 w-4" />
                   <span className="hidden sm:inline">Sistema</span>
                 </TabsTrigger>
-                <TabsTrigger value="statistics" className="flex items-center gap-2">
+                <TabsTrigger value="statistics" className="h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
                   <BarChart3 className="h-4 w-4" />
                   <span className="hidden sm:inline">Statistiche</span>
                 </TabsTrigger>
-                <TabsTrigger value="logs" className="flex items-center gap-2">
+                <TabsTrigger value="logs" className="h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
                   <Activity className="h-4 w-4" />
                   <span className="hidden sm:inline">Log</span>
                 </TabsTrigger>
-                <TabsTrigger value="backup" className="flex items-center gap-2">
+                <TabsTrigger value="backup" className="h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
                   <Database className="h-4 w-4" />
                   <span className="hidden sm:inline">Backup</span>
                 </TabsTrigger>
-                <TabsTrigger value="smtp" className="flex items-center gap-2">
+                <TabsTrigger value="smtp" className="h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
                   <Mail className="h-4 w-4" />
                   <span className="hidden sm:inline">Email</span>
                 </TabsTrigger>
-                <TabsTrigger value="api-logs" className="flex items-center gap-2">
+                <TabsTrigger value="api-logs" className="h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
                   <Webhook className="h-4 w-4" />
                   <span className="hidden sm:inline">API Logs</span>
                 </TabsTrigger>
-                <TabsTrigger value="api-keys" className="flex items-center gap-2">
+                <TabsTrigger value="api-keys" className="h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
                   <Key className="h-4 w-4" />
                   <span className="hidden sm:inline">Chiavi API</span>
                 </TabsTrigger>
