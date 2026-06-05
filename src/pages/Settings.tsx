@@ -13,8 +13,9 @@ import { BackupSettings } from "@/components/settings/admin/BackupSettings";
 import { SMTPSettings } from "@/components/settings/admin/SMTPSettings";
 import { ApiLogsSettings } from "@/components/settings/admin/ApiLogsSettings";
 import { ApiKeysSettings } from "@/components/settings/admin/ApiKeysSettings";
+import { ApiKeyMappingSettings } from "@/components/settings/admin/ApiKeyMappingSettings";
 import { SessionsSettings } from "@/components/settings/SessionsSettings";
-import { User, Lock, Settings2, Users, FileText, Shield, BarChart3, Activity, Database, Mail, Monitor, Webhook, Key } from "lucide-react";
+import { User, Lock, Settings2, Users, FileText, Shield, BarChart3, Activity, Database, Mail, Monitor, Webhook, Key, Link2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const Settings = () => {
@@ -72,12 +73,11 @@ const Settings = () => {
               <Settings2 className="h-4 w-4" />
               <span className="hidden sm:inline">Preferenze</span>
             </TabsTrigger>
-            
             <TabsTrigger value="sessions" className="h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
               <Monitor className="h-4 w-4" />
               <span className="hidden sm:inline">Sessioni</span>
             </TabsTrigger>
-            
+
             {showAgentTabs && (
               <>
                 <TabsTrigger value="collaborators" className="h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
@@ -90,7 +90,7 @@ const Settings = () => {
                 </TabsTrigger>
               </>
             )}
-            
+
             {showAdminTabs && (
               <>
                 <TabsTrigger value="system" className="h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
@@ -121,6 +121,10 @@ const Settings = () => {
                   <Key className="h-4 w-4" />
                   <span className="hidden sm:inline">Chiavi API</span>
                 </TabsTrigger>
+                <TabsTrigger value="api-mapping" className="h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
+                  <Link2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Mappatura API</span>
+                </TabsTrigger>
               </>
             )}
           </TabsList>
@@ -136,7 +140,7 @@ const Settings = () => {
           <TabsContent value="preferences" className="space-y-4">
             <PreferencesSettings />
           </TabsContent>
-          
+
           <TabsContent value="sessions" className="space-y-4">
             <SessionsSettings />
           </TabsContent>
@@ -152,7 +156,7 @@ const Settings = () => {
               </TabsContent>
             </>
           )}
-          
+
           {showAdminTabs && (
             <>
               <TabsContent value="system" className="space-y-4">
@@ -166,11 +170,11 @@ const Settings = () => {
               <TabsContent value="logs" className="space-y-4">
                 <ActivityLogs />
               </TabsContent>
-              
+
               <TabsContent value="backup" className="space-y-4">
                 <BackupSettings />
               </TabsContent>
-              
+
               <TabsContent value="smtp" className="space-y-4">
                 <SMTPSettings />
               </TabsContent>
@@ -181,6 +185,10 @@ const Settings = () => {
 
               <TabsContent value="api-keys" className="space-y-4">
                 <ApiKeysSettings />
+              </TabsContent>
+
+              <TabsContent value="api-mapping" className="space-y-4">
+                <ApiKeyMappingSettings />
               </TabsContent>
             </>
           )}

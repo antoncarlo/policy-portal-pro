@@ -449,6 +449,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return logAndRespond(503, { error: 'Configurazione server incompleta.' }, { source, error_message: 'WEBHOOK_DEFAULT_USER_ID not configured', size: bodySize });
     }
 
+    // Resolve owner user_id: map the sending api_key_id to a partner's portal
+    // user so the practice becomes visible to that partner via RLS.
+    // Falls back to WEBHOOK_DEFAULT_USER_ID when no mapping exists.
+    let ownerUserId = defaultUserId;
+    if (keyRecord?.id) {
+      const { data: keyMapping } = await supabaseAdmin
+        .from('api_key_user_mapping')
+        .select('user_id')
+        .eq('api_key_id', keyRecord.id)
+        .maybeSingle();
+      if (keyMapping?.user_id) {
+        ownerUserId = keyMapping.user_id as string;
+      }
+    }
+
     const notesPrefix = idempotencyKey ? `idempotency:${idempotencyKey}\n\n` : '';
     const notes = `${notesPrefix}Fonte: ${source}${body.notes ? `\n\n${body.notes}` : ''}`;
 
@@ -464,7 +479,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         policy_start_date: typeof body.policy_start_date === 'string' ? body.policy_start_date || null : null,
         policy_end_date: typeof body.policy_end_date === 'string' ? body.policy_end_date || null : null,
         notes: notes || null,
-        user_id: defaultUserId,
+        user_id: ownerUserId,
         status: 'in_lavorazione',
         api_key_id: keyRecord?.id ?? null,
       })
@@ -542,3 +557,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'Errore interno del server.' });
   }
 }
+

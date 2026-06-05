@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guida Integrazione API — Tecno Advance MGA</title>
+<style>
+  :root{
+    --blu:#2A3660;
+    --verde:#00FFCC;
+    --bg:#f8f9fb;
+    --row-alt:#f0f4f8;
+    --border:#dde3ed;
+    --code-bg:#1a1f2e;
+    --code-fg:#e2e8f0;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg);
+    color:#1f2733;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- HEADER ---------- */
+  header.site-header{
+    position:fixed;
+    top:0;left:0;right:0;
+    height:64px;
+    background:var(--blu);
+    color:#fff;
+    display:flex;
+    align-items:center;
+    gap:1rem;
+    padding:0 1.25rem;
+    z-index:100;
+    box-shadow:0 2px 8px rgba(0,0,0,.18);
+  }
+  .logo{font-weight:800;letter-spacing:.5px;font-size:1.05rem;white-space:nowrap;}
+  .tagline{font-size:.85rem;opacity:.85;border-left:2px solid var(--verde);padding-left:1rem;}
+  .hamburger{
+    display:none;
+    background:transparent;border:1px solid rgba(255,255,255,.4);
+    color:#fff;border-radius:6px;width:40px;height:38px;
+    font-size:1.2rem;cursor:pointer;line-height:1;
+  }
+
+  /* ---------- LAYOUT ---------- */
+  .shell{
+    display:flex;
+    max-width:1180px;
+    margin:0 auto;
+    padding-top:64px;
+  }
+  nav.sidebar{
+    position:sticky;
+    top:64px;
+    align-self:flex-start;
+    width:260px;
+    flex:0 0 260px;
+    height:calc(100vh - 64px);
+    overflow-y:auto;
+    padding:1.25rem .75rem;
+    background:#fff;
+    border-right:1px solid var(--border);
+  }
+  nav.sidebar h3{
+    font-size:.72rem;text-transform:uppercase;letter-spacing:1px;
+    color:#7b8499;margin:.25rem .5rem 1rem;
+  }
+  nav.sidebar ol{list-style:none;margin:0;padding:0;counter-reset:nav;}
+  nav.sidebar li{margin:1px 0;}
+  nav.sidebar a{
+    counter-increment:nav;
+    display:flex;gap:.6rem;align-items:baseline;
+    text-decoration:none;color:#3a4256;
+    font-size:.88rem;padding:.5rem .6rem;border-radius:7px;
+    border-left:3px solid transparent;
+    transition:background .15s,color .15s,border-color .15s;
+  }
+  nav.sidebar a::before{
+    content:counter(nav);
+    font-size:.72rem;font-weight:700;color:#9aa3b8;min-width:1.1em;
+  }
+  nav.sidebar a:hover{background:var(--row-alt);}
+  nav.sidebar a.active{
+    background:var(--blu);color:var(--verde);font-weight:600;
+    border-left-color:var(--verde);
+  }
+  nav.sidebar a.active::before{color:var(--verde);}
+
+  main{
+    flex:1 1 auto;
+    max-width:900px;
+    margin:0 auto;
+    padding:2rem 1.75rem 4rem;
+    min-width:0;
+  }
+  .intro{margin:0 0 2.5rem;}
+  .intro h1{font-size:1.7rem;color:var(--blu);margin:.2rem 0 .6rem;line-height:1.25;}
+  .intro p{color:#4a5365;margin:.3rem 0;}
+
+  section{scroll-margin-top:84px;margin-bottom:3rem;}
+  section h2{
+    color:var(--blu);font-size:1.3rem;
+    padding-bottom:.5rem;margin:0 0 1.1rem;
+    border-bottom:2px solid var(--border);
+  }
+  section h2 .num{
+    display:inline-block;background:var(--blu);color:#fff;
+    font-size:.85rem;font-weight:700;border-radius:6px;
+    padding:.1rem .55rem;margin-right:.6rem;vertical-align:middle;
+  }
+  section h3{color:var(--blu);font-size:1rem;margin:1.6rem 0 .6rem;}
+  p{margin:.7rem 0;}
+  ul,ol.body-list{margin:.6rem 0;padding-left:1.4rem;}
+  li{margin:.3rem 0;}
+
+  /* ---------- TABLES ---------- */
+  .table-wrap{overflow-x:auto;margin:1rem 0;border:1px solid var(--border);border-radius:8px;}
+  table{border-collapse:collapse;width:100%;font-size:.9rem;min-width:480px;}
+  thead th{
+    background:var(--blu);color:#fff;text-align:left;
+    padding:.7rem .85rem;font-weight:600;white-space:nowrap;
+  }
+  tbody td{padding:.65rem .85rem;border-top:1px solid var(--border);vertical-align:top;}
+  tbody tr:nth-child(odd){background:#fff;}
+  tbody tr:nth-child(even){background:var(--row-alt);}
+  td code,p code,li code{
+    background:#eef1f7;color:var(--blu);
+    padding:.12rem .4rem;border-radius:4px;
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    font-size:.85em;
+  }
+
+  /* ---------- BADGES ---------- */
+  .pill{
+    display:inline-block;font-weight:700;font-size:.78rem;
+    padding:.18rem .65rem;border-radius:999px;line-height:1.4;
+    white-space:nowrap;
+  }
+  .pill-post{background:var(--verde);color:var(--blu);}
+  .pill-lang{background:var(--blu);color:#fff;font-weight:600;}
+
+  /* ---------- CODE BLOCKS ---------- */
+  .code-block{margin:1.1rem 0;border-radius:8px;overflow:hidden;background:var(--code-bg);}
+  .code-header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:.5rem .75rem;background:#11151f;
+  }
+  .lang-badge{}
+  .copy-btn{
+    background:transparent;border:1px solid #3a4358;color:#cbd5e1;
+    font-size:.78rem;padding:.28rem .7rem;border-radius:6px;cursor:pointer;
+    transition:background .15s,color .15s,border-color .15s;
+    font-family:inherit;
+  }
+  .copy-btn:hover{border-color:var(--verde);color:var(--verde);}
+  .copy-btn.done{background:var(--verde);color:var(--blu);border-color:var(--verde);font-weight:700;}
+  .code-block pre{
+    margin:0;padding:1rem;overflow-x:auto;
+    border-left:3px solid var(--verde);
+  }
+  .code-block code{
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    font-size:.85rem;color:var(--code-fg);white-space:pre;
+  }
+
+  /* ---------- CREDENTIAL BOX ---------- */
+  .cred{margin:1rem 0;}
+  .cred-label{font-weight:600;color:var(--blu);font-size:.9rem;margin-bottom:.35rem;display:block;}
+  .cred-box{
+    display:flex;align-items:center;gap:.75rem;
+    background:var(--code-bg);border-radius:8px;
+    padding:.6rem .75rem;border-left:3px solid var(--verde);
+  }
+  .cred-box code{
+    flex:1 1 auto;color:var(--verde);
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    font-size:.85rem;overflow-x:auto;white-space:nowrap;
+  }
+  .cred-box .copy-btn{flex:0 0 auto;}
+
+  /* ---------- CALLOUTS ---------- */
+  .callout{
+    border-radius:8px;padding:1rem 1.1rem;margin:1.2rem 0;
+    display:flex;gap:.75rem;align-items:flex-start;font-size:.92rem;
+  }
+  .callout .ico{font-size:1.25rem;line-height:1.4;flex:0 0 auto;}
+  .callout p{margin:.2rem 0;}
+  .callout strong{display:block;margin-bottom:.2rem;}
+  .callout-warn{background:#fffbeb;border-left:4px solid #f59e0b;}
+  .callout-ok{background:#f0fdf4;border-left:4px solid #22c55e;}
+  .callout-danger{background:#fef2f2;border-left:4px solid #ef4444;}
+
+  /* ---------- FOOTER ---------- */
+  footer.site-footer{
+    background:var(--blu);color:#fff;text-align:center;
+    padding:1.6rem 1rem;font-size:.85rem;letter-spacing:.3px;
+  }
+
+  /* ---------- BACKDROP (mobile drawer) ---------- */
+  .backdrop{
+    display:none;position:fixed;inset:64px 0 0 0;
+    background:rgba(0,0,0,.4);z-index:90;
+  }
+
+  /* ---------- MOBILE ---------- */
+  @media (max-width:768px){
+    .tagline{display:none;}
+    .hamburger{display:block;margin-left:auto;}
+    .shell{display:block;}
+    nav.sidebar{
+      position:fixed;top:64px;left:0;bottom:0;
+      width:280px;max-width:84vw;height:auto;
+      transform:translateX(-105%);
+      transition:transform .25s ease;
+      z-index:95;box-shadow:2px 0 14px rgba(0,0,0,.2);
+    }
+    nav.sidebar.open{transform:translateX(0);}
+    .backdrop.show{display:block;}
+    main{padding:1.5rem 1.1rem 3rem;}
+    .intro h1{font-size:1.4rem;}
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <button class="hamburger" id="hamburger" aria-label="Apri menu">☰</button>
+  <span class="logo">TECNO ADVANCE MGA</span>
+  <span class="tagline">Guida Integrazione API — Portale Esterno</span>
+</header>
+
+<div class="shell">
+
+  <nav class="sidebar" id="sidebar">
+    <h3>Indice</h3>
+    <ol>
+      <li><a href="#sec-1">Obiettivo dell'integrazione</a></li>
+      <li><a href="#sec-2">Credenziali operative</a></li>
+      <li><a href="#sec-3">Header obbligatori</a></li>
+      <li><a href="#sec-4">Firma HMAC</a></li>
+      <li><a href="#sec-5">Body JSON minimo</a></li>
+      <li><a href="#sec-6">Allegati documentali</a></li>
+      <li><a href="#sec-7">Regola real-time al salvataggio</a></li>
+      <li><a href="#sec-8">Risposte attese</a></li>
+      <li><a href="#sec-9">Retry e idempotenza</a></li>
+      <li><a href="#sec-10">Checklist pre go-live</a></li>
+      <li><a href="#sec-11">Contatti operativi</a></li>
+      <li><a href="#sec-12">Nota di sicurezza</a></li>
+    </ol>
+  </nav>
+
+  <div class="backdrop" id="backdrop"></div>
+
+  <main>
+    <div class="intro">
+      <h1>Guida definitiva integrazione API real-time</h1>
+      <p><strong>Portale Mariano → Tecno Advance MGA</strong></p>
+      <p>Questo documento descrive l'integrazione webhook real-time tra il portale esterno e il backend di Tecno Advance MGA Broker S.r.l. per la trasmissione automatica delle pratiche assicurative al momento del salvataggio. I contenuti riflettono il comportamento effettivo dell'endpoint in produzione.</p>
+    </div>
+
+    <!-- ===================== 1 ===================== -->
+    <section id="sec-1">
+      <h2><span class="num">1</span>Obiettivo dell'integrazione</h2>
+      <p>Al salvataggio di una pratica nel portale Mariano, il sistema deve inviare in tempo reale i dati del cliente e della pratica (con gli eventuali allegati) all'endpoint webhook di Tecno Advance MGA tramite una singola chiamata HTTP autenticata. Ogni chiamata valida crea una nuova pratica in stato <code>in_lavorazione</code>.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Parametro</th><th>Valore</th><th>Autenticazione</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Base URL</td>
+              <td><code>https://policy-portal-pro.vercel.app</code></td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td>Endpoint</td>
+              <td><code>https://policy-portal-pro.vercel.app/api/webhook-receive-policy</code></td>
+              <td>X-API-Key + Firma HMAC</td>
+            </tr>
+            <tr>
+              <td>Metodo</td>
+              <td><span class="pill pill-post">POST</span></td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td>Formato</td>
+              <td><code>application/json</code> (UTF-8)</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td>Trigger</td>
+              <td>Salvataggio pratica (real-time)</td>
+              <td>—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===================== 2 ===================== -->
+    <section id="sec-2">
+      <h2><span class="num">2</span>Credenziali operative</h2>
+      <p>Le seguenti credenziali sono assegnate in via esclusiva al portale Mariano. La <code>X-API-Key</code> identifica il mittente e viene validata lato server; il <code>WEBHOOK_SECRET</code> serve esclusivamente al calcolo della firma HMAC e non deve mai essere trasmesso nelle richieste.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Credenziale</th><th>Utilizzo</th></tr></thead>
+          <tbody>
+            <tr><td><code>X-API-Key</code></td><td>Inviata in ogni richiesta nell'header <code>X-API-Key</code> per identificare e autorizzare il mittente.</td></tr>
+            <tr><td><code>WEBHOOK_SECRET</code></td><td>Chiave segreta usata solo lato backend per generare la firma <code>X-Signature</code> (HMAC-SHA256 del body).</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="cred">
+        <span class="cred-label">X-API-Key</span>
+        <div class="cred-box">
+          <code>tmga_ba098bcfeabe1092852fbd6f3ef29b14</code>
+          <button class="copy-btn">Copia</button>
+        </div>
+      </div>
+
+      <div class="cred">
+        <span class="cred-label">WEBHOOK_SECRET</span>
+        <div class="cred-box">
+          <code>tmga_whsec_00d692766b535ffb049ec797b93decc6cbe67568882ea1975f20c512d5fab875</code>
+          <button class="copy-btn">Copia</button>
+        </div>
+      </div>
+
+      <div class="callout callout-danger">
+        <span class="ico">⚠️</span>
+        <p><strong>Conserva queste credenziali solo nel backend.</strong>Non esporle mai lato frontend o in repository pubblici.</p>
+      </div>
+    </section>
+
+    <!-- ===================== 3 ===================== -->
+    <section id="sec-3">
+      <h2><span class="num">3</span>Header obbligatori</h2>
+      <p>Ogni richiesta <span class="pill pill-post">POST</span> all'endpoint deve includere i seguenti header. La firma HMAC è obbligatoria per il superamento della validazione. <strong>Non è previsto né richiesto alcun header timestamp.</strong></p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Header</th><th>Obbligatorio</th><th>Descrizione</th></tr></thead>
+          <tbody>
+            <tr><td><code>Content-Type</code></td><td>Sì</td><td>Sempre <code>application/json</code></td></tr>
+            <tr><td><code>X-API-Key</code></td><td>Sì</td><td>Chiave API assegnata al portale mittente</td></tr>
+            <tr><td><code>X-Signature</code></td><td>Sì</td><td>Firma HMAC-SHA256 del body nel formato <code>sha256=&lt;hex&gt;</code></td></tr>
+            <tr><td><code>X-Idempotency-Key</code></td><td>No</td><td>Chiave di idempotenza. In alternativa si può usare il campo <code>idempotency_key</code> nel body</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Esempio HTTP raw</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="pill pill-lang lang-badge">HTTP</span>
+          <button class="copy-btn">Copia</button>
+        </div>
+        <pre><code>POST /api/webhook-receive-policy HTTP/1.1
+Host: policy-portal-pro.vercel.app
+Content-Type: application/json
+X-API-Key: tmga_ba098bcfeabe1092852fbd6f3ef29b14
+X-Signature: sha256=3a7bd3e2360a3d4c6f1d9b8e2c5a7f0b4d8e1c2a6b9f3e0d7c4a1b8e5f2d9c6a
+X-Idempotency-Key: MRN-2026-000123
+
+{"source":"portale-mariano","practice_type":"rc","client_name":"Mario Rossi","client_email":"mario.rossi@example.com","client_phone":"+39 333 1234567"}</code></pre>
+      </div>
+    </section>
+
+    <!-- ===================== 4 ===================== -->
+    <section id="sec-4">
+      <h2><span class="num">4</span>Firma HMAC</h2>
+      <p>La firma garantisce autenticità e integrità del payload. Si calcola come <code>HMAC-SHA256</code> sul <strong>body JSON esatto</strong> della richiesta, usando il <code>WEBHOOK_SECRET</code> come chiave, e si invia in formato esadecimale con prefisso <code>sha256=</code> nell'header <code>X-Signature</code>.</p>
+      <ul>
+        <li>La firma copre <strong>solo il body</strong>: nessun timestamp, nessun header aggiuntivo nella stringa firmata.</li>
+        <li>Il server ricalcola la firma su <code>JSON.stringify(body)</code>: firma e invia la <strong>stessa identica stringa JSON compatta</strong> (senza spazi superflui, stesso ordine dei campi) per garantire la corrispondenza.</li>
+        <li>Il confronto lato server avviene in <em>constant time</em>; una firma non valida restituisce <code>401</code>.</li>
+      </ul>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="pill pill-lang lang-badge">Node.js</span>
+          <button class="copy-btn">Copia</button>
+        </div>
+        <pre><code>const crypto = require('crypto');
+
+const API_KEY = 'tmga_ba098bcfeabe1092852fbd6f3ef29b14';
+const WEBHOOK_SECRET =
+  'tmga_whsec_00d692766b535ffb049ec797b93decc6cbe67568882ea1975f20c512d5fab875';
+const URL = 'https://policy-portal-pro.vercel.app/api/webhook-receive-policy';
+
+const payload = {
+  source: 'portale-mariano',
+  practice_type: 'rc',
+  client_name: 'Mario Rossi',
+  client_email: 'mario.rossi@example.com',
+  client_phone: '+39 333 1234567',
+};
+
+// Firma la STESSA stringa che invii nel body (JSON compatto)
+const rawBody = JSON.stringify(payload);
+const signature = 'sha256=' + crypto
+  .createHmac('sha256', WEBHOOK_SECRET)
+  .update(rawBody, 'utf8')
+  .digest('hex');
+
+await fetch(URL, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': API_KEY,
+    'X-Signature': signature,
+    'X-Idempotency-Key': 'MRN-2026-000123',
+  },
+  body: rawBody,
+});</code></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="pill pill-lang lang-badge">Python</span>
+          <button class="copy-btn">Copia</button>
+        </div>
+        <pre><code>import hmac, hashlib, json, requests
+
+API_KEY = "tmga_ba098bcfeabe1092852fbd6f3ef29b14"
+WEBHOOK_SECRET = "tmga_whsec_00d692766b535ffb049ec797b93decc6cbe67568882ea1975f20c512d5fab875"
+URL = "https://policy-portal-pro.vercel.app/api/webhook-receive-policy"
+
+payload = {
+    "source": "portale-mariano",
+    "practice_type": "rc",
+    "client_name": "Mario Rossi",
+    "client_email": "mario.rossi@example.com",
+    "client_phone": "+39 333 1234567",
+}
+
+# Firma la STESSA stringa che invii nel body (JSON compatto)
+raw_body = json.dumps(payload, separators=(",", ":"))
+signature = "sha256=" + hmac.new(
+    WEBHOOK_SECRET.encode("utf-8"),
+    raw_body.encode("utf-8"),
+    hashlib.sha256,
+).hexdigest()
+
+requests.post(
+    URL,
+    data=raw_body,
+    headers={
+        "Content-Type": "application/json",
+        "X-API-Key": API_KEY,
+        "X-Signature": signature,
+        "X-Idempotency-Key": "MRN-2026-000123",
+    },
+)</code></pre>
+      </div>
+    </section>
+
+    <!-- ===================== 5 ===================== -->
+    <section id="sec-5">
+      <h2><span class="num">5</span>Body JSON minimo</h2>
+      <p>Struttura accettata dall'endpoint. I cinque campi marcati come obbligatori devono essere stringhe non vuote; i restanti sono opzionali. <code>documents</code> può essere un array vuoto se non ci sono allegati.</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="pill pill-lang lang-badge">JSON</span>
+          <button class="copy-btn">Copia</button>
+        </div>
+        <pre><code>{
+  "source": "portale-mariano",
+  "practice_type": "rc",
+  "client_name": "Mario Rossi",
+  "client_email": "mario.rossi@example.com",
+  "client_phone": "+39 333 1234567",
+  "beneficiary": "Mario Rossi",
+  "policy_number": "RC-2026-00045",
+  "policy_start_date": "2026-06-05",
+  "policy_end_date": "2027-06-05",
+  "notes": "Pratica creata dal portale esterno",
+  "idempotency_key": "MRN-2026-000123",
+  "documents": []
+}</code></pre>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Obbligatorio</th><th>Descrizione</th></tr></thead>
+          <tbody>
+            <tr><td><code>source</code></td><td>string</td><td>Sì</td><td>Identificativo del portale mittente (tracciato nei log)</td></tr>
+            <tr><td><code>practice_type</code></td><td>string</td><td>Sì</td><td>Tipologia pratica (vedi valori ammessi sotto). Normalizzato: minuscolo, spazi → underscore</td></tr>
+            <tr><td><code>client_name</code></td><td>string</td><td>Sì</td><td>Nome del cliente</td></tr>
+            <tr><td><code>client_email</code></td><td>string</td><td>Sì</td><td>Email del cliente</td></tr>
+            <tr><td><code>client_phone</code></td><td>string</td><td>Sì</td><td>Telefono del cliente</td></tr>
+            <tr><td><code>beneficiary</code></td><td>string</td><td>No</td><td>Beneficiario della polizza</td></tr>
+            <tr><td><code>policy_number</code></td><td>string</td><td>No</td><td>Numero di polizza</td></tr>
+            <tr><td><code>policy_start_date</code></td><td>string</td><td>No</td><td>Data inizio copertura (<code>YYYY-MM-DD</code>)</td></tr>
+            <tr><td><code>policy_end_date</code></td><td>string</td><td>No</td><td>Data fine copertura (<code>YYYY-MM-DD</code>)</td></tr>
+            <tr><td><code>notes</code></td><td>string</td><td>No</td><td>Note libere accodate alla pratica</td></tr>
+            <tr><td><code>idempotency_key</code></td><td>string</td><td>No</td><td>Chiave di idempotenza (alternativa all'header <code>X-Idempotency-Key</code>)</td></tr>
+            <tr><td><code>documents</code></td><td>array</td><td>No</td><td>Allegati documentali (vedi sezione 6)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Valori ammessi per <code>practice_type</code></h3>
+      <p><code>car</code> · <code>casa</code> · <code>fidejussioni</code> · <code>rc</code> · <code>pet</code> · <code>fotovoltaico</code> · <code>catastrofali</code> · <code>azienda</code> · <code>postuma_decennale</code> · <code>all_risk</code> · <code>risparmio</code> · <code>salute</code>. Un valore non incluso restituisce <code>422</code>.</p>
+    </section>
+
+    <!-- ===================== 6 ===================== -->
+    <section id="sec-6">
+      <h2><span class="num">6</span>Allegati documentali</h2>
+      <p>Gli allegati vengono trasmessi inline nell'array <code>documents[]</code>, codificati in Base64. Dimensione massima per allegato (decodificato): <strong>10 MB</strong>.</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="pill pill-lang lang-badge">JSON</span>
+          <button class="copy-btn">Copia</button>
+        </div>
+        <pre><code>"documents": [
+  {
+    "filename": "visura_camerale_rossi.pdf",
+    "mime_type": "application/pdf",
+    "content_base64": "JVBERi0xLjQKJeLjz9MKMyAwIG9iago..."
+  },
+  {
+    "filename": "documento_identita_rossi.pdf",
+    "mime_type": "application/pdf",
+    "content_base64": "JVBERi0xLjcKJcfsj6IKNSAwIG9iago..."
+  }
+]</code></pre>
+      </div>
+
+      <h3>Campi di ogni documento</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Obbligatorio</th><th>Descrizione</th></tr></thead>
+          <tbody>
+            <tr><td><code>filename</code></td><td>string</td><td>Sì</td><td>Nome del file. <strong>Deve contenere la keyword</strong> del documento obbligatorio richiesto dalla tipologia (vedi tabella sotto)</td></tr>
+            <tr><td><code>mime_type</code></td><td>string</td><td>Sì</td><td>Tipo MIME ammesso (vedi elenco)</td></tr>
+            <tr><td><code>content_base64</code></td><td>string</td><td>Sì</td><td>Contenuto del file codificato in Base64 (max 10 MB decodificato)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Tipi MIME ammessi</h3>
+      <p><code>application/pdf</code> · <code>image/jpeg</code> · <code>image/png</code> · <code>application/vnd.openxmlformats-officedocument.wordprocessingml.document</code> (.docx). Un MIME non incluso restituisce <code>422</code>.</p>
+
+      <h3>Documenti obbligatori per tipologia</h3>
+      <p>La presenza dei documenti obbligatori è verificata cercando la keyword <strong>nel nome del file</strong> (<code>filename</code>). Se mancano, l'endpoint risponde <code>422</code> con <code>error: "missing_required_documents"</code>.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tipo pratica</th><th>Keyword richieste nei nomi file</th></tr></thead>
+          <tbody>
+            <tr><td><code>car</code></td><td><code>preventivo_o_contratto</code>, <code>visura_camerale</code></td></tr>
+            <tr><td><code>casa</code></td><td><code>visura_catastale</code>, <code>documento_identita</code></td></tr>
+            <tr><td><code>fidejussioni</code></td><td><code>visura_camerale</code>, <code>bilancio_ultimo_anno</code>, <code>documento_identita_legale_rappresentante</code></td></tr>
+            <tr><td><code>rc</code></td><td><code>visura_camerale</code>, <code>documento_identita</code></td></tr>
+            <tr><td><code>pet</code></td><td><code>libretto_sanitario_o_microchip</code></td></tr>
+            <tr><td><code>fotovoltaico</code></td><td><code>progetto_impianto</code>, <code>visura_camerale</code></td></tr>
+            <tr><td><code>catastrofali</code></td><td><code>perizia_immobile</code>, <code>visura_catastale</code></td></tr>
+            <tr><td><code>azienda</code></td><td><code>visura_camerale</code>, <code>bilancio</code></td></tr>
+            <tr><td><code>postuma_decennale</code></td><td><code>collaudo_statico</code>, <code>progetto_esecutivo</code>, <code>visura_camerale</code></td></tr>
+            <tr><td><code>all_risk</code></td><td><code>lista_macchinari</code>, <code>visura_camerale</code></td></tr>
+            <tr><td><code>risparmio</code></td><td><code>documento_identita</code>, <code>profilo_rischio_mifid</code></td></tr>
+            <tr><td><code>salute</code></td><td><code>documento_identita</code>, <code>questionario_sanitario</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===================== 7 ===================== -->
+    <section id="sec-7">
+      <h2><span class="num">7</span>Regola real-time al salvataggio</h2>
+
+      <div class="callout callout-warn">
+        <span class="ico">⚠️</span>
+        <p><strong>Invio obbligatorio in tempo reale.</strong>Ogni operazione di salvataggio della pratica nel portale Mariano deve generare immediatamente la chiamata webhook corrispondente. Non è ammesso invio batch differito o manuale.</p>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Evento nel portale</th><th>Azione richiesta</th><th>Esito lato MGA</th></tr></thead>
+          <tbody>
+            <tr><td>Nuova pratica salvata</td><td>POST webhook con dati completi + eventuali allegati</td><td>Crea una nuova pratica in stato <code>in_lavorazione</code></td></tr>
+            <tr><td>Reinvio della stessa pratica</td><td>POST con la stessa <code>X-Idempotency-Key</code> / <code>idempotency_key</code></td><td>Nessun duplicato: ritorna la pratica esistente con <code>duplicate: true</code></td></tr>
+            <tr><td>Pratica con documenti</td><td>POST con array <code>documents[]</code> valorizzato</td><td>I file vengono caricati nello storage e collegati alla pratica</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout-warn">
+        <span class="ico">⚠️</span>
+        <p><strong>Nota sul comportamento.</strong>L'endpoint non gestisce operazioni di aggiornamento o annullamento: ogni chiamata valida priva di idempotency key già nota crea una <em>nuova</em> pratica. Per evitare duplicati nei retry, riusa sempre la stessa chiave di idempotenza.</p>
+      </div>
+    </section>
+
+    <!-- ===================== 8 ===================== -->
+    <section id="sec-8">
+      <h2><span class="num">8</span>Risposte attese</h2>
+      <p>In caso di acquisizione corretta l'endpoint risponde con <code>200 OK</code> e un corpo JSON di conferma contenente l'identificativo interno e il numero pratica assegnato (formato <code>PR-YYYY-NNNN</code>).</p>
+
+      <div class="callout callout-ok">
+        <span class="ico">✅</span>
+        <p><strong>200 OK — Pratica creata correttamente.</strong>La presenza di <code>"success": true</code> conferma l'acquisizione. Salvare <code>practice_id</code> e <code>practice_number</code> per riconciliazioni successive.</p>
+      </div>
+
+      <h3>Risposta di successo</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="pill pill-lang lang-badge">JSON</span>
+          <button class="copy-btn">Copia</button>
+        </div>
+        <pre><code>{
+  "success": true,
+  "practice_id": "8f3a2c91-d4e7-4b6a-9c12-7e5f0a1b2c3d",
+  "practice_number": "PR-2026-1234",
+  "message": "Pratica creata con successo."
+}</code></pre>
+      </div>
+
+      <h3>Risposta su chiave di idempotenza già vista</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="pill pill-lang lang-badge">JSON</span>
+          <button class="copy-btn">Copia</button>
+        </div>
+        <pre><code>{
+  "success": true,
+  "practice_id": "8f3a2c91-d4e7-4b6a-9c12-7e5f0a1b2c3d",
+  "practice_number": "PR-2026-1234",
+  "message": "Pratica già esistente (idempotency key riconosciuta).",
+  "duplicate": true
+}</code></pre>
+      </div>
+
+      <p>Le risposte di errore hanno sempre la forma <code>{ "error": "..." }</code>, con campi aggiuntivi a seconda del caso (es. <code>missing_fields</code>, <code>valid_types</code>, <code>missing</code>, <code>allowed_types</code>, <code>retry_after</code>).</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Codice HTTP</th><th>Significato</th><th>Azione mittente</th></tr></thead>
+          <tbody>
+            <tr><td><code>200</code></td><td>Pratica creata, oppure già esistente (<code>duplicate: true</code>)</td><td>Salvare <code>practice_id</code> / <code>practice_number</code></td></tr>
+            <tr><td><code>401</code></td><td><code>X-API-Key</code> mancante/non valida/disattivata/scaduta, <code>X-Signature</code> mancante o firma HMAC non valida</td><td>Verificare credenziali e ricalcolo firma</td></tr>
+            <tr><td><code>403</code></td><td>IP non autorizzato (se è attiva la whitelist <code>ALLOWED_IPS</code>)</td><td>Richiedere l'inserimento dell'IP in whitelist</td></tr>
+            <tr><td><code>405</code></td><td>Metodo diverso da POST</td><td>Utilizzare <code>POST</code></td></tr>
+            <tr><td><code>422</code></td><td>Validazione fallita: campi obbligatori, <code>practice_type</code>, documenti, MIME o dimensione</td><td>Correggere il payload secondo il campo <code>error</code></td></tr>
+            <tr><td><code>429</code></td><td>Rate limit superato (max 100 richieste/min per IP)</td><td>Attendere l'header <code>Retry-After</code> e ritentare</td></tr>
+            <tr><td><code>500</code></td><td>Errore interno del ricevente</td><td>Ritentare con backoff esponenziale</td></tr>
+            <tr><td><code>503</code></td><td>Configurazione server incompleta o errore temporaneo del database</td><td>Ritentare; se persiste contattare il referente tecnico</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===================== 9 ===================== -->
+    <section id="sec-9">
+      <h2><span class="num">9</span>Retry e idempotenza</h2>
+      <p>La chiave di idempotenza si fornisce tramite l'header <code>X-Idempotency-Key</code> oppure il campo <code>idempotency_key</code> nel body. Reinvii con la stessa chiave non generano duplicati: l'endpoint restituisce la pratica già creata con <code>200</code> e <code>duplicate: true</code>.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Scenario</th><th>Strategia</th></tr></thead>
+          <tbody>
+            <tr><td>Timeout o nessuna risposta</td><td>Retry con backoff esponenziale: 1s, 2s, 4s, 8s, 16s (max 5 tentativi), riusando la stessa chiave di idempotenza</td></tr>
+            <tr><td>Risposta <code>500</code> / <code>503</code></td><td>Retry con backoff esponenziale, stessa chiave di idempotenza</td></tr>
+            <tr><td>Risposta <code>429</code></td><td>Attendere e ritentare rispettando l'header <code>Retry-After</code></td></tr>
+            <tr><td>Risposta <code>200</code> con <code>duplicate: true</code></td><td>Pratica già acquisita: interrompere i retry</td></tr>
+            <tr><td>Risposta <code>401</code> (firma)</td><td>Errore di firma: ricalcolare l'HMAC sul body esatto inviato, non ritentare in loop</td></tr>
+            <tr><td>Risposta <code>422</code></td><td>Errore permanente di validazione: correggere i campi indicati in <code>error</code>, non ritentare invariato</td></tr>
+            <tr><td>Reinvio della stessa pratica</td><td>Mantenere identica la <code>X-Idempotency-Key</code> per garantire l'idempotenza</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===================== 10 ===================== -->
+    <section id="sec-10">
+      <h2><span class="num">10</span>Checklist pre go-live</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Controllo</th><th>Stato atteso</th></tr></thead>
+          <tbody>
+            <tr><td>Credenziali (<code>X-API-Key</code>, <code>WEBHOOK_SECRET</code>) salvate solo lato backend</td><td>✔ Verificato</td></tr>
+            <tr><td>Firma HMAC calcolata sul body JSON esatto (compatto) e header <code>X-Signature: sha256=…</code></td><td>✔ Verificato</td></tr>
+            <tr><td>Nessun header <code>X-Timestamp</code> inviato (non previsto)</td><td>✔ Verificato</td></tr>
+            <tr><td>Campi obbligatori <code>source</code>, <code>practice_type</code>, <code>client_name</code>, <code>client_email</code>, <code>client_phone</code> valorizzati</td><td>✔ Verificato</td></tr>
+            <tr><td><code>practice_type</code> incluso tra i valori ammessi</td><td>✔ Verificato</td></tr>
+            <tr><td>Nomi file allegati contengono le keyword obbligatorie per la tipologia</td><td>✔ Verificato</td></tr>
+            <tr><td>Allegati con MIME ammesso e dimensione ≤ 10 MB</td><td>✔ Verificato</td></tr>
+            <tr><td>Invio real-time agganciato all'evento di salvataggio</td><td>✔ Verificato</td></tr>
+            <tr><td><code>X-Idempotency-Key</code> impostata e riutilizzata sui retry</td><td>✔ Verificato</td></tr>
+            <tr><td>Gestione risposta <code>200</code> (success e <code>duplicate</code>) con persistenza di <code>practice_id</code></td><td>✔ Verificato</td></tr>
+            <tr><td>Retry con backoff su 5xx/timeout, rispetto di <code>Retry-After</code> su 429</td><td>✔ Verificato</td></tr>
+            <tr><td>Test end-to-end completato in ambiente di staging</td><td>✔ Verificato</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===================== 11 ===================== -->
+    <section id="sec-11">
+      <h2><span class="num">11</span>Contatti operativi</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Ruolo</th><th>Contatto</th></tr></thead>
+          <tbody>
+            <tr><td>Referente tecnico integrazione</td><td><code>antoncarlo@tecnomga.com</code></td></tr>
+            <tr><td>Supporto operativo</td><td><code>info@tecnomga.com</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===================== 12 ===================== -->
+    <section id="sec-12">
+      <h2><span class="num">12</span>Nota di sicurezza</h2>
+      <div class="callout callout-warn">
+        <span class="ico">⚠️</span>
+        <p><strong>Trattamento delle credenziali.</strong>La <code>X-API-Key</code> e il <code>WEBHOOK_SECRET</code> sono segreti riservati. Devono risiedere esclusivamente nel backend del portale mittente, archiviati come variabili d'ambiente o in un secret manager. Non vanno mai inseriti nel codice frontend, in URL, in log, in messaggi email in chiaro o in repository pubblici. In caso di sospetta compromissione, contattare immediatamente il referente tecnico per la rotazione delle chiavi.</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer class="site-footer">
+  © Tecno Advance MGA Broker S.r.l. — Documento riservato. Versione definitiva.
+</footer>
+
+<script>
+(function () {
+  /* ---------- COPY BUTTONS ---------- */
+  document.querySelectorAll('.copy-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var container = btn.closest('.code-block, .cred-box');
+      if (!container) return;
+      var codeEl = container.querySelector('code');
+      if (!codeEl) return;
+      var text = codeEl.innerText;
+      var done = function () {
+        btn.textContent = '✓ Copiato!';
+        btn.classList.add('done');
+        setTimeout(function () {
+          btn.textContent = 'Copia';
+          btn.classList.remove('done');
+        }, 2000);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(function () { fallbackCopy(text, done); });
+      } else {
+        fallbackCopy(text, done);
+      }
+    });
+  });
+
+  function fallbackCopy(text, cb) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+    cb();
+  }
+
+  /* ---------- SIDEBAR ACTIVE HIGHLIGHT ---------- */
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav.sidebar a'));
+  var byId = {};
+  links.forEach(function (a) { byId[a.getAttribute('href').slice(1)] = a; });
+
+  var sections = Array.prototype.slice.call(document.querySelectorAll('main section'));
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) {
+        links.forEach(function (a) { a.classList.remove('active'); });
+        var active = byId[entry.target.id];
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-80px 0px -65% 0px', threshold: 0 });
+
+  sections.forEach(function (s) { observer.observe(s); });
+
+  /* ---------- MOBILE DRAWER ---------- */
+  var sidebar = document.getElementById('sidebar');
+  var hamburger = document.getElementById('hamburger');
+  var backdrop = document.getElementById('backdrop');
+
+  function openMenu() { sidebar.classList.add('open'); backdrop.classList.add('show'); }
+  function closeMenu() { sidebar.classList.remove('open'); backdrop.classList.remove('show'); }
+
+  hamburger.addEventListener('click', function () {
+    if (sidebar.classList.contains('open')) closeMenu(); else openMenu();
+  });
+  backdrop.addEventListener('click', closeMenu);
+  links.forEach(function (a) { a.addEventListener('click', closeMenu); });
+})();
+</script>
+
+</body>
+</html>
