@@ -13,6 +13,7 @@ import {
   Euro,
   Calendar,
   BarChart3,
+  ClipboardList,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -72,6 +73,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { path: "/clients", icon: Users, label: "Clienti" },
     { path: "/expiry", icon: Calendar, label: "Scadenzario" },
     { path: "/reports", icon: BarChart3, label: "Report" },
+    { path: "/questionnaires", icon: ClipboardList, label: "Questionari" },
     { path: "/administration", icon: Euro, label: "Amministrazione" },
     { path: "/settings", icon: Settings, label: "Impostazioni" },
   ];

@@ -20,6 +20,7 @@ import Expiry from "./pages/Expiry";
 import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 import ApiDocs from "./pages/ApiDocs";
+import Questionnaires from "./pages/Questionnaires";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ const App = () => (
           <Route path="/administration" element={<ProtectedRoute><Administration /></ProtectedRoute>} />
           <Route path="/expiry" element={<ProtectedRoute><Expiry /></ProtectedRoute>} />
           <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+          <Route path="/questionnaires" element={<ProtectedRoute><Questionnaires /></ProtectedRoute>} />
           <Route path="/api-docs" element={<ApiDocs />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

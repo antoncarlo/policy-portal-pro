@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Upload, FileText, X, Euro, Info } from "lucide-react";
+import { Euro } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -19,11 +19,13 @@ import { PetInsuranceCalculator } from "@/components/pet/PetInsuranceCalculator"
 import { DynamicPolicyFields } from "@/components/upload/DynamicPolicyFields";
 import { mapPracticeTypeToEnum } from "@/utils/practiceTypeMapping";
 import { notifyAdminNewPractice } from "@/services/emailService";
+import { DocumentUploadSection } from "@/components/upload/DocumentUploadSection";
+import { requiredDocumentsConfig } from "@/config/requiredDocuments";
 
 export const UploadForm = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [files, setFiles] = useState<File[]>([]);
+  const [documentFiles, setDocumentFiles] = useState<{ docId: string; file: File }[]>([]);
   const [loading, setLoading] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   
@@ -165,15 +167,7 @@ export const UploadForm = () => {
     }
   }, [premiumTaxable, premiumTaxes]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setFiles([...files, ...Array.from(e.target.files)]);
-    }
-  };
-
-  const removeFile = (index: number) => {
-    setFiles(files.filter((_, i) => i !== index));
-  };
+  
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -219,65 +213,23 @@ export const UploadForm = () => {
     }
 
     // Validate required documents per practice type
-    const requiredDocsByType: Record<string, string[]> = {
-      car: ['preventivo_o_contratto', 'visura_camerale'],
-      fidejussioni: ['visura_camerale', 'bilancio_ultimo_anno', 'documento_identita_legale_rappresentante'],
-      postuma_decennale: ['collaudo_statico', 'progetto_esecutivo', 'visura_camerale'],
-      all_risk: ['lista_macchinari', 'visura_camerale'],
-      rc: ['visura_camerale', 'documento_identita'],
-      pet: ['libretto_sanitario_o_microchip'],
-      fotovoltaico: ['progetto_impianto', 'visura_camerale'],
-      catastrofali: ['perizia_immobile', 'visura_catastale'],
-      azienda: ['visura_camerale', 'bilancio'],
-      casa: ['visura_catastale', 'documento_identita'],
-      risparmio: ['documento_identita', 'profilo_rischio_mifid'],
-      salute: ['documento_identita', 'questionario_sanitario'],
-    };
-
     const practiceTypeKey = mapPracticeTypeToEnum(practiceType).toLowerCase();
-    const requiredDocs = requiredDocsByType[practiceTypeKey] ?? [];
+    const typeConfig = requiredDocumentsConfig.find(
+      (config) => config.practiceType.toLowerCase() === practiceTypeKey
+    );
+    const requiredDocs = typeConfig?.requiredDocuments ?? [];
+    const missingDocs = requiredDocs.filter(
+      (doc) => !documentFiles.some((uploaded) => uploaded.docId === doc.id)
+    );
 
-    if (requiredDocs.length > 0 && files.length === 0) {
+    if (missingDocs.length > 0) {
       toast({
         variant: "destructive",
         title: "Documenti obbligatori mancanti",
-        description: `Per la tipologia "${practiceType}" è necessario allegare almeno: ${requiredDocs.join(', ')}`,
+        description: `Documenti mancanti: ${missingDocs.map((doc) => doc.label).join(", ")}`,
       });
       setLoading(false);
       return;
-    }
-
-    // Validate files
-    const maxFileSize = 10 * 1024 * 1024; // 10MB
-    const allowedTypes = [
-      "application/pdf",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "image/jpeg",
-      "image/jpg",
-      "image/png",
-    ];
-
-    for (const file of files) {
-      if (file.size > maxFileSize) {
-        toast({
-          variant: "destructive",
-          title: "File troppo grande",
-          description: `${file.name} supera i 10MB consentiti.`,
-        });
-        setLoading(false);
-        return;
-      }
-
-      if (!allowedTypes.includes(file.type)) {
-        toast({
-          variant: "destructive",
-          title: "Tipo file non consentito",
-          description: `${file.name} non è un tipo di file consentito.`,
-        });
-        setLoading(false);
-        return;
-      }
     }
 
     // Get current user
@@ -420,46 +372,40 @@ export const UploadForm = () => {
 
       console.log("Practice created successfully:", practice);
 
-      // Upload documents if any
-      if (files.length > 0) {
-        const uploadPromises = files.map(async (file) => {
-          const fileExt = file.name.split(".").pop();
-          const fileName = `${practice.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      // Upload required documents
+      const uploadPromises = documentFiles.map(async ({ docId, file }) => {
+        const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const fileName = `${practice.id}/${docId}_${Date.now()}_${safeFileName}`;
 
-          // Upload to storage
-          const { error: uploadError } = await supabase.storage
-            .from("practice-documents")
-            .upload(fileName, file);
+        const { error: uploadError } = await supabase.storage
+          .from("practice-documents")
+          .upload(fileName, file);
 
-          if (uploadError) throw uploadError;
+        if (uploadError) throw uploadError;
 
-          // Create document record
-          const { error: docError } = await supabase
-            .from("practice_documents")
-            .insert({
-              practice_id: practice.id,
-              file_name: file.name,
-              file_path: fileName,
-              file_size: file.size,
-              mime_type: file.type,
-              uploaded_by: session.user.id,
-            });
+        const documentRecord: Record<string, unknown> = {
+          practice_id: practice.id,
+          file_name: file.name,
+          file_path: fileName,
+          file_size: file.size,
+          mime_type: file.type,
+          uploaded_by: session.user.id,
+          document_type: docId,
+        };
 
-          if (docError) throw docError;
-        });
+        const { error: docError } = await supabase
+          .from("practice_documents")
+          .insert(documentRecord);
 
-        await Promise.all(uploadPromises);
+        if (docError) throw docError;
+      });
 
-        toast({
-          title: "Pratica caricata con successo",
-          description: `Pratica ${practice.practice_number} creata con ${files.length} documento/i allegato/i.`,
-        });
-      } else {
-        toast({
-          title: "Pratica caricata con successo",
-          description: `Pratica ${practice.practice_number} creata correttamente.`,
-        });
-      }
+      await Promise.all(uploadPromises);
+
+      toast({
+        title: "Pratica caricata con successo",
+        description: `Pratica ${practice.practice_number} creata con ${documentFiles.length} documento/i obbligatorio/i allegato/i.`,
+      });
 
       // Fire-and-forget admin notification
       notifyAdminNewPractice({
@@ -475,7 +421,7 @@ export const UploadForm = () => {
       if (formRef.current) {
         formRef.current.reset();
       }
-      setFiles([]);
+      setDocumentFiles([]);
       setPremiumNet("");
       setPremiumTaxable("");
       setPremiumTaxes("");
@@ -763,84 +709,12 @@ export const UploadForm = () => {
           />
         </div>
 
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="file-upload">Documenti Allegati</Label>
-            <p className="text-sm text-muted-foreground mb-2">
-              Carica i documenti relativi alla pratica (PDF, Word, Immagini - Max 10MB per file)
-            </p>
-            <div className="flex items-center gap-2">
-              <Input
-                id="file-upload"
-                type="file"
-                multiple
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                onChange={handleFileChange}
-                className="cursor-pointer"
-              />
-              <Upload className="h-5 w-5 text-muted-foreground" />
-            </div>
-          </div>
-
-          {(() => {
-            const docHintMap: Record<string, string[]> = {
-              car: ['preventivo_o_contratto', 'visura_camerale'],
-              fidejussioni: ['visura_camerale', 'bilancio_ultimo_anno', 'documento_identita_legale_rappresentante'],
-              postuma_decennale: ['collaudo_statico', 'progetto_esecutivo', 'visura_camerale'],
-              all_risk: ['lista_macchinari', 'visura_camerale'],
-              rc: ['visura_camerale', 'documento_identita'],
-              pet: ['libretto_sanitario_o_microchip'],
-              fotovoltaico: ['progetto_impianto', 'visura_camerale'],
-              catastrofali: ['perizia_immobile', 'visura_catastale'],
-              azienda: ['visura_camerale', 'bilancio'],
-              casa: ['visura_catastale', 'documento_identita'],
-              risparmio: ['documento_identita', 'profilo_rischio_mifid'],
-              salute: ['documento_identita', 'questionario_sanitario'],
-            };
-            const key = practiceType ? mapPracticeTypeToEnum(practiceType).toLowerCase() : '';
-            const hints = docHintMap[key];
-            if (!practiceType || !hints || hints.length === 0) return null;
-            return (
-              <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-800 dark:text-blue-200">
-                <Info className="h-4 w-4 mt-0.5 shrink-0" />
-                <span>
-                  <strong>Documenti richiesti per {practiceType}:</strong>{' '}
-                  {hints.join(', ')}
-                </span>
-              </div>
-            );
-          })()}
-
-          {files.length > 0 && (
-            <div className="space-y-2">
-              <Label>File selezionati ({files.length})</Label>
-              <div className="space-y-2">
-                {files.map((file, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                  >
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-primary" />
-                      <span className="text-sm">{file.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                      </span>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeFile(index)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <DocumentUploadSection
+          practiceType={practiceType}
+          uploadedFiles={documentFiles}
+          onFilesChange={setDocumentFiles}
+          isAdmin={isAdmin}
+        />
 
         <div className="flex gap-4 pt-4">
           <Button
