@@ -281,8 +281,8 @@ const AdminUsers = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
             <h1 className="text-3xl font-bold text-foreground">Gestione Utenti</h1>
             <p className="text-muted-foreground mt-1">
               Gestisci tutti gli utenti della piattaforma
@@ -291,12 +291,12 @@ const AdminUsers = () => {
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
-                <UserPlus className="mr-2 h-4 w-4" />
-                Crea Nuovo Utente
+              <Button className="h-auto min-h-10 w-full whitespace-normal text-center md:w-auto">
+                <UserPlus className="mr-2 h-4 w-4 shrink-0" />
+                <span>Crea Nuovo Utente</span>
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-hidden sm:max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Crea Nuovo Utente</DialogTitle>
                 <DialogDescription>
@@ -379,7 +379,7 @@ const AdminUsers = () => {
                         <span className="ml-2 font-semibold text-primary">({selectedProducts.length} selezionati)</span>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto border rounded-md p-3">
+                    <div className="grid max-h-60 grid-cols-1 gap-2 overflow-y-auto rounded-md border p-3 sm:grid-cols-2">
                       {[
                         { value: "pet", label: "Pet" },
                         { value: "car", label: "Car" },
@@ -432,11 +432,11 @@ const AdminUsers = () => {
                         placeholder="16.00"
                       />
                     </div>
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <Label>Premi produzione</Label>
-                      <Button type="button" variant="outline" size="sm" onClick={addCommissionTier}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Scaglione
+                      <Button type="button" variant="outline" size="sm" onClick={addCommissionTier} className="h-auto min-h-9 w-full whitespace-normal sm:w-auto">
+                        <Plus className="mr-2 h-4 w-4 shrink-0" />
+                        <span>Scaglione</span>
                       </Button>
                     </div>
                     {commissionBonusTiers.map((tier, index) => (
@@ -460,8 +460,9 @@ const AdminUsers = () => {
           </Dialog>
         </div>
 
-        <Card>
-          <Table>
+        <Card className="overflow-hidden">
+          <div className="w-full overflow-x-auto">
+          <Table className="min-w-[760px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
@@ -487,8 +488,8 @@ const AdminUsers = () => {
               ) : (
                 users.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.full_name}</TableCell>
-                    <TableCell>{user.email}</TableCell>
+                    <TableCell className="max-w-[220px] break-words font-medium">{user.full_name}</TableCell>
+                    <TableCell className="max-w-[260px] break-all">{user.email}</TableCell>
                     <TableCell>{getRoleBadge(user.role)}</TableCell>
                     <TableCell>
                       {user.role === "agente" || user.role === "collaboratore" ? (
@@ -508,6 +509,7 @@ const AdminUsers = () => {
               )}
             </TableBody>
           </Table>
+          </div>
         </Card>
       </div>
     </DashboardLayout>

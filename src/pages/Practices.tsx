@@ -30,20 +30,20 @@ const Practices = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
             <h1 className="text-3xl font-bold text-foreground">Pratiche</h1>
             <p className="text-muted-foreground mt-1">
               Visualizza e gestisci tutte le pratiche assicurative
             </p>
           </div>
-          <Link to="/upload">
-            <Button>Carica Nuova Pratica</Button>
+          <Link to="/upload" className="w-full md:w-auto">
+            <Button className="h-auto min-h-10 w-full whitespace-normal text-center md:w-auto">Carica Nuova Pratica</Button>
           </Link>
         </div>
 
-        <div className="flex gap-4">
-          <div className="relative flex-1">
+        <div className="flex flex-col gap-4 md:flex-row">
+          <div className="relative min-w-0 flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Cerca per numero pratica, cliente, tipo..."

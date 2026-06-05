@@ -272,8 +272,9 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
       <div className="flex justify-end">
         <PracticesExport practices={filteredPractices} />
       </div>
-      <Card>
-        <Table>
+      <Card className="overflow-hidden">
+        <div className="w-full overflow-x-auto">
+        <Table className="min-w-[900px]">
         <TableHeader>
           <TableRow>
             <TableHead>Numero Pratica</TableHead>
@@ -301,10 +302,10 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
           ) : (
             filteredPractices.map((practice) => (
               <TableRow key={practice.id}>
-                <TableCell className="font-medium">{practice.practice_number}</TableCell>
-                <TableCell>{practice.client_name}</TableCell>
-                <TableCell>{getPracticeTypeLabel(practice.practice_type)}</TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="font-medium whitespace-nowrap">{practice.practice_number}</TableCell>
+                <TableCell className="max-w-[220px] break-words">{practice.client_name}</TableCell>
+                <TableCell className="whitespace-nowrap">{getPracticeTypeLabel(practice.practice_type)}</TableCell>
+                <TableCell className="max-w-[180px] break-words text-muted-foreground">
                   {practice.policy_number || "-"}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
@@ -364,7 +365,8 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
             ))
           )}
         </TableBody>
-      </Table>
+        </Table>
+        </div>
     </Card>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

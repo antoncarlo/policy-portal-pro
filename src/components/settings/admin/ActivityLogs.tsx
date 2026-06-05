@@ -168,19 +168,19 @@ export const ActivityLogs = () => {
 
   return (
     <Card className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-2">
           <Calendar className="h-5 w-5" />
-          <h2 className="text-xl font-semibold">Log Attività</h2>
+          <h2 className="min-w-0 break-words text-xl font-semibold">Log Attività</h2>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={exportToExcel}>
-            <FileDown className="h-4 w-4 mr-2" />
-            Excel
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <Button variant="outline" size="sm" onClick={exportToExcel} className="h-auto min-h-9 w-full whitespace-normal sm:w-auto">
+            <FileDown className="mr-2 h-4 w-4 shrink-0" />
+            <span>Excel</span>
           </Button>
-          <Button variant="outline" size="sm" onClick={exportToPDF}>
-            <FileDown className="h-4 w-4 mr-2" />
-            PDF
+          <Button variant="outline" size="sm" onClick={exportToPDF} className="h-auto min-h-9 w-full whitespace-normal sm:w-auto">
+            <FileDown className="mr-2 h-4 w-4 shrink-0" />
+            <span>PDF</span>
           </Button>
         </div>
       </div>
@@ -252,7 +252,7 @@ export const ActivityLogs = () => {
       {/* Logs Table */}
       <div className="border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[860px]">
             <thead className="bg-muted">
               <tr>
                 <th className="px-4 py-3 text-left text-sm font-semibold">Data/Ora</th>
@@ -283,13 +283,13 @@ export const ActivityLogs = () => {
                       {format(new Date(log.created_at), "dd/MM/yyyy HH:mm:ss")}
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      <div>
-                        <div className="font-medium">{log.profiles?.full_name || "Sistema"}</div>
-                        <div className="text-xs text-muted-foreground">{log.profiles?.email || "-"}</div>
+                      <div className="min-w-0">
+                        <div className="max-w-[220px] break-words font-medium">{log.profiles?.full_name || "Sistema"}</div>
+                        <div className="max-w-[260px] break-all text-xs text-muted-foreground">{log.profiles?.email || "-"}</div>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm">{getEventTypeBadge(log.event_type)}</td>
-                    <td className="px-4 py-3 text-sm">{log.action}</td>
+                    <td className="max-w-[260px] break-words px-4 py-3 text-sm">{log.action}</td>
                     <td className="px-4 py-3 text-sm">{log.entity_type || "-"}</td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{log.ip_address || "-"}</td>
                   </tr>

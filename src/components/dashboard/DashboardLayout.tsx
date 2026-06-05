@@ -83,26 +83,26 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   ];
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="flex min-h-screen bg-background">
       {/* Sidebar */}
-      <aside className="w-64 border-r border-border bg-card fixed h-full">
+      <aside className="fixed h-full w-64 overflow-y-auto border-r border-border bg-card">
         <div className="p-6 border-b border-border">
           <Link to="/" className="flex items-center justify-center">
             <img src="/logo.svg" alt="Tecno Advance MGA" className="h-12" />
           </Link>
         </div>
 
-        <nav className="p-4 space-y-2">
+        <nav className="space-y-2 p-4 pb-24">
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
               <Link key={item.path} to={item.path}>
                 <Button
                   variant={isActive(item.path) ? "secondary" : "ghost"}
-                  className="w-full justify-start"
+                  className="h-auto min-h-10 w-full justify-start whitespace-normal text-left leading-snug"
                 >
-                  <Icon className="mr-2 h-4 w-4" />
-                  {item.label}
+                  <Icon className="mr-2 h-4 w-4 shrink-0" />
+                  <span className="min-w-0 break-words">{item.label}</span>
                 </Button>
               </Link>
             );
@@ -121,10 +121,10 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   <Link key={item.path} to={item.path}>
                     <Button
                       variant={isActive(item.path) ? "secondary" : "ghost"}
-                      className="w-full justify-start"
+                      className="h-auto min-h-10 w-full justify-start whitespace-normal text-left leading-snug"
                     >
-                      <Icon className="mr-2 h-4 w-4" />
-                      {item.label}
+                      <Icon className="mr-2 h-4 w-4 shrink-0" />
+                      <span className="min-w-0 break-words">{item.label}</span>
                     </Button>
                   </Link>
                 );
@@ -133,21 +133,21 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           )}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
+        <div className="absolute bottom-0 left-0 right-0 border-t border-border bg-card p-4">
           <Button 
             variant="ghost" 
-            className="w-full justify-start text-muted-foreground hover:text-foreground"
+            className="h-auto min-h-10 w-full justify-start whitespace-normal text-left text-muted-foreground hover:text-foreground"
             onClick={handleLogout}
           >
-            <LogOut className="mr-2 h-4 w-4" />
-            Esci
+            <LogOut className="mr-2 h-4 w-4 shrink-0" />
+            <span>Esci</span>
           </Button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 ml-64">
-        <div className="p-8">{children}</div>
+      <main className="ml-64 min-w-0 flex-1">
+        <div className="w-full max-w-full overflow-x-hidden p-8">{children}</div>
       </main>
     </div>
   );

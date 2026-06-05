@@ -73,16 +73,16 @@ const Clients = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
             <h1 className="text-3xl font-bold text-foreground">Rubrica Clienti</h1>
             <p className="text-muted-foreground mt-1">
               Gestisci l'anagrafica completa dei tuoi clienti
             </p>
           </div>
-          <Button onClick={handleAddClient}>
-            <UserPlus className="mr-2 h-4 w-4" />
-            Aggiungi Cliente
+          <Button onClick={handleAddClient} className="h-auto min-h-10 w-full whitespace-normal text-center md:w-auto">
+            <UserPlus className="mr-2 h-4 w-4 shrink-0" />
+            <span>Aggiungi Cliente</span>
           </Button>
         </div>
 
@@ -104,7 +104,7 @@ const Clients = () => {
         />
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto overflow-x-hidden">
             <DialogHeader>
               <DialogTitle>
                 {selectedClient ? "Modifica Cliente" : "Aggiungi Nuovo Cliente"}

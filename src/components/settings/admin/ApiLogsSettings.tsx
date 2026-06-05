@@ -167,28 +167,28 @@ export function ApiLogsSettings() {
   return (
     <TooltipProvider>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
             <h2 className="text-xl font-semibold">Log API Webhook</h2>
             <p className="text-sm text-muted-foreground mt-1">
               Tutte le richieste ricevute dall&apos;endpoint <code className="text-xs bg-muted px-1 py-0.5 rounded">/api/webhook-receive-policy</code>
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => loadLogs(page)} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-              Aggiorna
+          <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
+            <Button variant="outline" size="sm" onClick={() => loadLogs(page)} disabled={loading} className="h-auto min-h-9 w-full whitespace-normal sm:w-auto">
+              <RefreshCw className={`mr-2 h-4 w-4 shrink-0 ${loading ? "animate-spin" : ""}`} />
+              <span>Aggiorna</span>
             </Button>
-            <Button variant="outline" size="sm" onClick={handleExport} disabled={loading || total === 0}>
-              <Download className="h-4 w-4 mr-2" />
-              Esporta CSV
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={loading || total === 0} className="h-auto min-h-9 w-full whitespace-normal sm:w-auto">
+              <Download className="mr-2 h-4 w-4 shrink-0" />
+              <span>Esporta CSV</span>
             </Button>
           </div>
         </div>
 
         {/* Filters */}
         <Card className="p-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1">
               <Label htmlFor="date-from">Dal</Label>
               <Input
@@ -243,9 +243,9 @@ export function ApiLogsSettings() {
         </div>
 
         {/* Table */}
-        <Card>
-          <div className="overflow-x-auto">
-            <Table>
+        <Card className="overflow-hidden">
+          <div className="w-full overflow-x-auto">
+            <Table className="min-w-[1040px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="whitespace-nowrap">Data/Ora</TableHead>
@@ -277,7 +277,7 @@ export function ApiLogsSettings() {
                       <TableCell className="whitespace-nowrap text-sm">
                         {new Date(log.created_at).toLocaleString("it-IT")}
                       </TableCell>
-                      <TableCell className="text-sm font-mono max-w-[120px] truncate">
+                      <TableCell className="max-w-[160px] truncate font-mono text-sm">
                         {log.source ?? "—"}
                       </TableCell>
                       <TableCell className="text-sm font-mono">
@@ -299,7 +299,7 @@ export function ApiLogsSettings() {
                           </Button>
                         ) : "—"}
                       </TableCell>
-                      <TableCell className="text-sm font-mono text-muted-foreground">
+                      <TableCell className="max-w-[180px] break-all font-mono text-sm text-muted-foreground">
                         {log.api_key_masked ?? "—"}
                       </TableCell>
                       <TableCell className="max-w-[200px]">
@@ -334,11 +334,11 @@ export function ApiLogsSettings() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t">
+            <div className="flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-muted-foreground">
                 Pagina {page + 1} di {totalPages}
               </span>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <Button
                   variant="outline"
                   size="sm"

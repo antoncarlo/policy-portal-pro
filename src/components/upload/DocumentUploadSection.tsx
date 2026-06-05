@@ -143,11 +143,11 @@ export const DocumentUploadSection = ({
               {questionnaireDocuments.map((doc) => (
                 <div
                   key={doc.id}
-                  className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-white p-3 dark:border-amber-800 dark:bg-background sm:flex-row sm:items-center sm:justify-between"
+                  className="grid gap-3 rounded-lg border border-amber-200 bg-white p-3 dark:border-amber-800 dark:bg-background md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
                 >
-                  <div>
-                    <p className="font-medium text-sm">{doc.label}</p>
-                    <p className="text-xs text-muted-foreground">{doc.description}</p>
+                  <div className="min-w-0 space-y-1">
+                    <p className="break-words text-sm font-medium leading-snug">{doc.label}</p>
+                    <p className="break-words text-xs text-muted-foreground">{doc.description}</p>
                   </div>
                   <Button
                     type="button"
@@ -155,9 +155,10 @@ export const DocumentUploadSection = ({
                     size="sm"
                     onClick={() => doc.questionnaireFile && window.open(doc.questionnaireFile, "_blank")}
                     disabled={!doc.questionnaireFile}
+                    className="h-auto min-h-9 w-full whitespace-normal text-center leading-snug md:w-auto"
                   >
-                    <Download className="mr-2 h-4 w-4" />
-                    Scarica Questionario
+                    <Download className="mr-2 h-4 w-4 shrink-0" />
+                    <span>Scarica Questionario</span>
                   </Button>
                 </div>
               ))}
@@ -179,26 +180,32 @@ export const DocumentUploadSection = ({
           const inputId = `required-document-${doc.id}`;
 
           return (
-            <Card key={doc.id} className="p-4">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex items-start gap-3">
+            <Card key={doc.id} className="overflow-hidden p-4">
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(240px,420px)] xl:items-start">
+                <div className="flex min-w-0 items-start gap-3">
                   {uploadedFile ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-600 mt-1" />
+                    <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-green-600" />
                   ) : (
-                    <XCircle className="h-5 w-5 text-red-600 mt-1" />
+                    <XCircle className="mt-1 h-5 w-5 shrink-0 text-red-600" />
                   )}
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium">{doc.label}</p>
-                      <Badge variant={doc.isQuestionnaire ? "secondary" : "destructive"} className={doc.isQuestionnaire ? "bg-amber-100 text-amber-900 hover:bg-amber-100 dark:bg-amber-900 dark:text-amber-100" : undefined}>
+                  <div className="min-w-0 space-y-2">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <p className="min-w-0 max-w-full break-words font-medium leading-snug">{doc.label}</p>
+                      <Badge
+                        variant={doc.isQuestionnaire ? "secondary" : "destructive"}
+                        className={doc.isQuestionnaire
+                          ? "max-w-full whitespace-normal break-words bg-amber-100 text-amber-900 hover:bg-amber-100 dark:bg-amber-900 dark:text-amber-100"
+                          : "max-w-full whitespace-normal break-words"
+                        }
+                      >
                         {doc.isQuestionnaire ? "OBBLIGATORIO — Questionario Firmato" : "OBBLIGATORIO"}
                       </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground">{doc.description}</p>
+                    <p className="break-words text-sm leading-relaxed text-muted-foreground">{doc.description}</p>
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-2 sm:min-w-[280px]">
+                <div className="flex min-w-0 flex-col gap-2">
                   <input
                     id={inputId}
                     type="file"
@@ -213,13 +220,14 @@ export const DocumentUploadSection = ({
                     type="button"
                     variant="outline"
                     onClick={() => document.getElementById(inputId)?.click()}
+                    className="h-auto min-h-10 w-full whitespace-normal px-3 py-2 text-center leading-snug"
                   >
-                    <Upload className="mr-2 h-4 w-4" />
-                    Allega {doc.label}
+                    <Upload className="mr-2 h-4 w-4 shrink-0" />
+                    <span className="min-w-0 break-words">Allega {doc.label}</span>
                   </Button>
 
                   {uploadedFile && (
-                    <div className="flex items-center justify-between gap-2 rounded-md bg-muted p-2 text-sm">
+                    <div className="flex min-w-0 items-center justify-between gap-2 rounded-md bg-muted p-2 text-sm">
                       <div className="min-w-0">
                         <p className="truncate font-medium">{uploadedFile.name}</p>
                         <p className="text-xs text-muted-foreground">{formatFileSize(uploadedFile.size)}</p>
@@ -244,7 +252,7 @@ export const DocumentUploadSection = ({
 
       <Card className="p-4">
         <div className="space-y-3">
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
             <span className="font-medium">{completedCount} di {requiredDocuments.length} documenti allegati</span>
             <span className="text-muted-foreground">{completionPercentage}%</span>
           </div>
@@ -261,7 +269,8 @@ export const DocumentUploadSection = ({
             </div>
           ) : (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
-              <strong>Documenti ancora mancanti:</strong> {missingDocuments.map((doc) => doc.label).join(", ")}
+              <strong>Documenti ancora mancanti:</strong>{" "}
+              <span className="break-words">{missingDocuments.map((doc) => doc.label).join(", ")}</span>
             </div>
           )}
         </div>

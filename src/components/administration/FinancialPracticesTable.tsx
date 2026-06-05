@@ -104,8 +104,9 @@ export const FinancialPracticesTable = ({
   }
 
   return (
-    <div className="rounded-md border">
-      <Table>
+    <div className="overflow-hidden rounded-md border">
+      <div className="w-full overflow-x-auto">
+      <Table className="min-w-[1180px]">
         <TableHeader>
           <TableRow>
             <TableHead>Numero Pratica</TableHead>
@@ -124,15 +125,15 @@ export const FinancialPracticesTable = ({
         <TableBody>
           {practices.map((practice) => (
             <TableRow key={practice.id}>
-              <TableCell className="font-medium">
+              <TableCell className="font-medium whitespace-nowrap">
                 {practice.practice_number}
               </TableCell>
-              <TableCell>{getPracticeTypeLabel(practice.practice_type)}</TableCell>
-              <TableCell>{practice.client_name}</TableCell>
+              <TableCell className="whitespace-nowrap">{getPracticeTypeLabel(practice.practice_type)}</TableCell>
+              <TableCell className="max-w-[220px] break-words">{practice.client_name}</TableCell>
               {showUserColumn && (
                 <TableCell>
-                  <div className="flex flex-col">
-                    <span className="font-medium">{practice.user_full_name}</span>
+                  <div className="flex min-w-0 flex-col">
+                    <span className="max-w-[180px] break-words font-medium">{practice.user_full_name}</span>
                     {practice.user_role && (
                       <span className="text-xs text-muted-foreground capitalize">
                         {practice.user_role}
@@ -182,6 +183,7 @@ export const FinancialPracticesTable = ({
           ))}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 };

@@ -139,14 +139,14 @@ export const CollaboratorsSettings = () => {
 
   return (
     <Card className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-2">
           <Users className="h-5 w-5" />
-          <h2 className="text-xl font-semibold">Gestione Collaboratori</h2>
+          <h2 className="min-w-0 break-words text-xl font-semibold">Gestione Collaboratori</h2>
         </div>
-        <Button onClick={() => navigate("/admin/users")} size="sm">
-          <UserPlus className="mr-2 h-4 w-4" />
-          Aggiungi Collaboratore
+        <Button onClick={() => navigate("/admin/users")} size="sm" className="h-auto min-h-9 w-full whitespace-normal sm:w-auto">
+          <UserPlus className="mr-2 h-4 w-4 shrink-0" />
+          <span>Aggiungi Collaboratore</span>
         </Button>
       </div>
 
@@ -163,8 +163,9 @@ export const CollaboratorsSettings = () => {
           </p>
         </div>
       ) : (
-        <div className="rounded-md border">
-          <Table>
+        <div className="overflow-hidden rounded-md border">
+          <div className="w-full overflow-x-auto">
+          <Table className="min-w-[820px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
@@ -178,11 +179,11 @@ export const CollaboratorsSettings = () => {
             <TableBody>
               {collaborators.map((collaborator) => (
                 <TableRow key={collaborator.id}>
-                  <TableCell className="font-medium">
+                  <TableCell className="max-w-[220px] break-words font-medium">
                     {collaborator.full_name}
                   </TableCell>
-                  <TableCell>{collaborator.email}</TableCell>
-                  <TableCell>{collaborator.phone || "-"}</TableCell>
+                  <TableCell className="max-w-[260px] break-all">{collaborator.email}</TableCell>
+                  <TableCell className="break-words">{collaborator.phone || "-"}</TableCell>
                   <TableCell className="text-center">
                     <Badge variant="secondary">
                       {collaborator.practices_count}
@@ -218,6 +219,7 @@ export const CollaboratorsSettings = () => {
               ))}
             </TableBody>
           </Table>
+          </div>
         </div>
       )}
 

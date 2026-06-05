@@ -73,8 +73,9 @@ export const UserTable = ({
   };
 
   return (
-    <div className="border rounded-lg overflow-hidden">
-      <Table>
+    <div className="overflow-hidden rounded-lg border">
+      <div className="w-full overflow-x-auto">
+      <Table className="min-w-[980px]">
         <TableHeader>
           <TableRow>
             <TableHead>Utente</TableHead>
@@ -102,17 +103,17 @@ export const UserTable = ({
                       <AvatarImage src={user.avatar_url || undefined} />
                       <AvatarFallback>{getInitials(user.full_name)}</AvatarFallback>
                     </Avatar>
-                    <div>
-                      <div className="font-medium">{user.full_name}</div>
-                      <div className="text-sm text-gray-500">{user.phone}</div>
+                    <div className="min-w-0">
+                      <div className="max-w-[200px] break-words font-medium">{user.full_name}</div>
+                      <div className="break-words text-sm text-gray-500">{user.phone}</div>
                     </div>
                   </div>
                 </TableCell>
-                <TableCell>{user.email}</TableCell>
+                <TableCell className="max-w-[260px] break-all">{user.email}</TableCell>
                 <TableCell>{getRoleBadge(user.role)}</TableCell>
                 <TableCell>
                   {user.agent_name ? (
-                    <span className="text-sm">{user.agent_name}</span>
+                    <span className="text-sm break-words">{user.agent_name}</span>
                   ) : (
                     <span className="text-sm text-gray-400">-</span>
                   )}
@@ -191,6 +192,7 @@ export const UserTable = ({
           )}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 };

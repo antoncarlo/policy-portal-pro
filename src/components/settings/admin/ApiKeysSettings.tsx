@@ -197,27 +197,28 @@ export function ApiKeysSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
           <h2 className="text-xl font-semibold">Chiavi API Partner</h2>
           <p className="text-sm text-muted-foreground mt-1">
             Ogni partner esterno deve avere la propria chiave. Non è possibile recuperare una chiave dopo la creazione.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={loadKeys} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Aggiorna
+        <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
+          <Button variant="outline" size="sm" onClick={loadKeys} disabled={loading} className="h-auto min-h-9 w-full whitespace-normal sm:w-auto">
+            <RefreshCw className={`mr-2 h-4 w-4 shrink-0 ${loading ? 'animate-spin' : ''}`} />
+            <span>Aggiorna</span>
           </Button>
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nuova Chiave
+          <Button size="sm" onClick={() => setCreateOpen(true)} className="h-auto min-h-9 w-full whitespace-normal sm:w-auto">
+            <Plus className="mr-2 h-4 w-4 shrink-0" />
+            <span>Nuova Chiave</span>
           </Button>
         </div>
       </div>
 
-      <Card>
-        <Table>
+      <Card className="overflow-hidden">
+        <div className="w-full overflow-x-auto">
+        <Table className="min-w-[980px]">
           <TableHeader>
             <TableRow>
               <TableHead>Nome Partner</TableHead>
@@ -245,11 +246,11 @@ export function ApiKeysSettings() {
             ) : (
               keys.map(key => (
                 <TableRow key={key.id}>
-                  <TableCell className="font-medium">{key.name}</TableCell>
+                  <TableCell className="max-w-[220px] break-words font-medium">{key.name}</TableCell>
                   <TableCell className="font-mono text-sm">
                     {key.key_prefix}****
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
+                  <TableCell className="max-w-[260px] break-all text-sm text-muted-foreground">
                     {key.partner_email ?? '—'}
                   </TableCell>
                   <TableCell>
@@ -306,11 +307,12 @@ export function ApiKeysSettings() {
             )}
           </TableBody>
         </Table>
+        </div>
       </Card>
 
       {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle>Crea Nuova Chiave API</DialogTitle>
           </DialogHeader>
@@ -352,7 +354,7 @@ export function ApiKeysSettings() {
 
       {/* Show key once dialog */}
       <Dialog open={showKeyOpen} onOpenChange={(open) => { if (!open) setShowKeyOpen(false); }}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle>Chiave API Generata</DialogTitle>
           </DialogHeader>

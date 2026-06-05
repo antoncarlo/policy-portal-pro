@@ -92,8 +92,9 @@ export const ClientsTable = ({
   };
 
   return (
-    <Card>
-      <Table>
+    <Card className="overflow-hidden">
+      <div className="w-full overflow-x-auto">
+      <Table className="min-w-[980px]">
         <TableHeader>
           <TableRow>
             <TableHead>Nome</TableHead>
@@ -121,11 +122,11 @@ export const ClientsTable = ({
           ) : (
             clients.map((client) => (
               <TableRow key={client.id}>
-                <TableCell className="font-medium">{client.full_name}</TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="max-w-[220px] break-words font-medium">{client.full_name}</TableCell>
+                <TableCell className="max-w-[220px] break-words text-muted-foreground">
                   {client.company_name || "-"}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="max-w-[260px] break-all text-muted-foreground">
                   {client.email || "-"}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
@@ -176,7 +177,8 @@ export const ClientsTable = ({
             ))
           )}
         </TableBody>
-      </Table>
+            </Table>
+      </div>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

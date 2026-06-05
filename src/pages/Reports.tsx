@@ -211,28 +211,30 @@ export default function Reports() {
     <DashboardLayout>
       <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
           <h1 className="text-3xl font-bold">Report Produzione</h1>
           <p className="text-muted-foreground">
             Analisi e statistiche delle pratiche assicurative
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
           <Button 
             variant="outline" 
             onClick={handleExportExcel}
             disabled={exporting}
+            className="h-auto min-h-10 w-full whitespace-normal sm:w-auto"
           >
-            <Download className="mr-2 h-4 w-4" />
-            Export Excel
+            <Download className="mr-2 h-4 w-4 shrink-0" />
+            <span>Export Excel</span>
           </Button>
           <Button 
             onClick={handleExportPDF}
             disabled={exporting}
+            className="h-auto min-h-10 w-full whitespace-normal sm:w-auto"
           >
-            <FileText className="mr-2 h-4 w-4" />
-            Export PDF
+            <FileText className="mr-2 h-4 w-4 shrink-0" />
+            <span>Export PDF</span>
           </Button>
         </div>
       </div>
@@ -420,8 +422,8 @@ export default function Reports() {
             <CardContent>
               <div className="space-y-2">
                 {Object.entries(stats.practices_by_type || {}).map(([type, count]) => (
-                  <div key={type} className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{type}</span>
+                  <div key={type} className="flex min-w-0 items-center justify-between gap-3">
+                    <span className="min-w-0 break-words text-sm font-medium">{type}</span>
                     <span className="text-sm text-muted-foreground">{count}</span>
                   </div>
                 ))}
@@ -438,8 +440,8 @@ export default function Reports() {
             <CardContent>
               <div className="space-y-2">
                 {Object.entries(stats.practices_by_status || {}).map(([status, count]) => (
-                  <div key={status} className="flex items-center justify-between">
-                    <span className="text-sm font-medium capitalize">{status}</span>
+                  <div key={status} className="flex min-w-0 items-center justify-between gap-3">
+                    <span className="min-w-0 break-words text-sm font-medium capitalize">{status}</span>
                     <span className="text-sm text-muted-foreground">{count}</span>
                   </div>
                 ))}
@@ -457,7 +459,7 @@ export default function Reports() {
               <CardContent>
                 <div className="space-y-4">
                   {stats.top_agents.map((agent, index) => (
-                    <div key={agent.agent_id} className="flex items-center justify-between border-b pb-2">
+                    <div key={agent.agent_id} className="flex min-w-0 items-center justify-between gap-3 border-b pb-2">
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">
                           {index + 1}

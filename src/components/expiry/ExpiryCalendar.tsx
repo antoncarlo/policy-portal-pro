@@ -173,24 +173,24 @@ export const ExpiryCalendar = () => {
     <div className="space-y-4">
       {/* Calendar Controls */}
       <Card className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             <Button variant="outline" size="sm" onClick={previousMonth}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <h2 className="text-xl font-semibold min-w-[200px] text-center">
+            <h2 className="min-w-0 flex-1 text-center text-lg font-semibold sm:min-w-[200px] sm:text-xl">
               {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
             </h2>
             <Button variant="outline" size="sm" onClick={nextMonth}>
               <ChevronRight className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={today}>
-              <CalendarIcon className="h-4 w-4 mr-2" />
-              Oggi
+            <Button variant="outline" size="sm" onClick={today} className="h-auto min-h-9 whitespace-normal">
+              <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+              <span>Oggi</span>
             </Button>
           </div>
 
-          <div className="w-64">
+          <div className="w-full lg:w-64">
             <Select value={selectedPracticeType} onValueChange={setSelectedPracticeType}>
               <SelectTrigger>
                 <SelectValue placeholder="Filtra per tipo" />
@@ -216,8 +216,9 @@ export const ExpiryCalendar = () => {
       </Card>
 
       {/* Calendar Grid */}
-      <Card className="p-4">
-        <div className="grid grid-cols-7 gap-2">
+      <Card className="overflow-hidden p-4">
+        <div className="w-full overflow-x-auto">
+        <div className="grid min-w-[760px] grid-cols-7 gap-2">
           {/* Day headers */}
           {dayNames.map((day) => (
             <div key={day} className="text-center font-semibold text-sm py-2">
@@ -227,11 +228,12 @@ export const ExpiryCalendar = () => {
           {/* Calendar days */}
           {renderCalendar()}
         </div>
+        </div>
       </Card>
 
       {/* Legend */}
       <Card className="p-4">
-        <div className="flex items-center gap-6 text-sm">
+        <div className="flex flex-wrap items-center gap-4 text-sm sm:gap-6">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 border-2 border-primary rounded"></div>
             <span>Oggi</span>
