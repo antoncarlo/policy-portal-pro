@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(npm install *)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(node_modules/.bin/vite build *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git commit *)",
+      "Bash(git -C \"C:/Users/anton/Desktop/policy-portal-pro\" add src/components/settings/admin/ApiKeysSettings.tsx)",
+      "Bash(git -C \"C:/Users/anton/Desktop/policy-portal-pro\" commit -m \"feat: add ApiKeysSettings admin component for multi-tenant key management\")",
+      "Bash(git push *)",
+      "Bash(ls supabase/migrations/)",
+      "Bash(dir supabase\\\\migrations)"
+    ]
+  }
+}
