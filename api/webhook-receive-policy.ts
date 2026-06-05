@@ -11,6 +11,10 @@ const VALID_PRACTICE_TYPES = [
   'catastrofali', 'azienda', 'postuma_decennale', 'all_risk', 'risparmio', 'salute',
 ];
 
+const DB_PRACTICE_TYPE_BY_API_TYPE: Record<string, string> = {
+  rc: 'responsabilita_civile',
+};
+
 const requiredDocsByType: Record<string, string[]> = {
   car: ['preventivo_o_contratto', 'visura_camerale'],
   fidejussioni: ['visura_camerale', 'bilancio_ultimo_anno', 'documento_identita_legale_rappresentante'],
@@ -391,7 +395,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: existing } = await supabaseAdmin
       .from('practices')
       .select('id, practice_number')
-      .eq('notes', `idempotency:${idempotencyKey}`)
+      .ilike('notes', `idempotency:${idempotencyKey}%`)
       .maybeSingle();
 
     if (existing) {
@@ -467,10 +471,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const notesPrefix = idempotencyKey ? `idempotency:${idempotencyKey}\n\n` : '';
     const notes = `${notesPrefix}Fonte: ${source}${body.notes ? `\n\n${body.notes}` : ''}`;
 
+    const dbPracticeType = DB_PRACTICE_TYPE_BY_API_TYPE[practiceTypeRaw] ?? practiceTypeRaw;
+
     const { data: practice, error: practiceError } = await supabaseAdmin
       .from('practices')
       .insert({
-        practice_type: practiceTypeRaw as 'auto',
+        practice_type: dbPracticeType as 'auto',
         client_name: (body.client_name as string).trim(),
         client_phone: (body.client_phone as string).trim(),
         client_email: (body.client_email as string).trim(),
