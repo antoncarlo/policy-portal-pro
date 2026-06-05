@@ -411,7 +411,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // 9. Document requirements validation
   const documents = Array.isArray(body.documents)
-    ? (body.documents as Array<{ filename: string; content_base64: string; mime_type: string }>)
+    ? (body.documents as Array<{ filename: string; content_base64: string; mime_type: string; document_type?: string }>)
     : [];
 
   const requiredDocs = requiredDocsByType[practiceTypeRaw] ?? [];
@@ -508,13 +508,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .from('practice-documents')
         .upload(storagePath, decoded, { contentType: doc.mime_type, upsert: false });
 
+      const normalizedFilename = doc.filename.toLowerCase();
+      const inferredDocumentType = doc.document_type || requiredDocs.find(req => normalizedFilename.includes(req)) || null;
+
       await supabaseAdmin.from('practice_documents').insert({
         practice_id: practice.id,
         file_name: doc.filename,
         file_path: storagePath,
         file_size: decoded.length,
         mime_type: doc.mime_type,
-        uploaded_by: defaultUserId,
+        uploaded_by: ownerUserId,
+        document_type: inferredDocumentType,
       });
     }
 
