@@ -1,74 +1,55 @@
-# Welcome to your Lovable project
+# Policy Portal Pro
 
-## Project info
+Portale web per **Tecno Advance MGA Broker SRL**, dedicato alla gestione operativa delle pratiche assicurative, dei clienti, delle scadenze, della reportistica e delle integrazioni API con sistemi esterni.
 
-**URL**: https://lovable.dev/projects/4af4a48e-db12-4e85-8533-3b8564bb5d03
+## Panoramica
 
-## How can I edit this code?
+**Policy Portal Pro** è un’applicazione React e TypeScript distribuita su Vercel, progettata per centralizzare i flussi di lavoro assicurativi di Tecno Advance MGA. Il portale include moduli per la gestione delle pratiche, l’anagrafica clienti, la consultazione delle attività, l’amministrazione utenti, il monitoraggio API e lo scadenzario operativo.
 
-There are several ways of editing your application.
+| Area | Descrizione |
+|---|---|
+| Pratiche | Gestione delle pratiche assicurative e del relativo stato operativo. |
+| Clienti | Consultazione e aggiornamento delle anagrafiche clienti. |
+| Scadenzario | Monitoraggio delle scadenze e delle attività collegate alle polizze. |
+| Report | Analisi e viste riepilogative per il controllo gestionale. |
+| Amministrazione | Gestione utenti, impostazioni, log applicativi e log API. |
+| Integrazioni | Endpoint webhook per ricezione e sincronizzazione dati da sistemi esterni. |
 
-**Use Lovable**
+## Stack tecnico
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/4af4a48e-db12-4e85-8533-3b8564bb5d03) and start prompting.
+Il progetto utilizza **React**, **TypeScript**, **Vite** e **Tailwind CSS** per il frontend. Le funzionalità backend e dati sono integrate con Supabase, mentre la distribuzione pubblica è gestita tramite Vercel.
 
-Changes made via Lovable will be committed automatically to this repo.
+| Componente | Tecnologia |
+|---|---|
+| Frontend | React, TypeScript, Vite |
+| UI | Tailwind CSS, componenti React |
+| Backend e dati | Supabase |
+| Deploy | Vercel |
+| Package manager operativo | npm |
 
-**Use your preferred IDE**
+## Sviluppo locale
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Per avviare il progetto in ambiente locale è necessario installare le dipendenze e lanciare il server di sviluppo.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Per produrre una build di verifica o di rilascio utilizzare il comando seguente.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+npm run build
+```
 
-**Use GitHub Codespaces**
+## Branding
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Il portale utilizza esclusivamente il branding **Tecno Advance MGA**. I colori principali sono il navy `#103657` e l’oro/bronzo `#ac7e59`. Gli asset browser e PWA si trovano nella directory `public/` e includono `favicon.svg`, `favicon.ico`, `apple-touch-icon.png`, `icon-192.png` e `icon-512.png`.
 
-## What technologies are used for this project?
+## Deploy
 
-This project is built with:
+Il progetto è pubblicato su Vercel all’indirizzo:
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+https://policy-portal-pro.vercel.app/
 
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/4af4a48e-db12-4e85-8533-3b8564bb5d03) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
-# Deploy trigger
+Ogni modifica confermata sul branch principale del repository GitHub viene distribuita secondo la configurazione Vercel associata al progetto.
