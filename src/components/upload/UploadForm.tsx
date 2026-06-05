@@ -45,6 +45,36 @@ export const UploadForm = () => {
     loadUserDefaultCommission();
   }, []);
 
+  // Preview the effective commission percentage using the same database rules applied on save.
+  useEffect(() => {
+    const loadEffectiveCommissionPreview = async () => {
+      if (!premiumNet) return;
+
+      const parsedPremium = parseFloat(premiumNet);
+      if (Number.isNaN(parsedPremium) || parsedPremium < 0) return;
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const { data, error } = await (supabase as any).rpc("get_effective_commission_percentage", {
+          p_user_id: session.user.id,
+          p_current_premium: parsedPremium,
+          p_reference_date: new Date().toISOString(),
+          p_exclude_practice_id: null,
+        });
+
+        if (!error && data !== null && data !== undefined) {
+          setCommissionPercentage(String(data));
+        }
+      } catch (error) {
+        console.error("Error loading effective commission preview:", error);
+      }
+    };
+
+    loadEffectiveCommissionPreview();
+  }, [premiumNet]);
+
   const loadUserDefaultCommission = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -348,8 +378,8 @@ export const UploadForm = () => {
       if (premiumTaxable) financialData.premium_taxable = parseFloat(premiumTaxable);
       if (premiumTaxes) financialData.premium_taxes = parseFloat(premiumTaxes);
       if (premiumGross) financialData.premium_gross = parseFloat(premiumGross);
-      if (commissionPercentage) financialData.commission_percentage = parseFloat(commissionPercentage);
-      // commission_amount will be auto-calculated by trigger
+      // commission_percentage and commission_amount are auto-calculated by the database trigger
+      // using the user's base commission plus any production bonus tiers.
 
       // Prepare notes with dynamic fields
       let finalNotes = notes?.trim() || '';
@@ -650,7 +680,7 @@ export const UploadForm = () => {
                     </span>
                   </div>
                   <p className="text-xs text-green-700 dark:text-green-300 mt-1">
-                    Calcolata automaticamente: €{premiumNet} × {commissionPercentage}% = €{commissionAmount}
+                    Calcolata automaticamente con provvigione effettiva {commissionPercentage}%: €{premiumNet} × {commissionPercentage}% = €{commissionAmount}
                   </p>
                 </div>
               </div>

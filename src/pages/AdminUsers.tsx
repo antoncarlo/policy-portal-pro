@@ -28,7 +28,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Shield, Users as UsersIcon, Package } from "lucide-react";
+import { UserPlus, Shield, Users as UsersIcon, Package, Percent, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -41,7 +41,25 @@ interface UserWithRole {
   full_name: string;
   role: UserRole;
   created_at: string;
+  default_commission_percentage?: number | null;
+  commission_bonus_tiers?: CommissionBonusTier[] | null;
 }
+
+interface CommissionBonusTier {
+  threshold: number;
+  bonus_percentage: number;
+  label?: string;
+}
+
+const normalizeTiers = (tiers: CommissionBonusTier[]) =>
+  tiers
+    .map((tier) => ({
+      threshold: Number(tier.threshold) || 0,
+      bonus_percentage: Number(tier.bonus_percentage) || 0,
+      label: tier.label?.trim() || "",
+    }))
+    .filter((tier) => tier.threshold > 0 && tier.bonus_percentage > 0)
+    .sort((a, b) => a.threshold - b.threshold);
 
 const AdminUsers = () => {
   const { toast } = useToast();
@@ -52,6 +70,7 @@ const AdminUsers = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [selectedRole, setSelectedRole] = useState<UserRole | "">("");
+  const [commissionBonusTiers, setCommissionBonusTiers] = useState<CommissionBonusTier[]>([]);
 
   useEffect(() => {
     checkAdminAccess();
@@ -91,7 +110,7 @@ const AdminUsers = () => {
     
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, email, full_name, created_at");
+      .select("id, email, full_name, created_at, default_commission_percentage, commission_bonus_tiers");
 
     if (profiles) {
       const usersWithRoles = await Promise.all(
@@ -133,6 +152,8 @@ const AdminUsers = () => {
     const password = formData.get("password") as string;
     const fullName = formData.get("full_name") as string;
     const role = formData.get("role") as UserRole;
+    const defaultCommissionPercentage = Number(formData.get("default_commission_percentage") || 0);
+    const normalizedCommissionBonusTiers = normalizeTiers(commissionBonusTiers);
 
     // Create user via Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -156,6 +177,14 @@ const AdminUsers = () => {
     }
 
     if (authData.user) {
+      await supabase
+        .from("profiles")
+        .update({
+          default_commission_percentage: defaultCommissionPercentage,
+          commission_bonus_tiers: normalizedCommissionBonusTiers,
+        })
+        .eq("id", authData.user.id);
+
       // Assign role
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -209,9 +238,26 @@ const AdminUsers = () => {
       setDialogOpen(false);
       setSelectedProducts([]);
       setSelectedRole("");
+      setCommissionBonusTiers([]);
       loadUsers();
       e.currentTarget.reset();
     }
+  };
+
+  const addCommissionTier = () => {
+    setCommissionBonusTiers((current) => [...current, { threshold: 0, bonus_percentage: 1, label: "" }]);
+  };
+
+  const updateCommissionTier = (index: number, field: keyof CommissionBonusTier, value: string) => {
+    setCommissionBonusTiers((current) =>
+      current.map((tier, tierIndex) =>
+        tierIndex === index ? { ...tier, [field]: field === "label" ? value : Number(value) } : tier
+      )
+    );
+  };
+
+  const removeCommissionTier = (index: number) => {
+    setCommissionBonusTiers((current) => current.filter((_, tierIndex) => tierIndex !== index));
   };
 
   const getRoleBadge = (role: UserRole) => {
@@ -369,6 +415,43 @@ const AdminUsers = () => {
                   </div>
                 )}
 
+                {(selectedRole === "agente" || selectedRole === "collaboratore") && (
+                  <div className="space-y-3 rounded-md border p-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="default_commission_percentage">
+                        <Percent className="h-4 w-4 inline mr-2" />
+                        Provvigione Base (%)
+                      </Label>
+                      <Input
+                        id="default_commission_percentage"
+                        name="default_commission_percentage"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        placeholder="16.00"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <Label>Premi produzione</Label>
+                      <Button type="button" variant="outline" size="sm" onClick={addCommissionTier}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Scaglione
+                      </Button>
+                    </div>
+                    {commissionBonusTiers.map((tier, index) => (
+                      <div key={index} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end rounded-md bg-muted/40 p-3">
+                        <Input type="number" step="0.01" min="0" placeholder="Soglia €" value={tier.threshold || ""} onChange={(e) => updateCommissionTier(index, "threshold", e.target.value)} />
+                        <Input type="number" step="0.01" min="0" max="100" placeholder="Bonus %" value={tier.bonus_percentage || ""} onChange={(e) => updateCommissionTier(index, "bonus_percentage", e.target.value)} />
+                        <Input placeholder="Etichetta" value={tier.label || ""} onChange={(e) => updateCommissionTier(index, "label", e.target.value)} />
+                        <Button type="button" variant="ghost" size="icon" onClick={() => removeCommissionTier(index)}>
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <Button type="submit" className="w-full">
                   Crea Utente
                 </Button>
@@ -384,19 +467,20 @@ const AdminUsers = () => {
                 <TableHead>Nome</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Ruolo</TableHead>
+                <TableHead>Provvigione</TableHead>
                 <TableHead>Data Creazione</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center">
+                  <TableCell colSpan={5} className="text-center">
                     Caricamento...
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center text-muted-foreground">
                     Nessun utente trovato
                   </TableCell>
                 </TableRow>
@@ -406,6 +490,16 @@ const AdminUsers = () => {
                     <TableCell className="font-medium">{user.full_name}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{getRoleBadge(user.role)}</TableCell>
+                    <TableCell>
+                      {user.role === "agente" || user.role === "collaboratore" ? (
+                        <div className="space-y-1">
+                          <Badge variant="secondary">Base {Number(user.default_commission_percentage || 0).toFixed(2)}%</Badge>
+                          {Array.isArray(user.commission_bonus_tiers) && user.commission_bonus_tiers.length > 0 && (
+                            <div className="text-xs text-muted-foreground">{user.commission_bonus_tiers.length} scaglione/i</div>
+                          )}
+                        </div>
+                      ) : "-"}
+                    </TableCell>
                     <TableCell>
                       {new Date(user.created_at).toLocaleDateString("it-IT")}
                     </TableCell>

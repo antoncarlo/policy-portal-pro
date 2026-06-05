@@ -13,6 +13,7 @@ import { EditRoleDialog } from "@/components/admin/users/EditRoleDialog";
 import { AssignAgentDialog } from "@/components/admin/users/AssignAgentDialog";
 import { InviteUserDialog } from "@/components/admin/users/InviteUserDialog";
 import { EditUserProductsDialog } from "@/components/admin/users/EditUserProductsDialog";
+import { EditCommissionDialog } from "@/components/admin/users/EditCommissionDialog";
 import * as XLSX from "xlsx";
 
 interface User {
@@ -24,6 +25,8 @@ interface User {
   role: string;
   agent_name: string | null;
   practice_count: number;
+  default_commission_percentage?: number | null;
+  commission_bonus_tiers?: Array<{ threshold: number; bonus_percentage: number; label?: string }> | null;
 }
 
 const UserManagement = () => {
@@ -37,6 +40,7 @@ const UserManagement = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [editRoleDialogOpen, setEditRoleDialogOpen] = useState(false);
   const [editProductsDialogOpen, setEditProductsDialogOpen] = useState(false);
+  const [editCommissionDialogOpen, setEditCommissionDialogOpen] = useState(false);
   const [assignAgentDialogOpen, setAssignAgentDialogOpen] = useState(false);
   const [inviteUserDialogOpen, setInviteUserDialogOpen] = useState(false);
 
@@ -122,6 +126,11 @@ const UserManagement = () => {
     setEditProductsDialogOpen(true);
   };
 
+  const handleEditCommission = (user: User) => {
+    setSelectedUser(user);
+    setEditCommissionDialogOpen(true);
+  };
+
   const handleViewPractices = (user: User) => {
     navigate(`/practices?user=${user.id}`);
   };
@@ -181,7 +190,13 @@ const UserManagement = () => {
       Email: user.email,
       Telefono: user.phone,
       Ruolo: user.role,
-      Agente: user.agent_name || "-",
+      "Agente": user.agent_name || "-",
+      "Provvigione Base (%)": user.default_commission_percentage ?? 0,
+      "Premi Produzione": Array.isArray(user.commission_bonus_tiers) && user.commission_bonus_tiers.length > 0
+        ? user.commission_bonus_tiers
+            .map((tier) => `${tier.label || "Scaglione"}: oltre ${tier.threshold}€ +${tier.bonus_percentage}%`)
+            .join("; ")
+        : "-",
       Pratiche: user.practice_count,
     }));
 
@@ -242,6 +257,7 @@ const UserManagement = () => {
           users={filteredUsers}
           onEditRole={handleEditRole}
           onEditProducts={handleEditProducts}
+          onEditCommission={handleEditCommission}
           onAssignAgent={handleAssignAgent}
           onViewPractices={handleViewPractices}
           onDisableUser={handleDisableUser}
@@ -268,6 +284,13 @@ const UserManagement = () => {
       <InviteUserDialog
         open={inviteUserDialogOpen}
         onOpenChange={setInviteUserDialogOpen}
+        onSuccess={loadUsers}
+      />
+
+      <EditCommissionDialog
+        open={editCommissionDialogOpen}
+        onOpenChange={setEditCommissionDialogOpen}
+        user={selectedUser}
         onSuccess={loadUsers}
       />
 

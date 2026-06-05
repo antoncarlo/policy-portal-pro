@@ -19,7 +19,7 @@ serve(async (req) => {
     const body = await req.json()
     console.log('Request body:', { ...body, password: '***' })
     
-    const { email, password, full_name, phone, role, default_commission_percentage } = body
+    const { email, password, full_name, phone, role, default_commission_percentage, commission_bonus_tiers } = body
 
     // Validate required fields
     if (!email || !password || !full_name || !role) {
@@ -118,6 +118,17 @@ serve(async (req) => {
 
     console.log('Admin verified, creating user...')
 
+    const normalizedBonusTiers = Array.isArray(commission_bonus_tiers)
+      ? commission_bonus_tiers
+          .map((tier) => ({
+            threshold: Number(tier?.threshold) || 0,
+            bonus_percentage: Number(tier?.bonus_percentage) || 0,
+            label: typeof tier?.label === 'string' ? tier.label.trim() : '',
+          }))
+          .filter((tier) => tier.threshold > 0 && tier.bonus_percentage > 0)
+          .sort((a, b) => a.threshold - b.threshold)
+      : []
+
     // Create user in Supabase Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -153,7 +164,8 @@ serve(async (req) => {
       email,
       full_name,
       phone: phone || null,
-      default_commission_percentage: default_commission_percentage || 0,
+      default_commission_percentage: Number(default_commission_percentage) || 0,
+      commission_bonus_tiers: normalizedBonusTiers,
     })
 
     if (profileError) {

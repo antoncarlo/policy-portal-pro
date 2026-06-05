@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MoreVertical, Eye, Edit, Link2, BarChart3, Ban, Trash2, Package } from "lucide-react";
+import { MoreVertical, Edit, Link2, BarChart3, Ban, Trash2, Package, Percent } from "lucide-react";
 
 interface User {
   id: string;
@@ -28,12 +28,15 @@ interface User {
   role: string;
   agent_name: string | null;
   practice_count: number;
+  default_commission_percentage?: number | null;
+  commission_bonus_tiers?: Array<{ threshold: number; bonus_percentage: number; label?: string }> | null;
 }
 
 interface UserTableProps {
   users: User[];
   onEditRole: (user: User) => void;
   onEditProducts: (user: User) => void;
+  onEditCommission: (user: User) => void;
   onAssignAgent: (user: User) => void;
   onViewPractices: (user: User) => void;
   onDisableUser: (user: User) => void;
@@ -44,6 +47,7 @@ export const UserTable = ({
   users,
   onEditRole,
   onEditProducts,
+  onEditCommission,
   onAssignAgent,
   onViewPractices,
   onDisableUser,
@@ -77,6 +81,7 @@ export const UserTable = ({
             <TableHead>Email</TableHead>
             <TableHead>Ruolo</TableHead>
             <TableHead>Agente</TableHead>
+            <TableHead>Provvigione</TableHead>
             <TableHead className="text-right">Pratiche</TableHead>
             <TableHead className="w-[50px]"></TableHead>
           </TableRow>
@@ -84,7 +89,7 @@ export const UserTable = ({
         <TableBody>
           {users.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+              <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                 Nessun utente trovato
               </TableCell>
             </TableRow>
@@ -112,6 +117,20 @@ export const UserTable = ({
                     <span className="text-sm text-gray-400">-</span>
                   )}
                 </TableCell>
+                <TableCell>
+                  {user.role === "agente" || user.role === "collaboratore" ? (
+                    <div className="space-y-1">
+                      <Badge variant="secondary">Base {Number(user.default_commission_percentage || 0).toFixed(2)}%</Badge>
+                      {Array.isArray(user.commission_bonus_tiers) && user.commission_bonus_tiers.length > 0 && (
+                        <div className="text-xs text-muted-foreground">
+                          {user.commission_bonus_tiers.length} scaglione/i premio
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-sm text-gray-400">-</span>
+                  )}
+                </TableCell>
                 <TableCell className="text-right">
                   <Badge variant="outline">{user.practice_count}</Badge>
                 </TableCell>
@@ -128,10 +147,16 @@ export const UserTable = ({
                         Modifica Ruolo
                       </DropdownMenuItem>
                       {(user.role === "agente" || user.role === "collaboratore") && (
-                        <DropdownMenuItem onClick={() => onEditProducts(user)}>
-                          <Package className="h-4 w-4 mr-2" />
-                          Gestisci Prodotti
-                        </DropdownMenuItem>
+                        <>
+                          <DropdownMenuItem onClick={() => onEditProducts(user)}>
+                            <Package className="h-4 w-4 mr-2" />
+                            Gestisci Prodotti
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onEditCommission(user)}>
+                            <Percent className="h-4 w-4 mr-2" />
+                            Gestisci Provvigioni
+                          </DropdownMenuItem>
+                        </>
                       )}
                       {user.role === "collaboratore" && (
                         <DropdownMenuItem onClick={() => onAssignAgent(user)}>

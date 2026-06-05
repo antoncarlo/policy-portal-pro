@@ -19,13 +19,29 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Mail, User, Phone, Shield, Percent, Package } from "lucide-react";
+import { Loader2, Mail, User, Phone, Shield, Percent, Package, Plus, Trash2 } from "lucide-react";
 
 interface InviteUserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
 }
+
+interface CommissionBonusTier {
+  threshold: number;
+  bonus_percentage: number;
+  label?: string;
+}
+
+const normalizeTiers = (tiers: CommissionBonusTier[]) =>
+  tiers
+    .map((tier) => ({
+      threshold: Number(tier.threshold) || 0,
+      bonus_percentage: Number(tier.bonus_percentage) || 0,
+      label: tier.label?.trim() || "",
+    }))
+    .filter((tier) => tier.threshold > 0 && tier.bonus_percentage > 0)
+    .sort((a, b) => a.threshold - b.threshold);
 
 export const InviteUserDialog = ({
   open,
@@ -35,6 +51,7 @@ export const InviteUserDialog = ({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [commissionBonusTiers, setCommissionBonusTiers] = useState<CommissionBonusTier[]>([]);
   const [formData, setFormData] = useState({
     email: "",
     full_name: "",
@@ -46,6 +63,27 @@ export const InviteUserDialog = ({
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const addCommissionTier = () => {
+    setCommissionBonusTiers((current) => [
+      ...current,
+      { threshold: 0, bonus_percentage: 1, label: "" },
+    ]);
+  };
+
+  const updateCommissionTier = (index: number, field: keyof CommissionBonusTier, value: string) => {
+    setCommissionBonusTiers((current) =>
+      current.map((tier, tierIndex) =>
+        tierIndex === index
+          ? { ...tier, [field]: field === "label" ? value : Number(value) }
+          : tier
+      )
+    );
+  };
+
+  const removeCommissionTier = (index: number) => {
+    setCommissionBonusTiers((current) => current.filter((_, tierIndex) => tierIndex !== index));
   };
 
   const generateRandomPassword = () => {
@@ -88,6 +126,8 @@ export const InviteUserDialog = ({
         throw new Error("Devi essere autenticato per creare utenti");
       }
 
+      const normalizedCommissionBonusTiers = normalizeTiers(commissionBonusTiers);
+
       // Call API route to create user
       const response = await fetch('/api/create-user', {
         method: 'POST',
@@ -102,6 +142,7 @@ export const InviteUserDialog = ({
           phone: formData.phone,
           role: formData.role,
           default_commission_percentage: parseFloat(formData.default_commission_percentage) || 0,
+          commission_bonus_tiers: normalizedCommissionBonusTiers,
           allowed_products: selectedProducts,
         }),
       });
@@ -131,6 +172,7 @@ export const InviteUserDialog = ({
       onSuccess();
       onOpenChange(false);
       setSelectedProducts([]);
+      setCommissionBonusTiers([]);
       setFormData({
         email: "",
         full_name: "",
@@ -291,7 +333,7 @@ export const InviteUserDialog = ({
 
           <div className="space-y-2">
             <Label htmlFor="commission">
-              Provvigione Default (%)
+              Provvigione Base (%)
             </Label>
             <div className="relative">
               <Percent className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -301,15 +343,75 @@ export const InviteUserDialog = ({
                 step="0.01"
                 min="0"
                 max="100"
-                placeholder="15.00"
+                placeholder="16.00"
                 value={formData.default_commission_percentage}
                 onChange={(e) => handleChange("default_commission_percentage", e.target.value)}
                 className="pl-10"
               />
             </div>
             <p className="text-xs text-gray-500">
-              Percentuale che verrà pre-compilata automaticamente quando l'utente crea una pratica
+              Percentuale base individuale. Può essere 16%, 8% o qualsiasi valore scelto dall'amministratore.
             </p>
+          </div>
+
+          <div className="space-y-3 rounded-md border p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <Label>Premi produzione</Label>
+                <p className="text-xs text-gray-500">
+                  Aggiungi scaglioni che incrementano la provvigione base quando la produzione annua raggiunge la soglia.
+                </p>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={addCommissionTier}>
+                <Plus className="h-4 w-4 mr-2" />
+                Scaglione
+              </Button>
+            </div>
+
+            {commissionBonusTiers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nessun premio produzione configurato.</p>
+            ) : (
+              <div className="space-y-3">
+                {commissionBonusTiers.map((tier, index) => (
+                  <div key={index} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end rounded-md bg-muted/40 p-3">
+                    <div className="space-y-1">
+                      <Label>Soglia (€)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={tier.threshold || ""}
+                        onChange={(e) => updateCommissionTier(index, "threshold", e.target.value)}
+                        placeholder="50000"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Bonus (%)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={tier.bonus_percentage || ""}
+                        onChange={(e) => updateCommissionTier(index, "bonus_percentage", e.target.value)}
+                        placeholder="1"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Etichetta</Label>
+                      <Input
+                        value={tier.label || ""}
+                        onChange={(e) => updateCommissionTier(index, "label", e.target.value)}
+                        placeholder="Oltre 50k"
+                      />
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removeCommissionTier(index)}>
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
