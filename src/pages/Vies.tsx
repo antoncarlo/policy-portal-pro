@@ -357,6 +357,7 @@ const Vies = () => {
   const [documents, setDocuments] = useState<ZipDocument[]>([]);
   const [loadingExcel, setLoadingExcel] = useState(false);
   const [loadingZip, setLoadingZip] = useState(false);
+  const [zipProcessingStatus, setZipProcessingStatus] = useState<string | null>(null);
   const [savingBatch, setSavingBatch] = useState(false);
   const [persistedBatchId, setPersistedBatchId] = useState<string | null>(null);
   const [lastCreatedPracticeIds, setLastCreatedPracticeIds] = useState<string[]>([]);
@@ -391,6 +392,7 @@ const Vies = () => {
   ).length;
   const nestedZipCount = documents.filter((document) => document.extension === "zip").length;
   const pdfCount = documents.filter((document) => document.extension === "pdf").length;
+  const selectedZipTotalSize = useMemo(() => zipFiles.reduce((total, file) => total + file.size, 0), [zipFiles]);
 
   const reconciliationRows = useMemo<ViesReconciliationRow[]>(() => {
     const zipFilesByKey = new Map<string, File[]>();
@@ -450,14 +452,32 @@ const Vies = () => {
     if (!selectedFiles.length) return;
 
     setZipFiles(selectedFiles);
+    setDocuments([]);
     setLoadingZip(true);
+    setZipProcessingStatus(`0/${selectedFiles.length} ZIP indicizzati`);
 
     try {
-      const parsedDocuments = (await Promise.all(selectedFiles.map((file) => readZipRecursive(file)))).flat();
+      const parsedDocuments: ZipDocument[] = [];
+
+      for (const [index, file] of selectedFiles.entries()) {
+        setZipProcessingStatus(`Lettura ${index + 1}/${selectedFiles.length}: ${file.name} (${formatBytes(file.size)})`);
+
+        try {
+          const fileDocuments = await readZipRecursive(file);
+          parsedDocuments.push(...fileDocuments);
+          setDocuments([...parsedDocuments]);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "archivio non leggibile";
+          throw new Error(`Errore lettura ZIP ${file.name}: ${message}`);
+        }
+
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+      }
+
       setDocuments(parsedDocuments);
       toast({
         title: "ZIP nominativi indicizzati correttamente",
-        description: `Rilevati ${selectedFiles.length} ZIP e ${parsedDocuments.length} elementi documentali riconciliabili per NOME ZIP.`,
+        description: `Rilevati ${selectedFiles.length} ZIP (${formatBytes(selectedFiles.reduce((total, file) => total + file.size, 0))}) e ${parsedDocuments.length} elementi documentali riconciliabili per NOME ZIP.`,
       });
     } catch (error) {
       setDocuments([]);
@@ -468,6 +488,7 @@ const Vies = () => {
       });
     } finally {
       setLoadingZip(false);
+      setZipProcessingStatus(null);
     }
   };
 
@@ -913,9 +934,9 @@ const Vies = () => {
                   />
                   <p className="text-sm text-muted-foreground">
                     {loadingZip
-                      ? "Indicizzazione in corso..."
+                      ? zipProcessingStatus ?? "Indicizzazione in corso..."
                       : zipFiles.length
-                        ? zipFiles.map((file) => file.name).join(", ")
+                        ? `${zipFiles.length} ZIP selezionati (${formatBytes(selectedZipTotalSize)}): ${zipFiles.map((file) => file.name).join(", ")}`
                         : "Nessuno ZIP selezionato"}
                   </p>
                 </div>

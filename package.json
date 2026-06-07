@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "test:api-imports": "node scripts/check-vercel-api-relative-imports.mjs",
     "test:vies-practices": "node scripts/check-vies-practice-materialization.mjs",
+    "test:vies-zip-upload": "node scripts/check-vies-zip-sequential-processing.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
