@@ -8,6 +8,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "test:api-imports": "node scripts/check-vercel-api-relative-imports.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -6,7 +6,7 @@ import {
   processViesQueue,
   resolveUserFromRequest,
   sendMethodNotAllowed,
-} from './_lib/vies-orchestrator';
+} from './_lib/vies-orchestrator.js';
 
 type ControlAction = 'enqueue_batch' | 'retry_job' | 'cancel_batch' | 'run_worker_once';
 
