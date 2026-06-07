@@ -104,7 +104,7 @@ export const PracticesFilters = ({
     }
   };
 
-  const updateFilter = (key: keyof PracticeFilters, value: any) => {
+  const updateFilter = <K extends keyof PracticeFilters>(key: K, value: PracticeFilters[K]) => {
     onFiltersChange({ ...filters, [key]: value });
   };
 
@@ -154,7 +154,8 @@ export const PracticesFilters = ({
                 <SelectItem value="vita">Vita</SelectItem>
                 <SelectItem value="salute">Salute</SelectItem>
                 <SelectItem value="responsabilita">Responsabilità Civile</SelectItem>
-                <SelectItem value="fidejussioni">VIES / Fideiussioni</SelectItem>
+                <SelectItem value="fidejussioni">Fidejussioni</SelectItem>
+                    <SelectItem value="vies">VIES</SelectItem>
                 <SelectItem value="altro">Altro</SelectItem>
               </SelectContent>
             </Select>

@@ -484,6 +484,9 @@ export type Database = {
           locked_at: string | null
           locked_by: string | null
           max_attempts: number
+          nome_zip: string | null
+          zip_file_name: string | null
+          reconciliation_errors: Json
           next_attempt_at: string
           pagamento: string | null
           partita_iva_beneficiario: string | null
@@ -520,6 +523,9 @@ export type Database = {
           locked_at?: string | null
           locked_by?: string | null
           max_attempts?: number
+          nome_zip?: string | null
+          zip_file_name?: string | null
+          reconciliation_errors?: Json
           next_attempt_at?: string
           pagamento?: string | null
           partita_iva_beneficiario?: string | null
@@ -593,9 +599,13 @@ export type Database = {
           file_size: number
           id: string
           is_nested_zip: boolean
+          nome_zip: string | null
+          practice_id: string | null
           requirement_matches: string[]
+          row_number: number | null
           status: string
           user_id: string
+          zip_file_name: string | null
         }
         Insert: {
           batch_id: string
@@ -607,9 +617,13 @@ export type Database = {
           file_size?: number
           id?: string
           is_nested_zip?: boolean
+          nome_zip?: string | null
+          practice_id?: string | null
           requirement_matches?: string[]
+          row_number?: number | null
           status?: string
           user_id: string
+          zip_file_name?: string | null
         }
         Update: {
           batch_id?: string
@@ -621,9 +635,13 @@ export type Database = {
           file_size?: number
           id?: string
           is_nested_zip?: boolean
+          nome_zip?: string | null
+          practice_id?: string | null
           requirement_matches?: string[]
+          row_number?: number | null
           status?: string
           user_id?: string
+          zip_file_name?: string | null
         }
         Relationships: [
           {
@@ -1215,6 +1233,7 @@ export type Database = {
         | "responsabilita"
         | "altro"
         | "fidejussioni"
+        | "vies"
         | "car"
         | "postuma_decennale"
         | "all_risk"

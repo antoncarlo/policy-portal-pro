@@ -11,12 +11,13 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 type PracticeStatus = "in_lavorazione" | "in_attesa" | "approvata" | "rifiutata" | "completata";
-type PracticeType = "auto" | "casa" | "vita" | "salute" | "responsabilita" | "altro";
+type PracticeType = "auto" | "casa" | "vita" | "salute" | "responsabilita" | "altro" | "fidejussioni" | "vies" | "car" | "postuma_decennale" | "all_risk" | "furto_incendio" | "responsabilita_civile" | "trasporti" | "cyber" | "d_o";
 
 interface Practice {
   practice_number: string;
   practice_type: PracticeType;
   client_name: string;
+  beneficiary: string | null;
   policy_number: string | null;
   status: PracticeStatus;
   created_at: string;
@@ -39,13 +40,23 @@ export const PracticesExport = ({ practices }: PracticesExportProps) => {
   };
 
   const getPracticeTypeLabel = (type: PracticeType) => {
-    const labels = {
+    const labels: Record<PracticeType, string> = {
       auto: "Auto",
       casa: "Casa",
       vita: "Vita",
       salute: "Salute",
       responsabilita: "Responsabilità Civile",
       altro: "Altro",
+      fidejussioni: "Fidejussioni",
+      vies: "VIES",
+      car: "CAR",
+      postuma_decennale: "Postuma Decennale",
+      all_risk: "All Risk",
+      furto_incendio: "Furto e Incendio",
+      responsabilita_civile: "Responsabilità Civile",
+      trasporti: "Trasporti",
+      cyber: "Cyber",
+      d_o: "D&O",
     };
     return labels[type];
   };
@@ -53,7 +64,8 @@ export const PracticesExport = ({ practices }: PracticesExportProps) => {
   const exportToExcel = () => {
     const data = practices.map((practice) => ({
       "Numero Pratica": practice.practice_number,
-      Cliente: practice.client_name,
+      Contraente: practice.client_name,
+      Beneficiario: practice.beneficiary || "-",
       Tipo: getPracticeTypeLabel(practice.practice_type),
       Polizza: practice.policy_number || "-",
       Stato: getStatusLabel(practice.status),
@@ -67,7 +79,8 @@ export const PracticesExport = ({ practices }: PracticesExportProps) => {
     // Set column widths
     const colWidths = [
       { wch: 15 }, // Numero Pratica
-      { wch: 25 }, // Cliente
+      { wch: 25 }, // Contraente
+      { wch: 25 }, // Beneficiario
       { wch: 20 }, // Tipo
       { wch: 15 }, // Polizza
       { wch: 15 }, // Stato
@@ -97,6 +110,7 @@ export const PracticesExport = ({ practices }: PracticesExportProps) => {
     const tableData = practices.map((practice) => [
       practice.practice_number,
       practice.client_name,
+      practice.beneficiary || "-",
       getPracticeTypeLabel(practice.practice_type),
       practice.policy_number || "-",
       getStatusLabel(practice.status),
@@ -105,7 +119,7 @@ export const PracticesExport = ({ practices }: PracticesExportProps) => {
 
     // Add table
     autoTable(doc, {
-      head: [["N. Pratica", "Cliente", "Tipo", "Polizza", "Stato", "Data"]],
+      head: [["N. Pratica", "Contraente", "Beneficiario", "Tipo", "Polizza", "Stato", "Data"]],
       body: tableData,
       startY: 35,
       styles: {
@@ -146,3 +160,5 @@ export const PracticesExport = ({ practices }: PracticesExportProps) => {
     </DropdownMenu>
   );
 };
+
+// supported practice type: vies

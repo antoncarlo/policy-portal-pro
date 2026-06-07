@@ -90,11 +90,11 @@ const PracticeDetail = () => {
 
       if (error) throw error;
       setPractice(data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         variant: "destructive",
         title: "Errore caricamento pratica",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Errore imprevisto durante il caricamento della pratica.",
       });
       navigate("/practices");
     } finally {
@@ -202,7 +202,7 @@ const PracticeDetail = () => {
             <div className="space-y-4">
               <h3 className="font-semibold text-foreground flex items-center gap-2">
                 <User className="h-4 w-4" />
-                Informazioni Cliente
+                Informazioni Contraente
               </h3>
               <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-2">
@@ -279,7 +279,7 @@ const PracticeDetail = () => {
           </div>
         </Card>
 
-        {practice.practice_type === "fidejussioni" && (
+        {practice.practice_type === "vies" && (
           <Card className="p-6 border-blue-200 bg-blue-50/60">
             <div className="flex items-start gap-3 mb-5">
               <ShieldCheck className="h-5 w-5 text-blue-700 mt-1" />

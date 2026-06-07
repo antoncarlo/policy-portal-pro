@@ -12,6 +12,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Eye, Download, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { PracticesExport } from "./PracticesExport";
 import { PracticeFilters } from "./PracticesFilters";
@@ -40,7 +42,7 @@ interface PracticesTableProps {
 }
 
 type PracticeStatus = "in_lavorazione" | "in_attesa" | "approvata" | "rifiutata" | "completata";
-type PracticeType = "auto" | "casa" | "vita" | "salute" | "responsabilita" | "fidejussioni" | "altro";
+type PracticeType = "auto" | "casa" | "vita" | "salute" | "responsabilita" | "fidejussioni" | "vies" | "altro";
 
 interface Practice {
   id: string;
@@ -48,9 +50,13 @@ interface Practice {
   practice_type: PracticeType;
   client_name: string;
   policy_number: string | null;
+  beneficiary: string | null;
   status: PracticeStatus;
   created_at: string;
 }
+
+const getErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : "Errore imprevisto durante l'operazione.";
 
 export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) => {
   const navigate = useNavigate();
@@ -59,6 +65,9 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
   const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [practiceToDelete, setPracticeToDelete] = useState<Practice | null>(null);
+  const [selectedPracticeIds, setSelectedPracticeIds] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<PracticeStatus>("in_lavorazione");
+  const [bulkUpdating, setBulkUpdating] = useState(false);
 
   const loadPractices = async () => {
     setLoading(true);
@@ -81,7 +90,7 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
 
     let query = supabase
       .from("practices")
-      .select("id, practice_number, practice_type, client_name, policy_number, status, created_at, user_id");
+      .select("id, practice_number, practice_type, client_name, beneficiary, policy_number, status, created_at, user_id");
 
     // Filter by allowed practice types if not admin
     if (!isAdmin) {
@@ -132,6 +141,7 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
       console.error("Error loading practices:", error);
     } else {
       setPractices(data || []);
+      setSelectedPracticeIds(new Set());
     }
 
     setLoading(false);
@@ -184,11 +194,11 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
         title: "Download completato",
         description: `${documents.length} documento/i scaricato/i con successo.`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         variant: "destructive",
         title: "Errore download",
-        description: error.message,
+        description: getErrorMessage(error),
       });
     }
   };
@@ -212,11 +222,11 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
 
       // Reload practices
       loadPractices();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         variant: "destructive",
         title: "Errore eliminazione",
-        description: error.message,
+        description: getErrorMessage(error),
       });
     } finally {
       setDeleteDialogOpen(false);
@@ -252,7 +262,8 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
       vita: "Vita",
       salute: "Salute",
       responsabilita: "Responsabilità Civile",
-      fidejussioni: "VIES / Fideiussioni",
+      fidejussioni: "Fidejussioni",
+      vies: "VIES",
       altro: "Altro",
     };
     return labels[type];
@@ -263,23 +274,98 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
     return (
       practice.practice_number.toLowerCase().includes(query) ||
       practice.client_name.toLowerCase().includes(query) ||
+      (practice.beneficiary && practice.beneficiary.toLowerCase().includes(query)) ||
       getPracticeTypeLabel(practice.practice_type).toLowerCase().includes(query) ||
       (practice.policy_number && practice.policy_number.toLowerCase().includes(query))
     );
   });
 
+  const selectedPractices = filteredPractices.filter((practice) => selectedPracticeIds.has(practice.id));
+
+  const togglePracticeSelection = (practiceId: string) => {
+    setSelectedPracticeIds((current) => {
+      const next = new Set(current);
+      if (next.has(practiceId)) next.delete(practiceId);
+      else next.add(practiceId);
+      return next;
+    });
+  };
+
+  const toggleAllFilteredPractices = () => {
+    setSelectedPracticeIds((current) => {
+      const filteredIds = filteredPractices.map((practice) => practice.id);
+      const allSelected = filteredIds.length > 0 && filteredIds.every((id) => current.has(id));
+      if (allSelected) return new Set([...current].filter((id) => !filteredIds.includes(id)));
+      return new Set([...current, ...filteredIds]);
+    });
+  };
+
+  const handleBulkStatusUpdate = async () => {
+    if (selectedPracticeIds.size === 0) return;
+    setBulkUpdating(true);
+    try {
+      const { error } = await supabase
+        .from("practices")
+        .update({ status: bulkStatus })
+        .in("id", Array.from(selectedPracticeIds));
+
+      if (error) throw error;
+
+      toast({
+        title: "Stato aggiornato",
+        description: `${selectedPracticeIds.size} pratiche selezionate aggiornate a ${getStatusLabel(bulkStatus)}.`,
+      });
+      setSelectedPracticeIds(new Set());
+      await loadPractices();
+    } catch (error: unknown) {
+      toast({
+        variant: "destructive",
+        title: "Aggiornamento massivo non riuscito",
+        description: getErrorMessage(error),
+      });
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3 md:flex-row md:items-center">
+          <span className="text-sm font-medium">{selectedPractices.length} pratiche selezionate</span>
+          <Select value={bulkStatus} onValueChange={(value) => setBulkStatus(value as PracticeStatus)}>
+            <SelectTrigger className="w-full md:w-[190px]">
+              <SelectValue placeholder="Nuovo stato" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="in_lavorazione">In Lavorazione</SelectItem>
+              <SelectItem value="in_attesa">In Attesa</SelectItem>
+              <SelectItem value="approvata">Approvata</SelectItem>
+              <SelectItem value="rifiutata">Rifiutata</SelectItem>
+              <SelectItem value="completata">Completata</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={handleBulkStatusUpdate} disabled={selectedPractices.length === 0 || bulkUpdating}>
+            Cambia stato selezionate
+          </Button>
+        </div>
         <PracticesExport practices={filteredPractices} />
       </div>
       <Card className="overflow-hidden">
         <div className="w-full overflow-x-auto">
-        <Table className="min-w-[900px]">
+        <Table className="min-w-[1050px]">
         <TableHeader>
           <TableRow>
+            <TableHead className="w-12">
+              <Checkbox
+                aria-label="Seleziona tutte le pratiche filtrate"
+                checked={filteredPractices.length > 0 && filteredPractices.every((practice) => selectedPracticeIds.has(practice.id))}
+                onCheckedChange={toggleAllFilteredPractices}
+              />
+            </TableHead>
             <TableHead>Numero Pratica</TableHead>
-            <TableHead>Cliente</TableHead>
+            <TableHead>Contraente</TableHead>
+            <TableHead>Beneficiario</TableHead>
             <TableHead>Tipo</TableHead>
             <TableHead>Polizza</TableHead>
             <TableHead>Data</TableHead>
@@ -290,21 +376,29 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
         <TableBody>
           {loading ? (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                 Caricamento pratiche...
               </TableCell>
             </TableRow>
           ) : filteredPractices.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                 Nessuna pratica trovata
               </TableCell>
             </TableRow>
           ) : (
             filteredPractices.map((practice) => (
               <TableRow key={practice.id}>
+                <TableCell>
+                  <Checkbox
+                    aria-label={`Seleziona pratica ${practice.practice_number}`}
+                    checked={selectedPracticeIds.has(practice.id)}
+                    onCheckedChange={() => togglePracticeSelection(practice.id)}
+                  />
+                </TableCell>
                 <TableCell className="font-medium whitespace-nowrap">{practice.practice_number}</TableCell>
                 <TableCell className="max-w-[220px] break-words">{practice.client_name}</TableCell>
+                <TableCell className="max-w-[220px] break-words text-muted-foreground">{practice.beneficiary || "-"}</TableCell>
                 <TableCell className="whitespace-nowrap">{getPracticeTypeLabel(practice.practice_type)}</TableCell>
                 <TableCell className="max-w-[180px] break-words text-muted-foreground">
                   {practice.policy_number || "-"}

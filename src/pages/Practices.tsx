@@ -35,7 +35,7 @@ const Practices = () => {
           <div className="min-w-0">
             <h1 className="text-3xl font-bold text-foreground">Pratiche</h1>
             <p className="text-muted-foreground mt-1">
-              Visualizza e gestisci tutte le pratiche assicurative
+              Visualizza e gestisci tutte le pratiche per contraente, beneficiario, tipo e stato
             </p>
           </div>
           <Link to="/upload" className="w-full md:w-auto">
@@ -47,7 +47,7 @@ const Practices = () => {
           <div className="relative min-w-0 flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Cerca per numero pratica, cliente, tipo..."
+              placeholder="Cerca per numero pratica, contraente, beneficiario, tipo..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"

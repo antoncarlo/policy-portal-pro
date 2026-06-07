@@ -30,6 +30,7 @@ import { supabase } from "@/integrations/supabase/client";
 type ExcelRecord = {
   rowNumber: number;
   progressivo: string;
+  nomeZip: string;
   contraente: string;
   indirizzoRappresentanteFiscale: string;
   partitaIvaContraente: string;
@@ -45,6 +46,8 @@ type ExcelRecord = {
 type ZipDocument = {
   path: string;
   name: string;
+  sourceZipKey: string;
+  sourceZipName: string;
   extension: string;
   size: number;
   depth: number;
@@ -81,6 +84,13 @@ type ViesJobMonitor = {
   error_code: string | null;
 };
 
+type ViesReconciliationRow = {
+  record: ExcelRecord;
+  zipFile?: File;
+  documents: ZipDocument[];
+  errors: string[];
+};
+
 type WorkerSummary = {
   workerId: string;
   claimed: number;
@@ -99,10 +109,10 @@ type DocumentRequirement = {
 
 const documentRequirements: DocumentRequirement[] = [
   {
-    id: "polizza_fideiussoria",
-    label: "Polizza fideiussoria",
-    description: "Allegato principale della polizza da caricare sul portale esterno.",
-    keywords: ["polizza", "fideiuss", "保函"],
+    id: "documento_vies_principale",
+    label: "Documento VIES principale",
+    description: "Allegato principale della pratica VIES da caricare sul portale esterno.",
+    keywords: ["vies", "pratica", "allegato", "保函"],
   },
   {
     id: "beneficiario_firmato",
@@ -165,7 +175,7 @@ const normalizeText = (value: unknown) =>
 const VIES_STORAGE_BUCKET = "vies-batch-files";
 
 const VIES_GUARANTEED_AMOUNT = 50000;
-const VIES_GUARANTEE_OBJECT = "POLIZZA FIDEIUSSORIA AI SENSI DELL’ART. 35, COMMA 7-QUATER, DEL DPR 633/1972.";
+const VIES_GUARANTEE_OBJECT = "Garanzia richiesta per iscrizione/operatività VIES ai sensi dell’art. 35, comma 7-quater, DPR 633/1972.";
 const VIES_DURATION_MONTHS = 36;
 
 const calculateViesPolicyEndDate = (policyStartDate: Date) => {
@@ -192,10 +202,11 @@ const buildViesPracticeNotes = ({
   "Origine: import massivo VIES.",
   `Batch VIES: ${batchId}.`,
   `Riga Excel: ${record.rowNumber}${record.progressivo ? ` - Progressivo ${record.progressivo}` : ""}.`,
+  `NOME ZIP: ${record.nomeZip || "da riconciliare"}.`,
   `Importo garantito fisso: € ${VIES_GUARANTEED_AMOUNT.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`,
   `Oggetto garanzia: ${VIES_GUARANTEE_OBJECT}`,
   `Durata: ${VIES_DURATION_MONTHS} mesi, decorrenza ${policyStartDate}, scadenza ${policyEndDate}.`,
-  "Annex III: compilare automaticamente i dati del contraente/beneficiario; lasciare in bianco la sezione compagnia/garante.",
+  "Pratica prodotto VIES: compilare automaticamente i dati del contraente e del beneficiario; mantenere distinta da Fidejussioni.",
   `Contraente: ${record.contraente || "da completare"}.`,
   `Indirizzo contraente/rappresentante fiscale: ${record.indirizzoRappresentanteFiscale || "da completare"}.`,
   `Partita IVA contraente: ${record.partitaIvaContraente || "da completare"}.`,
@@ -214,6 +225,12 @@ const formatBytes = (bytes: number) => {
   const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
   return `${(bytes / Math.pow(1024, index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 };
+
+const getZipReconciliationKey = (fileName: string) =>
+  normalizeText(fileName)
+    .replace(/\.zip$/i, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 
 const buildSafeStorageName = (fileName: string) => {
   const extension = fileName.includes(".") ? `.${fileName.split(".").pop()}` : "";
@@ -261,6 +278,7 @@ const parseExcelFile = async (file: File): Promise<ExcelRecord[]> => {
       const record: ExcelRecord = {
         rowNumber: headerIndex + index + 2,
         progressivo: getCellByAliases(raw, ["numero progressivo", "progressivo", "numero"]),
+        nomeZip: getCellByAliases(raw, ["nome zip", "nome archivio", "zip nominativo", "zip"]),
         contraente: getCellByAliases(raw, ["contraente", "nome ditta", "ditta"]),
         indirizzoRappresentanteFiscale: getCellByAliases(raw, ["indirizzo rappresentante fiscale", "rappresentante fiscale"]),
         partitaIvaContraente: getCellByAliases(raw, ["partita iva ditta", "p iva ditta", "p.iva ditta"]),
@@ -281,6 +299,8 @@ const parseExcelFile = async (file: File): Promise<ExcelRecord[]> => {
 const readZipRecursive = async (file: File): Promise<ZipDocument[]> => {
   const rootZip = await JSZip.loadAsync(await file.arrayBuffer());
   const documents: ZipDocument[] = [];
+  const sourceZipKey = getZipReconciliationKey(file.name);
+  const sourceZipName = file.name;
 
   const walkZip = async (zip: JSZip, prefix = "", depth = 0) => {
     const entries = Object.values(zip.files).filter((entry) => !entry.dir);
@@ -295,6 +315,8 @@ const readZipRecursive = async (file: File): Promise<ZipDocument[]> => {
       documents.push({
         path: fullPath,
         name: normalizedName,
+        sourceZipKey,
+        sourceZipName,
         extension,
         size,
         depth,
@@ -310,6 +332,8 @@ const readZipRecursive = async (file: File): Promise<ZipDocument[]> => {
           documents.push({
             path: `${fullPath}/ERRORE_LETTURA_ZIP`,
             name: "ERRORE_LETTURA_ZIP",
+            sourceZipKey,
+            sourceZipName,
             extension: "errore",
             size: 0,
             depth: depth + 1,
@@ -328,7 +352,7 @@ const Vies = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [excelFile, setExcelFile] = useState<File | null>(null);
-  const [zipFile, setZipFile] = useState<File | null>(null);
+  const [zipFiles, setZipFiles] = useState<File[]>([]);
   const [records, setRecords] = useState<ExcelRecord[]>([]);
   const [documents, setDocuments] = useState<ZipDocument[]>([]);
   const [loadingExcel, setLoadingExcel] = useState(false);
@@ -368,6 +392,35 @@ const Vies = () => {
   const nestedZipCount = documents.filter((document) => document.extension === "zip").length;
   const pdfCount = documents.filter((document) => document.extension === "pdf").length;
 
+  const reconciliationRows = useMemo<ViesReconciliationRow[]>(() => {
+    const zipFilesByKey = new Map<string, File[]>();
+    for (const file of zipFiles) {
+      const key = getZipReconciliationKey(file.name);
+      if (!key) continue;
+      zipFilesByKey.set(key, [...(zipFilesByKey.get(key) ?? []), file]);
+    }
+
+    return records.map((record) => {
+      const normalizedNomeZip = getZipReconciliationKey(record.nomeZip);
+      const matchedZipFiles = normalizedNomeZip ? zipFilesByKey.get(normalizedNomeZip) ?? [] : [];
+      const errors: string[] = [];
+
+      if (!record.nomeZip) errors.push("Nome ZIP mancante");
+      if (record.nomeZip && matchedZipFiles.length === 0) errors.push("ZIP mancante");
+      if (matchedZipFiles.length > 1) errors.push("ZIP duplicato");
+
+      return {
+        record,
+        zipFile: matchedZipFiles[0],
+        documents: normalizedNomeZip ? documents.filter((document) => document.sourceZipKey === normalizedNomeZip) : [],
+        errors,
+      };
+    });
+  }, [documents, records, zipFiles]);
+
+  const reconciliationErrors = reconciliationRows.flatMap((row) => row.errors);
+  const readyReconciliations = reconciliationRows.filter((row) => row.errors.length === 0);
+
   const handleExcelUpload = async (file: File | undefined) => {
     if (!file) return;
     setExcelFile(file);
@@ -392,24 +445,26 @@ const Vies = () => {
     }
   };
 
-  const handleZipUpload = async (file: File | undefined) => {
-    if (!file) return;
-    setZipFile(file);
+  const handleZipUpload = async (files: FileList | File[] | null | undefined) => {
+    const selectedFiles = Array.from(files ?? []).filter((file) => file.name.toLowerCase().endsWith(".zip"));
+    if (!selectedFiles.length) return;
+
+    setZipFiles(selectedFiles);
     setLoadingZip(true);
 
     try {
-      const parsedDocuments = await readZipRecursive(file);
+      const parsedDocuments = (await Promise.all(selectedFiles.map((file) => readZipRecursive(file)))).flat();
       setDocuments(parsedDocuments);
       toast({
-        title: "ZIP indicizzato correttamente",
-        description: `Rilevati ${parsedDocuments.length} elementi, inclusi eventuali ZIP annidati.`,
+        title: "ZIP nominativi indicizzati correttamente",
+        description: `Rilevati ${selectedFiles.length} ZIP e ${parsedDocuments.length} elementi documentali riconciliabili per NOME ZIP.`,
       });
     } catch (error) {
       setDocuments([]);
       toast({
         variant: "destructive",
         title: "Errore lettura ZIP",
-        description: error instanceof Error ? error.message : "L'archivio non può essere letto.",
+        description: error instanceof Error ? error.message : "Uno degli archivi non può essere letto.",
       });
     } finally {
       setLoadingZip(false);
@@ -555,11 +610,11 @@ const Vies = () => {
   };
 
   const handlePrepareBatch = async () => {
-    if (!excelFile || !zipFile || !records.length || !documents.length) {
+    if (!excelFile || !zipFiles.length || !records.length || !documents.length) {
       toast({
         variant: "destructive",
         title: "Dati incompleti",
-        description: "Carica Excel e ZIP prima di preparare il batch per l'orchestratore.",
+        description: "Carica Excel e tutti gli ZIP nominativi prima di preparare il batch per l'orchestratore.",
       });
       return;
     }
@@ -576,17 +631,23 @@ const Vies = () => {
       const batchId = crypto.randomUUID();
       const storageBasePath = `${userId}/${batchId}`;
       const excelStoragePath = `${storageBasePath}/${buildSafeStorageName(excelFile.name)}`;
-      const zipStoragePath = `${storageBasePath}/${buildSafeStorageName(zipFile.name)}`;
+      const zipStorageBasePath = `${storageBasePath}/zip-nominativi`;
+      const zipStoragePathsByKey = new Map<string, string>();
 
       const { error: excelUploadError } = await supabase.storage
         .from(VIES_STORAGE_BUCKET)
         .upload(excelStoragePath, excelFile, { upsert: false });
       if (excelUploadError) throw new Error(`Upload Excel non riuscito: ${excelUploadError.message}`);
 
-      const { error: zipUploadError } = await supabase.storage
-        .from(VIES_STORAGE_BUCKET)
-        .upload(zipStoragePath, zipFile, { upsert: false });
-      if (zipUploadError) throw new Error(`Upload ZIP non riuscito: ${zipUploadError.message}`);
+      for (const zip of zipFiles) {
+        const zipKey = getZipReconciliationKey(zip.name);
+        const zipStoragePath = `${zipStorageBasePath}/${buildSafeStorageName(zip.name)}`;
+        const { error: zipUploadError } = await supabase.storage
+          .from(VIES_STORAGE_BUCKET)
+          .upload(zipStoragePath, zip, { upsert: false });
+        if (zipUploadError) throw new Error(`Upload ZIP ${zip.name} non riuscito: ${zipUploadError.message}`);
+        zipStoragePathsByKey.set(zipKey, zipStoragePath);
+      }
 
       const batchCreatedAt = new Date();
       const policyStartDate = formatIsoDate(batchCreatedAt);
@@ -604,24 +665,32 @@ const Vies = () => {
         user_id: userId,
         name: batchName,
         source_excel_file_name: excelFile.name,
-        source_zip_file_name: zipFile.name,
+        source_zip_file_name: `${zipFiles.length} ZIP nominativi`,
         excel_storage_path: excelStoragePath,
-        zip_storage_path: zipStoragePath,
+        zip_storage_path: zipStorageBasePath,
         total_rows: records.length,
         total_documents: documents.length,
-        ready_jobs: missingRequirements.length ? 0 : records.filter((record) => getRecordValidationErrors(record).length === 0).length,
-        queued_jobs: missingRequirements.length ? 0 : records.filter((record) => getRecordValidationErrors(record).length === 0).length,
-        blocked_jobs: missingRequirements.length ? records.length : 0,
+        ready_jobs: missingRequirements.length || reconciliationErrors.length ? 0 : reconciliationRows.filter((row) => getRecordValidationErrors(row.record).length === 0 && row.errors.length === 0).length,
+        queued_jobs: missingRequirements.length || reconciliationErrors.length ? 0 : reconciliationRows.filter((row) => getRecordValidationErrors(row.record).length === 0 && row.errors.length === 0).length,
+        blocked_jobs: missingRequirements.length || reconciliationErrors.length ? records.length : 0,
         matched_requirements: completedRequirements,
-        missing_requirements: missingRequirements.map((requirement) => ({
-          id: requirement.id,
-          label: requirement.label,
-        })),
-        status: missingRequirements.length ? "draft" : "queued",
-        queued_at: missingRequirements.length ? null : new Date().toISOString(),
-        notes: missingRequirements.length
-          ? "Batch creato in bozza: completare o verificare i documenti obbligatori mancanti prima dell'orchestrazione."
-          : "Batch pronto per orchestratore e agent operativi.",
+        missing_requirements: [
+          ...missingRequirements.map((requirement) => ({
+            id: requirement.id,
+            label: requirement.label,
+          })),
+          ...reconciliationRows
+            .filter((row) => row.errors.length)
+            .map((row) => ({
+              id: `riga-${row.record.rowNumber}`,
+              label: `${row.record.contraente || "Riga VIES"}: ${row.errors.join(", ")}`,
+            })),
+        ],
+        status: missingRequirements.length || reconciliationErrors.length ? "draft" : "queued",
+        queued_at: missingRequirements.length || reconciliationErrors.length ? null : new Date().toISOString(),
+        notes: missingRequirements.length || reconciliationErrors.length
+          ? "Batch creato in bozza: completare documenti obbligatori e riconciliazione NOME ZIP prima dell'orchestrazione."
+          : "Batch VIES pronto per orchestratore e agent operativi.",
       });
       if (batchError) throw new Error(`Creazione batch non riuscita: ${batchError.message}`);
 
@@ -632,7 +701,7 @@ const Vies = () => {
         return {
           user_id: userId,
           practice_number: practiceNumber,
-          practice_type: "fidejussioni" as const,
+          practice_type: "vies" as const,
           status: "in_lavorazione" as const,
           client_name: record.contraente || `Riga VIES ${record.rowNumber}`,
           client_email: record.pec || `vies-riga-${record.rowNumber}@placeholder.local`,
@@ -662,14 +731,20 @@ const Vies = () => {
         if (record) createdPracticesByIndex.set(record.rowNumber, practice.id);
       });
 
+      const reconciliationByRow = new Map(reconciliationRows.map((row) => [row.record.rowNumber, row]));
+
       const jobRows = records.map((record) => {
         const validationErrors = getRecordValidationErrors(record);
+        const reconciliation = reconciliationByRow.get(record.rowNumber);
+        const reconciliationValidationErrors = reconciliation?.errors ?? [];
 
         return {
           batch_id: batchId,
           user_id: userId,
           row_number: record.rowNumber,
           progressivo: record.progressivo || null,
+          nome_zip: record.nomeZip || null,
+          zip_file_name: reconciliation?.zipFile?.name ?? null,
           contraente: record.contraente || null,
           indirizzo_rappresentante_fiscale: record.indirizzoRappresentanteFiscale || null,
           partita_iva_contraente: record.partitaIvaContraente || null,
@@ -680,27 +755,32 @@ const Vies = () => {
           pagamento: record.pagamento || null,
           documenti_indicati: record.documentiIndicati || null,
           raw_payload: record.raw,
-          validation_errors: validationErrors,
+          validation_errors: [...validationErrors, ...reconciliationValidationErrors],
+          reconciliation_errors: reconciliationValidationErrors,
           external_reference: createdPracticesByIndex.get(record.rowNumber) ?? null,
-          status: validationErrors.length ? "pending_validation" : missingRequirements.length ? "blocked" : "queued",
+          status: validationErrors.length || reconciliationValidationErrors.length ? "pending_validation" : missingRequirements.length ? "blocked" : "queued",
         };
       });
 
       const { error: jobsError } = await supabase.from("vies_jobs").insert(jobRows);
       if (jobsError) throw new Error(`Creazione job non riuscita: ${jobsError.message}`);
 
-      const documentRows = documents.map((document) => ({
+      const documentRows = reconciliationRows.flatMap((reconciliation) => reconciliation.documents.map((document) => ({
         batch_id: batchId,
         user_id: userId,
+        row_number: reconciliation.record.rowNumber,
+        nome_zip: reconciliation.record.nomeZip || null,
+        practice_id: createdPracticesByIndex.get(reconciliation.record.rowNumber) ?? null,
+        zip_file_name: reconciliation.zipFile?.name ?? document.sourceZipName,
         file_name: document.name,
-        file_path: `${zipStoragePath}#${document.path}`,
+        file_path: `${zipStoragePathsByKey.get(document.sourceZipKey) ?? zipStorageBasePath}#${document.path}`,
         file_extension: document.extension || null,
         file_size: document.size,
         depth: document.depth,
         is_nested_zip: document.isNestedZip,
         requirement_matches: getRequirementMatches(document),
         status: document.extension === "errore" ? "error" : "indexed",
-      }));
+      })));
 
       const { error: documentsError } = await supabase.from("vies_batch_documents").insert(documentRows);
       if (documentsError) throw new Error(`Indicizzazione documenti non riuscita: ${documentsError.message}`);
@@ -710,7 +790,7 @@ const Vies = () => {
       await refreshBatchMonitor(batchId);
       toast({
         title: "Batch VIES creato",
-        description: `${records.length} job, ${createdPractices?.length ?? 0} pratiche fideiussioni e ${documents.length} documenti indicizzati. Stato: ${missingRequirements.length ? "bozza" : "in coda"}.`,
+        description: `${records.length} job, ${createdPractices?.length ?? 0} pratiche VIES e ${documents.length} documenti indicizzati. Stato: ${missingRequirements.length || reconciliationErrors.length ? "bozza" : "in coda"}.`,
       });
     } catch (error) {
       toast({
@@ -761,7 +841,7 @@ const Vies = () => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{pdfCount}</div>
-              <p className="text-xs text-muted-foreground">rilevati nello ZIP</p>
+              <p className="text-xs text-muted-foreground">rilevati negli ZIP</p>
             </CardContent>
           </Card>
           <Card>
@@ -819,19 +899,24 @@ const Vies = () => {
                 <div className="space-y-2 rounded-lg border border-dashed p-4">
                   <div className="flex items-center gap-2 font-medium">
                     <FileArchive className="h-5 w-5 text-primary" />
-                    Archivio ZIP
+                    ZIP nominativi
                   </div>
                   <Input
                     type="file"
                     accept=".zip"
+                    multiple
                     onChange={(event) => {
                       setPersistedBatchId(null);
-                      handleZipUpload(event.target.files?.[0]);
+                      handleZipUpload(Array.from(event.target.files ?? []));
                     }}
                     disabled={loadingZip || savingBatch}
                   />
                   <p className="text-sm text-muted-foreground">
-                    {loadingZip ? "Indicizzazione in corso..." : zipFile?.name || "Nessuno ZIP selezionato"}
+                    {loadingZip
+                      ? "Indicizzazione in corso..."
+                      : zipFiles.length
+                        ? zipFiles.map((file) => file.name).join(", ")
+                        : "Nessuno ZIP selezionato"}
                   </p>
                 </div>
               </div>
@@ -1044,9 +1129,9 @@ const Vies = () => {
             <CardContent className="flex flex-col gap-3 pt-6 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="font-semibold text-green-950">Pratiche VIES create: {lastCreatedPracticeIds.length}</p>
-                <p className="text-sm text-green-900">Sono disponibili nella sezione Pratiche con tipo fideiussioni/VIES per il controllo massivo.</p>
+                <p className="text-sm text-green-900">Sono disponibili nella sezione Pratiche con tipo VIES separato da Fidejussioni per il controllo massivo.</p>
               </div>
-              <Button variant="secondary" onClick={() => navigate("/practices?type=fidejussioni")}>
+              <Button variant="secondary" onClick={() => navigate("/practices?type=vies")}>
                 Vai alle pratiche VIES
               </Button>
             </CardContent>
@@ -1119,6 +1204,7 @@ const Vies = () => {
                         <TableHead>P. IVA contraente</TableHead>
                         <TableHead>Beneficiario</TableHead>
                         <TableHead>PEC</TableHead>
+                        <TableHead>NOME ZIP</TableHead>
                         <TableHead>Documenti indicati</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1130,6 +1216,7 @@ const Vies = () => {
                           <TableCell>{record.partitaIvaContraente || "Da completare"}</TableCell>
                           <TableCell>{record.beneficiario || "Da completare"}</TableCell>
                           <TableCell>{record.pec || "Da completare"}</TableCell>
+                          <TableCell>{record.nomeZip || "Da completare"}</TableCell>
                           <TableCell className="max-w-64 truncate">{record.documentiIndicati || "Non indicati"}</TableCell>
                         </TableRow>
                       ))}
@@ -1146,7 +1233,59 @@ const Vies = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Documenti rilevati nello ZIP</CardTitle>
+            <CardTitle>Controllore riconciliazione ZIP</CardTitle>
+            <CardDescription>
+              Ogni riga Excel viene abbinata allo ZIP nominativo indicato dal campo NOME ZIP. Gli errori bloccano il batch finché non sono risolti.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {records.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
+                Carica l'Excel per vedere il controllo di riconciliazione.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Riga</TableHead>
+                      <TableHead>Contraente</TableHead>
+                      <TableHead>NOME ZIP</TableHead>
+                      <TableHead>ZIP collegato</TableHead>
+                      <TableHead>Documenti</TableHead>
+                      <TableHead>Errori</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {reconciliationRows.slice(0, 20).map((reconciliation) => (
+                      <TableRow key={`reconciliation-${reconciliation.record.rowNumber}`}>
+                        <TableCell>{reconciliation.record.rowNumber}</TableCell>
+                        <TableCell className="min-w-48 font-medium">{reconciliation.record.contraente || "Da completare"}</TableCell>
+                        <TableCell>{reconciliation.record.nomeZip || "—"}</TableCell>
+                        <TableCell>{reconciliation.zipFile?.name || "Non collegato"}</TableCell>
+                        <TableCell>{reconciliation.documents.length}</TableCell>
+                        <TableCell>
+                          {reconciliation.errors.length ? (
+                            <Badge variant="destructive">{reconciliation.errors.join(", ")}</Badge>
+                          ) : (
+                            <Badge variant="secondary">OK</Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {reconciliationRows.length > 20 && (
+                  <p className="mt-3 text-sm text-muted-foreground">Mostrate 20 riconciliazioni su {reconciliationRows.length}.</p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Documenti rilevati negli ZIP</CardTitle>
             <CardDescription>
               Elenco dei file indicizzati, inclusi quelli contenuti dentro ZIP secondari.
             </CardDescription>
@@ -1154,7 +1293,7 @@ const Vies = () => {
           <CardContent>
             {documents.length === 0 ? (
               <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-                Carica uno ZIP per visualizzare la mappa documentale.
+                Carica gli ZIP nominativi per visualizzare la mappa documentale.
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -1173,7 +1312,7 @@ const Vies = () => {
                       <TableRow key={document.path}>
                         <TableCell className="min-w-72 font-medium">{document.name}</TableCell>
                         <TableCell>{document.extension || "file"}</TableCell>
-                        <TableCell>{document.depth === 0 ? "ZIP principale" : `ZIP annidato ${document.depth}`}</TableCell>
+                        <TableCell>{document.depth === 0 ? "ZIP nominativo" : `ZIP annidato ${document.depth}`}</TableCell>
                         <TableCell>{formatBytes(document.size)}</TableCell>
                         <TableCell className="max-w-96 truncate text-muted-foreground">{document.path}</TableCell>
                       </TableRow>
