@@ -56,7 +56,7 @@ export const LoginDialog = ({ open, onOpenChange }: LoginDialogProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md border-slate-200 bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-50">
         <DialogHeader>
           <div className="flex items-center justify-center mb-4">
             <img src="/logo.svg" alt="Tecno Advance MGA" className="h-16" />
@@ -75,6 +75,7 @@ export const LoginDialog = ({ open, onOpenChange }: LoginDialogProps) => {
               name="email"
               type="email"
               placeholder="mario.rossi@example.com"
+              className="border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50"
               required
             />
           </div>
@@ -86,11 +87,12 @@ export const LoginDialog = ({ open, onOpenChange }: LoginDialogProps) => {
               name="password"
               type="password"
               placeholder="••••••••"
+              className="border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50"
               required
             />
           </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full bg-[#0F3A5C] text-white hover:bg-[#1A4D6F]" disabled={loading}>
             {loading ? "Accesso in corso..." : "Accedi"}
           </Button>
         </form>
