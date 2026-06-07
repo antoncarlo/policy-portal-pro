@@ -30,7 +30,7 @@ const checks = [
   },
   {
     name: "i job VIES conservano nome_zip, zip_file_name e gli errori di riconciliazione",
-    pass: /nome_zip:\s*record\.nomeZip/.test(viesPage) && /zip_file_name:\s*reconciliation\.zipFile\?\.name/.test(viesPage) && /reconciliation_errors/.test(viesPage),
+    pass: /nome_zip:\s*record\.nomeZip/.test(viesPage) && /zip_file_name:\s*reconciliation\?\.zipFile\?\.name/.test(viesPage) && /reconciliation_errors/.test(viesPage),
   },
   {
     name: "i documenti indicizzati sono collegati a riga Excel, nome ZIP e pratica generata",
@@ -48,6 +48,20 @@ const checks = [
       /reconciliation_errors JSONB/.test(migrations) &&
       /practice_id UUID/.test(migrations) &&
       /row_number INTEGER/.test(migrations),
+  },
+  {
+    name: "l'upload dello ZIP originale è opzionale e non blocca la creazione del batch",
+    pass:
+      /zipStorageFailures/.test(viesPage) &&
+      /zip-unarchived:\/\//.test(viesPage) &&
+      !/throw new Error\(`Upload ZIP \$\{zipFile\.name\} non riuscito:/.test(viesPage),
+  },
+  {
+    name: "le note del batch segnalano gli ZIP non archiviati senza perdere job e documenti indicizzati",
+    pass:
+      /storageWarningNotes/.test(viesPage) &&
+      /Archiviazione ZIP originale non completata/.test(viesPage) &&
+      /zipStoragePathByFileName/.test(viesPage),
   },
 ];
 
