@@ -1,6 +1,8 @@
 -- VIES full orchestrator schema and runtime helpers.
 -- Safe/idempotent version for Supabase SQL Editor.
 
+ALTER TYPE public.practice_type ADD VALUE IF NOT EXISTS 'vies';
+
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('vies-batch-files', 'vies-batch-files', false)
 ON CONFLICT (id) DO NOTHING;
@@ -645,6 +647,7 @@ END;
 $$;
 
 select
+  'vies' = any(enum_range(null::public.practice_type)::text[]) as vies_practice_type_available,
   to_regclass('public.vies_batches') as vies_batches,
   to_regclass('public.vies_jobs') as vies_jobs,
   to_regclass('public.vies_batch_documents') as vies_batch_documents,
