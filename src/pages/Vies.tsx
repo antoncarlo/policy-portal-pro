@@ -1,0 +1,1083 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import * as XLSX from "xlsx";
+import JSZip from "jszip";
+import {
+  AlertTriangle,
+  Bot,
+  CheckCircle2,
+  FileArchive,
+  FileSpreadsheet,
+  Loader2,
+  PlayCircle,
+  RefreshCw,
+  ShieldCheck,
+  UploadCloud,
+  Workflow,
+  XCircle,
+} from "lucide-react";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+
+type ExcelRecord = {
+  rowNumber: number;
+  progressivo: string;
+  contraente: string;
+  indirizzoRappresentanteFiscale: string;
+  partitaIvaContraente: string;
+  beneficiario: string;
+  indirizzoBeneficiario: string;
+  partitaIvaBeneficiario: string;
+  pec: string;
+  pagamento: string;
+  documentiIndicati: string;
+  raw: Record<string, string>;
+};
+
+type ZipDocument = {
+  path: string;
+  name: string;
+  extension: string;
+  size: number;
+  depth: number;
+  isNestedZip: boolean;
+};
+
+type ViesBatchMonitor = {
+  id: string;
+  name: string;
+  status: string;
+  total_rows: number;
+  ready_jobs: number;
+  queued_jobs: number;
+  processing_jobs: number;
+  completed_jobs: number;
+  failed_jobs: number;
+  blocked_jobs: number;
+  cancelled_jobs: number;
+  last_worker_run_at: string | null;
+  last_worker_message: string | null;
+  completed_at: string | null;
+};
+
+type ViesJobMonitor = {
+  id: string;
+  row_number: number;
+  progressivo: string | null;
+  contraente: string | null;
+  status: string;
+  attempts: number;
+  max_attempts: number;
+  last_error: string | null;
+  error_code: string | null;
+};
+
+type WorkerSummary = {
+  workerId: string;
+  claimed: number;
+  completed: number;
+  failed: number;
+  skipped: number;
+  errors: Array<{ jobId?: string; message: string }>;
+};
+
+type DocumentRequirement = {
+  id: string;
+  label: string;
+  description: string;
+  keywords: string[];
+};
+
+const documentRequirements: DocumentRequirement[] = [
+  {
+    id: "polizza_fideiussoria",
+    label: "Polizza fideiussoria",
+    description: "Allegato principale della polizza da caricare sul portale esterno.",
+    keywords: ["polizza", "fideiuss", "保函"],
+  },
+  {
+    id: "beneficiario_firmato",
+    label: "Beneficiario firmato",
+    description: "Documento del beneficiario o modulo firmato collegato alla garanzia.",
+    keywords: ["beneficiario", "signed", "firmat"],
+  },
+  {
+    id: "documento_identita",
+    label: "Documento identità",
+    description: "Documento identità di titolare effettivo o rappresentante legale.",
+    keywords: ["identita", "identità", "documento", "titolare", "rappresentante legale"],
+  },
+  {
+    id: "certificato_partita_iva",
+    label: "Certificato partita IVA",
+    description: "Certificato o attestazione della partita IVA del contraente.",
+    keywords: ["partita iva", "piva", "iva"],
+  },
+  {
+    id: "ubo_financials",
+    label: "UBO e financials",
+    description: "Modulo UBO, titolarità effettiva e informazioni finanziarie.",
+    keywords: ["ubo", "financial", "financials"],
+  },
+  {
+    id: "dichiarazione_sostitutiva",
+    label: "Dichiarazione sostitutiva",
+    description: "Dichiarazione sostitutiva o modulo equivalente richiesto per la pratica.",
+    keywords: ["dichiarazione", "sostitutiva"],
+  },
+  {
+    id: "licenza_commerciale",
+    label: "Licenza commerciale",
+    description: "Documento societario estero del cliente cinese venditore Amazon.",
+    keywords: ["licenza", "commerciale", "business license"],
+  },
+  {
+    id: "mandato_rappresentanza_fiscale",
+    label: "Mandato rappresentanza fiscale",
+    description: "Mandato del rappresentante fiscale collegato al contraente.",
+    keywords: ["mandato", "rappresentanza fiscale", "rappresentante fiscale"],
+  },
+  {
+    id: "cassetto_fiscale",
+    label: "Cassetto fiscale",
+    description: "Evidenza fiscale o dettaglio Agenzia delle Entrate quando richiesto.",
+    keywords: ["cassetto", "agenzia", "entrate"],
+  },
+];
+
+const normalizeText = (value: unknown) =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+const VIES_STORAGE_BUCKET = "vies-batch-files";
+
+const terminalJobStatuses = new Set(["completed", "failed", "blocked", "cancelled"]);
+
+const formatBytes = (bytes: number) => {
+  if (!bytes) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${(bytes / Math.pow(1024, index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+};
+
+const buildSafeStorageName = (fileName: string) => {
+  const extension = fileName.includes(".") ? `.${fileName.split(".").pop()}` : "";
+  const baseName = fileName.replace(extension, "");
+  const normalizedBaseName = normalizeText(baseName)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+
+  return `${normalizedBaseName || "file"}-${Date.now()}${extension.toLowerCase()}`;
+};
+
+const getCellByAliases = (row: Record<string, string>, aliases: string[]) => {
+  const entries = Object.entries(row);
+  const found = entries.find(([header]) => aliases.some((alias) => normalizeText(header).includes(alias)));
+  return found?.[1] ?? "";
+};
+
+const parseExcelFile = async (file: File): Promise<ExcelRecord[]> => {
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: "array" });
+  const firstSheetName = workbook.SheetNames[0];
+  const worksheet = workbook.Sheets[firstSheetName];
+  const rows = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1, defval: "" });
+
+  const headerIndex = rows.findIndex((row) => {
+    const normalizedRow = row.map(normalizeText).join(" ");
+    return normalizedRow.includes("contraente") || normalizedRow.includes("beneficiario") || normalizedRow.includes("partita iva");
+  });
+
+  if (headerIndex === -1) {
+    throw new Error("Non ho trovato una riga intestazione valida nell'Excel.");
+  }
+
+  const headers = rows[headerIndex].map((cell, index) => String(cell || `Colonna ${index + 1}`).trim());
+
+  return rows
+    .slice(headerIndex + 1)
+    .map((row, index) => {
+      const raw = headers.reduce<Record<string, string>>((acc, header, headerPosition) => {
+        acc[header] = String(row[headerPosition] ?? "").trim();
+        return acc;
+      }, {});
+
+      const record: ExcelRecord = {
+        rowNumber: headerIndex + index + 2,
+        progressivo: getCellByAliases(raw, ["numero progressivo", "progressivo", "numero"]),
+        contraente: getCellByAliases(raw, ["contraente", "nome ditta", "ditta"]),
+        indirizzoRappresentanteFiscale: getCellByAliases(raw, ["indirizzo rappresentante fiscale", "rappresentante fiscale"]),
+        partitaIvaContraente: getCellByAliases(raw, ["partita iva ditta", "p iva ditta", "p.iva ditta"]),
+        beneficiario: getCellByAliases(raw, ["beneficiario"]),
+        indirizzoBeneficiario: getCellByAliases(raw, ["indirizzo"]),
+        partitaIvaBeneficiario: getCellByAliases(raw, ["partita iva"]),
+        pec: getCellByAliases(raw, ["pec"]),
+        pagamento: getCellByAliases(raw, ["pagamento"]),
+        documentiIndicati: getCellByAliases(raw, ["simpli", "document", "file", "zip", "allegat"]),
+        raw,
+      };
+
+      return record;
+    })
+    .filter((record) => Object.values(record.raw).some((value) => normalizeText(value).length > 0));
+};
+
+const readZipRecursive = async (file: File): Promise<ZipDocument[]> => {
+  const rootZip = await JSZip.loadAsync(await file.arrayBuffer());
+  const documents: ZipDocument[] = [];
+
+  const walkZip = async (zip: JSZip, prefix = "", depth = 0) => {
+    const entries = Object.values(zip.files).filter((entry) => !entry.dir);
+
+    for (const entry of entries) {
+      const fullPath = `${prefix}${entry.name}`;
+      const normalizedName = entry.name.split("/").pop() || entry.name;
+      const extension = normalizedName.includes(".") ? normalizedName.split(".").pop()?.toLowerCase() || "" : "";
+      const size = (entry as unknown as { _data?: { uncompressedSize?: number } })._data?.uncompressedSize ?? 0;
+      const isZip = extension === "zip";
+
+      documents.push({
+        path: fullPath,
+        name: normalizedName,
+        extension,
+        size,
+        depth,
+        isNestedZip: depth > 0,
+      });
+
+      if (isZip) {
+        try {
+          const nestedBuffer = await entry.async("arraybuffer");
+          const nestedZip = await JSZip.loadAsync(nestedBuffer);
+          await walkZip(nestedZip, `${fullPath}/`, depth + 1);
+        } catch {
+          documents.push({
+            path: `${fullPath}/ERRORE_LETTURA_ZIP`,
+            name: "ERRORE_LETTURA_ZIP",
+            extension: "errore",
+            size: 0,
+            depth: depth + 1,
+            isNestedZip: true,
+          });
+        }
+      }
+    }
+  };
+
+  await walkZip(rootZip);
+  return documents;
+};
+
+const Vies = () => {
+  const { toast } = useToast();
+  const [excelFile, setExcelFile] = useState<File | null>(null);
+  const [zipFile, setZipFile] = useState<File | null>(null);
+  const [records, setRecords] = useState<ExcelRecord[]>([]);
+  const [documents, setDocuments] = useState<ZipDocument[]>([]);
+  const [loadingExcel, setLoadingExcel] = useState(false);
+  const [loadingZip, setLoadingZip] = useState(false);
+  const [savingBatch, setSavingBatch] = useState(false);
+  const [persistedBatchId, setPersistedBatchId] = useState<string | null>(null);
+  const [batchMonitor, setBatchMonitor] = useState<ViesBatchMonitor | null>(null);
+  const [jobMonitor, setJobMonitor] = useState<ViesJobMonitor[]>([]);
+  const [monitorLoading, setMonitorLoading] = useState(false);
+  const [controlLoading, setControlLoading] = useState<string | null>(null);
+  const [lastWorkerSummary, setLastWorkerSummary] = useState<WorkerSummary | null>(null);
+
+  const documentMatches = useMemo(() => {
+    return documentRequirements.map((requirement) => {
+      const matchedDocuments = documents.filter((document) => {
+        const searchable = normalizeText(`${document.name} ${document.path}`);
+        return requirement.keywords.some((keyword) => searchable.includes(normalizeText(keyword)));
+      });
+
+      return {
+        ...requirement,
+        matchedDocuments,
+        completed: matchedDocuments.length > 0,
+      };
+    });
+  }, [documents]);
+
+  const completedRequirements = documentMatches.filter((requirement) => requirement.completed).length;
+  const validationProgress = documentRequirements.length
+    ? Math.round((completedRequirements / documentRequirements.length) * 100)
+    : 0;
+
+  const rowsWithCoreData = records.filter(
+    (record) => record.contraente || record.partitaIvaContraente || record.beneficiario,
+  ).length;
+  const nestedZipCount = documents.filter((document) => document.extension === "zip").length;
+  const pdfCount = documents.filter((document) => document.extension === "pdf").length;
+
+  const handleExcelUpload = async (file: File | undefined) => {
+    if (!file) return;
+    setExcelFile(file);
+    setLoadingExcel(true);
+
+    try {
+      const parsedRecords = await parseExcelFile(file);
+      setRecords(parsedRecords);
+      toast({
+        title: "Excel letto correttamente",
+        description: `Rilevate ${parsedRecords.length} righe utili nel tracciato VIES.`,
+      });
+    } catch (error) {
+      setRecords([]);
+      toast({
+        variant: "destructive",
+        title: "Errore lettura Excel",
+        description: error instanceof Error ? error.message : "Il file non può essere letto.",
+      });
+    } finally {
+      setLoadingExcel(false);
+    }
+  };
+
+  const handleZipUpload = async (file: File | undefined) => {
+    if (!file) return;
+    setZipFile(file);
+    setLoadingZip(true);
+
+    try {
+      const parsedDocuments = await readZipRecursive(file);
+      setDocuments(parsedDocuments);
+      toast({
+        title: "ZIP indicizzato correttamente",
+        description: `Rilevati ${parsedDocuments.length} elementi, inclusi eventuali ZIP annidati.`,
+      });
+    } catch (error) {
+      setDocuments([]);
+      toast({
+        variant: "destructive",
+        title: "Errore lettura ZIP",
+        description: error instanceof Error ? error.message : "L'archivio non può essere letto.",
+      });
+    } finally {
+      setLoadingZip(false);
+    }
+  };
+
+  const missingRequirements = documentMatches.filter((requirement) => !requirement.completed);
+
+  const refreshBatchMonitor = useCallback(
+    async (batchId = persistedBatchId) => {
+      if (!batchId) return;
+
+      setMonitorLoading(true);
+      try {
+        const { data: batch, error: batchError } = await supabase
+          .from("vies_batches")
+          .select(
+            "id,name,status,total_rows,ready_jobs,queued_jobs,processing_jobs,completed_jobs,failed_jobs,blocked_jobs,cancelled_jobs,last_worker_run_at,last_worker_message,completed_at",
+          )
+          .eq("id", batchId)
+          .maybeSingle();
+
+        if (batchError) throw new Error(batchError.message);
+        if (!batch) return;
+
+        const { data: jobs, error: jobsError } = await supabase
+          .from("vies_jobs")
+          .select("id,row_number,progressivo,contraente,status,attempts,max_attempts,last_error,error_code")
+          .eq("batch_id", batchId)
+          .in("status", ["failed", "blocked", "processing", "queued"])
+          .order("updated_at", { ascending: false })
+          .limit(12);
+
+        if (jobsError) throw new Error(jobsError.message);
+
+        setBatchMonitor(batch as ViesBatchMonitor);
+        setJobMonitor((jobs ?? []) as ViesJobMonitor[]);
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Monitoraggio VIES non aggiornato",
+          description: error instanceof Error ? error.message : "Non è stato possibile leggere lo stato del batch.",
+        });
+      } finally {
+        setMonitorLoading(false);
+      }
+    },
+    [persistedBatchId, toast],
+  );
+
+  const callViesControl = async (body: Record<string, unknown>) => {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !sessionData.session?.access_token) {
+      throw new Error("Sessione non valida. Effettua nuovamente l'accesso e riprova.");
+    }
+
+    const response = await fetch("/api/vies-control", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionData.session.access_token}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload?.ok === false) {
+      throw new Error(payload?.error || "Azione orchestratore non completata.");
+    }
+
+    return payload;
+  };
+
+  const handleBatchControl = async (action: "enqueue_batch" | "cancel_batch" | "run_worker_once") => {
+    if (!persistedBatchId && action !== "run_worker_once") return;
+
+    setControlLoading(action);
+    try {
+      const payload = await callViesControl({ action, batchId: persistedBatchId, limit: 5 });
+      if (payload?.summary) setLastWorkerSummary(payload.summary as WorkerSummary);
+      toast({
+        title: "Azione VIES completata",
+        description:
+          action === "run_worker_once"
+            ? "Eseguito un ciclo manuale del worker VIES."
+            : action === "cancel_batch"
+              ? "Batch annullato correttamente."
+              : "Batch accodato per il worker VIES.",
+      });
+      await refreshBatchMonitor();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Azione VIES non riuscita",
+        description: error instanceof Error ? error.message : "Errore durante il controllo orchestratore.",
+      });
+    } finally {
+      setControlLoading(null);
+    }
+  };
+
+  const handleRetryJob = async (jobId: string) => {
+    setControlLoading(`retry-${jobId}`);
+    try {
+      await callViesControl({ action: "retry_job", jobId });
+      toast({ title: "Job riaccodato", description: "Il job selezionato verrà ripreso dal prossimo ciclo worker." });
+      await refreshBatchMonitor();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Retry non riuscito",
+        description: error instanceof Error ? error.message : "Non è stato possibile riaccodare il job.",
+      });
+    } finally {
+      setControlLoading(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!persistedBatchId) return;
+
+    refreshBatchMonitor(persistedBatchId);
+    const interval = window.setInterval(() => refreshBatchMonitor(persistedBatchId), 15000);
+    return () => window.clearInterval(interval);
+  }, [persistedBatchId, refreshBatchMonitor]);
+
+  const getRequirementMatches = (document: ZipDocument) => {
+    const searchable = normalizeText(`${document.name} ${document.path}`);
+    return documentRequirements
+      .filter((requirement) => requirement.keywords.some((keyword) => searchable.includes(normalizeText(keyword))))
+      .map((requirement) => requirement.id);
+  };
+
+  const getRecordValidationErrors = (record: ExcelRecord) => {
+    const errors: string[] = [];
+
+    if (!record.contraente) errors.push("Contraente mancante");
+    if (!record.partitaIvaContraente) errors.push("Partita IVA contraente mancante");
+    if (!record.beneficiario) errors.push("Beneficiario mancante");
+    if (!record.pec) errors.push("PEC mancante");
+
+    return errors;
+  };
+
+  const handlePrepareBatch = async () => {
+    if (!excelFile || !zipFile || !records.length || !documents.length) {
+      toast({
+        variant: "destructive",
+        title: "Dati incompleti",
+        description: "Carica Excel e ZIP prima di preparare il batch per l'orchestratore.",
+      });
+      return;
+    }
+
+    setSavingBatch(true);
+
+    try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) {
+        throw new Error("Sessione non valida. Effettua nuovamente l'accesso e riprova.");
+      }
+
+      const userId = userData.user.id;
+      const batchId = crypto.randomUUID();
+      const storageBasePath = `${userId}/${batchId}`;
+      const excelStoragePath = `${storageBasePath}/${buildSafeStorageName(excelFile.name)}`;
+      const zipStoragePath = `${storageBasePath}/${buildSafeStorageName(zipFile.name)}`;
+
+      const { error: excelUploadError } = await supabase.storage
+        .from(VIES_STORAGE_BUCKET)
+        .upload(excelStoragePath, excelFile, { upsert: false });
+      if (excelUploadError) throw new Error(`Upload Excel non riuscito: ${excelUploadError.message}`);
+
+      const { error: zipUploadError } = await supabase.storage
+        .from(VIES_STORAGE_BUCKET)
+        .upload(zipStoragePath, zipFile, { upsert: false });
+      if (zipUploadError) throw new Error(`Upload ZIP non riuscito: ${zipUploadError.message}`);
+
+      const batchName = `VIES ${new Date().toLocaleString("it-IT", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`;
+
+      const { error: batchError } = await supabase.from("vies_batches").insert({
+        id: batchId,
+        user_id: userId,
+        name: batchName,
+        source_excel_file_name: excelFile.name,
+        source_zip_file_name: zipFile.name,
+        excel_storage_path: excelStoragePath,
+        zip_storage_path: zipStoragePath,
+        total_rows: records.length,
+        total_documents: documents.length,
+        ready_jobs: missingRequirements.length ? 0 : records.filter((record) => getRecordValidationErrors(record).length === 0).length,
+        queued_jobs: missingRequirements.length ? 0 : records.filter((record) => getRecordValidationErrors(record).length === 0).length,
+        blocked_jobs: missingRequirements.length ? records.length : 0,
+        matched_requirements: completedRequirements,
+        missing_requirements: missingRequirements.map((requirement) => ({
+          id: requirement.id,
+          label: requirement.label,
+        })),
+        status: missingRequirements.length ? "draft" : "queued",
+        queued_at: missingRequirements.length ? null : new Date().toISOString(),
+        notes: missingRequirements.length
+          ? "Batch creato in bozza: completare o verificare i documenti obbligatori mancanti prima dell'orchestrazione."
+          : "Batch pronto per orchestratore e agent operativi.",
+      });
+      if (batchError) throw new Error(`Creazione batch non riuscita: ${batchError.message}`);
+
+      const jobRows = records.map((record) => {
+        const validationErrors = getRecordValidationErrors(record);
+
+        return {
+          batch_id: batchId,
+          user_id: userId,
+          row_number: record.rowNumber,
+          progressivo: record.progressivo || null,
+          contraente: record.contraente || null,
+          indirizzo_rappresentante_fiscale: record.indirizzoRappresentanteFiscale || null,
+          partita_iva_contraente: record.partitaIvaContraente || null,
+          beneficiario: record.beneficiario || null,
+          indirizzo_beneficiario: record.indirizzoBeneficiario || null,
+          partita_iva_beneficiario: record.partitaIvaBeneficiario || null,
+          pec: record.pec || null,
+          pagamento: record.pagamento || null,
+          documenti_indicati: record.documentiIndicati || null,
+          raw_payload: record.raw,
+          validation_errors: validationErrors,
+          status: validationErrors.length ? "pending_validation" : missingRequirements.length ? "blocked" : "queued",
+        };
+      });
+
+      const { error: jobsError } = await supabase.from("vies_jobs").insert(jobRows);
+      if (jobsError) throw new Error(`Creazione job non riuscita: ${jobsError.message}`);
+
+      const documentRows = documents.map((document) => ({
+        batch_id: batchId,
+        user_id: userId,
+        file_name: document.name,
+        file_path: `${zipStoragePath}#${document.path}`,
+        file_extension: document.extension || null,
+        file_size: document.size,
+        depth: document.depth,
+        is_nested_zip: document.isNestedZip,
+        requirement_matches: getRequirementMatches(document),
+        status: document.extension === "errore" ? "error" : "indexed",
+      }));
+
+      const { error: documentsError } = await supabase.from("vies_batch_documents").insert(documentRows);
+      if (documentsError) throw new Error(`Indicizzazione documenti non riuscita: ${documentsError.message}`);
+
+      setPersistedBatchId(batchId);
+      await refreshBatchMonitor(batchId);
+      toast({
+        title: "Batch VIES creato",
+        description: `${records.length} job e ${documents.length} documenti indicizzati. Stato: ${missingRequirements.length ? "bozza" : "in coda"}.`,
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Errore creazione batch VIES",
+        description: error instanceof Error ? error.message : "Non è stato possibile salvare il batch.",
+      });
+    } finally {
+      setSavingBatch(false);
+    }
+  };
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-primary/10 p-2 text-primary">
+                <ShieldCheck className="h-6 w-6" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-foreground">VIES</h1>
+                <p className="text-muted-foreground mt-1">
+                  Import massivo per clienti cinesi Amazon, documenti obbligatori e preparazione agent sul portale esterno.
+                </p>
+              </div>
+            </div>
+          </div>
+          <Badge variant="secondary" className="w-fit text-sm">
+            Prima versione operativa
+          </Badge>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Righe Excel</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{records.length}</div>
+              <p className="text-xs text-muted-foreground">{rowsWithCoreData} con dati principali</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Documenti PDF</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{pdfCount}</div>
+              <p className="text-xs text-muted-foreground">rilevati nello ZIP</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">ZIP annidati</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{nestedZipCount}</div>
+              <p className="text-xs text-muted-foreground">letti ricorsivamente</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Validazione</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{validationProgress}%</div>
+              <Progress value={validationProgress} className="mt-2" />
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UploadCloud className="h-5 w-5" />
+                Caricamento batch VIES
+              </CardTitle>
+              <CardDescription>
+                Carica il tracciato Excel e il pacchetto ZIP dei documenti. Il sistema prepara la pre-validazione prima dell'invio agli agent.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2 rounded-lg border border-dashed p-4">
+                  <div className="flex items-center gap-2 font-medium">
+                    <FileSpreadsheet className="h-5 w-5 text-primary" />
+                    File Excel
+                  </div>
+                  <Input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={(event) => {
+                      setPersistedBatchId(null);
+                      handleExcelUpload(event.target.files?.[0]);
+                    }}
+                    disabled={loadingExcel || savingBatch}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    {loadingExcel ? "Lettura in corso..." : excelFile?.name || "Nessun Excel selezionato"}
+                  </p>
+                </div>
+
+                <div className="space-y-2 rounded-lg border border-dashed p-4">
+                  <div className="flex items-center gap-2 font-medium">
+                    <FileArchive className="h-5 w-5 text-primary" />
+                    Archivio ZIP
+                  </div>
+                  <Input
+                    type="file"
+                    accept=".zip"
+                    onChange={(event) => {
+                      setPersistedBatchId(null);
+                      handleZipUpload(event.target.files?.[0]);
+                    }}
+                    disabled={loadingZip || savingBatch}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    {loadingZip ? "Indicizzazione in corso..." : zipFile?.name || "Nessuno ZIP selezionato"}
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid gap-3 md:grid-cols-4">
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Stato batch</p>
+                  <p className="mt-1 font-semibold">{persistedBatchId ? "Salvato" : "Pre-validazione"}</p>
+                </div>
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Orchestratore</p>
+                  <p className="mt-1 font-semibold">{persistedBatchId ? "Coda creata" : "Pronto"}</p>
+                </div>
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Agent</p>
+                  <p className="mt-1 font-semibold">{persistedBatchId ? "Job generati" : "In attesa coda"}</p>
+                </div>
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Portale esterno</p>
+                  <p className="mt-1 font-semibold">Da collegare</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Button
+                  disabled={!records.length || !documents.length || loadingExcel || loadingZip || savingBatch}
+                  className="w-full md:w-auto"
+                  onClick={handlePrepareBatch}
+                >
+                  {loadingExcel || loadingZip || savingBatch ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <PlayCircle className="mr-2 h-4 w-4" />
+                  )}
+                  {savingBatch ? "Creazione batch in corso..." : "Prepara batch per orchestratore"}
+                </Button>
+
+                {persistedBatchId && (
+                  <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900">
+                    Batch salvato su Supabase con ID <span className="font-mono">{persistedBatchId}</span>. La coda è pronta per il worker/agent.
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Workflow className="h-5 w-5" />
+                Flusso agent previsto
+              </CardTitle>
+              <CardDescription>
+                La pagina è la cabina di regia. La fase successiva collegherà coda, log e compilazione del portale esterno.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {[
+                "Validazione Excel e documenti obbligatori",
+                "Creazione batch e suddivisione in pratiche",
+                "Assegnazione a un agent operativo a rotazione",
+                "Compilazione portale esterno e upload allegati",
+                "Esito, retry e report errori per riga",
+              ].map((step, index) => (
+                <div key={step} className="flex gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                    {index + 1}
+                  </div>
+                  <div>
+                    <p className="font-medium">{step}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {index === 2 ? "Gestione agent predisposta per lavoro in parallelo controllato." : "Controllo tracciato in cabina di regia VIES."}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              <div className="rounded-lg border bg-muted/40 p-4">
+                <div className="flex items-center gap-2 font-medium">
+                  <Bot className="h-5 w-5 text-primary" />
+                  Nota operativa
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  L'agent di compilazione verrà collegato solo dopo aver definito accesso, credenziali, limiti e schermate del portale esterno.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {persistedBatchId && batchMonitor && (
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Bot className="h-5 w-5" />
+                    Monitor orchestratore VIES
+                  </CardTitle>
+                  <CardDescription>
+                    Stato operativo del batch, coda job, retry e ultimo ciclo worker rilevato su Supabase.
+                  </CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => refreshBatchMonitor()} disabled={monitorLoading}>
+                  {monitorLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                  Aggiorna
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid gap-3 md:grid-cols-4 lg:grid-cols-7">
+                {[
+                  ["Pronti", batchMonitor.ready_jobs],
+                  ["In coda", batchMonitor.queued_jobs],
+                  ["In lavoro", batchMonitor.processing_jobs],
+                  ["Completati", batchMonitor.completed_jobs],
+                  ["Falliti", batchMonitor.failed_jobs],
+                  ["Bloccati", batchMonitor.blocked_jobs],
+                  ["Annullati", batchMonitor.cancelled_jobs],
+                ].map(([label, value]) => (
+                  <div key={String(label)} className="rounded-lg bg-muted/50 p-3">
+                    <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
+                    <p className="mt-1 text-2xl font-bold">{value}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="font-medium">Stato batch: <span className="font-mono">{batchMonitor.status}</span></p>
+                  <p className="text-sm text-muted-foreground">
+                    {batchMonitor.last_worker_message || "Nessun messaggio worker registrato."}
+                    {batchMonitor.last_worker_run_at ? ` Ultimo ciclo: ${new Date(batchMonitor.last_worker_run_at).toLocaleString("it-IT")}.` : ""}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" onClick={() => handleBatchControl("enqueue_batch")} disabled={!!controlLoading || batchMonitor.status === "cancelled"}>
+                    {controlLoading === "enqueue_batch" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Accoda
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => handleBatchControl("run_worker_once")} disabled={!!controlLoading}>
+                    {controlLoading === "run_worker_once" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Esegui ciclo
+                  </Button>
+                  <Button size="sm" variant="destructive" onClick={() => handleBatchControl("cancel_batch")} disabled={!!controlLoading || terminalJobStatuses.has(batchMonitor.status)}>
+                    {controlLoading === "cancel_batch" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Annulla
+                  </Button>
+                </div>
+              </div>
+
+              {lastWorkerSummary && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
+                  Worker {lastWorkerSummary.workerId}: claim {lastWorkerSummary.claimed}, completati {lastWorkerSummary.completed}, falliti {lastWorkerSummary.failed}.
+                </div>
+              )}
+
+              {jobMonitor.length > 0 && (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Riga</TableHead>
+                        <TableHead>Contraente</TableHead>
+                        <TableHead>Stato</TableHead>
+                        <TableHead>Tentativi</TableHead>
+                        <TableHead>Ultimo errore</TableHead>
+                        <TableHead>Azione</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {jobMonitor.map((job) => (
+                        <TableRow key={job.id}>
+                          <TableCell>{job.row_number}</TableCell>
+                          <TableCell className="min-w-48 font-medium">{job.contraente || job.progressivo || "N/D"}</TableCell>
+                          <TableCell><Badge variant={job.status === "failed" || job.status === "blocked" ? "destructive" : "secondary"}>{job.status}</Badge></TableCell>
+                          <TableCell>{job.attempts}/{job.max_attempts}</TableCell>
+                          <TableCell className="max-w-96 truncate text-muted-foreground">{job.last_error || job.error_code || "—"}</TableCell>
+                          <TableCell>
+                            {(job.status === "failed" || job.status === "blocked") && (
+                              <Button size="sm" variant="outline" onClick={() => handleRetryJob(job.id)} disabled={!!controlLoading}>
+                                {controlLoading === `retry-${job.id}` && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Retry
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+          <Card>
+            <CardHeader>
+              <CardTitle>Documenti obbligatori VIES</CardTitle>
+              <CardDescription>
+                Controllo iniziale basato sul pacchetto reale fornito come esempio. I nomi file vengono normalizzati anche se contengono caratteri cinesi.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {documentMatches.map((requirement) => (
+                <div key={requirement.id} className="flex items-start justify-between gap-3 rounded-lg border p-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      {requirement.completed ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-destructive" />
+                      )}
+                      <p className="font-medium">{requirement.label}</p>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">{requirement.description}</p>
+                    {requirement.matchedDocuments.length > 0 && (
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        Trovato: {requirement.matchedDocuments.map((document) => document.name).join(", ")}
+                      </p>
+                    )}
+                  </div>
+                  <Badge variant={requirement.completed ? "secondary" : "destructive"}>
+                    {requirement.completed ? "OK" : "Manca"}
+                  </Badge>
+                </div>
+              ))}
+
+              {missingRequirements.length > 0 && documents.length > 0 && (
+                <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <p className="text-sm">
+                    Mancano {missingRequirements.length} tipologie documento. Potrebbero essere assenti oppure nominate in modo non riconoscibile.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Anteprima righe Excel</CardTitle>
+              <CardDescription>
+                Prime righe utili che formeranno la coda di pratiche VIES da lavorare.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {records.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
+                  Carica un Excel per visualizzare l'anteprima delle pratiche.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Riga</TableHead>
+                        <TableHead>Contraente</TableHead>
+                        <TableHead>P. IVA contraente</TableHead>
+                        <TableHead>Beneficiario</TableHead>
+                        <TableHead>PEC</TableHead>
+                        <TableHead>Documenti indicati</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {records.slice(0, 8).map((record) => (
+                        <TableRow key={`${record.rowNumber}-${record.contraente}-${record.beneficiario}`}>
+                          <TableCell>{record.rowNumber}</TableCell>
+                          <TableCell className="min-w-48 font-medium">{record.contraente || "Da completare"}</TableCell>
+                          <TableCell>{record.partitaIvaContraente || "Da completare"}</TableCell>
+                          <TableCell>{record.beneficiario || "Da completare"}</TableCell>
+                          <TableCell>{record.pec || "Da completare"}</TableCell>
+                          <TableCell className="max-w-64 truncate">{record.documentiIndicati || "Non indicati"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  {records.length > 8 && (
+                    <p className="mt-3 text-sm text-muted-foreground">Mostrate 8 righe su {records.length}. La tabella completa sarà gestita nel batch persistente.</p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Documenti rilevati nello ZIP</CardTitle>
+            <CardDescription>
+              Elenco dei file indicizzati, inclusi quelli contenuti dentro ZIP secondari.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {documents.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
+                Carica uno ZIP per visualizzare la mappa documentale.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome file</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Livello</TableHead>
+                      <TableHead>Dimensione</TableHead>
+                      <TableHead>Percorso</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {documents.slice(0, 20).map((document) => (
+                      <TableRow key={document.path}>
+                        <TableCell className="min-w-72 font-medium">{document.name}</TableCell>
+                        <TableCell>{document.extension || "file"}</TableCell>
+                        <TableCell>{document.depth === 0 ? "ZIP principale" : `ZIP annidato ${document.depth}`}</TableCell>
+                        <TableCell>{formatBytes(document.size)}</TableCell>
+                        <TableCell className="max-w-96 truncate text-muted-foreground">{document.path}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {documents.length > 20 && (
+                  <p className="mt-3 text-sm text-muted-foreground">Mostrati 20 documenti su {documents.length}.</p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default Vies;

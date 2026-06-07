@@ -373,6 +373,268 @@ export type Database = {
           },
         ]
       }
+      vies_batches: {
+        Row: {
+          blocked_jobs: number
+          cancelled_jobs: number
+          completed_at: string | null
+          completed_jobs: number
+          created_at: string
+          excel_storage_path: string | null
+          failed_jobs: number
+          id: string
+          last_worker_message: string | null
+          last_worker_run_at: string | null
+          matched_requirements: number
+          missing_requirements: Json
+          name: string
+          notes: string | null
+          processing_jobs: number
+          processing_started_at: string | null
+          queued_at: string | null
+          queued_jobs: number
+          ready_jobs: number
+          source_excel_file_name: string | null
+          source_zip_file_name: string | null
+          status: string
+          total_documents: number
+          total_rows: number
+          updated_at: string
+          user_id: string
+          zip_storage_path: string | null
+        }
+        Insert: {
+          blocked_jobs?: number
+          cancelled_jobs?: number
+          completed_at?: string | null
+          completed_jobs?: number
+          created_at?: string
+          excel_storage_path?: string | null
+          failed_jobs?: number
+          id?: string
+          last_worker_message?: string | null
+          last_worker_run_at?: string | null
+          matched_requirements?: number
+          missing_requirements?: Json
+          name: string
+          notes?: string | null
+          processing_jobs?: number
+          processing_started_at?: string | null
+          queued_at?: string | null
+          queued_jobs?: number
+          ready_jobs?: number
+          source_excel_file_name?: string | null
+          source_zip_file_name?: string | null
+          status?: string
+          total_documents?: number
+          total_rows?: number
+          updated_at?: string
+          user_id: string
+          zip_storage_path?: string | null
+        }
+        Update: {
+          blocked_jobs?: number
+          cancelled_jobs?: number
+          completed_at?: string | null
+          completed_jobs?: number
+          created_at?: string
+          excel_storage_path?: string | null
+          failed_jobs?: number
+          id?: string
+          last_worker_message?: string | null
+          last_worker_run_at?: string | null
+          matched_requirements?: number
+          missing_requirements?: Json
+          name?: string
+          notes?: string | null
+          processing_jobs?: number
+          processing_started_at?: string | null
+          queued_at?: string | null
+          queued_jobs?: number
+          ready_jobs?: number
+          source_excel_file_name?: string | null
+          source_zip_file_name?: string | null
+          status?: string
+          total_documents?: number
+          total_rows?: number
+          updated_at?: string
+          user_id?: string
+          zip_storage_path?: string | null
+        }
+        Relationships: []
+      }
+      vies_jobs: {
+        Row: {
+          agent_result: Json
+          assigned_agent: string | null
+          attempts: number
+          batch_id: string
+          beneficiario: string | null
+          contraente: string | null
+          created_at: string
+          documenti_indicati: string | null
+          error_code: string | null
+          external_reference: string | null
+          failed_at: string | null
+          id: string
+          indirizzo_beneficiario: string | null
+          indirizzo_rappresentante_fiscale: string | null
+          last_error: string | null
+          last_heartbeat_at: string | null
+          locked_at: string | null
+          locked_by: string | null
+          max_attempts: number
+          next_attempt_at: string
+          pagamento: string | null
+          partita_iva_beneficiario: string | null
+          partita_iva_contraente: string | null
+          pec: string | null
+          priority: number
+          processed_at: string | null
+          processing_started_at: string | null
+          progressivo: string | null
+          raw_payload: Json
+          row_number: number
+          status: string
+          updated_at: string
+          user_id: string
+          validation_errors: Json
+        }
+        Insert: {
+          agent_result?: Json
+          assigned_agent?: string | null
+          attempts?: number
+          batch_id: string
+          beneficiario?: string | null
+          contraente?: string | null
+          created_at?: string
+          documenti_indicati?: string | null
+          error_code?: string | null
+          external_reference?: string | null
+          failed_at?: string | null
+          id?: string
+          indirizzo_beneficiario?: string | null
+          indirizzo_rappresentante_fiscale?: string | null
+          last_error?: string | null
+          last_heartbeat_at?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          max_attempts?: number
+          next_attempt_at?: string
+          pagamento?: string | null
+          partita_iva_beneficiario?: string | null
+          partita_iva_contraente?: string | null
+          pec?: string | null
+          priority?: number
+          processed_at?: string | null
+          processing_started_at?: string | null
+          progressivo?: string | null
+          raw_payload?: Json
+          row_number: number
+          status?: string
+          updated_at?: string
+          user_id: string
+          validation_errors?: Json
+        }
+        Update: {
+          agent_result?: Json
+          assigned_agent?: string | null
+          attempts?: number
+          batch_id?: string
+          beneficiario?: string | null
+          contraente?: string | null
+          created_at?: string
+          documenti_indicati?: string | null
+          error_code?: string | null
+          external_reference?: string | null
+          failed_at?: string | null
+          id?: string
+          indirizzo_beneficiario?: string | null
+          indirizzo_rappresentante_fiscale?: string | null
+          last_error?: string | null
+          last_heartbeat_at?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          max_attempts?: number
+          next_attempt_at?: string
+          pagamento?: string | null
+          partita_iva_beneficiario?: string | null
+          partita_iva_contraente?: string | null
+          pec?: string | null
+          priority?: number
+          processed_at?: string | null
+          processing_started_at?: string | null
+          progressivo?: string | null
+          raw_payload?: Json
+          row_number?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+          validation_errors?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vies_jobs_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "vies_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vies_batch_documents: {
+        Row: {
+          batch_id: string
+          created_at: string
+          depth: number
+          file_extension: string | null
+          file_name: string
+          file_path: string
+          file_size: number
+          id: string
+          is_nested_zip: boolean
+          requirement_matches: string[]
+          status: string
+          user_id: string
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          depth?: number
+          file_extension?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number
+          id?: string
+          is_nested_zip?: boolean
+          requirement_matches?: string[]
+          status?: string
+          user_id: string
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          depth?: number
+          file_extension?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          id?: string
+          is_nested_zip?: boolean
+          requirement_matches?: string[]
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vies_batch_documents_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "vies_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       practice_documents: {
         Row: {
           created_at: string
