@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { TablesUpdate } from "@/integrations/supabase/types";
 
 interface Practice {
   id: string;
@@ -69,7 +70,7 @@ export const EditFinancialDialog = ({
     setLoading(true);
 
     try {
-      const updateData: any = {
+      const updateData: TablesUpdate<"practices"> = {
         premium_amount: premiumAmount ? parseFloat(premiumAmount) : null,
         commission_percentage: commissionPercentage ? parseFloat(commissionPercentage) : null,
         financial_status: financialStatus,
@@ -91,7 +92,7 @@ export const EditFinancialDialog = ({
 
       onSuccess();
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",

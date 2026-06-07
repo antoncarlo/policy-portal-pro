@@ -58,6 +58,7 @@ export const PracticesFilters = ({
 
   useEffect(() => {
     checkUserRole();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
   }, []);
 
   const checkUserRole = async () => {

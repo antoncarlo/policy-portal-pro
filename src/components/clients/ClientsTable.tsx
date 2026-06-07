@@ -79,7 +79,7 @@ export const ClientsTable = ({
       });
 
       onClientUpdated();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore eliminazione",

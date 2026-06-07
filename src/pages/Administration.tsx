@@ -71,16 +71,19 @@ const Administration = () => {
 
   useEffect(() => {
     initializeUser();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
   }, []);
 
   useEffect(() => {
     if (currentUserId) {
       loadData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
   }, [currentUserId, selectedUserId]);
 
   useEffect(() => {
     filterPractices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
   }, [practices, searchQuery, statusFilter]);
 
   const initializeUser = async () => {
@@ -119,7 +122,7 @@ const Administration = () => {
 
       if (usersError) throw usersError;
       setAvailableUsers(usersData || []);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore inizializzazione",
@@ -158,7 +161,7 @@ const Administration = () => {
 
       if (practicesError) throw practicesError;
       setPractices(practicesData || []);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore caricamento",

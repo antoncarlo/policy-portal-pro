@@ -60,7 +60,7 @@ export const PracticeStatusForm = ({
       });
 
       onStatusUpdate();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore aggiornamento",

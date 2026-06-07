@@ -98,6 +98,7 @@ export default function Reports() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
   }, [startDate, endDate, period]);
 
   const loadData = async () => {
@@ -250,7 +251,7 @@ export default function Reports() {
             {/* Periodo predefinito */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Periodo</label>
-              <Select value={period} onValueChange={(value: any) => setPeriod(value)}>
+              <Select value={period} onValueChange={(value) => setPeriod(value as "week" | "month" | "quarter" | "year" | "custom")}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

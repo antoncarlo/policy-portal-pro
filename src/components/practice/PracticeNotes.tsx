@@ -55,7 +55,7 @@ export const PracticeNotes = ({ practiceId, initialNotes }: PracticeNotesProps) 
         title: "Note aggiornate",
         description: "Le note sono state salvate con successo.",
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore salvataggio",

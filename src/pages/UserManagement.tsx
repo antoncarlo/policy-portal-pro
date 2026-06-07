@@ -47,6 +47,7 @@ const UserManagement = () => {
   useEffect(() => {
     checkAccess();
     loadUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
   }, []);
 
   const checkAccess = async () => {
@@ -82,7 +83,7 @@ const UserManagement = () => {
       if (error) throw error;
 
       setUsers(data || []);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",
@@ -151,7 +152,7 @@ const UserManagement = () => {
       });
 
       loadUsers();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",
@@ -175,7 +176,7 @@ const UserManagement = () => {
       });
 
       loadUsers();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",

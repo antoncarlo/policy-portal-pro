@@ -79,7 +79,7 @@ export const EditRoleDialog = ({
 
       onSuccess();
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",

@@ -21,6 +21,7 @@ export const ProfileSettings = () => {
 
   useEffect(() => {
     loadProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
   }, []);
 
   const loadProfile = async () => {
@@ -43,7 +44,7 @@ export const ProfileSettings = () => {
         avatar_url: profileData.avatar_url || "",
         created_at: profileData.created_at,
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",
@@ -73,7 +74,7 @@ export const ProfileSettings = () => {
         title: "Successo",
         description: "Profilo aggiornato correttamente",
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",
@@ -141,7 +142,7 @@ export const ProfileSettings = () => {
         title: "Successo",
         description: "Avatar aggiornato correttamente",
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",

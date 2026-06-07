@@ -149,6 +149,7 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
 
   useEffect(() => {
     loadPractices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
   }, [filters]);
 
   const handleDownloadDocuments = async (practice: Practice) => {

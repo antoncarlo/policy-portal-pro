@@ -80,7 +80,7 @@ export const SecuritySettings = () => {
         newPassword: "",
         confirmPassword: "",
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",

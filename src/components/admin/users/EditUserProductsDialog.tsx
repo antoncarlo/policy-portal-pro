@@ -39,6 +39,7 @@ export const EditUserProductsDialog = ({
     if (open && userId) {
       loadUserProducts();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
   }, [open, userId]);
 
   const loadUserProducts = async () => {
@@ -53,7 +54,7 @@ export const EditUserProductsDialog = ({
       const products = data?.map(p => p.practice_type) || [];
       setSelectedProducts(products);
       setInitialProducts(products);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error loading user products:", error);
       toast({
         variant: "destructive",
@@ -111,7 +112,7 @@ export const EditUserProductsDialog = ({
 
       onSuccess();
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",

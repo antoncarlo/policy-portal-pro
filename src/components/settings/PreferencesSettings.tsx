@@ -25,6 +25,7 @@ export const PreferencesSettings = () => {
 
   useEffect(() => {
     loadPreferences();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
   }, []);
 
   const loadPreferences = async () => {
@@ -53,7 +54,7 @@ export const PreferencesSettings = () => {
           },
         });
       }
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",
@@ -85,7 +86,7 @@ export const PreferencesSettings = () => {
         title: "Successo",
         description: "Preferenze aggiornate correttamente",
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",

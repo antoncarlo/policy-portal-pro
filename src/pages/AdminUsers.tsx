@@ -74,6 +74,7 @@ const AdminUsers = () => {
 
   useEffect(() => {
     checkAdminAccess();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
   }, []);
 
   const checkAdminAccess = async () => {

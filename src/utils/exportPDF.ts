@@ -64,6 +64,16 @@ interface ExportOptions {
   period: string;
 }
 
+type AutoTableDocument = jsPDF & {
+  lastAutoTable?: {
+    finalY: number;
+  };
+};
+
+function getLastAutoTableFinalY(doc: jsPDF, fallback: number): number {
+  return (doc as AutoTableDocument).lastAutoTable?.finalY ?? fallback;
+}
+
 export async function exportToPDF(
   practices: PracticeDetail[],
   stats: ProductionStats | null,
@@ -117,7 +127,7 @@ export async function exportToPDF(
       styles: { fontSize: 9 },
     });
 
-    yPos = (doc as any).lastAutoTable.finalY + 10;
+    yPos = getLastAutoTableFinalY(doc, yPos) + 10;
   }
 
   // Statistiche Generali
@@ -153,7 +163,7 @@ export async function exportToPDF(
       },
     });
 
-    yPos = (doc as any).lastAutoTable.finalY + 10;
+    yPos = getLastAutoTableFinalY(doc, yPos) + 10;
 
     // Pratiche per Tipo
     if (stats.practices_by_type && Object.keys(stats.practices_by_type).length > 0) {
@@ -182,7 +192,7 @@ export async function exportToPDF(
         styles: { fontSize: 9 },
       });
 
-      yPos = (doc as any).lastAutoTable.finalY + 10;
+      yPos = getLastAutoTableFinalY(doc, yPos) + 10;
     }
 
     // Trend Mensile
@@ -213,7 +223,7 @@ export async function exportToPDF(
         styles: { fontSize: 8 },
       });
 
-      yPos = (doc as any).lastAutoTable.finalY + 10;
+      yPos = getLastAutoTableFinalY(doc, yPos) + 10;
     }
 
     // Top Agenti
@@ -252,7 +262,7 @@ export async function exportToPDF(
         },
       });
 
-      yPos = (doc as any).lastAutoTable.finalY + 10;
+      yPos = getLastAutoTableFinalY(doc, yPos) + 10;
     }
   }
 

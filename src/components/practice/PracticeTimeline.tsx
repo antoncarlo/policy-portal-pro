@@ -41,6 +41,7 @@ export const PracticeTimeline = ({ practiceId }: PracticeTimelineProps) => {
     return () => {
       supabase.removeChannel(channel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
   }, [practiceId]);
 
   const loadEvents = async () => {

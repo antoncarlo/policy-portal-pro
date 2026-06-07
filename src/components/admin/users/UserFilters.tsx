@@ -49,7 +49,7 @@ export const UserFilters = ({
         </SelectContent>
       </Select>
 
-      <Select value={viewMode} onValueChange={(value: any) => onViewModeChange(value)}>
+      <Select value={viewMode} onValueChange={(value) => onViewModeChange(value as "table" | "org")}>
         <SelectTrigger className="w-full md:w-[180px]">
           <SelectValue placeholder="Vista" />
         </SelectTrigger>

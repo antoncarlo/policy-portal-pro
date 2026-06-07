@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- shared shadcn UI modules intentionally export component helpers. */
 import * as React from "react";
 import * as TogglePrimitive from "@radix-ui/react-toggle";
 import { cva, type VariantProps } from "class-variance-authority";

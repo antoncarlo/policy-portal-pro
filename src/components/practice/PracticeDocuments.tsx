@@ -26,6 +26,7 @@ export const PracticeDocuments = ({ practiceId }: PracticeDocumentsProps) => {
 
   useEffect(() => {
     loadDocuments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
   }, [practiceId]);
 
   const loadDocuments = async () => {
@@ -38,7 +39,7 @@ export const PracticeDocuments = ({ practiceId }: PracticeDocumentsProps) => {
 
       if (error) throw error;
       setDocuments(data || []);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore caricamento documenti",
@@ -87,7 +88,7 @@ export const PracticeDocuments = ({ practiceId }: PracticeDocumentsProps) => {
       });
 
       loadDocuments();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore caricamento",
@@ -113,7 +114,7 @@ export const PracticeDocuments = ({ practiceId }: PracticeDocumentsProps) => {
       a.download = document.file_name;
       a.click();
       URL.revokeObjectURL(url);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore download",
@@ -145,7 +146,7 @@ export const PracticeDocuments = ({ practiceId }: PracticeDocumentsProps) => {
       });
 
       loadDocuments();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore eliminazione",

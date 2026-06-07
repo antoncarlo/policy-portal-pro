@@ -55,7 +55,7 @@ export const SMTPSettings = () => {
         smtp_from_email: data.sender_email || "",
         smtp_from_name: data.sender_name || "",
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error loading SMTP settings:", error);
     }
   };
@@ -80,7 +80,7 @@ export const SMTPSettings = () => {
         title: "Successo",
         description: "Configurazioni SMTP salvate",
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",
@@ -116,7 +116,7 @@ export const SMTPSettings = () => {
           description: "Impossibile inviare l'email di test. Verifica le configurazioni.",
         });
       }
-    } catch (error: any) {
+    } catch (error) {
       setTestResult("error");
       toast({
         variant: "destructive",

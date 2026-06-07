@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Mail, Phone, Building2, MapPin, FileText, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Tables } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ClientForm } from "@/components/clients/ClientForm";
@@ -15,8 +16,8 @@ const ClientDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [client, setClient] = useState<any>(null);
-  const [practices, setPractices] = useState<any[]>([]);
+  const [client, setClient] = useState<Tables<"clients"> | null>(null);
+  const [practices, setPractices] = useState<Tables<"practices">[]>([]);
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
@@ -42,7 +43,7 @@ const ClientDetail = () => {
 
       if (practicesError) throw practicesError;
       setPractices(practicesData || []);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",
@@ -58,6 +59,7 @@ const ClientDetail = () => {
     if (id) {
       loadClientData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
   }, [id]);
 
   if (loading || !client) {

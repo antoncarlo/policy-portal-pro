@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Json } from "@/integrations/supabase/types";
 import { FileDown, Search, Calendar, Filter } from "lucide-react";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
@@ -18,7 +19,7 @@ interface ActivityLog {
   entity_type: string | null;
   entity_id: string | null;
   action: string;
-  details: any;
+  details: Json | null;
   ip_address: string | null;
   user_agent: string | null;
   created_at: string;
@@ -39,6 +40,7 @@ export const ActivityLogs = () => {
 
   useEffect(() => {
     loadLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
   }, []);
 
   const loadLogs = async () => {
@@ -72,7 +74,7 @@ export const ActivityLogs = () => {
 
       if (error) throw error;
       setLogs(data || []);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error loading logs:", error);
       toast({
         variant: "destructive",

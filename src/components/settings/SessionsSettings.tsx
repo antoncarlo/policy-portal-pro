@@ -32,6 +32,7 @@ export const SessionsSettings = () => {
 
   useEffect(() => {
     loadSessions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
   }, []);
 
   const loadSessions = async () => {
@@ -53,7 +54,7 @@ export const SessionsSettings = () => {
       ];
 
       setSessions(mockSessions);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error loading sessions:", error);
       toast({
         variant: "destructive",
@@ -108,7 +109,7 @@ export const SessionsSettings = () => {
         });
         loadSessions();
       }
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",
@@ -121,7 +122,7 @@ export const SessionsSettings = () => {
     try {
       await supabase.auth.signOut();
       window.location.href = "/";
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",

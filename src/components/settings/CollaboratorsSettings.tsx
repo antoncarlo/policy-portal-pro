@@ -25,6 +25,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 
+interface CollaboratorRoleRow {
+  id: string;
+  user_id: string;
+  created_at: string;
+  profiles: {
+    full_name: string | null;
+    email: string | null;
+    phone: string | null;
+  } | null;
+}
+
 interface Collaborator {
   id: string;
   user_id: string;
@@ -45,6 +56,7 @@ export const CollaboratorsSettings = () => {
 
   useEffect(() => {
     loadCollaborators();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
   }, []);
 
   const loadCollaborators = async () => {
@@ -73,7 +85,7 @@ export const CollaboratorsSettings = () => {
 
       // Get practice counts for each collaborator
       const collaboratorsWithCounts = await Promise.all(
-        (collaboratorsData || []).map(async (collab: any) => {
+        (collaboratorsData || []).map(async (collab: CollaboratorRoleRow) => {
           const { count } = await supabase
             .from("practices")
             .select("*", { count: "exact", head: true })
@@ -92,7 +104,7 @@ export const CollaboratorsSettings = () => {
       );
 
       setCollaborators(collaboratorsWithCounts);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",
@@ -123,7 +135,7 @@ export const CollaboratorsSettings = () => {
       setDeleteDialogOpen(false);
       setSelectedCollaborator(null);
       loadCollaborators();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",

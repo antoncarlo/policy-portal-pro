@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +37,15 @@ interface Agent {
   collaborator_count: number;
 }
 
+interface AgentRoleRow {
+  user_id: string;
+  profiles: {
+    full_name: string | null;
+    email: string | null;
+    avatar_url: string | null;
+  } | null;
+}
+
 export const AssignAgentDialog = ({
   open,
   onOpenChange,
@@ -49,13 +58,7 @@ export const AssignAgentDialog = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (open) {
-      loadAgents();
-    }
-  }, [open]);
-
-  const loadAgents = async () => {
+  const loadAgents = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from("user_roles")
@@ -73,7 +76,7 @@ export const AssignAgentDialog = ({
 
       // Count collaborators for each agent
       const agentsWithCounts = await Promise.all(
-        (data || []).map(async (agent: any) => {
+        ((data || []) as AgentRoleRow[]).map(async (agent) => {
           const { count } = await supabase
             .from("user_roles")
             .select("*", { count: "exact", head: true })
@@ -90,14 +93,20 @@ export const AssignAgentDialog = ({
       );
 
       setAgents(agentsWithCounts);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",
         description: "Impossibile caricare gli agenti",
       });
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    if (open) {
+      loadAgents();
+    }
+  }, [loadAgents, open]);
 
   const handleSave = async () => {
     if (!user || !selectedAgentId) return;
@@ -118,11 +127,11 @@ export const AssignAgentDialog = ({
 
       onSuccess();
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Impossibile assegnare l'agente",
       });
     } finally {
       setLoading(false);

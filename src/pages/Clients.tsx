@@ -7,14 +7,15 @@ import { Search, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ClientsTable } from "@/components/clients/ClientsTable";
 import { ClientForm } from "@/components/clients/ClientForm";
+import { Tables } from "@/integrations/supabase/types";
 
 const Clients = () => {
-  const [clients, setClients] = useState([]);
-  const [filteredClients, setFilteredClients] = useState([]);
+  const [clients, setClients] = useState<Tables<"clients">[]>([]);
+  const [filteredClients, setFilteredClients] = useState<Tables<"clients">[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedClient, setSelectedClient] = useState(null);
+  const [selectedClient, setSelectedClient] = useState<Tables<"clients"> | null>(null);
 
   const loadClients = async () => {
     setLoading(true);
@@ -43,7 +44,7 @@ const Clients = () => {
       setFilteredClients(clients);
     } else {
       const query = searchQuery.toLowerCase();
-      const filtered = clients.filter((client: any) =>
+      const filtered = clients.filter((client) =>
         client.full_name.toLowerCase().includes(query) ||
         (client.company_name && client.company_name.toLowerCase().includes(query)) ||
         (client.email && client.email.toLowerCase().includes(query)) ||
@@ -59,7 +60,7 @@ const Clients = () => {
     setDialogOpen(true);
   };
 
-  const handleEditClient = (client: any) => {
+  const handleEditClient = (client: Tables<"clients">) => {
     setSelectedClient(client);
     setDialogOpen(true);
   };

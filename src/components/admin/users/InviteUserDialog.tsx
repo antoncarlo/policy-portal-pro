@@ -181,7 +181,7 @@ export const InviteUserDialog = ({
         password: "",
         default_commission_percentage: "0",
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",

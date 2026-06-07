@@ -5,10 +5,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Tables } from "@/integrations/supabase/types";
 import { Loader2 } from "lucide-react";
 
 interface ClientFormProps {
-  client?: any;
+  client?: Tables<"clients">;
   onSuccess: () => void;
   onCancel: () => void;
 }
@@ -72,7 +73,7 @@ export const ClientForm = ({ client, onSuccess, onCancel }: ClientFormProps) => 
       }
 
       onSuccess();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",

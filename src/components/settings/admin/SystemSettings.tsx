@@ -43,6 +43,7 @@ export const SystemSettings = () => {
 
   useEffect(() => {
     loadSettings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
   }, []);
 
   const loadSettings = async () => {
@@ -73,7 +74,7 @@ export const SystemSettings = () => {
           default_date_format: data.default_date_format || "DD/MM/YYYY",
         });
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error loading system settings:", error);
       toast({
         variant: "destructive",
@@ -102,7 +103,7 @@ export const SystemSettings = () => {
         title: "Successo",
         description: "Impostazioni di sistema salvate correttamente",
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",
@@ -139,7 +140,7 @@ export const SystemSettings = () => {
         title: "Successo",
         description: "Logo caricato correttamente",
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",

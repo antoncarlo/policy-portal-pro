@@ -21,6 +21,16 @@ import { mapPracticeTypeToEnum } from "@/utils/practiceTypeMapping";
 import { notifyAdminNewPractice } from "@/services/emailService";
 import { DocumentUploadSection } from "@/components/upload/DocumentUploadSection";
 import { requiredDocumentsConfig } from "@/config/requiredDocuments";
+import { Enums, TablesInsert } from "@/integrations/supabase/types";
+
+type PolicyFieldValue = string | number | boolean;
+type PetQuote = {
+  planName?: string;
+  premium?: number;
+  monthlyPremium?: number;
+  annualPremium?: number;
+  [key: string]: unknown;
+};
 
 export const UploadForm = () => {
   const { toast } = useToast();
@@ -28,7 +38,7 @@ export const UploadForm = () => {
   const [documentFiles, setDocumentFiles] = useState<{ docId: string; file: File }[]>([]);
   const [loading, setLoading] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
-  
+
   // Financial fields state
   const [premiumNet, setPremiumNet] = useState("");
   const [premiumTaxable, setPremiumTaxable] = useState("");
@@ -38,8 +48,8 @@ export const UploadForm = () => {
   const [commissionAmount, setCommissionAmount] = useState("0.00");
   const [isAdmin, setIsAdmin] = useState(false);
   const [practiceType, setPracticeType] = useState("");
-  const [petQuote, setPetQuote] = useState<any>(null);
-  const [dynamicFields, setDynamicFields] = useState<Record<string, any>>({});
+  const [petQuote, setPetQuote] = useState<PetQuote | null>(null);
+  const [dynamicFields, setDynamicFields] = useState<Record<string, PolicyFieldValue>>({});
   const [allowedPracticeTypes, setAllowedPracticeTypes] = useState<string[]>([]);
 
   // Load user's default commission percentage
@@ -59,7 +69,7 @@ export const UploadForm = () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
 
-        const { data, error } = await (supabase as any).rpc("get_effective_commission_percentage", {
+        const { data, error } = await supabase.rpc("get_effective_commission_percentage", {
           p_user_id: session.user.id,
           p_current_premium: parsedPremium,
           p_reference_date: new Date().toISOString(),
@@ -167,7 +177,7 @@ export const UploadForm = () => {
     }
   }, [premiumTaxable, premiumTaxes]);
 
-  
+
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -234,7 +244,7 @@ export const UploadForm = () => {
 
     // Get current user
     const { data: { session } } = await supabase.auth.getSession();
-    
+
     if (!session) {
       toast({
         variant: "destructive",
@@ -248,7 +258,7 @@ export const UploadForm = () => {
     try {
       // Find or create client first
       let clientId: string | null = null;
-      
+
       // Try to find existing client by email
       if (clientEmail.trim()) {
         const { data: existingClient } = await supabase
@@ -257,10 +267,10 @@ export const UploadForm = () => {
           .eq("email", clientEmail.trim().toLowerCase())
           .eq("user_id", session.user.id)
           .single();
-        
+
         if (existingClient) {
           clientId = existingClient.id;
-          
+
           // Update client address if provided
           if (clientAddress.trim()) {
             await supabase
@@ -270,7 +280,7 @@ export const UploadForm = () => {
           }
         }
       }
-      
+
       // If not found by email, try by phone and name
       if (!clientId && clientPhone.trim()) {
         const { data: existingClient } = await supabase
@@ -279,10 +289,10 @@ export const UploadForm = () => {
           .eq("phone", clientPhone.trim())
           .eq("user_id", session.user.id)
           .single();
-        
+
         if (existingClient) {
           clientId = existingClient.id;
-          
+
           // Update client address if provided
           if (clientAddress.trim()) {
             await supabase
@@ -292,13 +302,13 @@ export const UploadForm = () => {
           }
         }
       }
-      
+
       // If client doesn't exist, create a new one
       if (!clientId) {
         const nameParts = clientName.trim().split(' ');
         const firstName = nameParts[0] || clientName.trim();
         const lastName = nameParts.slice(1).join(' ') || 'N/A';
-        
+
         const { data: newClient, error: clientError } = await supabase
           .from("clients")
           .insert({
@@ -310,10 +320,10 @@ export const UploadForm = () => {
           })
           .select("id")
           .single();
-        
+
         if (!clientError && newClient) {
           clientId = newClient.id;
-          
+
           // Add address to profile if provided
           if (clientAddress.trim()) {
             await supabase
@@ -323,9 +333,9 @@ export const UploadForm = () => {
           }
         }
       }
-      
+
       // Prepare financial data
-      const financialData: any = {};
+      const financialData: Partial<Pick<TablesInsert<"practices">, "premium_net" | "premium_taxable" | "premium_taxes" | "premium_gross">> = {};
       if (premiumNet) financialData.premium_net = parseFloat(premiumNet);
       if (premiumTaxable) financialData.premium_taxable = parseFloat(premiumTaxable);
       if (premiumTaxes) financialData.premium_taxes = parseFloat(premiumTaxes);
@@ -344,7 +354,7 @@ export const UploadForm = () => {
       const { data: practice, error: practiceError } = await supabase
         .from("practices")
         .insert([{
-          practice_type: mapPracticeTypeToEnum(practiceType) as any,
+          practice_type: mapPracticeTypeToEnum(practiceType) as Enums<"practice_type">,
           client_name: clientName.trim(),
           client_phone: clientPhone.trim(),
           client_email: clientEmail.trim(),
@@ -431,7 +441,7 @@ export const UploadForm = () => {
 
       // Navigate to practices page
       navigate("/practices");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Upload error:", error);
       toast({
         variant: "destructive",
@@ -525,8 +535,8 @@ export const UploadForm = () => {
 
         {/* Dynamic Policy-Specific Fields */}
         {practiceType && (
-          <DynamicPolicyFields 
-            policyType={practiceType} 
+          <DynamicPolicyFields
+            policyType={practiceType}
             onFieldsChange={setDynamicFields}
           />
         )}
@@ -584,7 +594,7 @@ export const UploadForm = () => {
             <Euro className="h-5 w-5 text-primary" />
             <h3 className="text-lg font-semibold">Dati Finanziari (Opzionali)</h3>
           </div>
-          
+
           <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4">
             <p className="text-sm text-amber-800 dark:text-amber-200">
               💡 <strong>Nota:</strong> Le provvigioni si calcolano sul <strong>Premio Netto</strong> (ante imposte), non sul Premio Lordo
@@ -689,8 +699,8 @@ export const UploadForm = () => {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                {premiumTaxable && premiumTaxes 
-                  ? "Calcolato automaticamente: Imponibile + Imposte" 
+                {premiumTaxable && premiumTaxes
+                  ? "Calcolato automaticamente: Imponibile + Imposte"
                   : "Totale che il cliente paga"}
               </p>
             </div>

@@ -10,27 +10,29 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PolicyField, policyFieldsConfig } from "@/types/policyFields";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+
+type PolicyFieldValue = string | number | boolean;
 
 interface DynamicPolicyFieldsProps {
   policyType: string;
-  onFieldsChange?: (fields: Record<string, any>) => void;
+  onFieldsChange?: (fields: Record<string, PolicyFieldValue>) => void;
 }
 
 export const DynamicPolicyFields = ({ policyType, onFieldsChange }: DynamicPolicyFieldsProps) => {
-  const [fieldValues, setFieldValues] = useState<Record<string, any>>({});
-  const fields = policyFieldsConfig[policyType] || [];
+  const [fieldValues, setFieldValues] = useState<Record<string, PolicyFieldValue>>({});
+  const fields = useMemo(() => policyFieldsConfig[policyType] || [], [policyType]);
 
   // Initialize default values
   useEffect(() => {
-    const defaults: Record<string, any> = {};
+    const defaults: Record<string, PolicyFieldValue> = {};
     fields.forEach(field => {
       if (field.defaultValue !== undefined) {
         defaults[field.name] = field.defaultValue;
       }
     });
     setFieldValues(defaults);
-  }, [policyType]);
+  }, [fields]);
 
   // Notify parent component of field changes
   useEffect(() => {
@@ -39,7 +41,7 @@ export const DynamicPolicyFields = ({ policyType, onFieldsChange }: DynamicPolic
     }
   }, [fieldValues, onFieldsChange]);
 
-  const handleFieldChange = (fieldName: string, value: any) => {
+  const handleFieldChange = (fieldName: string, value: PolicyFieldValue) => {
     setFieldValues(prev => ({
       ...prev,
       [fieldName]: value
@@ -182,7 +184,7 @@ export const DynamicPolicyFields = ({ policyType, onFieldsChange }: DynamicPolic
               id={field.name}
               name={field.name}
               checked={fieldValues[field.name] || false}
-              onCheckedChange={(checked) => handleFieldChange(field.name, checked)}
+              onCheckedChange={(checked) => handleFieldChange(field.name, checked === true)}
             />
             <Label
               htmlFor={field.name}

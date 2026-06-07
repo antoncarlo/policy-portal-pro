@@ -59,6 +59,7 @@ const PracticeDetail = () => {
       loadPractice();
       loadUserRole();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
   }, [id]);
 
   const loadUserRole = async () => {

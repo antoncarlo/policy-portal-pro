@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Json } from "@/integrations/supabase/types";
 import { Download, Upload, Database, Clock, Loader2, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -37,7 +38,11 @@ export const BackupSettings = () => {
     try {
       // Export all tables data
       const tables = ["profiles", "practices", "clients", "practice_documents", "practice_events", "notifications"];
-      const exportData: any = {
+      const exportData: {
+        export_date: string;
+        version: string;
+        tables: Record<string, Json[] | null>;
+      } = {
         export_date: new Date().toISOString(),
         version: "1.0.0",
         tables: {},
@@ -67,7 +72,7 @@ export const BackupSettings = () => {
         title: "Successo",
         description: "Backup completato e scaricato",
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error exporting data:", error);
       toast({
         variant: "destructive",
@@ -86,7 +91,7 @@ export const BackupSettings = () => {
     setLoading(true);
     try {
       const text = await file.text();
-      const importData = JSON.parse(text);
+      const importData = JSON.parse(text) as { tables?: Record<string, Json[]> };
 
       if (!importData.tables) {
         throw new Error("Formato backup non valido");
@@ -98,7 +103,7 @@ export const BackupSettings = () => {
       });
 
       setShowRestoreDialog(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error importing data:", error);
       toast({
         variant: "destructive",
@@ -129,7 +134,7 @@ export const BackupSettings = () => {
         title: "Successo",
         description: "Impostazioni backup salvate",
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",

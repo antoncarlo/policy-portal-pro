@@ -126,7 +126,7 @@ export const EditCommissionDialog = ({
 
       onSuccess();
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",

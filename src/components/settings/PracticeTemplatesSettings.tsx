@@ -46,7 +46,7 @@ export const PracticeTemplatesSettings = () => {
           company_logo_url: data.company_logo_url || "",
         });
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error loading agent settings:", error);
     }
   };
@@ -73,7 +73,7 @@ export const PracticeTemplatesSettings = () => {
         title: "Successo",
         description: "Impostazioni pratiche salvate correttamente",
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",
@@ -116,7 +116,7 @@ export const PracticeTemplatesSettings = () => {
         title: "Successo",
         description: "File caricato correttamente",
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore",

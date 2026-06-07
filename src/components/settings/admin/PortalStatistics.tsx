@@ -58,7 +58,7 @@ export const PortalStatistics = () => {
         .from("user_roles")
         .select("role");
 
-      const rolesCounts = rolesData?.reduce((acc: any, curr) => {
+      const rolesCounts = rolesData?.reduce((acc: Record<string, number>, curr) => {
         const roleName = curr.role === "admin" ? "Admin" : curr.role === "agente" ? "Agenti" : "Collaboratori";
         acc[roleName] = (acc[roleName] || 0) + 1;
         return acc;
@@ -74,7 +74,7 @@ export const PortalStatistics = () => {
         .from("practices")
         .select("status");
 
-      const statusCounts = practicesData?.reduce((acc: any, curr) => {
+      const statusCounts = practicesData?.reduce((acc: Record<string, number>, curr) => {
         const statusName =
           curr.status === "in_lavorazione"
             ? "In Lavorazione"
@@ -95,7 +95,7 @@ export const PortalStatistics = () => {
       }));
 
       // Practices by type
-      const typeCounts = practicesData?.reduce((acc: any, curr) => {
+      const typeCounts = practicesData?.reduce((acc: Record<string, number>, curr) => {
         const typeName =
           curr.practice_type === "auto"
             ? "Auto"
@@ -119,7 +119,7 @@ export const PortalStatistics = () => {
         .select("created_at")
         .gte("created_at", new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString());
 
-      const monthCounts = trendData?.reduce((acc: any, curr) => {
+      const monthCounts = trendData?.reduce((acc: Record<string, number>, curr) => {
         const month = new Date(curr.created_at).toLocaleDateString("it-IT", {
           month: "short",
           year: "2-digit",

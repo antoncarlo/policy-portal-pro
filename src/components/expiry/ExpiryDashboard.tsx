@@ -33,6 +33,7 @@ export const ExpiryDashboard = () => {
 
   useEffect(() => {
     loadExpiries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
   }, []);
 
   const loadExpiries = async () => {
@@ -51,7 +52,7 @@ export const ExpiryDashboard = () => {
 
       if (error) throw error;
       setExpiries(data || []);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore caricamento",
