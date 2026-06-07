@@ -40,7 +40,7 @@ interface PracticesTableProps {
 }
 
 type PracticeStatus = "in_lavorazione" | "in_attesa" | "approvata" | "rifiutata" | "completata";
-type PracticeType = "auto" | "casa" | "vita" | "salute" | "responsabilita" | "altro";
+type PracticeType = "auto" | "casa" | "vita" | "salute" | "responsabilita" | "fidejussioni" | "altro";
 
 interface Practice {
   id: string;
@@ -252,6 +252,7 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
       vita: "Vita",
       salute: "Salute",
       responsabilita: "Responsabilità Civile",
+      fidejussioni: "VIES / Fideiussioni",
       altro: "Altro",
     };
     return labels[type];

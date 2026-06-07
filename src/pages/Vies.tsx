@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import {
@@ -72,6 +73,7 @@ type ViesJobMonitor = {
   row_number: number;
   progressivo: string | null;
   contraente: string | null;
+  external_reference: string | null;
   status: string;
   attempts: number;
   max_attempts: number;
@@ -161,6 +163,48 @@ const normalizeText = (value: unknown) =>
     .toLowerCase();
 
 const VIES_STORAGE_BUCKET = "vies-batch-files";
+
+const VIES_GUARANTEED_AMOUNT = 50000;
+const VIES_GUARANTEE_OBJECT = "POLIZZA FIDEIUSSORIA AI SENSI DELL’ART. 35, COMMA 7-QUATER, DEL DPR 633/1972.";
+const VIES_DURATION_MONTHS = 36;
+
+const calculateViesPolicyEndDate = (policyStartDate: Date) => {
+  const policyEndDate = new Date(policyStartDate);
+  policyEndDate.setFullYear(policyEndDate.getFullYear() + 3);
+  return policyEndDate;
+};
+
+const formatIsoDate = (date: Date) => date.toISOString().slice(0, 10);
+
+const buildViesPracticeNotes = ({
+  batchId,
+  record,
+  policyStartDate,
+  policyEndDate,
+  validationErrors,
+}: {
+  batchId: string;
+  record: ExcelRecord;
+  policyStartDate: string;
+  policyEndDate: string;
+  validationErrors: string[];
+}) => [
+  "Origine: import massivo VIES.",
+  `Batch VIES: ${batchId}.`,
+  `Riga Excel: ${record.rowNumber}${record.progressivo ? ` - Progressivo ${record.progressivo}` : ""}.`,
+  `Importo garantito fisso: € ${VIES_GUARANTEED_AMOUNT.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`,
+  `Oggetto garanzia: ${VIES_GUARANTEE_OBJECT}`,
+  `Durata: ${VIES_DURATION_MONTHS} mesi, decorrenza ${policyStartDate}, scadenza ${policyEndDate}.`,
+  "Annex III: compilare automaticamente i dati del contraente/beneficiario; lasciare in bianco la sezione compagnia/garante.",
+  `Contraente: ${record.contraente || "da completare"}.`,
+  `Indirizzo contraente/rappresentante fiscale: ${record.indirizzoRappresentanteFiscale || "da completare"}.`,
+  `Partita IVA contraente: ${record.partitaIvaContraente || "da completare"}.`,
+  `Beneficiario: ${record.beneficiario || "da completare"}.`,
+  `Indirizzo beneficiario: ${record.indirizzoBeneficiario || "da completare"}.`,
+  `Partita IVA beneficiario: ${record.partitaIvaBeneficiario || "da completare"}.`,
+  `PEC: ${record.pec || "da completare"}.`,
+  validationErrors.length ? `Avvisi validazione: ${validationErrors.join("; ")}.` : "Validazione riga: dati minimi presenti.",
+].join("\n");
 
 const terminalJobStatuses = new Set(["completed", "failed", "blocked", "cancelled"]);
 
@@ -282,6 +326,7 @@ const readZipRecursive = async (file: File): Promise<ZipDocument[]> => {
 
 const Vies = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [zipFile, setZipFile] = useState<File | null>(null);
   const [records, setRecords] = useState<ExcelRecord[]>([]);
@@ -290,6 +335,7 @@ const Vies = () => {
   const [loadingZip, setLoadingZip] = useState(false);
   const [savingBatch, setSavingBatch] = useState(false);
   const [persistedBatchId, setPersistedBatchId] = useState<string | null>(null);
+  const [lastCreatedPracticeIds, setLastCreatedPracticeIds] = useState<string[]>([]);
   const [batchMonitor, setBatchMonitor] = useState<ViesBatchMonitor | null>(null);
   const [jobMonitor, setJobMonitor] = useState<ViesJobMonitor[]>([]);
   const [monitorLoading, setMonitorLoading] = useState(false);
@@ -542,7 +588,10 @@ const Vies = () => {
         .upload(zipStoragePath, zipFile, { upsert: false });
       if (zipUploadError) throw new Error(`Upload ZIP non riuscito: ${zipUploadError.message}`);
 
-      const batchName = `VIES ${new Date().toLocaleString("it-IT", {
+      const batchCreatedAt = new Date();
+      const policyStartDate = formatIsoDate(batchCreatedAt);
+      const policyEndDate = formatIsoDate(calculateViesPolicyEndDate(batchCreatedAt));
+      const batchName = `VIES ${batchCreatedAt.toLocaleString("it-IT", {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
@@ -576,6 +625,43 @@ const Vies = () => {
       });
       if (batchError) throw new Error(`Creazione batch non riuscita: ${batchError.message}`);
 
+      const practiceRows = records.map((record) => {
+        const validationErrors = getRecordValidationErrors(record);
+        const practiceNumber = `VIES-${batchCreatedAt.getFullYear()}-${String(record.rowNumber).padStart(4, "0")}-${batchId.slice(0, 8)}`;
+
+        return {
+          user_id: userId,
+          practice_number: practiceNumber,
+          practice_type: "fidejussioni" as const,
+          status: "in_lavorazione" as const,
+          client_name: record.contraente || `Riga VIES ${record.rowNumber}`,
+          client_email: record.pec || `vies-riga-${record.rowNumber}@placeholder.local`,
+          client_phone: "N/D",
+          beneficiary: record.beneficiario || null,
+          owner_tax_code: record.partitaIvaContraente || null,
+          policy_number: record.progressivo ? `VIES-${record.progressivo}` : null,
+          policy_start_date: policyStartDate,
+          policy_end_date: policyEndDate,
+          premium_gross: VIES_GUARANTEED_AMOUNT,
+          premium_net: VIES_GUARANTEED_AMOUNT,
+          premium_taxable: VIES_GUARANTEED_AMOUNT,
+          premium_taxes: 0,
+          notes: buildViesPracticeNotes({ batchId, record, policyStartDate, policyEndDate, validationErrors }),
+        };
+      });
+
+      const { data: createdPractices, error: practicesError } = await supabase
+        .from("practices")
+        .insert(practiceRows)
+        .select("id");
+      if (practicesError) throw new Error(`Creazione pratiche VIES non riuscita: ${practicesError.message}`);
+
+      const createdPracticesByIndex = new Map<number, string>();
+      createdPractices?.forEach((practice, index) => {
+        const record = records[index];
+        if (record) createdPracticesByIndex.set(record.rowNumber, practice.id);
+      });
+
       const jobRows = records.map((record) => {
         const validationErrors = getRecordValidationErrors(record);
 
@@ -595,6 +681,7 @@ const Vies = () => {
           documenti_indicati: record.documentiIndicati || null,
           raw_payload: record.raw,
           validation_errors: validationErrors,
+          external_reference: createdPracticesByIndex.get(record.rowNumber) ?? null,
           status: validationErrors.length ? "pending_validation" : missingRequirements.length ? "blocked" : "queued",
         };
       });
@@ -619,10 +706,11 @@ const Vies = () => {
       if (documentsError) throw new Error(`Indicizzazione documenti non riuscita: ${documentsError.message}`);
 
       setPersistedBatchId(batchId);
+      setLastCreatedPracticeIds(createdPractices?.map((practice) => practice.id) ?? []);
       await refreshBatchMonitor(batchId);
       toast({
         title: "Batch VIES creato",
-        description: `${records.length} job e ${documents.length} documenti indicizzati. Stato: ${missingRequirements.length ? "bozza" : "in coda"}.`,
+        description: `${records.length} job, ${createdPractices?.length ?? 0} pratiche fideiussioni e ${documents.length} documenti indicizzati. Stato: ${missingRequirements.length ? "bozza" : "in coda"}.`,
       });
     } catch (error) {
       toast({
@@ -912,6 +1000,7 @@ const Vies = () => {
                         <TableHead>Stato</TableHead>
                         <TableHead>Tentativi</TableHead>
                         <TableHead>Ultimo errore</TableHead>
+                        <TableHead>Pratica</TableHead>
                         <TableHead>Azione</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -923,6 +1012,15 @@ const Vies = () => {
                           <TableCell><Badge variant={job.status === "failed" || job.status === "blocked" ? "destructive" : "secondary"}>{job.status}</Badge></TableCell>
                           <TableCell>{job.attempts}/{job.max_attempts}</TableCell>
                           <TableCell className="max-w-96 truncate text-muted-foreground">{job.last_error || job.error_code || "—"}</TableCell>
+                          <TableCell>
+                            {job.external_reference ? (
+                              <Button size="sm" variant="ghost" onClick={() => navigate(`/practices/${job.external_reference}`)}>
+                                Apri pratica
+                              </Button>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
                           <TableCell>
                             {(job.status === "failed" || job.status === "blocked") && (
                               <Button size="sm" variant="outline" onClick={() => handleRetryJob(job.id)} disabled={!!controlLoading}>
@@ -937,6 +1035,20 @@ const Vies = () => {
                   </Table>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {lastCreatedPracticeIds.length > 0 && (
+          <Card className="border-green-200 bg-green-50">
+            <CardContent className="flex flex-col gap-3 pt-6 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="font-semibold text-green-950">Pratiche VIES create: {lastCreatedPracticeIds.length}</p>
+                <p className="text-sm text-green-900">Sono disponibili nella sezione Pratiche con tipo fideiussioni/VIES per il controllo massivo.</p>
+              </div>
+              <Button variant="secondary" onClick={() => navigate("/practices?type=fidejussioni")}>
+                Vai alle pratiche VIES
+              </Button>
             </CardContent>
           </Card>
         )}

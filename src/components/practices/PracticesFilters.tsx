@@ -154,6 +154,7 @@ export const PracticesFilters = ({
                 <SelectItem value="vita">Vita</SelectItem>
                 <SelectItem value="salute">Salute</SelectItem>
                 <SelectItem value="responsabilita">Responsabilità Civile</SelectItem>
+                <SelectItem value="fidejussioni">VIES / Fideiussioni</SelectItem>
                 <SelectItem value="altro">Altro</SelectItem>
               </SelectContent>
             </Select>

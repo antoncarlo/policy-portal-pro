@@ -5,12 +5,13 @@ import { PracticesFilters, PracticeFilters } from "@/components/practices/Practi
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 const Practices = () => {
+  const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<PracticeFilters>({
-    practiceType: "all",
+    practiceType: searchParams.get("type") || "all",
     status: "all",
     dateFrom: undefined,
     dateTo: undefined,
