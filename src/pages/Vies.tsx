@@ -783,9 +783,11 @@ const Vies = () => {
       if (batchError) throw new Error(`Creazione batch non riuscita: ${batchError.message}`);
       batchPersisted = true;
 
+      const practiceNumbersByRow = new Map<number, string>();
       const practiceRows = records.map((record) => {
         const validationErrors = getRecordValidationErrors(record);
         const practiceNumber = `VIES-${batchCreatedAt.getFullYear()}-${String(record.rowNumber).padStart(4, "0")}-${batchId.slice(0, 8)}`;
+        practiceNumbersByRow.set(record.rowNumber, practiceNumber);
 
         return {
           user_id: userId,
@@ -811,17 +813,23 @@ const Vies = () => {
       const { data: createdPractices, error: practicesError } = await supabase
         .from("practices")
         .insert(practiceRows)
-        .select("id");
+        .select("id, practice_number");
       if (practicesError) throw new Error(`Creazione pratiche VIES non riuscita: ${practicesError.message}`);
 
+      const createdPracticeIdsByNumber = new Map((createdPractices ?? []).map((practice) => [practice.practice_number, practice.id]));
       const createdPracticesByIndex = new Map<number, string>();
-      createdPractices?.forEach((practice, index) => {
-        const record = records[index];
-        if (record) {
-          createdPracticesByIndex.set(record.rowNumber, practice.id);
-          createdPracticeIdsForRollback.push(practice.id);
+      records.forEach((record) => {
+        const practiceNumber = practiceNumbersByRow.get(record.rowNumber);
+        const practiceId = practiceNumber ? createdPracticeIdsByNumber.get(practiceNumber) : undefined;
+        if (practiceId) {
+          createdPracticesByIndex.set(record.rowNumber, practiceId);
+          createdPracticeIdsForRollback.push(practiceId);
         }
       });
+
+      if (createdPracticesByIndex.size !== records.length) {
+        throw new Error("Creazione pratiche VIES incompleta: non è stato possibile riconciliare tutte le pratiche create con le righe Excel.");
+      }
 
       const practiceDocumentRows = [];
       for (const reconciliation of reconciliationRows) {
@@ -830,14 +838,17 @@ const Vies = () => {
         if (!practiceId || !zipFile) continue;
 
         const practiceDocumentStoragePath = `${practiceId}/vies/${batchId}/${buildSafeStorageName(zipFile.name)}`;
-        const { error: practiceDocumentUploadError } = await supabase.storage.from(PRACTICE_DOCUMENTS_STORAGE_BUCKET).upload(practiceDocumentStoragePath, zipFile, { upsert: false });
+        const { error: practiceDocumentUploadError } = await supabase.storage.from(PRACTICE_DOCUMENTS_STORAGE_BUCKET).upload(practiceDocumentStoragePath, zipFile, {
+            contentType: zipFile.type || "application/zip",
+            upsert: false,
+          });
         if (practiceDocumentUploadError) {
           throw new Error(`Upload ZIP pratica ${zipFile.name} non riuscito: ${practiceDocumentUploadError.message}`);
         }
 
         uploadedPracticeDocumentPathsForRollback.push(practiceDocumentStoragePath);
         practiceDocumentRows.push({
-          practice_id: practiceId,
+          practice_id: createdPracticesByIndex.get(reconciliation.record.rowNumber)!,
           file_name: zipFile.name,
           file_path: practiceDocumentStoragePath,
           file_size: zipFile.size,

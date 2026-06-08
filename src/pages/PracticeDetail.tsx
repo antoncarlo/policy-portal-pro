@@ -14,7 +14,7 @@ import { PracticeNotes } from "@/components/practice/PracticeNotes";
 
 
 type PracticeStatus = "in_lavorazione" | "in_attesa" | "approvata" | "rifiutata" | "completata";
-type PracticeType = "fidejussioni" | "car" | "postuma_decennale" | "all_risk" | "responsabilita_civile" | "pet" | "fotovoltaico" | "catastrofali" | "azienda" | "casa" | "risparmio" | "salute" | "auto" | "vita" | "responsabilita" | "altro";
+type PracticeType = "fidejussioni" | "car" | "postuma_decennale" | "all_risk" | "responsabilita_civile" | "pet" | "fotovoltaico" | "catastrofali" | "azienda" | "casa" | "risparmio" | "salute" | "auto" | "vita" | "responsabilita" | "vies" | "altro";
 
 interface Practice {
   id: string;
@@ -142,6 +142,7 @@ const PracticeDetail = () => {
       auto: "Auto",
       vita: "Vita",
       responsabilita: "Responsabilità Civile",
+      vies: "VIES",
       altro: "Altro",
     };
     return labels[type] || type;

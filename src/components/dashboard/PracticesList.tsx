@@ -21,7 +21,24 @@ interface PracticesListProps {
 }
 
 type PracticeStatus = "in_lavorazione" | "in_attesa" | "approvata" | "rifiutata" | "completata";
-type PracticeType = "auto" | "casa" | "vita" | "salute" | "responsabilita" | "altro";
+type PracticeType =
+  | "auto"
+  | "casa"
+  | "vita"
+  | "salute"
+  | "responsabilita"
+  | "fidejussioni"
+  | "car"
+  | "postuma_decennale"
+  | "all_risk"
+  | "responsabilita_civile"
+  | "pet"
+  | "fotovoltaico"
+  | "catastrofali"
+  | "azienda"
+  | "risparmio"
+  | "vies"
+  | "altro";
 
 interface Practice {
   id: string;
@@ -125,6 +142,17 @@ export const PracticesList = ({ searchQuery, onSearchChange }: PracticesListProp
       vita: "Vita",
       salute: "Salute",
       responsabilita: "Responsabilità",
+      fidejussioni: "Fidejussioni",
+      car: "CAR",
+      postuma_decennale: "Postuma Decennale",
+      all_risk: "All Risk",
+      responsabilita_civile: "Responsabilità Civile",
+      pet: "Pet",
+      fotovoltaico: "Fotovoltaico",
+      catastrofali: "Catastrofali",
+      azienda: "Azienda",
+      risparmio: "Risparmio",
+      vies: "VIES",
       altro: "Altro",
     };
     return labels[type];

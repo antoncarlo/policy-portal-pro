@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,11 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+interface ActivityLogProfile {
+  full_name: string | null;
+  email: string | null;
+}
+
 interface ActivityLog {
   id: string;
   user_id: string | null;
@@ -23,10 +28,7 @@ interface ActivityLog {
   ip_address: string | null;
   user_agent: string | null;
   created_at: string;
-  profiles?: {
-    full_name: string;
-    email: string;
-  };
+  profiles?: ActivityLogProfile;
 }
 
 export const ActivityLogs = () => {
@@ -38,23 +40,12 @@ export const ActivityLogs = () => {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  useEffect(() => {
-    loadLogs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
-  }, []);
-
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     setLoading(true);
     try {
       let query = supabase
         .from("activity_logs")
-        .select(`
-          *,
-          profiles:user_id (
-            full_name,
-            email
-          )
-        `)
+        .select("*")
         .order("created_at", { ascending: false })
         .limit(100);
 
@@ -71,9 +62,37 @@ export const ActivityLogs = () => {
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
-      setLogs(data || []);
+
+      const activityLogs = (data || []).map((log) => ({
+        ...log,
+        ip_address: typeof log.ip_address === "string" ? log.ip_address : log.ip_address ? String(log.ip_address) : null,
+      })) as ActivityLog[];
+      const userIds = Array.from(new Set(activityLogs.map((log) => log.user_id).filter((id): id is string => Boolean(id))));
+      const profilesById = new Map<string, ActivityLogProfile>();
+
+      if (userIds.length) {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("id,full_name,email")
+          .in("id", userIds);
+
+        if (profilesError) {
+          console.warn("Profile enrichment for activity logs failed:", profilesError);
+        } else {
+          profilesData?.forEach((profile) => {
+            profilesById.set(profile.id, {
+              full_name: profile.full_name,
+              email: profile.email,
+            });
+          });
+        }
+      }
+
+      setLogs(activityLogs.map((log) => ({
+        ...log,
+        profiles: log.user_id ? profilesById.get(log.user_id) : undefined,
+      })));
     } catch (error) {
       console.error("Error loading logs:", error);
       toast({
@@ -84,7 +103,11 @@ export const ActivityLogs = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dateFrom, dateTo, eventTypeFilter, toast]);
+
+  useEffect(() => {
+    loadLogs();
+  }, [loadLogs]);
 
   const filteredLogs = logs.filter((log) => {
     if (!searchTerm) return true;
@@ -210,7 +233,6 @@ export const ActivityLogs = () => {
             value={eventTypeFilter}
             onChange={(e) => {
               setEventTypeFilter(e.target.value);
-              loadLogs();
             }}
             className="w-full px-3 py-2 border rounded-md"
           >
@@ -232,7 +254,6 @@ export const ActivityLogs = () => {
             value={dateFrom}
             onChange={(e) => {
               setDateFrom(e.target.value);
-              loadLogs();
             }}
           />
         </div>
@@ -245,7 +266,6 @@ export const ActivityLogs = () => {
             value={dateTo}
             onChange={(e) => {
               setDateTo(e.target.value);
-              loadLogs();
             }}
           />
         </div>
