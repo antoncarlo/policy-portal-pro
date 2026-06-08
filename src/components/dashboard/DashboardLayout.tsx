@@ -28,6 +28,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [canAccessVies, setCanAccessVies] = useState(false);
 
   useEffect(() => {
     checkAdminStatus();
@@ -42,9 +43,24 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       .select("role")
       .eq("user_id", session.user.id)
       .eq("role", "admin")
-      .single();
+      .maybeSingle();
 
-    setIsAdmin(!!roleData);
+    const isAdminUser = !!roleData;
+    setIsAdmin(isAdminUser);
+
+    if (isAdminUser) {
+      setCanAccessVies(true);
+      return;
+    }
+
+    const { data: viesPermission } = await supabase
+      .from("user_product_permissions")
+      .select("practice_type")
+      .eq("user_id", session.user.id)
+      .eq("practice_type", "vies")
+      .maybeSingle();
+
+    setCanAccessVies(!!viesPermission);
   };
 
   const handleLogout = async () => {
@@ -80,6 +96,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { path: "/settings", icon: Settings, label: "Impostazioni" },
   ];
 
+  const visibleNavItems = navItems.filter((item) => item.path !== "/vies" || canAccessVies);
+
   const adminNavItems = [
     { path: "/user-management", icon: UserCog, label: "Gestione Utenti" },
   ];
@@ -95,7 +113,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         </div>
 
         <nav className="space-y-2 p-4 pb-24">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             return (
               <Link key={item.path} to={item.path}>

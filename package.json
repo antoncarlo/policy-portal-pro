@@ -15,6 +15,7 @@
     "test:vies-batch-consistency": "node scripts/check-vies-batch-creation-consistency.mjs",
     "test:vies-resumable-upload": "node scripts/check-vies-resumable-upload.mjs",
     "test:vies-practice-documents": "node scripts/check-vies-practice-document-downloads.mjs",
+    "test:vies-product-permissions": "node scripts/check-vies-product-permissions.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

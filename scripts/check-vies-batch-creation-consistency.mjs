@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 
 const root = process.cwd();
 const source = readFileSync(resolve(root, 'src/pages/Vies.tsx'), 'utf8');
-const handlePrepareBatchMatch = source.match(/const handlePrepareBatch = async \(\) => \{[\s\S]*?\n  \};\n\n  return \(/);
+const handlePrepareBatchMatch = source.match(/const handlePrepareBatch = async \(\) => \{[\s\S]*?\n  \};\n\n  if \(accessStatus/);
 
 if (!handlePrepareBatchMatch) {
   console.error('Impossibile trovare handlePrepareBatch in src/pages/Vies.tsx');

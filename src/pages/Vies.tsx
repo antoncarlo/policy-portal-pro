@@ -101,6 +101,8 @@ type WorkerSummary = {
   errors: Array<{ jobId?: string; message: string }>;
 };
 
+type ViesAccessStatus = "checking" | "allowed" | "denied";
+
 type DocumentRequirement = {
   id: string;
   label: string;
@@ -558,6 +560,8 @@ const Vies = () => {
   const [monitorLoading, setMonitorLoading] = useState(false);
   const [controlLoading, setControlLoading] = useState<string | null>(null);
   const [lastWorkerSummary, setLastWorkerSummary] = useState<WorkerSummary | null>(null);
+  const [accessStatus, setAccessStatus] = useState<ViesAccessStatus>("checking");
+  const [accessMessage, setAccessMessage] = useState<string | null>(null);
 
   const documentMatches = useMemo(() => {
     return documentRequirements.map((requirement) => {
@@ -796,6 +800,64 @@ const Vies = () => {
     }
   };
 
+  const checkViesAccess = useCallback(async () => {
+    setAccessStatus("checking");
+
+    try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) {
+        throw new Error("Sessione non valida. Effettua nuovamente l'accesso e riprova.");
+      }
+
+      const userId = userData.user.id;
+      const { data: adminRole, error: roleError } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .eq("role", "admin")
+        .maybeSingle();
+
+      if (roleError) throw new Error(roleError.message);
+
+      if (adminRole) {
+        setAccessStatus("allowed");
+        setAccessMessage(null);
+        return;
+      }
+
+      const { data: viesPermission, error: permissionError } = await supabase
+        .from("user_product_permissions")
+        .select("practice_type")
+        .eq("user_id", userId)
+        .eq("practice_type", "vies")
+        .maybeSingle();
+
+      if (permissionError) throw new Error(permissionError.message);
+
+      if (!viesPermission) {
+        setAccessStatus("denied");
+        setAccessMessage(
+          "Il tuo profilo non ha VIES tra i Prodotti Consentiti. Chiedi a un amministratore di abilitare il prodotto VIES sulla tua utenza.",
+        );
+        return;
+      }
+
+      setAccessStatus("allowed");
+      setAccessMessage(null);
+    } catch (error) {
+      setAccessStatus("denied");
+      setAccessMessage(
+        error instanceof Error
+          ? error.message
+          : "Non è stato possibile verificare i permessi prodotto per il caricamento VIES.",
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    void checkViesAccess();
+  }, [checkViesAccess]);
+
   useEffect(() => {
     if (!persistedBatchId) return;
 
@@ -823,6 +885,15 @@ const Vies = () => {
   };
 
   const handlePrepareBatch = async () => {
+    if (accessStatus !== "allowed") {
+      toast({
+        variant: "destructive",
+        title: "Accesso VIES non autorizzato",
+        description: "Il tuo profilo non è abilitato al prodotto VIES tra i Prodotti Consentiti.",
+      });
+      return;
+    }
+
     if (!excelFile || !zipFiles.length || !records.length || !documents.length) {
       toast({
         variant: "destructive",
@@ -1235,6 +1306,55 @@ const Vies = () => {
       }
     }
   };
+
+  if (accessStatus === "checking") {
+    return (
+      <DashboardLayout>
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <Card className="w-full max-w-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Verifica permessi VIES
+              </CardTitle>
+              <CardDescription>
+                Controllo se la tua utenza ha VIES tra i Prodotti Consentiti prima di abilitare il caricamento.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (accessStatus !== "allowed") {
+    return (
+      <DashboardLayout>
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <Card className="w-full max-w-xl border-destructive/30">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+                Accesso VIES non autorizzato
+              </CardTitle>
+              <CardDescription>
+                {accessMessage ??
+                  "Il tuo profilo non è abilitato al prodotto VIES. Chiedi a un amministratore di aggiungere VIES nei Prodotti Consentiti."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 sm:flex-row">
+              <Button variant="secondary" onClick={() => navigate("/dashboard")}>
+                Torna alla dashboard
+              </Button>
+              <Button variant="outline" onClick={() => void checkViesAccess()}>
+                Ricontrolla permessi
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>

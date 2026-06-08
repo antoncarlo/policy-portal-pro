@@ -136,6 +136,7 @@ export const EditUserProductsDialog = ({
     { value: "catastrofali", label: "Catastrofali" },
     { value: "azienda", label: "Azienda" },
     { value: "risparmio", label: "Risparmio" },
+    { value: "vies", label: "VIES" },
   ];
 
   return (

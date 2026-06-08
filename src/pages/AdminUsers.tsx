@@ -394,6 +394,7 @@ const AdminUsers = () => {
                         { value: "catastrofali", label: "Catastrofali" },
                         { value: "azienda", label: "Azienda" },
                         { value: "risparmio", label: "Risparmio" },
+                        { value: "vies", label: "VIES" },
                       ].map((product) => (
                         <label key={product.value} className="flex items-center space-x-2 cursor-pointer">
                           <input
