@@ -173,6 +173,7 @@ const normalizeText = (value: unknown) =>
     .toLowerCase();
 
 const VIES_STORAGE_BUCKET = "vies-batch-files";
+const PRACTICE_DOCUMENTS_STORAGE_BUCKET = "practice-documents";
 
 const VIES_GUARANTEED_AMOUNT = 50000;
 const VIES_GUARANTEE_OBJECT = "Garanzia richiesta per iscrizione/operatività VIES ai sensi dell’art. 35, comma 7-quater, DPR 633/1972.";
@@ -578,6 +579,12 @@ const Vies = () => {
       await refreshBatchMonitor();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Non è stato possibile salvare il batch.";
+      if (!batchFinalized && uploadedPracticeDocumentPathsForRollback.length) {
+        await supabase.storage.from(PRACTICE_DOCUMENTS_STORAGE_BUCKET).remove(uploadedPracticeDocumentPathsForRollback);
+      }
+      if (!batchFinalized && createdPracticeIdsForRollback.length) {
+        await supabase.from("practices").delete().in("id", createdPracticeIdsForRollback);
+      }
       if (batchPersisted && batchId) {
         await supabase
           .from("vies_batches")
@@ -654,6 +661,9 @@ const Vies = () => {
     setSavingBatch(true);
     let batchId: string | null = null;
     let batchPersisted = false;
+    let batchFinalized = false;
+    const createdPracticeIdsForRollback: string[] = [];
+    const uploadedPracticeDocumentPathsForRollback: string[] = [];
 
     try {
       const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -807,8 +817,39 @@ const Vies = () => {
       const createdPracticesByIndex = new Map<number, string>();
       createdPractices?.forEach((practice, index) => {
         const record = records[index];
-        if (record) createdPracticesByIndex.set(record.rowNumber, practice.id);
+        if (record) {
+          createdPracticesByIndex.set(record.rowNumber, practice.id);
+          createdPracticeIdsForRollback.push(practice.id);
+        }
       });
+
+      const practiceDocumentRows = [];
+      for (const reconciliation of reconciliationRows) {
+        const practiceId = createdPracticesByIndex.get(reconciliation.record.rowNumber);
+        const zipFile = reconciliation.zipFile;
+        if (!practiceId || !zipFile) continue;
+
+        const practiceDocumentStoragePath = `${practiceId}/vies/${batchId}/${buildSafeStorageName(zipFile.name)}`;
+        const { error: practiceDocumentUploadError } = await supabase.storage.from(PRACTICE_DOCUMENTS_STORAGE_BUCKET).upload(practiceDocumentStoragePath, zipFile, { upsert: false });
+        if (practiceDocumentUploadError) {
+          throw new Error(`Upload ZIP pratica ${zipFile.name} non riuscito: ${practiceDocumentUploadError.message}`);
+        }
+
+        uploadedPracticeDocumentPathsForRollback.push(practiceDocumentStoragePath);
+        practiceDocumentRows.push({
+          practice_id: practiceId,
+          file_name: zipFile.name,
+          file_path: practiceDocumentStoragePath,
+          file_size: zipFile.size,
+          mime_type: zipFile.type || "application/zip",
+          uploaded_by: userId,
+        });
+      }
+
+      if (practiceDocumentRows.length) {
+        const { error: practiceDocumentsError } = await supabase.from("practice_documents").insert(practiceDocumentRows);
+        if (practiceDocumentsError) throw new Error(`Collegamento documenti pratica non riuscito: ${practiceDocumentsError.message}`);
+      }
 
       const jobRows = jobPreparationRows.map(({ record, reconciliation, reconciliationValidationErrors, allValidationErrors, isBlocked }) => {
         return {
@@ -878,6 +919,7 @@ const Vies = () => {
         })
         .eq("id", batchId);
       if (finalizeBatchError) throw new Error(`Finalizzazione batch non riuscita: ${finalizeBatchError.message}`);
+      batchFinalized = true;
 
       setPersistedBatchId(batchId);
       setLastCreatedPracticeIds(createdPractices?.map((practice) => practice.id) ?? []);
@@ -888,6 +930,12 @@ const Vies = () => {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Non è stato possibile salvare il batch.";
+      if (!batchFinalized && uploadedPracticeDocumentPathsForRollback.length) {
+        await supabase.storage.from(PRACTICE_DOCUMENTS_STORAGE_BUCKET).remove(uploadedPracticeDocumentPathsForRollback);
+      }
+      if (!batchFinalized && createdPracticeIdsForRollback.length) {
+        await supabase.from("practices").delete().in("id", createdPracticeIdsForRollback);
+      }
       if (batchPersisted && batchId) {
         await supabase
           .from("vies_batches")

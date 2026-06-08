@@ -13,6 +13,7 @@
     "test:vies-zip-upload": "node scripts/check-vies-zip-sequential-processing.mjs",
     "test:vies-schema": "node scripts/check-vies-schema-safety.mjs",
     "test:vies-batch-consistency": "node scripts/check-vies-batch-creation-consistency.mjs",
+    "test:vies-practice-documents": "node scripts/check-vies-practice-document-downloads.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

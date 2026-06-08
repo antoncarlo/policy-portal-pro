@@ -43,6 +43,8 @@ CREATE TABLE IF NOT EXISTS public.vies_jobs (
   user_id UUID NOT NULL,
   row_number INTEGER NOT NULL,
   progressivo TEXT,
+  nome_zip TEXT,
+  zip_file_name TEXT,
   contraente TEXT,
   indirizzo_rappresentante_fiscale TEXT,
   partita_iva_contraente TEXT,
@@ -54,6 +56,7 @@ CREATE TABLE IF NOT EXISTS public.vies_jobs (
   documenti_indicati TEXT,
   raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
   validation_errors JSONB NOT NULL DEFAULT '[]'::jsonb,
+  reconciliation_errors JSONB NOT NULL DEFAULT '[]'::jsonb,
   status TEXT NOT NULL DEFAULT 'pending_validation' CHECK (status IN ('pending_validation', 'ready', 'queued', 'processing', 'completed', 'failed', 'blocked', 'cancelled')),
   assigned_agent TEXT,
   locked_by TEXT,
@@ -79,6 +82,10 @@ CREATE TABLE IF NOT EXISTS public.vies_batch_documents (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   batch_id UUID NOT NULL REFERENCES public.vies_batches(id) ON DELETE CASCADE,
   user_id UUID NOT NULL,
+  practice_id UUID REFERENCES public.practices(id) ON DELETE SET NULL,
+  row_number INTEGER,
+  nome_zip TEXT,
+  zip_file_name TEXT,
   file_name TEXT NOT NULL,
   file_path TEXT NOT NULL,
   file_extension TEXT,
@@ -104,6 +111,9 @@ ALTER TABLE public.vies_batches
   ADD COLUMN IF NOT EXISTS last_worker_message TEXT;
 
 ALTER TABLE public.vies_jobs
+  ADD COLUMN IF NOT EXISTS nome_zip TEXT,
+  ADD COLUMN IF NOT EXISTS zip_file_name TEXT,
+  ADD COLUMN IF NOT EXISTS reconciliation_errors JSONB NOT NULL DEFAULT '[]'::jsonb,
   ADD COLUMN IF NOT EXISTS priority INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS max_attempts INTEGER NOT NULL DEFAULT 3,
   ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -113,6 +123,12 @@ ALTER TABLE public.vies_jobs
   ADD COLUMN IF NOT EXISTS failed_at TIMESTAMP WITH TIME ZONE,
   ADD COLUMN IF NOT EXISTS error_code TEXT,
   ADD COLUMN IF NOT EXISTS agent_result JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+ALTER TABLE public.vies_batch_documents
+  ADD COLUMN IF NOT EXISTS practice_id UUID REFERENCES public.practices(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS row_number INTEGER,
+  ADD COLUMN IF NOT EXISTS nome_zip TEXT,
+  ADD COLUMN IF NOT EXISTS zip_file_name TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_vies_batches_user_id ON public.vies_batches(user_id);
 CREATE INDEX IF NOT EXISTS idx_vies_batches_status ON public.vies_batches(status);
