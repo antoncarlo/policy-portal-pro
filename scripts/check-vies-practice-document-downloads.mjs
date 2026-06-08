@@ -45,7 +45,8 @@ const checks = [
     name: "la creazione batch VIES materializza almeno lo ZIP nominativo nella tabella practice_documents della pratica",
     pass:
       /practiceDocumentRows/.test(viesPage) &&
-      /from\("practice_documents"\)\.insert\(practiceDocumentRows\)/.test(viesPage) &&
+      /from\("practice_documents"\)\.insert\(chunk\)/.test(viesPage) &&
+      /practiceDocumentRows\.slice\(start, start \+ VIES_DB_INSERT_CHUNK_SIZE\)/.test(viesPage) &&
       /practice_id:\s*practiceId/.test(viesPage),
   },
   {

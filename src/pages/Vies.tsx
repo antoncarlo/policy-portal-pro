@@ -178,6 +178,8 @@ const VIES_PRACTICE_DOCUMENT_PATH_PREFIX = `${VIES_STORAGE_BUCKET}://`;
 const VIES_RESUMABLE_CHUNK_SIZE = 6 * 1024 * 1024;
 const VIES_STORAGE_VERIFY_ATTEMPTS = 6;
 const VIES_STORAGE_VERIFY_DELAY_MS = 750;
+const VIES_ZIP_UPLOAD_CONCURRENCY = 2;
+const VIES_DB_INSERT_CHUNK_SIZE = 250;
 const SUPABASE_PROJECT_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
 
@@ -187,6 +189,17 @@ type ViesUploadProgress = {
   bytesTotal: number;
   percentage: number;
 };
+
+type ViesZipUploadPlan = {
+  index: number;
+  file: File;
+  zipKey: string;
+  storagePath: string;
+};
+
+type ViesZipUploadResult =
+  | { ok: true; plan: ViesZipUploadPlan }
+  | { ok: false; plan: ViesZipUploadPlan; message: string };
 
 const getTusUploadErrorMessage = (error: unknown) => {
   if (error instanceof Error) return error.message;
@@ -208,6 +221,30 @@ const getSupabaseProjectId = () => {
 };
 
 const wait = (milliseconds: number) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+
+const formatDurationSeconds = (startedAt: number) => ((performance.now() - startedAt) / 1000).toFixed(1) + "s";
+
+const runWithConcurrency = async <T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<R>,
+) => {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.max(1, Math.min(concurrency, items.length));
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (nextIndex < items.length) {
+        const currentIndex = nextIndex;
+        nextIndex += 1;
+        results[currentIndex] = await worker(items[currentIndex], currentIndex);
+      }
+    }),
+  );
+
+  return results;
+};
 
 const getStoragePathParts = (storagePath: string) => {
   const lastSlashIndex = storagePath.lastIndexOf("/");
@@ -817,6 +854,7 @@ const Vies = () => {
       const zipStorageNameOccurrences = new Map<string, number>();
       const zipStorageFailures: string[] = [];
 
+      const batchStartedAt = performance.now();
       setBatchUploadProgress(0);
       setBatchUploadStatus(`Upload Excel ${excelFile.name} (${formatBytes(excelFile.size)})`);
       await uploadViesFileResumable({
@@ -832,38 +870,74 @@ const Vies = () => {
       setBatchUploadStatus(`Verifica archiviazione Excel ${excelFile.name}`);
       await verifyViesStorageObjectExists(excelStoragePath, excelFile.size);
 
-      for (const [index, zip] of zipFiles.entries()) {
+      const zipUploadPlans: ViesZipUploadPlan[] = zipFiles.map((zip, index) => {
         const zipKey = getZipReconciliationKey(zip.name);
         const stableZipStorageName = buildStableZipStorageName(zip.name);
         const zipStorageNameOccurrence = (zipStorageNameOccurrences.get(stableZipStorageName) ?? 0) + 1;
         zipStorageNameOccurrences.set(stableZipStorageName, zipStorageNameOccurrence);
         const zipStorageName = buildStableZipStorageName(zip.name, zipStorageNameOccurrence);
-        const zipStoragePath = `${zipStorageBasePath}/${zipStorageName}`;
 
-        try {
-          setBatchUploadProgress(0);
-          setBatchUploadStatus(`Upload ZIP ${index + 1}/${zipFiles.length}: ${zip.name} (${formatBytes(zip.size)})`);
-          await uploadViesFileResumable({
-            file: zip,
-            storagePath: zipStoragePath,
-            onProgress: ({ percentage, bytesUploaded, bytesTotal }) => {
-              setBatchUploadProgress(percentage);
-              setBatchUploadStatus(
-                `Upload ZIP ${index + 1}/${zipFiles.length}: ${zip.name} - ${formatBytes(bytesUploaded)} / ${formatBytes(bytesTotal)} (${percentage}%)`,
-              );
-            },
-          });
-          setBatchUploadStatus(`Verifica archiviazione ZIP ${index + 1}/${zipFiles.length}: ${zip.name}`);
-          await verifyViesStorageObjectExists(zipStoragePath, zip.size);
-        } catch (zipUploadError) {
-          zipStorageFailures.push(
-            `${zip.name} (${formatBytes(zip.size)}): ${getTusUploadErrorMessage(zipUploadError)}`,
-          );
+        return {
+          index,
+          file: zip,
+          zipKey,
+          storagePath: `${zipStorageBasePath}/${zipStorageName}`,
+        };
+      });
+      const zipProgressByPath = new Map<string, number>();
+      const totalZipUploadBytes = zipFiles.reduce((total, zip) => total + zip.size, 0);
+      let completedZipUploads = 0;
+
+      setBatchUploadProgress(0);
+      setBatchUploadStatus(
+        `Upload ZIP parallelo controllato: 0/${zipUploadPlans.length} completati, massimo ${VIES_ZIP_UPLOAD_CONCURRENCY} alla volta`,
+      );
+
+      const zipUploadResults = await runWithConcurrency(
+        zipUploadPlans,
+        VIES_ZIP_UPLOAD_CONCURRENCY,
+        async (plan): Promise<ViesZipUploadResult> => {
+          const updateAggregateProgress = (bytesUploaded: number) => {
+            zipProgressByPath.set(plan.storagePath, bytesUploaded);
+            const uploadedBytes = Array.from(zipProgressByPath.values()).reduce((total, value) => total + value, 0);
+            const percentage = totalZipUploadBytes ? Math.round((uploadedBytes / totalZipUploadBytes) * 100) : 0;
+            setBatchUploadProgress(Math.min(100, percentage));
+            setBatchUploadStatus(
+              `Upload ZIP parallelo: ${completedZipUploads}/${zipUploadPlans.length} completati, ${formatBytes(uploadedBytes)} / ${formatBytes(totalZipUploadBytes)} (${Math.min(100, percentage)}%)`,
+            );
+          };
+
+          try {
+            updateAggregateProgress(zipProgressByPath.get(plan.storagePath) ?? 0);
+            await uploadViesFileResumable({
+              file: plan.file,
+              storagePath: plan.storagePath,
+              onProgress: ({ bytesUploaded }) => updateAggregateProgress(bytesUploaded),
+            });
+            setBatchUploadStatus(`Verifica archiviazione ZIP ${plan.index + 1}/${zipFiles.length}: ${plan.file.name}`);
+            await verifyViesStorageObjectExists(plan.storagePath, plan.file.size);
+            completedZipUploads += 1;
+            updateAggregateProgress(plan.file.size);
+
+            return { ok: true, plan };
+          } catch (zipUploadError) {
+            return {
+              ok: false,
+              plan,
+              message: `${plan.file.name} (${formatBytes(plan.file.size)}): ${getTusUploadErrorMessage(zipUploadError)}`,
+            };
+          }
+        },
+      );
+
+      for (const result of zipUploadResults) {
+        if (!result.ok) {
+          zipStorageFailures.push(result.message);
           continue;
         }
 
-        zipStoragePathsByKey.set(zipKey, zipStoragePath);
-        zipStoragePathByFileName.set(zip.name, zipStoragePath);
+        zipStoragePathsByKey.set(result.plan.zipKey, result.plan.storagePath);
+        zipStoragePathByFileName.set(result.plan.file.name, result.plan.storagePath);
       }
 
       if (zipStorageFailures.length) {
@@ -981,11 +1055,19 @@ const Vies = () => {
         };
       });
 
-      const { data: createdPractices, error: practicesError } = await supabase
-        .from("practices")
-        .insert(practiceRows)
-        .select("id, practice_number");
-      if (practicesError) throw new Error(`Creazione pratiche VIES non riuscita: ${practicesError.message}`);
+      const createdPractices: Array<{ id: string; practice_number: string }> = [];
+      for (let start = 0; start < practiceRows.length; start += VIES_DB_INSERT_CHUNK_SIZE) {
+        const chunk = practiceRows.slice(start, start + VIES_DB_INSERT_CHUNK_SIZE);
+        setBatchUploadStatus(
+          `Creazione pratiche VIES ${Math.min(start + chunk.length, practiceRows.length)}/${practiceRows.length} (${formatDurationSeconds(batchStartedAt)})`,
+        );
+        const { data: createdPracticeChunk, error: practicesError } = await supabase
+          .from("practices")
+          .insert(chunk)
+          .select("id, practice_number");
+        if (practicesError) throw new Error(`Creazione pratiche VIES non riuscita: ${practicesError.message}`);
+        createdPractices.push(...((createdPracticeChunk ?? []) as Array<{ id: string; practice_number: string }>));
+      }
 
       const createdPracticeIdsByNumber = new Map((createdPractices ?? []).map((practice) => [practice.practice_number, practice.id]));
       const createdPracticesByIndex = new Map<number, string>();
@@ -1025,8 +1107,14 @@ const Vies = () => {
       }
 
       if (practiceDocumentRows.length) {
-        const { error: practiceDocumentsError } = await supabase.from("practice_documents").insert(practiceDocumentRows);
-        if (practiceDocumentsError) throw new Error(`Collegamento documenti pratica non riuscito: ${practiceDocumentsError.message}`);
+        for (let start = 0; start < practiceDocumentRows.length; start += VIES_DB_INSERT_CHUNK_SIZE) {
+          const chunk = practiceDocumentRows.slice(start, start + VIES_DB_INSERT_CHUNK_SIZE);
+          setBatchUploadStatus(
+            `Collegamento documenti pratica ${Math.min(start + chunk.length, practiceDocumentRows.length)}/${practiceDocumentRows.length} (${formatDurationSeconds(batchStartedAt)})`,
+          );
+          const { error: practiceDocumentsError } = await supabase.from("practice_documents").insert(chunk);
+          if (practiceDocumentsError) throw new Error(`Collegamento documenti pratica non riuscito: ${practiceDocumentsError.message}`);
+        }
       }
 
       const jobRows = jobPreparationRows.map(({ record, reconciliation, reconciliationValidationErrors, allValidationErrors, isBlocked }) => {
@@ -1056,8 +1144,14 @@ const Vies = () => {
         };
       });
 
-      const { error: jobsError } = await supabase.from("vies_jobs").insert(jobRows);
-      if (jobsError) throw new Error(`Creazione job non riuscita: ${jobsError.message}`);
+      for (let start = 0; start < jobRows.length; start += VIES_DB_INSERT_CHUNK_SIZE) {
+        const chunk = jobRows.slice(start, start + VIES_DB_INSERT_CHUNK_SIZE);
+        setBatchUploadStatus(
+          `Creazione job VIES ${Math.min(start + chunk.length, jobRows.length)}/${jobRows.length} (${formatDurationSeconds(batchStartedAt)})`,
+        );
+        const { error: jobsError } = await supabase.from("vies_jobs").insert(chunk);
+        if (jobsError) throw new Error(`Creazione job non riuscita: ${jobsError.message}`);
+      }
 
       const documentRows = reconciliationRows.flatMap((reconciliation) => reconciliation.documents.map((document) => {
         const archivedZipPath = zipStoragePathsByKey.get(document.sourceZipKey);
@@ -1082,8 +1176,14 @@ const Vies = () => {
         };
       }));
 
-      const { error: documentsError } = await supabase.from("vies_batch_documents").insert(documentRows);
-      if (documentsError) throw new Error(`Indicizzazione documenti non riuscita: ${documentsError.message}`);
+      for (let start = 0; start < documentRows.length; start += VIES_DB_INSERT_CHUNK_SIZE) {
+        const chunk = documentRows.slice(start, start + VIES_DB_INSERT_CHUNK_SIZE);
+        setBatchUploadStatus(
+          `Indicizzazione documenti VIES ${Math.min(start + chunk.length, documentRows.length)}/${documentRows.length} (${formatDurationSeconds(batchStartedAt)})`,
+        );
+        const { error: documentsError } = await supabase.from("vies_batch_documents").insert(chunk);
+        if (documentsError) throw new Error(`Indicizzazione documenti non riuscita: ${documentsError.message}`);
+      }
 
       const { error: finalizeBatchError } = await supabase
         .from("vies_batches")
@@ -1100,13 +1200,13 @@ const Vies = () => {
       batchFinalized = true;
 
       setBatchUploadProgress(100);
-      setBatchUploadStatus("Upload completato. Batch VIES salvato e job creati.");
+      setBatchUploadStatus(`Upload completato. Batch VIES salvato e job creati in ${formatDurationSeconds(batchStartedAt)}.`);
       setPersistedBatchId(batchId);
       setLastCreatedPracticeIds(createdPractices?.map((practice) => practice.id) ?? []);
       await refreshBatchMonitor(batchId);
       toast({
         title: zipStorageFailures.length ? "Batch VIES creato con avviso" : "Batch VIES creato",
-        description: `${records.length} job (${validJobCount} in coda, ${blockedJobCount} bloccati), ${createdPractices?.length ?? 0} pratiche VIES e ${documents.length} documenti indicizzati. Stato: ${finalBatchStatus === "queued" ? "in coda" : "bozza"}.${zipStorageFailures.length ? " Alcuni ZIP originali non sono stati archiviati: verifica il bucket VIES prima dell'orchestrazione." : ""}`,
+        description: `${records.length} job (${validJobCount} in coda, ${blockedJobCount} bloccati), ${createdPractices.length} pratiche VIES e ${documents.length} documenti indicizzati in ${formatDurationSeconds(batchStartedAt)}. Stato: ${finalBatchStatus === "queued" ? "in coda" : "bozza"}.${zipStorageFailures.length ? " Alcuni ZIP originali non sono stati archiviati: verifica il bucket VIES prima dell'orchestrazione." : ""}`,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Non è stato possibile salvare il batch.";

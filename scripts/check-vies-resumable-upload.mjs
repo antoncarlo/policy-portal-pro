@@ -33,7 +33,7 @@ if (!/verifyViesStorageObjectExists/.test(source)) {
   failures.push('Dopo ogni upload TUS deve esserci una verifica esplicita dell’oggetto nello Storage prima di registrare il path.');
 }
 
-if (!/await verifyViesStorageObjectExists\(zipStoragePath, zip\.size\)/.test(source)) {
+if (!/await verifyViesStorageObjectExists\(plan\.storagePath, plan\.file\.size\)/.test(source)) {
   failures.push('Ogni ZIP deve essere confermato nello Storage prima di essere aggiunto alla mappa dei path archiviati.');
 }
 
@@ -53,8 +53,12 @@ if (/\.upload\(zipStoragePath, zip/.test(source)) {
   failures.push('Gli ZIP nominativi non devono più usare supabase.storage.upload standard: sopra 500MB/5GB è fragile e non resumable.');
 }
 
-if (!source.includes('Upload ZIP ${index + 1}/${zipFiles.length}:')) {
-  failures.push('La preparazione batch deve mostrare progresso per ogni ZIP caricato.');
+if (!/VIES_ZIP_UPLOAD_CONCURRENCY\s*=\s*2/.test(source) || !/runWithConcurrency\([\s\S]*zipUploadPlans[\s\S]*VIES_ZIP_UPLOAD_CONCURRENCY/.test(source)) {
+  failures.push('La preparazione batch deve caricare gli ZIP con concorrenza controllata per ridurre il tempo totale senza saturare il browser.');
+}
+
+if (!/Upload ZIP parallelo/.test(source) || !/totalZipUploadBytes/.test(source)) {
+  failures.push('La preparazione batch deve mostrare progresso aggregato leggibile durante gli upload ZIP concorrenti.');
 }
 
 if (failures.length) {
@@ -62,4 +66,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('OK: upload VIES usa TUS resumable senza resume locale ambiguo, verifica Storage post-upload, nomi ZIP stabili, upsert e blocco sicuro sugli ZIP mancanti.');
+console.log('OK: upload VIES usa TUS resumable con concorrenza ZIP controllata, verifica Storage post-upload, nomi ZIP stabili, upsert e blocco sicuro sugli ZIP mancanti.');
