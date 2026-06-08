@@ -3,6 +3,23 @@ import { createClient } from '@supabase/supabase-js';
 import * as crypto from 'crypto';
 
 const SIGNED_URL_EXPIRY_SECONDS = 3600; // 1 hour
+const PRACTICE_DOCUMENTS_BUCKET = 'practice-documents';
+const VIES_BATCH_FILES_BUCKET = 'vies-batch-files';
+const VIES_BATCH_FILES_PREFIX = `${VIES_BATCH_FILES_BUCKET}://`;
+
+function getDocumentStorageReference(filePath: string) {
+  if (filePath.startsWith(VIES_BATCH_FILES_PREFIX)) {
+    return {
+      bucket: VIES_BATCH_FILES_BUCKET,
+      path: filePath.slice(VIES_BATCH_FILES_PREFIX.length),
+    };
+  }
+
+  return {
+    bucket: PRACTICE_DOCUMENTS_BUCKET,
+    path: filePath,
+  };
+}
 
 interface RateLimitEntry { count: number; windowStart: number; }
 const rateLimitMap = new Map<string, RateLimitEntry>();
@@ -139,9 +156,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const documentsWithUrls = await Promise.all(
     (docs ?? []).map(async (doc) => {
+      const storageReference = getDocumentStorageReference(doc.file_path);
       const { data: signed, error: signedError } = await supabaseAdmin.storage
-        .from('practice-documents')
-        .createSignedUrl(doc.file_path, SIGNED_URL_EXPIRY_SECONDS);
+        .from(storageReference.bucket)
+        .createSignedUrl(storageReference.path, SIGNED_URL_EXPIRY_SECONDS);
 
       if (signedError) {
         console.error(`Failed to generate signed URL for ${doc.file_name}:`, signedError.message);

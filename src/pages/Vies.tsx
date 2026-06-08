@@ -173,7 +173,7 @@ const normalizeText = (value: unknown) =>
     .toLowerCase();
 
 const VIES_STORAGE_BUCKET = "vies-batch-files";
-const PRACTICE_DOCUMENTS_STORAGE_BUCKET = "practice-documents";
+const VIES_PRACTICE_DOCUMENT_PATH_PREFIX = `${VIES_STORAGE_BUCKET}://`;
 
 const VIES_GUARANTEED_AMOUNT = 50000;
 const VIES_GUARANTEE_OBJECT = "Garanzia richiesta per iscrizione/operatività VIES ai sensi dell’art. 35, comma 7-quater, DPR 633/1972.";
@@ -578,23 +578,6 @@ const Vies = () => {
       });
       await refreshBatchMonitor();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Non è stato possibile salvare il batch.";
-      if (!batchFinalized && uploadedPracticeDocumentPathsForRollback.length) {
-        await supabase.storage.from(PRACTICE_DOCUMENTS_STORAGE_BUCKET).remove(uploadedPracticeDocumentPathsForRollback);
-      }
-      if (!batchFinalized && createdPracticeIdsForRollback.length) {
-        await supabase.from("practices").delete().in("id", createdPracticeIdsForRollback);
-      }
-      if (batchPersisted && batchId) {
-        await supabase
-          .from("vies_batches")
-          .update({
-            status: "failed",
-            notes: `Creazione batch interrotta: ${message}`,
-          })
-          .eq("id", batchId);
-      }
-
       toast({
         variant: "destructive",
         title: "Azione VIES non riuscita",
@@ -663,7 +646,6 @@ const Vies = () => {
     let batchPersisted = false;
     let batchFinalized = false;
     const createdPracticeIdsForRollback: string[] = [];
-    const uploadedPracticeDocumentPathsForRollback: string[] = [];
 
     try {
       const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -747,7 +729,7 @@ const Vies = () => {
           : "Batch creato in bozza: correggere i dati e i documenti bloccanti prima dell'orchestrazione."
         : "Batch VIES pronto per orchestratore e agent operativi.";
       const storageWarningNotes = zipStorageFailures.length
-        ? ` Archiviazione ZIP originale non completata per ${zipStorageFailures.length} file: ${zipStorageFailures.join("; ")}. I documenti sono stati indicizzati con path virtuale e il batch resta operativo.`
+        ? ` Archiviazione ZIP originale non completata per ${zipStorageFailures.length} file: ${zipStorageFailures.join("; ")}. Il batch non potrà proseguire finché gli ZIP non saranno caricati correttamente.`
         : "";
 
       const { error: batchError } = await supabase.from("vies_batches").insert({
@@ -837,20 +819,16 @@ const Vies = () => {
         const zipFile = reconciliation.zipFile;
         if (!practiceId || !zipFile) continue;
 
-        const practiceDocumentStoragePath = `${practiceId}/vies/${batchId}/${buildSafeStorageName(zipFile.name)}`;
-        const { error: practiceDocumentUploadError } = await supabase.storage.from(PRACTICE_DOCUMENTS_STORAGE_BUCKET).upload(practiceDocumentStoragePath, zipFile, {
-            contentType: zipFile.type || "application/zip",
-            upsert: false,
-          });
-        if (practiceDocumentUploadError) {
-          throw new Error(`Upload ZIP pratica ${zipFile.name} non riuscito: ${practiceDocumentUploadError.message}`);
+        const zipKey = getZipReconciliationKey(zipFile.name);
+        const stagedZipPath = zipStoragePathsByKey.get(zipKey);
+        if (!stagedZipPath) {
+          throw new Error(`ZIP pratica ${zipFile.name} non archiviato nel bucket VIES: impossibile collegarlo alla pratica.`);
         }
 
-        uploadedPracticeDocumentPathsForRollback.push(practiceDocumentStoragePath);
         practiceDocumentRows.push({
-          practice_id: createdPracticesByIndex.get(reconciliation.record.rowNumber)!,
+          practice_id: practiceId,
           file_name: zipFile.name,
-          file_path: practiceDocumentStoragePath,
+          file_path: `${VIES_PRACTICE_DOCUMENT_PATH_PREFIX}${stagedZipPath}`,
           file_size: zipFile.size,
           mime_type: zipFile.type || "application/zip",
           uploaded_by: userId,
@@ -937,13 +915,10 @@ const Vies = () => {
       await refreshBatchMonitor(batchId);
       toast({
         title: zipStorageFailures.length ? "Batch VIES creato con avviso" : "Batch VIES creato",
-        description: `${records.length} job (${validJobCount} in coda, ${blockedJobCount} bloccati), ${createdPractices?.length ?? 0} pratiche VIES e ${documents.length} documenti indicizzati. Stato: ${finalBatchStatus === "queued" ? "in coda" : "bozza"}.${zipStorageFailures.length ? " Alcuni ZIP originali superano il limite Storage e non sono stati archiviati, ma il batch è stato generato." : ""}`,
+        description: `${records.length} job (${validJobCount} in coda, ${blockedJobCount} bloccati), ${createdPractices?.length ?? 0} pratiche VIES e ${documents.length} documenti indicizzati. Stato: ${finalBatchStatus === "queued" ? "in coda" : "bozza"}.${zipStorageFailures.length ? " Alcuni ZIP originali non sono stati archiviati: verifica il bucket VIES prima dell'orchestrazione." : ""}`,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Non è stato possibile salvare il batch.";
-      if (!batchFinalized && uploadedPracticeDocumentPathsForRollback.length) {
-        await supabase.storage.from(PRACTICE_DOCUMENTS_STORAGE_BUCKET).remove(uploadedPracticeDocumentPathsForRollback);
-      }
       if (!batchFinalized && createdPracticeIdsForRollback.length) {
         await supabase.from("practices").delete().in("id", createdPracticeIdsForRollback);
       }

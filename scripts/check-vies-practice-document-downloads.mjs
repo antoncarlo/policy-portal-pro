@@ -24,38 +24,46 @@ const checks = [
       /ALTER TABLE public\.vies_batch_documents[\s\S]*ADD COLUMN IF NOT EXISTS zip_file_name TEXT/.test(safeMigration),
   },
   {
-    name: "la lista pratiche scarica esclusivamente da practice_documents e dal bucket practice-documents",
+    name: "la lista pratiche scarica da practice_documents risolvendo sia practice-documents sia riferimenti staged VIES",
     pass:
       /from\("practice_documents"\)/.test(practiceDocumentsComponent) &&
-      /from\("practice-documents"\)/.test(practiceDocumentsComponent),
+      /VIES_BATCH_FILES_BUCKET\s*=\s*"vies-batch-files"/.test(practiceDocumentsComponent) &&
+      /getDocumentStorageReference/.test(practiceDocumentsComponent) &&
+      /from\(storageReference\.bucket\)/.test(practiceDocumentsComponent) &&
+      /download\(storageReference\.path\)/.test(practiceDocumentsComponent),
   },
   {
-    name: "il dettaglio pratica scarica esclusivamente da practice_documents e dal bucket practice-documents",
+    name: "il dettaglio pratica scarica da practice_documents risolvendo sia practice-documents sia riferimenti staged VIES",
     pass:
       /from\("practice_documents"\)/.test(practiceDetailDocumentsComponent) &&
-      /from\("practice-documents"\)/.test(practiceDetailDocumentsComponent),
+      /VIES_BATCH_FILES_BUCKET\s*=\s*"vies-batch-files"/.test(practiceDetailDocumentsComponent) &&
+      /getDocumentStorageReference/.test(practiceDetailDocumentsComponent) &&
+      /from\(storageReference\.bucket\)/.test(practiceDetailDocumentsComponent) &&
+      /download\(storageReference\.path\)/.test(practiceDetailDocumentsComponent),
   },
   {
     name: "la creazione batch VIES materializza almeno lo ZIP nominativo nella tabella practice_documents della pratica",
     pass:
       /practiceDocumentRows/.test(viesPage) &&
       /from\("practice_documents"\)\.insert\(practiceDocumentRows\)/.test(viesPage) &&
-      /practice_id:\s*createdPracticesByIndex\.get\(reconciliation\.record\.rowNumber\)/.test(viesPage),
+      /practice_id:\s*practiceId/.test(viesPage),
   },
   {
-    name: "lo ZIP nominativo viene caricato nel bucket practice-documents usato dai pulsanti di download pratica",
+    name: "lo ZIP nominativo resta archiviato nel bucket VIES e viene collegato alla pratica con path qualificato",
     pass:
-      /PRACTICE_DOCUMENTS_STORAGE_BUCKET\s*=\s*"practice-documents"/.test(viesPage) &&
-      /storage\.from\(PRACTICE_DOCUMENTS_STORAGE_BUCKET\)\.upload/.test(viesPage) &&
-      /practiceDocumentStoragePath/.test(viesPage),
+      /VIES_STORAGE_BUCKET\s*=\s*"vies-batch-files"/.test(viesPage) &&
+      /VIES_PRACTICE_DOCUMENT_PATH_PREFIX/.test(viesPage) &&
+      /zipStoragePathsByKey\.get\(zipKey\)/.test(viesPage) &&
+      /file_path:\s*`\$\{VIES_PRACTICE_DOCUMENT_PATH_PREFIX\}\$\{stagedZipPath\}`/.test(viesPage) &&
+      !/storage\.from\(PRACTICE_DOCUMENTS_STORAGE_BUCKET\)\.upload/.test(viesPage),
   },
   {
-    name: "se la creazione fallisce dopo aver creato pratiche o allegati, la UI esegue rollback per evitare pratiche orfane",
+    name: "se la creazione fallisce dopo aver creato pratiche o allegati, la UI esegue rollback per evitare pratiche orfane senza duplicare ZIP staged",
     pass:
       /createdPracticeIdsForRollback/.test(viesPage) &&
-      /uploadedPracticeDocumentPathsForRollback/.test(viesPage) &&
       /from\("practices"\)\s*\.delete\(\)\s*\.in\("id",\s*createdPracticeIdsForRollback\)/s.test(viesPage) &&
-      /storage\.from\(PRACTICE_DOCUMENTS_STORAGE_BUCKET\)\.remove\(uploadedPracticeDocumentPathsForRollback\)/.test(viesPage),
+      /zipStoragePathsByKey/.test(viesPage) &&
+      !/practiceDocumentStoragePath/.test(viesPage),
   },
 ];
 

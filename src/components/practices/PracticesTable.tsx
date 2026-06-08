@@ -58,6 +58,24 @@ interface Practice {
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "Errore imprevisto durante l'operazione.";
 
+const PRACTICE_DOCUMENTS_BUCKET = "practice-documents";
+const VIES_BATCH_FILES_BUCKET = "vies-batch-files";
+const VIES_BATCH_FILES_PREFIX = `${VIES_BATCH_FILES_BUCKET}://`;
+
+const getDocumentStorageReference = (filePath: string) => {
+  if (filePath.startsWith(VIES_BATCH_FILES_PREFIX)) {
+    return {
+      bucket: VIES_BATCH_FILES_BUCKET,
+      path: filePath.slice(VIES_BATCH_FILES_PREFIX.length),
+    };
+  }
+
+  return {
+    bucket: PRACTICE_DOCUMENTS_BUCKET,
+    path: filePath,
+  };
+};
+
 export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -171,9 +189,10 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
 
       // Download each document
       for (const doc of documents) {
+        const storageReference = getDocumentStorageReference(doc.file_path);
         const { data, error: downloadError } = await supabase.storage
-          .from("practice-documents")
-          .download(doc.file_path);
+          .from(storageReference.bucket)
+          .download(storageReference.path);
 
         if (downloadError) {
           console.error("Error downloading:", doc.file_name, downloadError);

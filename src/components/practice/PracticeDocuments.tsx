@@ -38,6 +38,26 @@ const getMimeType = (file: File) => {
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
 
+const PRACTICE_DOCUMENTS_BUCKET = "practice-documents";
+const VIES_BATCH_FILES_BUCKET = "vies-batch-files";
+const VIES_BATCH_FILES_PREFIX = `${VIES_BATCH_FILES_BUCKET}://`;
+
+const getDocumentStorageReference = (filePath: string) => {
+  if (filePath.startsWith(VIES_BATCH_FILES_PREFIX)) {
+    return {
+      bucket: VIES_BATCH_FILES_BUCKET,
+      path: filePath.slice(VIES_BATCH_FILES_PREFIX.length),
+      isViesBatchReference: true,
+    };
+  }
+
+  return {
+    bucket: PRACTICE_DOCUMENTS_BUCKET,
+    path: filePath,
+    isViesBatchReference: false,
+  };
+};
+
 export const PracticeDocuments = ({ practiceId }: PracticeDocumentsProps) => {
   const { toast } = useToast();
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -86,7 +106,7 @@ export const PracticeDocuments = ({ practiceId }: PracticeDocumentsProps) => {
         const filePath = buildDocumentStoragePath(practiceId, file, index);
 
         const { error: uploadError } = await supabase.storage
-          .from("practice-documents")
+          .from(PRACTICE_DOCUMENTS_BUCKET)
           .upload(filePath, file, {
             contentType: getMimeType(file),
             upsert: false,
@@ -125,7 +145,7 @@ export const PracticeDocuments = ({ practiceId }: PracticeDocumentsProps) => {
         await supabase.from("practice_documents").delete().in("id", insertedDocumentIds);
       }
       if (uploadedPaths.length) {
-        await supabase.storage.from("practice-documents").remove(uploadedPaths);
+        await supabase.storage.from(PRACTICE_DOCUMENTS_BUCKET).remove(uploadedPaths);
       }
 
       toast({
@@ -141,9 +161,10 @@ export const PracticeDocuments = ({ practiceId }: PracticeDocumentsProps) => {
 
   const handleDownload = async (document: Document) => {
     try {
+      const storageReference = getDocumentStorageReference(document.file_path);
       const { data, error } = await supabase.storage
-        .from("practice-documents")
-        .download(document.file_path);
+        .from(storageReference.bucket)
+        .download(storageReference.path);
 
       if (error) throw error;
 
@@ -166,11 +187,14 @@ export const PracticeDocuments = ({ practiceId }: PracticeDocumentsProps) => {
     if (!confirm("Sei sicuro di voler eliminare questo documento?")) return;
 
     try {
-      const { error: storageError } = await supabase.storage
-        .from("practice-documents")
-        .remove([document.file_path]);
+      const storageReference = getDocumentStorageReference(document.file_path);
+      if (!storageReference.isViesBatchReference) {
+        const { error: storageError } = await supabase.storage
+          .from(storageReference.bucket)
+          .remove([storageReference.path]);
 
-      if (storageError) throw storageError;
+        if (storageError) throw storageError;
+      }
 
       const { error: dbError } = await supabase
         .from("practice_documents")
