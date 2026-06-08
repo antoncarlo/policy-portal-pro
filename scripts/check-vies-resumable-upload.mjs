@@ -29,8 +29,20 @@ if (!source.includes('"x-upsert": "true"')) {
   failures.push('L’upload TUS deve inviare x-upsert true per evitare conflitti su retry/resume dello stesso oggetto Storage.');
 }
 
-if (!/fingerprint:\s*async \(\) =>[\s\S]*storagePath/.test(source)) {
-  failures.push('La fingerprint TUS deve includere lo storagePath per non riprendere upload precedenti collegati a batch diversi.');
+if (!/verifyViesStorageObjectExists/.test(source)) {
+  failures.push('Dopo ogni upload TUS deve esserci una verifica esplicita dell’oggetto nello Storage prima di registrare il path.');
+}
+
+if (!/await verifyViesStorageObjectExists\(zipStoragePath, zip\.size\)/.test(source)) {
+  failures.push('Ogni ZIP deve essere confermato nello Storage prima di essere aggiunto alla mappa dei path archiviati.');
+}
+
+if (/findPreviousUploads\(\)|resumeFromPreviousUpload\(/.test(source)) {
+  failures.push('Il flusso VIES non deve riprendere upload locali precedenti: con ZIP nominativi diversi può collegare progressi vecchi a oggetti Storage sbagliati.');
+}
+
+if (!/buildStableZipStorageName/.test(source) || /zip-nominativi\/\$\{buildSafeStorageName\(zip\.name\)\}/.test(source)) {
+  failures.push('I nomi Storage degli ZIP devono essere stabili e riconoscibili, non suffissati con Date.now come file generici.');
 }
 
 if (!/if \(zipStorageFailures\.length\)[\s\S]*Upload ZIP incompleto/.test(source)) {
@@ -50,4 +62,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('OK: upload VIES usa TUS resumable, fingerprint per storagePath, upsert e blocco sicuro sugli ZIP mancanti.');
+console.log('OK: upload VIES usa TUS resumable senza resume locale ambiguo, verifica Storage post-upload, nomi ZIP stabili, upsert e blocco sicuro sugli ZIP mancanti.');

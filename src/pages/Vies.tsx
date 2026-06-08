@@ -176,6 +176,8 @@ const normalizeText = (value: unknown) =>
 const VIES_STORAGE_BUCKET = "vies-batch-files";
 const VIES_PRACTICE_DOCUMENT_PATH_PREFIX = `${VIES_STORAGE_BUCKET}://`;
 const VIES_RESUMABLE_CHUNK_SIZE = 6 * 1024 * 1024;
+const VIES_STORAGE_VERIFY_ATTEMPTS = 6;
+const VIES_STORAGE_VERIFY_DELAY_MS = 750;
 const SUPABASE_PROJECT_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
 
@@ -203,6 +205,56 @@ const getSupabaseProjectId = () => {
   } catch {
     throw new Error("URL Supabase non valido per l'upload resumable VIES.");
   }
+};
+
+const wait = (milliseconds: number) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+
+const getStoragePathParts = (storagePath: string) => {
+  const lastSlashIndex = storagePath.lastIndexOf("/");
+  if (lastSlashIndex === -1) return { folderPath: "", objectName: storagePath };
+
+  return {
+    folderPath: storagePath.slice(0, lastSlashIndex),
+    objectName: storagePath.slice(lastSlashIndex + 1),
+  };
+};
+
+const getListedStorageObjectSize = (metadata: unknown) => {
+  if (!metadata || typeof metadata !== "object") return null;
+  const metadataRecord = metadata as Record<string, unknown>;
+  const rawSize = metadataRecord.size ?? metadataRecord.contentLength ?? metadataRecord.content_length;
+  const parsedSize = Number(rawSize);
+
+  return Number.isFinite(parsedSize) ? parsedSize : null;
+};
+
+const verifyViesStorageObjectExists = async (storagePath: string, expectedSize?: number) => {
+  const { folderPath, objectName } = getStoragePathParts(storagePath);
+  let lastVerificationError = `oggetto ${objectName} non trovato nel bucket ${VIES_STORAGE_BUCKET}`;
+
+  for (let attempt = 1; attempt <= VIES_STORAGE_VERIFY_ATTEMPTS; attempt += 1) {
+    const { data, error } = await supabase.storage
+      .from(VIES_STORAGE_BUCKET)
+      .list(folderPath, { limit: 100, search: objectName });
+
+    if (error) {
+      lastVerificationError = error.message;
+    } else {
+      const storageObject = data?.find((object) => object.name === objectName);
+      if (storageObject) {
+        const actualSize = getListedStorageObjectSize(storageObject.metadata);
+        if (!expectedSize || actualSize === null || actualSize === expectedSize) return;
+
+        lastVerificationError = `dimensione Storage ${formatBytes(actualSize)} diversa dal file locale ${formatBytes(expectedSize)}`;
+      }
+    }
+
+    if (attempt < VIES_STORAGE_VERIFY_ATTEMPTS) {
+      await wait(VIES_STORAGE_VERIFY_DELAY_MS * attempt);
+    }
+  }
+
+  throw new Error(`Oggetto Storage non confermato per ${objectName}: ${lastVerificationError}.`);
 };
 
 const uploadViesFileResumable = async ({
@@ -257,13 +309,7 @@ const uploadViesFileResumable = async ({
       onSuccess: () => resolve(),
     });
 
-    upload
-      .findPreviousUploads()
-      .then((previousUploads) => {
-        if (previousUploads.length) upload.resumeFromPreviousUpload(previousUploads[0]);
-        upload.start();
-      })
-      .catch(reject);
+    upload.start();
   });
 };
 
@@ -325,7 +371,7 @@ const getZipReconciliationKey = (fileName: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-const buildSafeStorageName = (fileName: string) => {
+const getSafeFileNameParts = (fileName: string) => {
   const extension = fileName.includes(".") ? `.${fileName.split(".").pop()}` : "";
   const baseName = fileName.replace(extension, "");
   const normalizedBaseName = normalizeText(baseName)
@@ -333,7 +379,21 @@ const buildSafeStorageName = (fileName: string) => {
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
 
-  return `${normalizedBaseName || "file"}-${Date.now()}${extension.toLowerCase()}`;
+  return { normalizedBaseName, extension: extension.toLowerCase() };
+};
+
+const buildSafeStorageName = (fileName: string) => {
+  const { normalizedBaseName, extension } = getSafeFileNameParts(fileName);
+  return `${normalizedBaseName || "file"}-${Date.now()}${extension}`;
+};
+
+const buildStableZipStorageName = (fileName: string, occurrence = 1) => {
+  const { normalizedBaseName, extension } = getSafeFileNameParts(fileName);
+  const safeBaseName = normalizedBaseName || "zip";
+  const duplicateSuffix = occurrence > 1 ? `-${occurrence}` : "";
+  const safeExtension = extension || ".zip";
+
+  return `${safeBaseName}${duplicateSuffix}${safeExtension}`;
 };
 
 const getCellByAliases = (row: Record<string, string>, aliases: string[]) => {
@@ -754,6 +814,7 @@ const Vies = () => {
       const zipStorageBasePath = `${storageBasePath}/zip-nominativi`;
       const zipStoragePathsByKey = new Map<string, string>();
       const zipStoragePathByFileName = new Map<string, string>();
+      const zipStorageNameOccurrences = new Map<string, number>();
       const zipStorageFailures: string[] = [];
 
       setBatchUploadProgress(0);
@@ -768,10 +829,16 @@ const Vies = () => {
           );
         },
       });
+      setBatchUploadStatus(`Verifica archiviazione Excel ${excelFile.name}`);
+      await verifyViesStorageObjectExists(excelStoragePath, excelFile.size);
 
       for (const [index, zip] of zipFiles.entries()) {
         const zipKey = getZipReconciliationKey(zip.name);
-        const zipStoragePath = `${zipStorageBasePath}/${buildSafeStorageName(zip.name)}`;
+        const stableZipStorageName = buildStableZipStorageName(zip.name);
+        const zipStorageNameOccurrence = (zipStorageNameOccurrences.get(stableZipStorageName) ?? 0) + 1;
+        zipStorageNameOccurrences.set(stableZipStorageName, zipStorageNameOccurrence);
+        const zipStorageName = buildStableZipStorageName(zip.name, zipStorageNameOccurrence);
+        const zipStoragePath = `${zipStorageBasePath}/${zipStorageName}`;
 
         try {
           setBatchUploadProgress(0);
@@ -786,6 +853,8 @@ const Vies = () => {
               );
             },
           });
+          setBatchUploadStatus(`Verifica archiviazione ZIP ${index + 1}/${zipFiles.length}: ${zip.name}`);
+          await verifyViesStorageObjectExists(zipStoragePath, zip.size);
         } catch (zipUploadError) {
           zipStorageFailures.push(
             `${zip.name} (${formatBytes(zip.size)}): ${getTusUploadErrorMessage(zipUploadError)}`,
