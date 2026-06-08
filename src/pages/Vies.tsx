@@ -577,6 +577,17 @@ const Vies = () => {
       });
       await refreshBatchMonitor();
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Non è stato possibile salvare il batch.";
+      if (batchPersisted && batchId) {
+        await supabase
+          .from("vies_batches")
+          .update({
+            status: "failed",
+            notes: `Creazione batch interrotta: ${message}`,
+          })
+          .eq("id", batchId);
+      }
+
       toast({
         variant: "destructive",
         title: "Azione VIES non riuscita",
@@ -641,6 +652,8 @@ const Vies = () => {
     }
 
     setSavingBatch(true);
+    let batchId: string | null = null;
+    let batchPersisted = false;
 
     try {
       const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -649,7 +662,7 @@ const Vies = () => {
       }
 
       const userId = userData.user.id;
-      const batchId = crypto.randomUUID();
+      batchId = crypto.randomUUID();
       const storageBasePath = `${userId}/${batchId}`;
       const excelStoragePath = `${storageBasePath}/${buildSafeStorageName(excelFile.name)}`;
       const zipStorageBasePath = `${storageBasePath}/zip-nominativi`;
@@ -690,8 +703,38 @@ const Vies = () => {
       })}`;
 
       const archivedZipCount = zipStoragePathByFileName.size;
-      const baseBatchNotes = missingRequirements.length || reconciliationErrors.length
-        ? "Batch creato in bozza: completare documenti obbligatori e riconciliazione NOME ZIP prima dell'orchestrazione."
+      const reconciliationByRow = new Map(reconciliationRows.map((row) => [row.record.rowNumber, row]));
+      const globalBatchValidationErrors = [
+        ...missingRequirements.map((requirement) => `Requisito documentale mancante: ${requirement.label}`),
+        ...reconciliationErrors,
+      ];
+      const jobPreparationRows = records.map((record) => {
+        const validationErrors = getRecordValidationErrors(record);
+        const reconciliation = reconciliationByRow.get(record.rowNumber);
+        const reconciliationValidationErrors = reconciliation?.errors ?? [];
+        const allValidationErrors = [
+          ...validationErrors,
+          ...reconciliationValidationErrors,
+          ...globalBatchValidationErrors,
+        ];
+
+        return {
+          record,
+          reconciliation,
+          validationErrors,
+          reconciliationValidationErrors,
+          allValidationErrors,
+          isBlocked: allValidationErrors.length > 0,
+        };
+      });
+      const validJobCount = jobPreparationRows.filter((job) => !job.isBlocked).length;
+      const blockedJobCount = jobPreparationRows.length - validJobCount;
+      const finalBatchStatus = validJobCount > 0 ? "queued" : "draft";
+      const finalQueuedAt = validJobCount > 0 ? new Date().toISOString() : null;
+      const baseBatchNotes = blockedJobCount
+        ? validJobCount
+          ? `Batch VIES creato con ${validJobCount} job in coda e ${blockedJobCount} righe bloccate da validare.`
+          : "Batch creato in bozza: correggere i dati e i documenti bloccanti prima dell'orchestrazione."
         : "Batch VIES pronto per orchestratore e agent operativi.";
       const storageWarningNotes = zipStorageFailures.length
         ? ` Archiviazione ZIP originale non completata per ${zipStorageFailures.length} file: ${zipStorageFailures.join("; ")}. I documenti sono stati indicizzati con path virtuale e il batch resta operativo.`
@@ -707,9 +750,9 @@ const Vies = () => {
         zip_storage_path: zipStorageBasePath,
         total_rows: records.length,
         total_documents: documents.length,
-        ready_jobs: missingRequirements.length || reconciliationErrors.length ? 0 : reconciliationRows.filter((row) => getRecordValidationErrors(row.record).length === 0 && row.errors.length === 0).length,
-        queued_jobs: missingRequirements.length || reconciliationErrors.length ? 0 : reconciliationRows.filter((row) => getRecordValidationErrors(row.record).length === 0 && row.errors.length === 0).length,
-        blocked_jobs: missingRequirements.length || reconciliationErrors.length ? records.length : 0,
+        ready_jobs: 0,
+        queued_jobs: 0,
+        blocked_jobs: 0,
         matched_requirements: completedRequirements,
         missing_requirements: [
           ...missingRequirements.map((requirement) => ({
@@ -723,11 +766,12 @@ const Vies = () => {
               label: `${row.record.contraente || "Riga VIES"}: ${row.errors.join(", ")}`,
             })),
         ],
-        status: missingRequirements.length || reconciliationErrors.length ? "draft" : "queued",
-        queued_at: missingRequirements.length || reconciliationErrors.length ? null : new Date().toISOString(),
-        notes: `${baseBatchNotes}${storageWarningNotes}`,
+        status: "draft",
+        queued_at: null,
+        notes: "Batch VIES in preparazione: materializzazione pratiche, job e documenti in corso.",
       });
       if (batchError) throw new Error(`Creazione batch non riuscita: ${batchError.message}`);
+      batchPersisted = true;
 
       const practiceRows = records.map((record) => {
         const validationErrors = getRecordValidationErrors(record);
@@ -766,13 +810,7 @@ const Vies = () => {
         if (record) createdPracticesByIndex.set(record.rowNumber, practice.id);
       });
 
-      const reconciliationByRow = new Map(reconciliationRows.map((row) => [row.record.rowNumber, row]));
-
-      const jobRows = records.map((record) => {
-        const validationErrors = getRecordValidationErrors(record);
-        const reconciliation = reconciliationByRow.get(record.rowNumber);
-        const reconciliationValidationErrors = reconciliation?.errors ?? [];
-
+      const jobRows = jobPreparationRows.map(({ record, reconciliation, reconciliationValidationErrors, allValidationErrors, isBlocked }) => {
         return {
           batch_id: batchId,
           user_id: userId,
@@ -790,10 +828,12 @@ const Vies = () => {
           pagamento: record.pagamento || null,
           documenti_indicati: record.documentiIndicati || null,
           raw_payload: record.raw,
-          validation_errors: [...validationErrors, ...reconciliationValidationErrors],
+          validation_errors: allValidationErrors,
           reconciliation_errors: reconciliationValidationErrors,
           external_reference: createdPracticesByIndex.get(record.rowNumber) ?? null,
-          status: validationErrors.length || reconciliationValidationErrors.length ? "pending_validation" : missingRequirements.length ? "blocked" : "queued",
+          status: isBlocked ? "blocked" : "queued",
+          last_error: isBlocked ? allValidationErrors.join("; ") : null,
+          error_code: isBlocked ? "BLOCKED_VALIDATION" : null,
         };
       });
 
@@ -826,18 +866,42 @@ const Vies = () => {
       const { error: documentsError } = await supabase.from("vies_batch_documents").insert(documentRows);
       if (documentsError) throw new Error(`Indicizzazione documenti non riuscita: ${documentsError.message}`);
 
+      const { error: finalizeBatchError } = await supabase
+        .from("vies_batches")
+        .update({
+          ready_jobs: validJobCount,
+          queued_jobs: validJobCount,
+          blocked_jobs: blockedJobCount,
+          status: finalBatchStatus,
+          queued_at: finalQueuedAt,
+          notes: `${baseBatchNotes}${storageWarningNotes}`,
+        })
+        .eq("id", batchId);
+      if (finalizeBatchError) throw new Error(`Finalizzazione batch non riuscita: ${finalizeBatchError.message}`);
+
       setPersistedBatchId(batchId);
       setLastCreatedPracticeIds(createdPractices?.map((practice) => practice.id) ?? []);
       await refreshBatchMonitor(batchId);
       toast({
         title: zipStorageFailures.length ? "Batch VIES creato con avviso" : "Batch VIES creato",
-        description: `${records.length} job, ${createdPractices?.length ?? 0} pratiche VIES e ${documents.length} documenti indicizzati. Stato: ${missingRequirements.length || reconciliationErrors.length ? "bozza" : "in coda"}.${zipStorageFailures.length ? " Alcuni ZIP originali superano il limite Storage e non sono stati archiviati, ma il batch è stato generato." : ""}`,
+        description: `${records.length} job (${validJobCount} in coda, ${blockedJobCount} bloccati), ${createdPractices?.length ?? 0} pratiche VIES e ${documents.length} documenti indicizzati. Stato: ${finalBatchStatus === "queued" ? "in coda" : "bozza"}.${zipStorageFailures.length ? " Alcuni ZIP originali superano il limite Storage e non sono stati archiviati, ma il batch è stato generato." : ""}`,
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Non è stato possibile salvare il batch.";
+      if (batchPersisted && batchId) {
+        await supabase
+          .from("vies_batches")
+          .update({
+            status: "failed",
+            notes: `Creazione batch interrotta: ${message}`,
+          })
+          .eq("id", batchId);
+      }
+
       toast({
         variant: "destructive",
         title: "Errore creazione batch VIES",
-        description: error instanceof Error ? error.message : "Non è stato possibile salvare il batch.",
+        description: message,
       });
     } finally {
       setSavingBatch(false);
