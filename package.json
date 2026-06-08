@@ -13,6 +13,7 @@
     "test:vies-zip-upload": "node scripts/check-vies-zip-sequential-processing.mjs",
     "test:vies-schema": "node scripts/check-vies-schema-safety.mjs",
     "test:vies-batch-consistency": "node scripts/check-vies-batch-creation-consistency.mjs",
+    "test:vies-resumable-upload": "node scripts/check-vies-resumable-upload.mjs",
     "test:vies-practice-documents": "node scripts/check-vies-practice-document-downloads.mjs",
     "preview": "vite preview"
   },
@@ -71,6 +72,7 @@
     "sonner": "^1.7.4",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
+    "tus-js-client": "^4.3.1",
     "vaul": "^0.9.9",
     "xlsx": "^0.18.5",
     "zod": "^3.25.76"

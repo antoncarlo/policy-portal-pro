@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
+import * as tus from "tus-js-client";
 import {
   AlertTriangle,
   Bot,
@@ -174,6 +175,88 @@ const normalizeText = (value: unknown) =>
 
 const VIES_STORAGE_BUCKET = "vies-batch-files";
 const VIES_PRACTICE_DOCUMENT_PATH_PREFIX = `${VIES_STORAGE_BUCKET}://`;
+const VIES_RESUMABLE_CHUNK_SIZE = 6 * 1024 * 1024;
+const SUPABASE_PROJECT_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+
+type ViesUploadProgress = {
+  fileName: string;
+  bytesUploaded: number;
+  bytesTotal: number;
+  percentage: number;
+};
+
+const getSupabaseProjectId = () => {
+  if (!SUPABASE_PROJECT_URL) throw new Error("URL Supabase non configurato.");
+
+  try {
+    const hostname = new URL(SUPABASE_PROJECT_URL).hostname;
+    const projectId = hostname.split(".")[0];
+    if (!projectId) throw new Error("Project ref assente.");
+    return projectId;
+  } catch {
+    throw new Error("URL Supabase non valido per l'upload resumable VIES.");
+  }
+};
+
+const uploadViesFileResumable = async ({
+  file,
+  storagePath,
+  onProgress,
+}: {
+  file: File;
+  storagePath: string;
+  onProgress?: (progress: ViesUploadProgress) => void;
+}) => {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.access_token) {
+    throw new Error("Sessione non valida. Effettua nuovamente l'accesso e riprova.");
+  }
+
+  const projectId = getSupabaseProjectId();
+
+  await new Promise<void>((resolve, reject) => {
+    const upload = new tus.Upload(file, {
+      endpoint: `https://${projectId}.storage.supabase.co/storage/v1/upload/resumable`,
+      retryDelays: [0, 3000, 5000, 10000, 20000],
+      headers: {
+        authorization: `Bearer ${session.access_token}`,
+        ...(SUPABASE_PUBLISHABLE_KEY ? { apikey: SUPABASE_PUBLISHABLE_KEY } : {}),
+      },
+      uploadDataDuringCreation: true,
+      removeFingerprintOnSuccess: true,
+      metadata: {
+        bucketName: VIES_STORAGE_BUCKET,
+        objectName: storagePath,
+        contentType: file.type || "application/zip",
+        cacheControl: "3600",
+      },
+      chunkSize: VIES_RESUMABLE_CHUNK_SIZE,
+      onProgress: (bytesUploaded, bytesTotal) => {
+        onProgress?.({
+          fileName: file.name,
+          bytesUploaded,
+          bytesTotal,
+          percentage: bytesTotal ? Math.round((bytesUploaded / bytesTotal) * 100) : 0,
+        });
+      },
+      onError: (error) => reject(error),
+      onSuccess: () => resolve(),
+    });
+
+    upload
+      .findPreviousUploads()
+      .then((previousUploads) => {
+        if (previousUploads.length) upload.resumeFromPreviousUpload(previousUploads[0]);
+        upload.start();
+      })
+      .catch(reject);
+  });
+};
 
 const VIES_GUARANTEED_AMOUNT = 50000;
 const VIES_GUARANTEE_OBJECT = "Garanzia richiesta per iscrizione/operatività VIES ai sensi dell’art. 35, comma 7-quater, DPR 633/1972.";
@@ -360,6 +443,8 @@ const Vies = () => {
   const [loadingZip, setLoadingZip] = useState(false);
   const [zipProcessingStatus, setZipProcessingStatus] = useState<string | null>(null);
   const [savingBatch, setSavingBatch] = useState(false);
+  const [batchUploadStatus, setBatchUploadStatus] = useState<string | null>(null);
+  const [batchUploadProgress, setBatchUploadProgress] = useState(0);
   const [persistedBatchId, setPersistedBatchId] = useState<string | null>(null);
   const [lastCreatedPracticeIds, setLastCreatedPracticeIds] = useState<string[]>([]);
   const [batchMonitor, setBatchMonitor] = useState<ViesBatchMonitor | null>(null);
@@ -662,20 +747,40 @@ const Vies = () => {
       const zipStoragePathByFileName = new Map<string, string>();
       const zipStorageFailures: string[] = [];
 
-      const { error: excelUploadError } = await supabase.storage
-        .from(VIES_STORAGE_BUCKET)
-        .upload(excelStoragePath, excelFile, { upsert: false });
-      if (excelUploadError) throw new Error(`Upload Excel non riuscito: ${excelUploadError.message}`);
+      setBatchUploadProgress(0);
+      setBatchUploadStatus(`Upload Excel ${excelFile.name} (${formatBytes(excelFile.size)})`);
+      await uploadViesFileResumable({
+        file: excelFile,
+        storagePath: excelStoragePath,
+        onProgress: ({ percentage, bytesUploaded, bytesTotal }) => {
+          setBatchUploadProgress(percentage);
+          setBatchUploadStatus(
+            `Upload Excel ${excelFile.name}: ${formatBytes(bytesUploaded)} / ${formatBytes(bytesTotal)} (${percentage}%)`,
+          );
+        },
+      });
 
-      for (const zip of zipFiles) {
+      for (const [index, zip] of zipFiles.entries()) {
         const zipKey = getZipReconciliationKey(zip.name);
         const zipStoragePath = `${zipStorageBasePath}/${buildSafeStorageName(zip.name)}`;
-        const { error: zipUploadError } = await supabase.storage
-          .from(VIES_STORAGE_BUCKET)
-          .upload(zipStoragePath, zip, { upsert: false });
 
-        if (zipUploadError) {
-          zipStorageFailures.push(`${zip.name}: ${zipUploadError.message}`);
+        try {
+          setBatchUploadProgress(0);
+          setBatchUploadStatus(`Upload ZIP ${index + 1}/${zipFiles.length}: ${zip.name} (${formatBytes(zip.size)})`);
+          await uploadViesFileResumable({
+            file: zip,
+            storagePath: zipStoragePath,
+            onProgress: ({ percentage, bytesUploaded, bytesTotal }) => {
+              setBatchUploadProgress(percentage);
+              setBatchUploadStatus(
+                `Upload ZIP ${index + 1}/${zipFiles.length}: ${zip.name} - ${formatBytes(bytesUploaded)} / ${formatBytes(bytesTotal)} (${percentage}%)`,
+              );
+            },
+          });
+        } catch (zipUploadError) {
+          zipStorageFailures.push(
+            `${zip.name}: ${zipUploadError instanceof Error ? zipUploadError.message : "Upload resumable non riuscito"}`,
+          );
           continue;
         }
 
@@ -910,6 +1015,8 @@ const Vies = () => {
       if (finalizeBatchError) throw new Error(`Finalizzazione batch non riuscita: ${finalizeBatchError.message}`);
       batchFinalized = true;
 
+      setBatchUploadProgress(100);
+      setBatchUploadStatus("Upload completato. Batch VIES salvato e job creati.");
       setPersistedBatchId(batchId);
       setLastCreatedPracticeIds(createdPractices?.map((practice) => practice.id) ?? []);
       await refreshBatchMonitor(batchId);
@@ -939,6 +1046,9 @@ const Vies = () => {
       });
     } finally {
       setSavingBatch(false);
+      if (!batchFinalized) {
+        setBatchUploadProgress(0);
+      }
     }
   };
 
@@ -1094,6 +1204,16 @@ const Vies = () => {
                   )}
                   {savingBatch ? "Creazione batch in corso..." : "Prepara batch per orchestratore"}
                 </Button>
+
+                {(savingBatch || batchUploadStatus) && (
+                  <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+                    <div className="flex items-center justify-between gap-3">
+                      <span>{batchUploadStatus ?? "Preparazione batch in corso..."}</span>
+                      <span className="font-mono">{batchUploadProgress}%</span>
+                    </div>
+                    <Progress value={batchUploadProgress} />
+                  </div>
+                )}
 
                 {persistedBatchId && (
                   <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900">
