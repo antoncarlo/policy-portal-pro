@@ -186,6 +186,12 @@ type ViesUploadProgress = {
   percentage: number;
 };
 
+const getTusUploadErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  return "Upload resumable non riuscito.";
+};
+
 const getSupabaseProjectId = () => {
   if (!SUPABASE_PROJECT_URL) throw new Error("URL Supabase non configurato.");
 
@@ -222,9 +228,10 @@ const uploadViesFileResumable = async ({
   await new Promise<void>((resolve, reject) => {
     const upload = new tus.Upload(file, {
       endpoint: `https://${projectId}.storage.supabase.co/storage/v1/upload/resumable`,
-      retryDelays: [0, 3000, 5000, 10000, 20000],
+      retryDelays: [0, 3000, 5000, 10000, 20000, 30000, 60000],
       headers: {
         authorization: `Bearer ${session.access_token}`,
+        "x-upsert": "true",
         ...(SUPABASE_PUBLISHABLE_KEY ? { apikey: SUPABASE_PUBLISHABLE_KEY } : {}),
       },
       uploadDataDuringCreation: true,
@@ -235,6 +242,8 @@ const uploadViesFileResumable = async ({
         contentType: file.type || "application/zip",
         cacheControl: "3600",
       },
+      fingerprint: async () =>
+        `vies:${VIES_STORAGE_BUCKET}:${storagePath}:${file.name}:${file.size}:${file.lastModified}`,
       chunkSize: VIES_RESUMABLE_CHUNK_SIZE,
       onProgress: (bytesUploaded, bytesTotal) => {
         onProgress?.({
@@ -244,7 +253,7 @@ const uploadViesFileResumable = async ({
           percentage: bytesTotal ? Math.round((bytesUploaded / bytesTotal) * 100) : 0,
         });
       },
-      onError: (error) => reject(error),
+      onError: (error) => reject(new Error(getTusUploadErrorMessage(error))),
       onSuccess: () => resolve(),
     });
 
@@ -779,13 +788,19 @@ const Vies = () => {
           });
         } catch (zipUploadError) {
           zipStorageFailures.push(
-            `${zip.name}: ${zipUploadError instanceof Error ? zipUploadError.message : "Upload resumable non riuscito"}`,
+            `${zip.name} (${formatBytes(zip.size)}): ${getTusUploadErrorMessage(zipUploadError)}`,
           );
           continue;
         }
 
         zipStoragePathsByKey.set(zipKey, zipStoragePath);
         zipStoragePathByFileName.set(zip.name, zipStoragePath);
+      }
+
+      if (zipStorageFailures.length) {
+        throw new Error(
+          `Upload ZIP incompleto: ${zipStorageFailures.join(" | ")}. Nessuna pratica VIES è stata creata; riprova dopo aver verificato connessione e dimensione dei file.`,
+        );
       }
 
       const batchCreatedAt = new Date();

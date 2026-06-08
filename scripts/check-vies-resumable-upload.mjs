@@ -25,6 +25,18 @@ if (!/onProgress:\s*\(bytesUploaded, bytesTotal\)/.test(source)) {
   failures.push('L’upload resumable deve esporre avanzamento byte caricati/totali per evitare bottoni apparentemente bloccati.');
 }
 
+if (!source.includes('"x-upsert": "true"')) {
+  failures.push('L’upload TUS deve inviare x-upsert true per evitare conflitti su retry/resume dello stesso oggetto Storage.');
+}
+
+if (!/fingerprint:\s*async \(\) =>[\s\S]*storagePath/.test(source)) {
+  failures.push('La fingerprint TUS deve includere lo storagePath per non riprendere upload precedenti collegati a batch diversi.');
+}
+
+if (!/if \(zipStorageFailures\.length\)[\s\S]*Upload ZIP incompleto/.test(source)) {
+  failures.push('La creazione batch deve fermarsi con errore esplicito se uno ZIP non è stato caricato nello Storage.');
+}
+
 if (/\.upload\(zipStoragePath, zip/.test(source)) {
   failures.push('Gli ZIP nominativi non devono più usare supabase.storage.upload standard: sopra 500MB/5GB è fragile e non resumable.');
 }
@@ -38,4 +50,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('OK: upload VIES usa TUS resumable con progressi e senza upload standard sugli ZIP.');
+console.log('OK: upload VIES usa TUS resumable, fingerprint per storagePath, upsert e blocco sicuro sugli ZIP mancanti.');
