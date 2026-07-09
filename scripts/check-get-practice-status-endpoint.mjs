@@ -195,6 +195,62 @@ expectIncludes(
   'Deve restituire 200 per richieste riuscite',
 );
 
+// --- Campi specifici polizza ---
+expectIncludes(
+  endpoint,
+  'specific_fields',
+  'Deve restituire i campi specifici della polizza (specific_fields)',
+);
+expectIncludes(
+  endpoint,
+  'Dati Specifici Polizza',
+  'Deve estrarre i dati specifici dal separatore nelle notes',
+);
+expectIncludes(
+  endpoint,
+  'extractSpecificFields',
+  'Deve avere la funzione extractSpecificFields per parsing notes',
+);
+
+// --- Documenti obbligatori ---
+expectIncludes(
+  endpoint,
+  'required_documents',
+  'Deve restituire la lista dei documenti obbligatori con stato',
+);
+expectIncludes(
+  endpoint,
+  'REQUIRED_DOCUMENTS_BY_TYPE',
+  'Deve avere la configurazione documenti obbligatori per tipologia',
+);
+expectIncludes(
+  endpoint,
+  'uploaded',
+  'Deve indicare se ogni documento obbligatorio e stato caricato',
+);
+
+// --- Note/Chat bidirezionale ---
+expectIncludes(
+  endpoint,
+  'notes_chat',
+  'Deve restituire le note/chat come array separato',
+);
+expectIncludes(
+  endpoint,
+  "event_type !== 'nota'",
+  'Deve separare gli eventi di tipo nota dalla timeline',
+);
+expectIncludes(
+  endpoint,
+  'profiles',
+  'Deve risolvere i nomi degli autori dalla tabella profiles',
+);
+expectIncludes(
+  endpoint,
+  'authorMap',
+  'Deve usare una mappa autori per risolvere created_by in nomi',
+);
+
 // --- Sicurezza ---
 expectIncludes(
   endpoint,

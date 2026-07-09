@@ -50,6 +50,124 @@ async function logRequest(
 }
 
 // ---------------------------------------------------------------------------
+// Required documents configuration (mirrors frontend config)
+// ---------------------------------------------------------------------------
+
+interface RequiredDocDef {
+  id: string;
+  label: string;
+  description: string;
+  isQuestionnaire: boolean;
+}
+
+const REQUIRED_DOCUMENTS_BY_TYPE: Record<string, RequiredDocDef[]> = {
+  pet: [
+    { id: 'documento_identita', label: "Documento d'Identita Proprietario", description: "Carta d'identita o passaporto", isQuestionnaire: false },
+    { id: 'libretto_sanitario', label: 'Libretto Sanitario o Certificato Microchip', description: "Documento veterinario attestante l'identita dell'animale", isQuestionnaire: false },
+    { id: 'questionario_pet', label: 'Questionario Pet Compilato e Firmato', description: "Questionario sullo stato di salute dell'animale", isQuestionnaire: true },
+  ],
+  car: [
+    { id: 'visura_camerale', label: 'Visura Camerale', description: "Documento ufficiale camerale dell'impresa", isQuestionnaire: false },
+    { id: 'documento_identita', label: "Documento d'Identita Legale Rappresentante", description: "Carta d'identita o passaporto", isQuestionnaire: false },
+    { id: 'preventivo_o_contratto', label: 'Preventivo o Contratto Lavori', description: "Documento che attesta l'importo e la natura dei lavori", isQuestionnaire: false },
+    { id: 'questionario_car', label: 'Questionario CAR Compilato e Firmato', description: 'Questionario tutti i rischi della costruzione', isQuestionnaire: true },
+  ],
+  casa: [
+    { id: 'documento_identita', label: "Documento d'Identita", description: "Carta d'identita o passaporto", isQuestionnaire: false },
+    { id: 'visura_catastale', label: 'Visura Catastale', description: "Visura dell'immobile da assicurare", isQuestionnaire: false },
+    { id: 'questionario_globale_fabbricati', label: 'Questionario Globale Fabbricati Compilato e Firmato', description: 'Questionario per fabbricati e condomini', isQuestionnaire: true },
+  ],
+  fidejussioni: [
+    { id: 'visura_camerale', label: 'Visura Camerale', description: "Documento ufficiale camerale dell'impresa", isQuestionnaire: false },
+    { id: 'documento_identita', label: "Documento d'Identita Legale Rappresentante", description: "Carta d'identita o passaporto", isQuestionnaire: false },
+    { id: 'bilancio_ultimo_anno', label: 'Bilancio Ultimo Anno', description: 'Ultimo bilancio approvato', isQuestionnaire: false },
+    { id: 'atto_gara', label: 'Atto di Gara / Bando', description: 'Documentazione della gara o del contratto da garantire', isQuestionnaire: false },
+  ],
+  responsabilita_civile: [
+    { id: 'visura_camerale', label: 'Visura Camerale', description: 'Documento ufficiale camerale', isQuestionnaire: false },
+    { id: 'documento_identita', label: "Documento d'Identita", description: "Carta d'identita o passaporto", isQuestionnaire: false },
+    { id: 'questionario_rc', label: 'Questionario RC Compilato e Firmato', description: 'Questionario di valutazione rischio RC', isQuestionnaire: true },
+  ],
+  fotovoltaico: [
+    { id: 'visura_camerale', label: "Visura Camerale o Documento d'Identita", description: 'Documento identificativo del richiedente', isQuestionnaire: false },
+    { id: 'progetto_impianto', label: "Progetto dell'Impianto", description: 'Documentazione tecnica del progetto fotovoltaico', isQuestionnaire: false },
+    { id: 'autorizzazione', label: 'Autorizzazione/Permesso', description: "Autorizzazione all'installazione", isQuestionnaire: false },
+  ],
+  catastrofali: [
+    { id: 'documento_identita', label: "Documento d'Identita", description: "Carta d'identita o passaporto", isQuestionnaire: false },
+    { id: 'visura_catastale', label: 'Visura Catastale', description: "Visura dell'immobile da assicurare", isQuestionnaire: false },
+    { id: 'perizia_immobile', label: 'Perizia o Planimetria Immobile', description: "Documento attestante caratteristiche e valore dell'immobile", isQuestionnaire: false },
+    { id: 'questionario_rischi_catastrofali', label: 'Questionario Rischi Catastrofali Compilato e Firmato', description: 'Questionario per terremoto, alluvione e frana', isQuestionnaire: true },
+  ],
+  azienda: [
+    { id: 'visura_camerale', label: 'Visura Camerale', description: "Documento ufficiale camerale dell'impresa", isQuestionnaire: false },
+    { id: 'documento_identita', label: "Documento d'Identita Legale Rappresentante", description: "Carta d'identita o passaporto", isQuestionnaire: false },
+    { id: 'bilancio', label: 'Bilancio o Dichiarazione dei Redditi', description: 'Ultimo bilancio approvato', isQuestionnaire: false },
+    { id: 'questionario_rischi_catastrofali_azienda', label: 'Questionario Rischi Catastrofali Azienda', description: 'Questionario rischi catastrofali per linea aziende', isQuestionnaire: true },
+  ],
+  postuma_decennale: [
+    { id: 'visura_camerale', label: 'Visura Camerale', description: "Documento ufficiale camerale dell'impresa", isQuestionnaire: false },
+    { id: 'documento_identita', label: "Documento d'Identita Legale Rappresentante", description: "Carta d'identita o passaporto", isQuestionnaire: false },
+    { id: 'collaudo_statico', label: 'Collaudo Statico', description: "Certificato di collaudo statico dell'opera", isQuestionnaire: false },
+    { id: 'progetto_esecutivo', label: 'Progetto Esecutivo', description: "Progetto esecutivo dell'opera", isQuestionnaire: false },
+    { id: 'questionario_decennale_postuma', label: 'Questionario Decennale Postuma', description: "Questionario per l'assicurazione dell'immobile", isQuestionnaire: true },
+  ],
+  all_risk: [
+    { id: 'visura_camerale', label: "Visura Camerale o Documento d'Identita", description: 'Documento identificativo del richiedente', isQuestionnaire: false },
+    { id: 'documento_identita', label: "Documento d'Identita", description: "Carta d'identita o passaporto", isQuestionnaire: false },
+    { id: 'lista_beni', label: 'Lista Beni/Macchinari', description: 'Elenco dettagliato dei beni da assicurare con valori', isQuestionnaire: false },
+    { id: 'questionario_car_postuma_l210', label: 'Questionario Tutti i Rischi / CAR L210', description: 'Questionario tutti i rischi della costruzione', isQuestionnaire: true },
+  ],
+  risparmio: [
+    { id: 'documento_identita', label: "Documento d'Identita", description: "Carta d'identita o passaporto", isQuestionnaire: false },
+    { id: 'codice_fiscale', label: 'Tessera Sanitaria / Codice Fiscale', description: 'Documento con codice fiscale del contraente', isQuestionnaire: false },
+    { id: 'questionario_salute_risparmio', label: 'Questionario Sanitario Compilato e Firmato', description: 'Questionario sullo stato di salute del contraente', isQuestionnaire: true },
+  ],
+  salute: [
+    { id: 'documento_identita', label: "Documento d'Identita", description: "Carta d'identita o passaporto", isQuestionnaire: false },
+    { id: 'codice_fiscale', label: 'Tessera Sanitaria / Codice Fiscale', description: 'Documento con codice fiscale del contraente', isQuestionnaire: false },
+    { id: 'questionario_sanitario', label: 'Questionario Sanitario Compilato e Firmato', description: 'Questionario sullo stato di salute', isQuestionnaire: true },
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// Parse specific fields from notes
+// ---------------------------------------------------------------------------
+
+function extractSpecificFields(notes: string | null): { cleanNotes: string | null; specificFields: Record<string, unknown> | null } {
+  if (!notes) return { cleanNotes: null, specificFields: null };
+
+  const separator = '--- Dati Specifici Polizza ---';
+  const sepIndex = notes.indexOf(separator);
+
+  if (sepIndex === -1) {
+    let clean = notes;
+    if (clean.startsWith('idempotency:')) {
+      const newlineIdx = clean.indexOf('\n');
+      clean = newlineIdx >= 0 ? clean.slice(newlineIdx + 1).trim() : '';
+    }
+    return { cleanNotes: clean || null, specificFields: null };
+  }
+
+  let userNotes = notes.slice(0, sepIndex).trim();
+  const jsonPart = notes.slice(sepIndex + separator.length).trim();
+
+  if (userNotes.startsWith('idempotency:')) {
+    const newlineIdx = userNotes.indexOf('\n');
+    userNotes = newlineIdx >= 0 ? userNotes.slice(newlineIdx + 1).trim() : '';
+  }
+
+  let specificFields: Record<string, unknown> | null = null;
+  try {
+    specificFields = JSON.parse(jsonPart);
+  } catch {
+    userNotes = userNotes ? `${userNotes}\n${jsonPart}` : jsonPart;
+  }
+
+  return { cleanNotes: userNotes || null, specificFields };
+}
+
+// ---------------------------------------------------------------------------
 // Main handler
 // ---------------------------------------------------------------------------
 
@@ -92,10 +210,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const apiKeyMasked = `${apiKey.slice(0, 4)}****`;
   let resolvedKeyId: string | undefined;
+  let keyRecord: { id: string; is_active: boolean; expires_at: string | null } | null = null;
 
   // Validate API key against DB
   const keyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
-  const { data: keyRecord, error: keyLookupError } = await supabaseAdmin
+  const { data: keyData, error: keyLookupError } = await supabaseAdmin
     .from('api_keys')
     .select('id, is_active, expires_at')
     .eq('key_hash', keyHash)
@@ -106,7 +225,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(503).json({ error: 'Servizio temporaneamente non disponibile.' });
   }
 
-  if (!keyRecord) {
+  if (!keyData) {
     // Legacy fallback
     const legacyKey = process.env.PORTAL_API_KEY;
     const legacyMatch = legacyKey
@@ -118,6 +237,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : false;
     if (!legacyMatch) return res.status(401).json({ error: 'API Key non valida.' });
   } else {
+    keyRecord = keyData;
     if (!keyRecord.is_active) return res.status(401).json({ error: 'API Key disattivata.' });
     if (keyRecord.expires_at && new Date(keyRecord.expires_at) < new Date()) {
       return res.status(401).json({ error: 'API Key scaduta.' });
@@ -144,14 +264,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     policy_number, policy_start_date, policy_end_date,
     premium_net, premium_taxable, premium_taxes, premium_gross,
     commission_percentage, commission_amount,
-    notes, api_key_id, created_at, updated_at
+    notes, api_key_id, pet_microchip, owner_tax_code,
+    created_at, updated_at
   `.replace(/\s+/g, ' ').trim();
 
-  const { data: practice, error: practiceError } = await (
-    practice_id
-      ? supabaseAdmin.from('practices').select(practiceSelect).eq('id', practice_id)
-      : supabaseAdmin.from('practices').select(practiceSelect).eq('practice_number', practice_number as string)
-  ).maybeSingle();
+  const practiceQuery = practice_id
+    ? supabaseAdmin.from('practices').select(practiceSelect).eq('id', practice_id)
+    : supabaseAdmin.from('practices').select(practiceSelect).eq('practice_number', practice_number as string);
+
+  const { data: practice, error: practiceError } = await practiceQuery.maybeSingle();
 
   if (practiceError) {
     console.error('practice lookup failed:', practiceError.message);
@@ -184,19 +305,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   } else {
     if (practice.api_key_id !== null) {
-      return res.status(403).json({ error: 'Accesso negato: questa pratica è gestita tramite chiave API dedicata.' });
+      return res.status(403).json({ error: 'Accesso negato: questa pratica e gestita tramite chiave API dedicata.' });
     }
   }
 
-  // Fetch practice events (timeline)
+  // Fetch practice events (timeline + notes/chat)
   const { data: events } = await supabaseAdmin
     .from('practice_events')
-    .select('event_type, description, created_at')
+    .select('event_type, description, created_by, created_at')
     .eq('practice_id', practice.id)
     .order('created_at', { ascending: true })
-    .limit(50);
+    .limit(200);
 
-  // Fetch documents metadata (no signed URLs here, use get-practice-documents for downloads)
+  // Resolve author names for events
+  const authorIds = [...new Set((events ?? []).map(e => e.created_by).filter(Boolean))];
+  const authorMap: Record<string, string> = {};
+  if (authorIds.length > 0) {
+    const { data: profiles } = await supabaseAdmin
+      .from('profiles')
+      .select('id, full_name, email')
+      .in('id', authorIds);
+    if (profiles) {
+      for (const p of profiles) {
+        authorMap[p.id] = p.full_name || p.email || p.id;
+      }
+    }
+  }
+
+  // Fetch documents metadata
   const { data: docs } = await supabaseAdmin
     .from('practice_documents')
     .select('id, file_name, file_size, mime_type, document_type, created_at')
@@ -204,7 +340,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .order('created_at', { ascending: false })
     .limit(100);
 
-  // Build response — expose financial data as "quote/preventivo" info
+  // Extract specific fields from notes
+  const { cleanNotes, specificFields } = extractSpecificFields(practice.notes);
+
+  // Build quote/financial data
   const quote = (practice.premium_gross || practice.premium_net) ? {
     premium_net: practice.premium_net,
     premium_taxable: practice.premium_taxable,
@@ -214,12 +353,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     commission_amount: practice.commission_amount,
   } : null;
 
-  // Strip internal fields from notes (remove idempotency prefix)
-  let cleanNotes = practice.notes ?? null;
-  if (cleanNotes && cleanNotes.startsWith('idempotency:')) {
-    const newlineIdx = cleanNotes.indexOf('\n');
-    cleanNotes = newlineIdx >= 0 ? cleanNotes.slice(newlineIdx + 1).trim() || null : null;
-  }
+  // Build required documents status
+  const practiceType = practice.practice_type as string;
+  const requiredDocsDef = REQUIRED_DOCUMENTS_BY_TYPE[practiceType] || [];
+  const uploadedDocTypes = new Set((docs ?? []).map(d => d.document_type).filter(Boolean));
+  const requiredDocuments = requiredDocsDef.map(rd => ({
+    id: rd.id,
+    label: rd.label,
+    description: rd.description,
+    is_questionnaire: rd.isQuestionnaire,
+    uploaded: uploadedDocTypes.has(rd.id),
+  }));
+
+  // Separate events into timeline and notes/chat
+  const timeline = (events ?? [])
+    .filter(e => e.event_type !== 'nota')
+    .map(e => ({
+      event_type: e.event_type,
+      description: e.description,
+      author: authorMap[e.created_by] || e.created_by,
+      created_at: e.created_at,
+    }));
+
+  const notes_chat = (events ?? [])
+    .filter(e => e.event_type === 'nota')
+    .map(e => ({
+      message: e.description,
+      author: authorMap[e.created_by] || e.created_by,
+      created_at: e.created_at,
+    }));
 
   // Log success
   await logRequest(supabaseAdmin, {
@@ -245,8 +407,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       start_date: practice.policy_start_date,
       end_date: practice.policy_end_date,
     },
+    specific_fields: specificFields,
+    pet_microchip: practice.pet_microchip,
+    owner_tax_code: practice.owner_tax_code,
     quote,
     notes: cleanNotes,
+    notes_chat,
+    required_documents: requiredDocuments,
     documents_count: docs?.length ?? 0,
     documents: (docs ?? []).map(d => ({
       id: d.id,
@@ -256,11 +423,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       document_type: d.document_type,
       created_at: d.created_at,
     })),
-    events: (events ?? []).map(e => ({
-      event_type: e.event_type,
-      description: e.description,
-      created_at: e.created_at,
-    })),
+    timeline,
     created_at: practice.created_at,
     updated_at: practice.updated_at,
   });
