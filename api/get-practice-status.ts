@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
   daysBetween,
+  normalizeDocumentType,
   practiceBelongsToTenant,
   prepareGetEndpoint,
   queryString,
@@ -189,7 +190,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Documenti obbligatori: stato caricato/mancante
   const practiceType = practice.practice_type as string;
   const requiredDocsDef = REQUIRED_DOCUMENTS_BY_TYPE[practiceType] || [];
-  const uploadedDocTypes = new Set((docs ?? []).map(d => d.document_type).filter(Boolean));
+  // document_type normalizzato: accetta anche le keyword storiche del webhook
+  // (es. libretto_sanitario_o_microchip -> libretto_sanitario)
+  const uploadedDocTypes = new Set(
+    (docs ?? []).map(d => normalizeDocumentType(d.document_type)).filter((t): t is string => Boolean(t))
+  );
   const requiredDocuments = requiredDocsDef.map(rd => ({
     id: rd.id,
     label: rd.label,

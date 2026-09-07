@@ -371,8 +371,11 @@ export const UploadForm = () => {
           notes: finalNotes || null,
           user_id: session.user.id,
           client_id: clientId,
-          owner_tax_code: ownerTaxCode?.trim() || null,
-          pet_microchip: petMicrochip?.trim() || null,
+          // Se non presenti come campi dedicati, li ricaviamo dai campi dinamici
+          // della tipologia (es. Pet: pet_microchip), cosi' le colonne restano
+          // valorizzate e leggibili via API.
+          owner_tax_code: (ownerTaxCode?.trim() || String(dynamicFields.owner_tax_code ?? dynamicFields.tax_code ?? "").trim() || null)?.toUpperCase().slice(0, 16) ?? null,
+          pet_microchip: (petMicrochip?.trim() || String(dynamicFields.pet_microchip ?? "").replace(/\s+/g, "").trim() || null)?.slice(0, 15) ?? null,
           ...financialData,
         }])
         .select()
