@@ -1,10 +1,10 @@
 # Guida all'Integrazione API - Policy Portal Pro
 
-**Versione:** 2.5
+**Versione:** 2.6
 **Data:** Settembre 2026
 **Autore:** Anton Carlo Santoro
 
-Questa guida documenta tutti gli endpoint disponibili per l'integrazione con Policy Portal Pro: creazione pratica con **tutti i dati della quotazione**, stato completo della pratica con **riepilogo**, documenti, messaggistica e i nuovi endpoint di **dashboard** (elenco pratiche, scadenzario, report produzione, amministrazione).
+Questa guida documenta tutti gli endpoint disponibili per l'integrazione con Policy Portal Pro: **preventivatore Pet** (catalogo coperture e calcolo), creazione pratica con **tutti i dati della quotazione**, **Ricapitolo Richiesta** generato automaticamente (ZIP con preventivo PDF e documentazione contrattuale), stato completo della pratica con **riepilogo**, documenti, messaggistica e gli endpoint di **dashboard** (elenco pratiche, scadenzario, report produzione, amministrazione).
 
 ---
 
@@ -33,6 +33,16 @@ Questa guida documenta tutti gli endpoint disponibili per l'integrazione con Pol
 | GET | `/api/get-administration` | Amministrazione: premi, provvigioni, incassi |
 | GET | `/api/pet-quote-catalog` | Preventivatore Pet: catalogo coperture, premi, piani e regole |
 | POST | `/api/pet-quote` | Preventivatore Pet: calcolo del preventivo (e anteprima PDF) |
+
+## Flusso di Integrazione Consigliato
+
+1. **Preventivo (solo Pet):** `GET /api/pet-quote-catalog` una volta (da mettere in cache), poi `POST /api/pet-quote` ad ogni modifica della selezione dell'utente per mostrare premio annuale, rata mensile e garanzie incluse.
+2. **Creazione pratica:** `POST /api/webhook-receive-policy` con i dati del cliente, `specific_fields` (per Pet: l'oggetto `specific_fields` restituito dal preventivo piu' i dati dell'animale) e i documenti obbligatori in Base64. Usare sempre una idempotency key.
+3. **Ricapitolo Richiesta:** per Pet il portale allega automaticamente lo ZIP con il preventivo PDF e la documentazione contrattuale; e' scaricabile subito da `GET /api/get-practice-documents`.
+4. **Monitoraggio:** `GET /api/get-practice-status` per stato, documenti mancanti, chat e timeline; `POST /api/add-practice-note` per scrivere all'operatore.
+5. **Dashboard del partner:** `get-practices`, `get-expiries`, `get-reports`, `get-administration`.
+
+Lo **stato della pratica** (`status`) viene modificato esclusivamente dagli amministratori del portale: il partner lo legge via API ma non puo' cambiarlo.
 
 ---
 
@@ -316,9 +326,10 @@ curl -X GET "https://policy-portal-pro.vercel.app/api/get-practice-status?practi
   ],
   "missing_documents": [],
   "documents_complete": true,
-  "documents_count": 2,
+  "documents_count": 3,
   "documents": [
-    { "id": "doc-uuid", "file_name": "documento_identita_rossi.pdf", "file_size": 102400, "mime_type": "application/pdf", "document_type": "documento_identita", "created_at": "2026-09-07T10:00:00Z" }
+    { "id": "doc-uuid", "file_name": "documento_identita_rossi.pdf", "file_size": 102400, "mime_type": "application/pdf", "document_type": "documento_identita", "created_at": "2026-09-07T10:00:00Z" },
+    { "id": "doc-uuid-3", "file_name": "Ricapitolo Richiesta per Fido.zip", "file_size": 898152, "mime_type": "application/zip", "document_type": "preventivo_pet", "created_at": "2026-09-07T10:00:05Z" }
   ],
   "timeline": [
     { "event_type": "created", "description": "Pratica creata", "author": "Sistema", "created_at": "2026-09-07T10:00:00Z" }
@@ -336,6 +347,8 @@ curl -X GET "https://policy-portal-pro.vercel.app/api/get-practice-status?practi
 - `notes`: appunti liberi (non contiene i dati della quotazione).
 - `notes_chat`: messaggi scambiati tra partner e operatore.
 - `timeline`: eventi della pratica (creazione, cambi stato, documenti).
+- `documents`: tutti gli allegati, compreso il Ricapitolo Richiesta (`document_type = preventivo_pet`, ZIP) generato dal portale per le pratiche Pet. Il documento generato non rientra tra i documenti obbligatori.
+- `quote`: e' `null` finche' non e' valorizzato almeno un premio.
 
 ---
 
@@ -395,11 +408,23 @@ Restituisce l'elenco dei documenti allegati con URL pre-firmati temporanei (vali
       "created_at": "2026-09-07T10:00:00Z",
       "download_url": "https://[project].supabase.co/storage/v1/object/sign/...",
       "expires_at": "2026-09-07T11:00:00Z"
+    },
+    {
+      "id": "doc-uuid-3",
+      "file_name": "Ricapitolo Richiesta per Fido.zip",
+      "file_size": 898152,
+      "mime_type": "application/zip",
+      "document_type": "preventivo_pet",
+      "created_at": "2026-09-07T10:00:05Z",
+      "download_url": "https://[project].supabase.co/storage/v1/object/sign/...",
+      "expires_at": "2026-09-07T11:00:00Z"
     }
   ],
-  "count": 1
+  "count": 2
 }
 ```
+
+Il Ricapitolo Richiesta (`document_type = preventivo_pet`) e' uno ZIP che contiene `Ricapitolo Richiesta per <nome>.pdf`, `Helpet-Condizioni-Generali-CGA.pdf`, `Helpet-DIP-Aggiuntivo-Danni.pdf` e un `LEGGIMI.txt`. Gli URL pre-firmati scadono dopo 1 ora: richiederli di nuovo quando servono, senza memorizzarli.
 
 ---
 
@@ -747,6 +772,8 @@ I piani predefiniti (`plans`) sono le combinazioni proposte dal portale per cate
 }
 ```
 
+Con `include_pdf: true` il campo `pdf` contiene `{ "file_name": "Ricapitolo Richiesta per Fido.pdf", "mime_type": "application/pdf", "content_base64": "JVBERi0..." }`: e' un'anteprima del solo PDF, non viene salvata e non include la documentazione contrattuale (che e' invece nello ZIP allegato alla pratica).
+
 `guarantees` e' la tabella "Coperture incluse nel preventivo" (SI/NO) mostrata nella mail e nel PDF. `specific_fields` va copiato cosi' com'e' nel body del webhook di creazione pratica, aggiungendo i dati dell'animale (`pet_name`, `pet_species`, `pet_breed`, ...).
 
 **Errori (422 `pet_quote_invalid`):** categoria animale mancante, copertura non a catalogo (`unknown_coverages`), piano non disponibile per la categoria, piu' di una copertura per categoria, nessuna copertura tra rsv e rct.
@@ -767,6 +794,8 @@ Il webhook accetta direttamente anche `plan_id` oppure `rsv` / `rct` / `tutela_l
 | `approvata` | La pratica e' stata approvata dalla compagnia |
 | `rifiutata` | La pratica non ha superato l'analisi |
 | `completata` | La pratica e' stata emessa e conclusa |
+
+Lo stato viene aggiornato solo dagli amministratori del portale; ogni cambio compare nella `timeline`.
 
 ### Stati Finanziari (`financial_status`)
 | Valore | Descrizione |
@@ -798,10 +827,14 @@ I campi specifici vengono inviati in creazione nell'oggetto `specific_fields` e 
 | `pet_previous_diseases` | string | No | Malattie pregresse |
 | `animal_type` | string | Consigliato | Categoria tariffaria: `gatti`, `cani_0_20kg`, `cani_oltre_20kg`. Se assente viene dedotta da specie e peso |
 | `coverage_type` | string | Si | `rct`, `rsv`, `rct_rsv`, `completa` |
-| `selected_coverages` | string[] | Consigliato | Id delle coperture del preventivo (vedi catalogo sotto) |
-| `total_annual` | number | Consigliato | Premio annuale del preventivo (€) |
-| `total_monthly` | number | No | Premio mensile del preventivo (€) |
+| `selected_coverages` | string[] | Consigliato | Id delle coperture del preventivo (vedi catalogo sotto). L'assistenza standard viene aggiunta se assente |
+| `plan_id` | string | Alternativa | Id di un piano predefinito del catalogo (es. `cani_0_20_smart`): il portale espande le coperture e calcola i totali |
+| `rsv`, `rct`, `tutela_legale` | string, string, boolean | Alternativa | Scelta strutturata per categoria (es. `rsv: "rsv_gold_1000"`, `rct: "rct_100k"`, `tutela_legale: true`) |
+| `total_annual` | number | Calcolato | Premio annuale del preventivo (€). Se assente viene calcolato dalle coperture |
+| `total_monthly` | number | Calcolato | Premio mensile del preventivo (€). Se assente viene calcolato (annuale / 12) |
 | `client_address` | string | No | Indirizzo del proprietario |
+
+Se e' presente una selezione (`selected_coverages`, `plan_id` oppure `rsv`/`rct`/`tutela_legale`) il portale la valida con le regole del preventivatore (almeno una tra RSV e RCT, al massimo una copertura per categoria) e ricalcola `coverage_type`, `selected_coverages`, `total_annual` e `total_monthly`; una selezione non valida restituisce 422 `pet_quote_invalid`. Inviare solo `coverage_type` (senza coperture) e' accettato ma non consente di produrre premio e Ricapitolo Richiesta.
 
 #### Catalogo coperture Pet (`selected_coverages`)
 | Id | Copertura | Categoria | Premio annuo |
@@ -993,6 +1026,9 @@ L'array `required_documents` di `get-practice-status` indica per ogni tipologia 
 | Aggiornamento dati finanziari | Oggetto `quote` aggiornato |
 | Aggiornamento dati polizza (numero, date) | Oggetto `policy` aggiornato; la scadenza alimenta `get-expiries` |
 | Modifica delle note | Campo `notes` aggiornato (i dati della quotazione restano nel riepilogo) |
+| Generazione / rigenerazione del Ricapitolo Richiesta (Pet) | Nuovo documento `preventivo_pet` in `documents` (`get-practice-status`, `get-practice-documents`) |
+
+Il cambio di `status` e' riservato agli amministratori del portale: non esiste un endpoint API per modificarlo.
 
 ### Azioni visibili all'operatore nel portale
 
@@ -1000,6 +1036,7 @@ L'array `required_documents` di `get-practice-status` indica per ogni tipologia 
 |----------------|------------------------|
 | Creazione pratica via `POST /api/webhook-receive-policy` | Nuova pratica con **Riepilogo Pratica** completo (contraente, polizza, animale, coperture, premio) |
 | Invio nota via `POST /api/add-practice-note` | Nella timeline della pratica con il nome indicato in `author_name` |
+| Creazione pratica Pet con coperture | Card "Ricapitolo Richiesta" e ZIP tra i documenti della pratica |
 
 ---
 
@@ -1014,7 +1051,7 @@ L'array `required_documents` di `get-practice-status` indica per ogni tipologia 
 | 403 | Accesso negato | La pratica non appartiene alla propria API Key |
 | 404 | Non trovato | Pratica non esistente |
 | 405 | Metodo non consentito | Metodo HTTP errato |
-| 422 | Validazione fallita | Campi obbligatori mancanti, tipologia non valida, `specific_fields` non oggetto, importi non numerici, documenti mancanti, parametri di filtro non validi |
+| 422 | Validazione fallita | Campi obbligatori mancanti, tipologia non valida, `specific_fields` non oggetto, importi non numerici, documenti mancanti (`missing_required_documents`, con `missing`), selezione coperture Pet non valida (`pet_quote_invalid`, con `message`), parametri di filtro non validi |
 | 429 | Troppe richieste | Rate limit superato (100 req/min). Rispettare header `Retry-After` |
 | 500 | Errore interno | Errore durante il salvataggio (ritentare con la stessa idempotency key) |
 | 503 | Servizio non disponibile | Errore temporaneo di connessione al database |
@@ -1028,6 +1065,10 @@ L'array `required_documents` di `get-practice-status` indica per ogni tipologia 
 - Il questionario Pet (`questionario_pet`) e' stato rimosso: per Pet sono richiesti solo documento d'identita' e libretto sanitario/microchip.
 - `get-practice-status` restituisce i nuovi campi `summary`, `pet`, `client.tax_code`, `policy.days_until_expiry`, `payment`, `missing_documents`, `documents_complete`.
 - Nuovi endpoint: `get-practices`, `get-expiries`, `get-reports`, `get-administration`.
+
+## Note versione 2.6
+
+- Revisione completa del documento: flusso di integrazione consigliato, Ricapitolo Richiesta negli esempi di `get-practice-status` e `get-practice-documents`, campi `plan_id` / `rsv` / `rct` / `tutela_legale` nella tabella Pet, struttura del campo `pdf` di `pet-quote`, codici 422 dettagliati, nota sullo stato pratica riservato agli amministratori.
 
 ## Note versione 2.5
 
