@@ -2,18 +2,17 @@ import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, FileText, PawPrint } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { buildPetSummary, extractNotesSections } from "@/lib/practiceSummary";
-import { PET_QUOTE_DOCUMENT_TYPE, canGeneratePetQuote, generatePetQuotePdf, petQuotePdfToBytes } from "@/lib/petQuotePdf";
+import { canGeneratePetQuote, generatePetQuotePdf, petQuotePdfToBytes } from "@/lib/petQuotePdf";
 import {
   PET_QUOTE_ATTACHMENTS,
   PET_QUOTE_ZIP_MIME_TYPE,
-  buildPetQuoteReadme,
   buildPetQuoteZip,
   buildPetQuoteZipFileName,
   loadPetQuoteAttachments,
 } from "@/lib/petQuoteBundle";
+import { requestPetQuoteDocument } from "@/lib/petQuoteClient";
 
 interface PetQuoteDocumentCardProps {
   practice: {
@@ -65,7 +64,6 @@ export const PetQuoteDocumentCard = ({ practice, onDocumentCreated }: PetQuoteDo
       petName: pet.name,
       quotePdf: petQuotePdfToBytes(doc),
       attachments,
-      readme: buildPetQuoteReadme(pet.name, attachments),
     });
   };
 
@@ -74,7 +72,7 @@ export const PetQuoteDocumentCard = ({ practice, onDocumentCreated }: PetQuoteDo
     try {
       const bytes = await buildZipBytes();
       if (!bytes) return;
-      const url = URL.createObjectURL(new Blob([bytes], { type: PET_QUOTE_ZIP_MIME_TYPE }));
+      const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: PET_QUOTE_ZIP_MIME_TYPE }));
       const a = document.createElement("a");
       a.href = url;
       a.download = fileName;
@@ -88,35 +86,15 @@ export const PetQuoteDocumentCard = ({ practice, onDocumentCreated }: PetQuoteDo
   const handleAttach = async () => {
     setWorking(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Non autenticato");
-      const bytes = await buildZipBytes();
-      if (!bytes) throw new Error("Dati del preventivo non disponibili");
-
-      const storagePath = `${practice.id}/${Date.now()}-ricapitolo-richiesta-pet.zip`;
-      const { error: uploadError } = await supabase.storage
-        .from("practice-documents")
-        .upload(storagePath, new Blob([bytes], { type: PET_QUOTE_ZIP_MIME_TYPE }), { contentType: PET_QUOTE_ZIP_MIME_TYPE });
-      if (uploadError) throw uploadError;
-
-      const { error: insertError } = await supabase.from("practice_documents").insert({
-        practice_id: practice.id,
-        file_name: fileName,
-        file_path: storagePath,
-        file_size: bytes.length,
-        mime_type: PET_QUOTE_ZIP_MIME_TYPE,
-        uploaded_by: session.user.id,
-        document_type: PET_QUOTE_DOCUMENT_TYPE,
-      });
-      if (insertError) throw insertError;
-
-      toast({ title: "Ricapitolo Richiesta allegato", description: `${fileName} è ora disponibile tra i documenti della pratica.` });
+      // Generazione lato server: il browser invia solo la richiesta
+      const result = await requestPetQuoteDocument(practice.id);
+      toast({ title: "Ricapitolo Richiesta allegato", description: `${result.file_name} è ora disponibile tra i documenti della pratica.` });
       onDocumentCreated?.();
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore generazione preventivo",
-        description: error instanceof Error ? error.message : "Non è stato possibile generare il PDF.",
+        description: error instanceof Error ? error.message : "Non è stato possibile generare il pacchetto.",
       });
     } finally {
       setWorking(false);

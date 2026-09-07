@@ -150,13 +150,22 @@ export const PracticesFilters = ({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tutti i tipi</SelectItem>
-                <SelectItem value="auto">Auto</SelectItem>
+                <SelectItem value="pet">Pet</SelectItem>
+                <SelectItem value="car">CAR</SelectItem>
                 <SelectItem value="casa">Casa</SelectItem>
-                <SelectItem value="vita">Vita</SelectItem>
                 <SelectItem value="salute">Salute</SelectItem>
-                <SelectItem value="responsabilita">Responsabilità Civile</SelectItem>
                 <SelectItem value="fidejussioni">Fidejussioni</SelectItem>
-                    <SelectItem value="vies">VIES</SelectItem>
+                <SelectItem value="postuma_decennale">Postuma Decennale</SelectItem>
+                <SelectItem value="all_risk">All Risk</SelectItem>
+                <SelectItem value="responsabilita_civile">Responsabilità Civile</SelectItem>
+                <SelectItem value="fotovoltaico">Fotovoltaico</SelectItem>
+                <SelectItem value="catastrofali">Catastrofali</SelectItem>
+                <SelectItem value="azienda">Azienda</SelectItem>
+                <SelectItem value="risparmio">Risparmio</SelectItem>
+                <SelectItem value="vies">VIES</SelectItem>
+                <SelectItem value="auto">Auto</SelectItem>
+                <SelectItem value="vita">Vita</SelectItem>
+                <SelectItem value="responsabilita">Responsabilità (storico)</SelectItem>
                 <SelectItem value="altro">Altro</SelectItem>
               </SelectContent>
             </Select>

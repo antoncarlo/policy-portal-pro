@@ -15,6 +15,7 @@ import { Eye, Download, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import type { Enums } from "@/integrations/supabase/types";
 import { PracticesExport } from "./PracticesExport";
 import { PracticeFilters } from "./PracticesFilters";
 import {
@@ -35,6 +36,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { PRACTICE_TYPE_LABELS } from "@/lib/practiceSummary";
 
 interface PracticesTableProps {
   searchQuery: string;
@@ -42,7 +44,7 @@ interface PracticesTableProps {
 }
 
 type PracticeStatus = "in_lavorazione" | "in_attesa" | "approvata" | "rifiutata" | "completata";
-type PracticeType = "auto" | "casa" | "vita" | "salute" | "responsabilita" | "fidejussioni" | "vies" | "altro";
+type PracticeType = string;
 
 interface Practice {
   id: string;
@@ -133,7 +135,7 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
 
     // Apply filters
     if (filters.practiceType !== "all") {
-      query = query.eq("practice_type", filters.practiceType as PracticeType);
+      query = query.eq("practice_type", filters.practiceType as Enums<"practice_type">);
     }
 
     if (filters.status !== "all") {
@@ -278,19 +280,7 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
     return labels[status];
   };
 
-  const getPracticeTypeLabel = (type: PracticeType) => {
-    const labels: Record<PracticeType, string> = {
-      auto: "Auto",
-      casa: "Casa",
-      vita: "Vita",
-      salute: "Salute",
-      responsabilita: "Responsabilità Civile",
-      fidejussioni: "Fidejussioni",
-      vies: "VIES",
-      altro: "Altro",
-    };
-    return labels[type];
-  };
+  const getPracticeTypeLabel = (type: PracticeType) => PRACTICE_TYPE_LABELS[type] ?? type;
 
   const filteredPractices = practices.filter((practice) => {
     const query = searchQuery.toLowerCase();

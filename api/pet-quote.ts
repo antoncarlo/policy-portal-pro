@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { prepareGetEndpoint } from './_lib/partner-api.js';
+import { checkRateLimit, createAdminClient, getClientIp, prepareGetEndpoint } from './_lib/partner-api.js';
+import { attachPetQuoteDocument, type PetQuotePracticeRow } from './_lib/pet-quote-document.js';
 import { buildPetQuoteCatalog, computePetQuote, type PetQuoteRequest } from '../src/lib/petQuoteEngine.js';
 import { buildPetSummary } from '../src/lib/practiceSummary.js';
 import { buildPetQuoteFileName, generatePetQuotePdf, petQuotePdfToBytes } from '../src/lib/petQuotePdf.js';
@@ -17,8 +18,17 @@ import { buildPetQuoteFileName, generatePetQuotePdf, petQuotePdfToBytes } from '
  * Richiesta" in base64 (anteprima, non salvato).
  * Restituisce coperture con premi, totale annuale/mensile, tabella garanzie e
  * l'oggetto `specific_fields` pronto per il webhook di creazione pratica.
+ *
+ * POST /api/pet-quote con { action: "attach", practice_id } e header
+ * Authorization: Bearer <access token Supabase dell'utente del portale>:
+ * genera lato server il Ricapitolo Richiesta (ZIP) e lo allega alla pratica.
+ * Consentito al proprietario della pratica e agli amministratori.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method === 'POST' && (req.body as Record<string, unknown> | undefined)?.action === 'attach') {
+    return handleAttach(req, res);
+  }
+
   if (req.method === 'GET') {
     const catalogApi = await prepareGetEndpoint(req, res, '/api/pet-quote-catalog', 'GET');
     if (!catalogApi) return;
@@ -73,4 +83,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ...quote,
     pdf,
   });
+}
+
+async function handleAttach(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+
+  const { allowed, retryAfter } = checkRateLimit(getClientIp(req));
+  if (!allowed) {
+    res.setHeader('Retry-After', retryAfter.toString());
+    return res.status(429).json({ error: 'Troppe richieste.', retry_after: retryAfter });
+  }
+
+  const authHeader = req.headers.authorization;
+  const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  if (!token) return res.status(401).json({ error: 'Autenticazione richiesta.' });
+
+  const supabaseAdmin = createAdminClient();
+  const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
+  if (userError || !userData?.user) return res.status(401).json({ error: 'Sessione non valida.' });
+  const userId = userData.user.id as string;
+
+  const body = req.body as Record<string, unknown>;
+  const practiceId = typeof body.practice_id === 'string' ? body.practice_id : '';
+  if (!practiceId) return res.status(422).json({ error: 'practice_id obbligatorio.' });
+
+  const { data: practice, error: practiceError } = await supabaseAdmin
+    .from('practices')
+    .select('id, practice_number, practice_type, client_name, owner_tax_code, pet_microchip, premium_gross, notes, user_id')
+    .eq('id', practiceId)
+    .maybeSingle();
+  if (practiceError) return res.status(503).json({ error: 'Servizio temporaneamente non disponibile.' });
+  if (!practice) return res.status(404).json({ error: 'Pratica non trovata.' });
+
+  if (practice.user_id !== userId) {
+    const { data: roles } = await supabaseAdmin.from('user_roles').select('role').eq('user_id', userId);
+    const isAdmin = (roles ?? []).some((r: { role: string }) => r.role === 'admin');
+    if (!isAdmin) return res.status(403).json({ error: 'Non autorizzato su questa pratica.' });
+  }
+
+  if (practice.practice_type !== 'pet') {
+    return res.status(422).json({ error: 'Il Ricapitolo Richiesta e\' disponibile solo per le pratiche Pet.' });
+  }
+
+  try {
+    const result = await attachPetQuoteDocument(supabaseAdmin, practice as PetQuotePracticeRow, userId);
+    if (!result) {
+      return res.status(422).json({ error: 'Dati del preventivo insufficienti: servono le coperture selezionate o il premio annuale.' });
+    }
+    return res.status(201).json({ success: true, document: result });
+  } catch (err) {
+    console.error('Pet quote attach failed:', err instanceof Error ? err.message : err);
+    return res.status(500).json({ error: 'Errore durante la generazione del Ricapitolo Richiesta.' });
+  }
 }

@@ -21,15 +21,8 @@ import { mapPracticeTypeToEnum } from "@/utils/practiceTypeMapping";
 import { notifyAdminNewPractice } from "@/services/emailService";
 import { DocumentUploadSection } from "@/components/upload/DocumentUploadSection";
 import { requiredDocumentsConfig } from "@/config/requiredDocuments";
-import { buildPetSummary, composeNotes } from "@/lib/practiceSummary";
-import { PET_QUOTE_DOCUMENT_TYPE, canGeneratePetQuote, generatePetQuotePdf, petQuotePdfToBytes } from "@/lib/petQuotePdf";
-import {
-  PET_QUOTE_ZIP_MIME_TYPE,
-  buildPetQuoteReadme,
-  buildPetQuoteZip,
-  buildPetQuoteZipFileName,
-  loadPetQuoteAttachments,
-} from "@/lib/petQuoteBundle";
+import { composeNotes } from "@/lib/practiceSummary";
+import { requestPetQuoteDocument } from "@/lib/petQuoteClient";
 import { Enums, TablesInsert } from "@/integrations/supabase/types";
 
 type PolicyFieldValue = string | number | boolean;
@@ -428,56 +421,17 @@ export const UploadForm = () => {
         if (docError) throw docError;
       });
 
-      await Promise.all(uploadPromises);
+      // Pet: il Ricapitolo Richiesta (ZIP con preventivo e documentazione) viene
+      // generato lato server, in parallelo al caricamento dei documenti.
+      const quotePromise = practiceType === "Pet"
+        ? requestPetQuoteDocument(practice.id).catch((quoteError) => {
+            console.error("Pet quote document generation failed:", quoteError);
+            return null;
+          })
+        : Promise.resolve(null);
 
-      // Pet: allega il "Ricapitolo Richiesta" in PDF (stesso layout/testo della
-      // mail di preventivo), scaricabile dal riepilogo pratica tra i documenti.
-      let quoteAttached = false;
-      if (practiceType === "Pet") {
-        try {
-          const pet = buildPetSummary({
-            practice_type: "pet",
-            owner_tax_code: null,
-            pet_microchip: String(dynamicFields.pet_microchip ?? ""),
-            premium_gross: financialData.premium_gross ?? null,
-            specific_fields: specificFields,
-          });
-          if (canGeneratePetQuote(pet)) {
-            const pdf = generatePetQuotePdf({
-              practiceNumber: practice.practice_number,
-              clientName: clientName.trim(),
-              pet,
-            });
-            // ZIP: PDF del preventivo + documentazione contrattuale Helpet (CGA, DIP)
-            const attachments = await loadPetQuoteAttachments();
-            const bytes = buildPetQuoteZip({
-              petName: pet.name,
-              quotePdf: petQuotePdfToBytes(pdf),
-              attachments,
-              readme: buildPetQuoteReadme(pet.name, attachments),
-            });
-            const fileName = buildPetQuoteZipFileName(pet.name);
-            const storagePath = `${practice.id}/${Date.now()}-ricapitolo-richiesta-pet.zip`;
-            const { error: quoteUploadError } = await supabase.storage
-              .from("practice-documents")
-              .upload(storagePath, new Blob([bytes], { type: PET_QUOTE_ZIP_MIME_TYPE }), { contentType: PET_QUOTE_ZIP_MIME_TYPE });
-            if (quoteUploadError) throw quoteUploadError;
-            const { error: quoteInsertError } = await supabase.from("practice_documents").insert({
-              practice_id: practice.id,
-              file_name: fileName,
-              file_path: storagePath,
-              file_size: bytes.length,
-              mime_type: PET_QUOTE_ZIP_MIME_TYPE,
-              uploaded_by: session.user.id,
-              document_type: PET_QUOTE_DOCUMENT_TYPE,
-            });
-            if (quoteInsertError) throw quoteInsertError;
-            quoteAttached = true;
-          }
-        } catch (quoteError) {
-          console.error("Pet quote PDF generation failed:", quoteError);
-        }
-      }
+      const [, quoteResult] = await Promise.all([Promise.all(uploadPromises), quotePromise]);
+      const quoteAttached = Boolean(quoteResult);
 
       toast({
         title: "Pratica caricata con successo",

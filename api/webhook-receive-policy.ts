@@ -1,28 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import * as crypto from 'crypto';
-import { buildPetSummary, composeNotes, extractNotesSections, resolvePetCoverages, type SpecificFields } from '../src/lib/practiceSummary.js';
-import {
-  PET_QUOTE_DOCUMENT_TYPE,
-  canGeneratePetQuote,
-  generatePetQuotePdf,
-  petQuotePdfToBytes,
-} from '../src/lib/petQuotePdf.js';
+import { composeNotes, extractNotesSections, resolvePetCoverages, type SpecificFields } from '../src/lib/practiceSummary.js';
 import { computePetQuote } from '../src/lib/petQuoteEngine.js';
-import {
-  PET_QUOTE_ZIP_MIME_TYPE,
-  buildPetQuoteReadme,
-  buildPetQuoteZip,
-  buildPetQuoteZipFileName,
-  loadPetQuoteAttachments,
-} from '../src/lib/petQuoteBundle.js';
-
-/** URL pubblico del portale, da cui la function scarica la documentazione contrattuale (public/helpet). */
-function getPortalPublicUrl(): string {
-  if (process.env.PORTAL_PUBLIC_URL) return process.env.PORTAL_PUBLIC_URL.replace(/\/$/, '');
-  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
-  return 'https://policy-portal-pro.vercel.app';
-}
+import { attachPetQuoteDocument, type PetQuoteDocumentResult } from './_lib/pet-quote-document.js';
 import { DOCUMENT_TYPE_ALIASES, normalizeDocumentType, type AdminClient } from './_lib/partner-api.js';
 
 // ---------------------------------------------------------------------------
@@ -688,57 +669,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Pet: genera e allega il "Ricapitolo Richiesta" (stesso layout/testo della
-    // mail di preventivo inviata al cliente), cosi' e' scaricabile tra i documenti.
-    let petQuoteDocument: { file_name: string; document_type: string; attachments: string[] } | null = null;
+    // Pet: genera e allega il "Ricapitolo Richiesta" (ZIP con preventivo PDF e
+    // documentazione contrattuale Helpet), scaricabile tra i documenti della pratica.
+    let petQuoteDocument: PetQuoteDocumentResult | null = null;
     if (dbPracticeType === 'pet') {
       try {
-        const pet = buildPetSummary({
+        petQuoteDocument = await attachPetQuoteDocument(supabaseAdmin, {
+          id: practice.id,
+          practice_number: practice.practice_number,
           practice_type: 'pet',
-          owner_tax_code: ownerTaxCode,
+          client_name: (body.client_name as string).trim(),
+          owner_tax_code: ownerTaxCode ? ownerTaxCode.toUpperCase().slice(0, 16) : null,
           pet_microchip: petMicrochip,
           premium_gross: premiumValues.premium_gross ?? null,
-          specific_fields: specificFields,
-        });
-        if (canGeneratePetQuote(pet)) {
-          const pdf = generatePetQuotePdf({
-            practiceNumber: practice.practice_number,
-            clientName: (body.client_name as string).trim(),
-            pet,
-          });
-          // ZIP: PDF del preventivo + documentazione contrattuale Helpet (CGA, DIP)
-          const quotePdf = petQuotePdfToBytes(pdf);
-          const attachments = await loadPetQuoteAttachments(getPortalPublicUrl());
-          const bytes = Buffer.from(buildPetQuoteZip({
-            petName: pet.name,
-            quotePdf,
-            attachments,
-            readme: buildPetQuoteReadme(pet.name, attachments),
-          }));
-          const fileName = buildPetQuoteZipFileName(pet.name);
-          const storagePath = `${practice.id}/${Date.now()}-ricapitolo-richiesta-pet.zip`;
-
-          const { error: quoteUploadError } = await supabaseAdmin.storage
-            .from('practice-documents')
-            .upload(storagePath, bytes, { contentType: PET_QUOTE_ZIP_MIME_TYPE, upsert: false });
-          if (quoteUploadError) throw new Error(quoteUploadError.message);
-
-          const { error: quoteInsertError } = await supabaseAdmin.from('practice_documents').insert({
-            practice_id: practice.id,
-            file_name: fileName,
-            file_path: storagePath,
-            file_size: bytes.length,
-            mime_type: PET_QUOTE_ZIP_MIME_TYPE,
-            uploaded_by: ownerUserId,
-            document_type: PET_QUOTE_DOCUMENT_TYPE,
-          });
-          if (quoteInsertError) throw new Error(quoteInsertError.message);
-
-          petQuoteDocument = { file_name: fileName, document_type: PET_QUOTE_DOCUMENT_TYPE, attachments: attachments.map(a => a.fileName) };
-        }
+          notes,
+        }, ownerUserId);
       } catch (err) {
         // Il preventivo e' un documento accessorio: non blocca la creazione della pratica
-        console.error('Pet quote PDF generation failed:', err instanceof Error ? err.message : err);
+        console.error('Pet quote document generation failed:', err instanceof Error ? err.message : err);
       }
     }
 

@@ -8,10 +8,11 @@ import {
 import { Download, FileSpreadsheet, FileText } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
+import { PRACTICE_TYPE_LABELS } from "@/lib/practiceSummary";
 import autoTable from "jspdf-autotable";
 
 type PracticeStatus = "in_lavorazione" | "in_attesa" | "approvata" | "rifiutata" | "completata";
-type PracticeType = "auto" | "casa" | "vita" | "salute" | "responsabilita" | "altro" | "fidejussioni" | "vies" | "car" | "postuma_decennale" | "all_risk" | "furto_incendio" | "responsabilita_civile" | "trasporti" | "cyber" | "d_o";
+type PracticeType = string;
 
 interface Practice {
   practice_number: string;
@@ -39,27 +40,7 @@ export const PracticesExport = ({ practices }: PracticesExportProps) => {
     return labels[status];
   };
 
-  const getPracticeTypeLabel = (type: PracticeType) => {
-    const labels: Record<PracticeType, string> = {
-      auto: "Auto",
-      casa: "Casa",
-      vita: "Vita",
-      salute: "Salute",
-      responsabilita: "Responsabilità Civile",
-      altro: "Altro",
-      fidejussioni: "Fidejussioni",
-      vies: "VIES",
-      car: "CAR",
-      postuma_decennale: "Postuma Decennale",
-      all_risk: "All Risk",
-      furto_incendio: "Furto e Incendio",
-      responsabilita_civile: "Responsabilità Civile",
-      trasporti: "Trasporti",
-      cyber: "Cyber",
-      d_o: "D&O",
-    };
-    return labels[type];
-  };
+  const getPracticeTypeLabel = (type: PracticeType) => PRACTICE_TYPE_LABELS[type] ?? type;
 
   const exportToExcel = () => {
     const data = practices.map((practice) => ({

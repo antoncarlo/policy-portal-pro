@@ -2,7 +2,7 @@
 // documentazione contrattuale Helpet (CGA e DIP aggiuntivo Danni), come negli
 // allegati della mail inviata al cliente. Condiviso tra browser e Vercel Functions.
 
-import { zipSync, strToU8 } from "fflate";
+import { zipSync } from "fflate";
 import { buildPetQuoteFileName } from "./petQuotePdf.js";
 
 export const PET_QUOTE_ZIP_MIME_TYPE = "application/zip";
@@ -75,25 +75,9 @@ export function buildPetQuoteZip(input: {
   petName: string | null | undefined;
   quotePdf: Uint8Array;
   attachments: PetQuoteAttachment[];
-  readme?: string;
 }): Uint8Array {
-  const entries: Record<string, [Uint8Array, { level: 0 | 6 }]> = {};
+  const entries: Record<string, [Uint8Array, { level: 0 }]> = {};
   entries[buildPetQuoteFileName(input.petName)] = [input.quotePdf, { level: 0 }];
   for (const a of input.attachments) entries[a.fileName] = [a.bytes, { level: 0 }];
-  if (input.readme) entries["LEGGIMI.txt"] = [strToU8(input.readme), { level: 6 }];
   return zipSync(entries);
-}
-
-export function buildPetQuoteReadme(petName: string | null | undefined, attachments: PetQuoteAttachment[]): string {
-  const lines = [
-    `Ricapitolo Richiesta per ${(petName ?? "").trim() || "il tuo PET"}`,
-    "",
-    "Contenuto del pacchetto:",
-    `- ${buildPetQuoteFileName(petName)} (preventivo personalizzato)`,
-    ...PET_QUOTE_ATTACHMENTS.filter((d) => attachments.some((a) => a.fileName === d.fileName)).map((d) => `- ${d.fileName} (${d.label})`),
-    "",
-    "Ti invitiamo a prendere visione di tutta la documentazione prima di procedere con la stipula.",
-    "Team Helpet - assicurazioni@helpetapp.com",
-  ];
-  return lines.join("\n");
 }
