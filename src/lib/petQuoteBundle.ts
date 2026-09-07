@@ -49,11 +49,11 @@ export async function loadPetQuoteAttachments(
   fetchImpl: typeof fetch = fetch
 ): Promise<PetQuoteAttachment[]> {
   const results = await Promise.all(
-    PET_QUOTE_ATTACHMENTS.map(async (def) => {
+    PET_QUOTE_ATTACHMENTS.map(async (def): Promise<PetQuoteAttachment | null> => {
       try {
         const res = await fetchImpl(`${baseUrl}${def.publicPath}`);
         if (!res.ok) return null;
-        const buf = new Uint8Array(await res.arrayBuffer());
+        const buf: Uint8Array = new Uint8Array(await res.arrayBuffer());
         // Un rewrite SPA restituirebbe la pagina HTML: accettiamo solo PDF veri
         if (buf.length < 5 || String.fromCharCode(...buf.subarray(0, 5)) !== "%PDF-") return null;
         return { fileName: def.fileName, bytes: buf };
@@ -62,7 +62,9 @@ export async function loadPetQuoteAttachments(
       }
     })
   );
-  return results.filter((a): a is PetQuoteAttachment => a !== null);
+  const attachments: PetQuoteAttachment[] = [];
+  for (const a of results) if (a) attachments.push(a);
+  return attachments;
 }
 
 /**
