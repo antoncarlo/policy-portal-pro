@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import * as crypto from 'crypto';
+import { composeNotes, extractNotesSections, type SpecificFields } from '../src/lib/practiceSummary.js';
+import type { AdminClient } from './_lib/partner-api.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -14,6 +16,69 @@ const VALID_PRACTICE_TYPES = [
 const DB_PRACTICE_TYPE_BY_API_TYPE: Record<string, string> = {
   rc: 'responsabilita_civile',
 };
+
+// Slot documentali del portale (src/config/requiredDocuments.ts) per tipologia DB.
+// Servono a valorizzare practice_documents.document_type con lo stesso id usato
+// dal portale, cosi' lo stato "caricato/mancante" e' coerente tra API e UI.
+const PORTAL_DOCUMENT_SLOTS_BY_DB_TYPE: Record<string, string[]> = {
+  car: ['visura_camerale', 'documento_identita', 'preventivo_o_contratto', 'questionario_car'],
+  casa: ['documento_identita', 'visura_catastale', 'questionario_globale_fabbricati'],
+  fidejussioni: ['visura_camerale', 'documento_identita', 'bilancio_ultimo_anno', 'atto_gara'],
+  responsabilita_civile: ['visura_camerale', 'documento_identita', 'questionario_rc'],
+  pet: ['documento_identita', 'libretto_sanitario'],
+  fotovoltaico: ['visura_camerale', 'progetto_impianto', 'autorizzazione'],
+  catastrofali: ['documento_identita', 'visura_catastale', 'perizia_immobile', 'questionario_rischi_catastrofali'],
+  azienda: ['visura_camerale', 'documento_identita', 'bilancio', 'questionario_rischi_catastrofali_azienda'],
+  postuma_decennale: ['visura_camerale', 'documento_identita', 'collaudo_statico', 'progetto_esecutivo', 'questionario_decennale_postuma'],
+  all_risk: ['visura_camerale', 'documento_identita', 'lista_beni', 'questionario_car_postuma_l210'],
+  risparmio: ['documento_identita', 'codice_fiscale', 'questionario_salute_risparmio'],
+  salute: ['documento_identita', 'codice_fiscale', 'questionario_sanitario'],
+};
+
+// Keyword accettate nel nome file / document_type -> slot del portale
+const DOCUMENT_TYPE_ALIASES: Record<string, string> = {
+  libretto_sanitario_o_microchip: 'libretto_sanitario',
+  libretto_sanitario: 'libretto_sanitario',
+  microchip: 'libretto_sanitario',
+  certificato_microchip: 'libretto_sanitario',
+  documento_identita_legale_rappresentante: 'documento_identita',
+  documento_identita: 'documento_identita',
+  carta_identita: 'documento_identita',
+  passaporto: 'documento_identita',
+  lista_macchinari: 'lista_beni',
+  profilo_rischio_mifid: 'questionario_salute_risparmio',
+  tessera_sanitaria: 'codice_fiscale',
+};
+
+function inferDocumentType(filename: string, explicitType: string | undefined, dbPracticeType: string): string | null {
+  const normalizedName = filename.toLowerCase();
+  const explicit = explicitType?.toLowerCase().trim();
+  if (explicit) return DOCUMENT_TYPE_ALIASES[explicit] ?? explicit;
+
+  const slots = PORTAL_DOCUMENT_SLOTS_BY_DB_TYPE[dbPracticeType] ?? [];
+  // Prima gli alias piu' specifici (chiavi piu' lunghe), poi gli slot del portale
+  const aliasKeys = Object.keys(DOCUMENT_TYPE_ALIASES).sort((a, b) => b.length - a.length);
+  for (const alias of aliasKeys) {
+    if (normalizedName.includes(alias)) return DOCUMENT_TYPE_ALIASES[alias];
+  }
+  for (const slot of slots) {
+    if (normalizedName.includes(slot)) return slot;
+  }
+  return null;
+}
+
+const PREMIUM_FIELDS = ['premium_net', 'premium_taxable', 'premium_taxes', 'premium_gross'] as const;
+
+function parseOptionalNumber(value: unknown): number | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  const n = typeof value === 'number' ? value : Number(String(value).replace(',', '.'));
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 const requiredDocsByType: Record<string, string[]> = {
   car: ['preventivo_o_contratto', 'visura_camerale'],
@@ -198,7 +263,7 @@ async function notifyAdminNewPractice(params: {
 // ---------------------------------------------------------------------------
 
 async function logRequest(
-  supabaseAdmin: ReturnType<typeof createClient>,
+  supabaseAdmin: AdminClient,
   data: {
     api_key_masked: string;
     source: string;
@@ -243,7 +308,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
-  });
+  }) as AdminClient;
 
   const apiKey = req.headers['x-api-key'] as string | undefined;
   const apiKeyMasked = apiKey ? `${apiKey.slice(0, 4)}****` : 'none';
@@ -336,8 +401,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .from('api_keys')
       .update({ last_used_at: new Date().toISOString() })
       .eq('id', keyRecord.id)
-      .then(() => {})
-      .catch((err: unknown) => console.error('Failed to update last_used_at:', err));
+      .then(() => {}, (err: unknown) => console.error('Failed to update last_used_at:', err));
   }
 
   // 5. HMAC signature
@@ -387,6 +451,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }, { source, error_message: `Invalid practice type: ${practiceTypeRaw}`, size: bodySize });
   }
 
+  // 7b. Dati specifici polizza (specific_fields), dati Pet e premio
+  // - specific_fields: oggetto JSON con i campi della tipologia (es. pet_name, pet_breed, coverage_type...)
+  // - in alternativa (retro-compatibilita') i dati possono arrivare dentro `notes`
+  //   dopo il separatore "--- Dati Specifici Polizza ---"
+  const notesSections = extractNotesSections(typeof body.notes === 'string' ? body.notes : null);
+  let specificFields: SpecificFields | null = null;
+  if (body.specific_fields !== undefined) {
+    if (!isPlainObject(body.specific_fields)) {
+      return logAndRespond(422, { error: 'Il campo specific_fields deve essere un oggetto JSON.' },
+        { source, error_message: 'specific_fields not an object', size: bodySize });
+    }
+    specificFields = { ...(notesSections.specificFields ?? {}), ...body.specific_fields };
+  } else if (notesSections.specificFields) {
+    specificFields = notesSections.specificFields;
+  }
+  const textualNotes = notesSections.textualNotes;
+
+  const ownerTaxCode = (typeof body.owner_tax_code === 'string' && body.owner_tax_code.trim())
+    || (typeof specificFields?.owner_tax_code === 'string' && specificFields.owner_tax_code.trim())
+    || null;
+  const petMicrochipRaw = (typeof body.pet_microchip === 'string' && body.pet_microchip.trim())
+    || (typeof specificFields?.pet_microchip === 'string' && specificFields.pet_microchip.trim())
+    || null;
+  const petMicrochip = petMicrochipRaw ? petMicrochipRaw.replace(/\s+/g, '').slice(0, 15) : null;
+
+  const premiumValues: Partial<Record<(typeof PREMIUM_FIELDS)[number], number | null>> = {};
+  const quoteObject = isPlainObject(body.quote) ? body.quote : {};
+  for (const field of PREMIUM_FIELDS) {
+    const parsed = parseOptionalNumber(body[field] !== undefined ? body[field] : quoteObject[field]);
+    if (parsed === undefined && (body[field] !== undefined || quoteObject[field] !== undefined)) {
+      return logAndRespond(422, { error: `Il campo ${field} deve essere numerico.` },
+        { source, error_message: `Invalid number: ${field}`, size: bodySize });
+    }
+    if (parsed !== undefined) premiumValues[field] = parsed;
+  }
+  // Pet: se il partner invia il totale del preventivo, lo usiamo come premio lordo
+  if (practiceTypeRaw === 'pet' && premiumValues.premium_gross === undefined) {
+    const totalAnnual = parseOptionalNumber(specificFields?.total_annual);
+    if (typeof totalAnnual === 'number') premiumValues.premium_gross = totalAnnual;
+  }
+
   // 8. Idempotency check
   const idempotencyKey = (req.headers['x-idempotency-key'] as string | undefined) ||
     (typeof body.idempotency_key === 'string' ? body.idempotency_key : undefined);
@@ -414,10 +519,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ? (body.documents as Array<{ filename: string; content_base64: string; mime_type: string; document_type?: string }>)
     : [];
 
+  const dbPracticeType = DB_PRACTICE_TYPE_BY_API_TYPE[practiceTypeRaw] ?? practiceTypeRaw;
+
+  // Un documento obbligatorio e' soddisfatto se la keyword compare nel nome file
+  // oppure se il file (per nome o document_type esplicito) corrisponde allo
+  // stesso slot documentale del portale (es. "libretto_sanitario_fido.pdf" o
+  // document_type "libretto_sanitario" per la keyword libretto_sanitario_o_microchip).
   const requiredDocs = requiredDocsByType[practiceTypeRaw] ?? [];
-  const missingDocs = requiredDocs.filter(
-    req => !documents.some(d => d.filename.toLowerCase().includes(req))
-  );
+  const missingDocs = requiredDocs.filter(req => {
+    const requiredSlot = DOCUMENT_TYPE_ALIASES[req] ?? req;
+    return !documents.some(d => {
+      if (typeof d.filename !== 'string') return false;
+      if (d.filename.toLowerCase().includes(req)) return true;
+      return inferDocumentType(d.filename, d.document_type, dbPracticeType) === requiredSlot;
+    });
+  });
   if (missingDocs.length > 0) {
     return logAndRespond(422, {
       error: 'missing_required_documents',
@@ -468,10 +584,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    const notesPrefix = idempotencyKey ? `idempotency:${idempotencyKey}\n\n` : '';
-    const notes = `${notesPrefix}Fonte: ${source}${body.notes ? `\n\n${body.notes}` : ''}`;
-
-    const dbPracticeType = DB_PRACTICE_TYPE_BY_API_TYPE[practiceTypeRaw] ?? practiceTypeRaw;
+    // Le note testuali restano appunti liberi (fonte + note del partner); i dati
+    // specifici vengono salvati in coda alle note nel formato usato dal portale,
+    // cosi' il riepilogo compare nella pagina pratica e nell'API di stato.
+    const notes = composeNotes({
+      idempotencyKey: idempotencyKey ?? null,
+      textualNotes: `Fonte: ${source}${textualNotes ? `\n\n${textualNotes}` : ''}`,
+      specificFields,
+    });
 
     const { data: practice, error: practiceError } = await supabaseAdmin
       .from('practices')
@@ -485,6 +605,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         policy_start_date: typeof body.policy_start_date === 'string' ? body.policy_start_date || null : null,
         policy_end_date: typeof body.policy_end_date === 'string' ? body.policy_end_date || null : null,
         notes: notes || null,
+        owner_tax_code: ownerTaxCode ? ownerTaxCode.toUpperCase().slice(0, 16) : null,
+        pet_microchip: petMicrochip,
+        ...premiumValues,
         user_id: ownerUserId,
         status: 'in_lavorazione',
         api_key_id: keyRecord?.id ?? null,
@@ -508,8 +631,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .from('practice-documents')
         .upload(storagePath, decoded, { contentType: doc.mime_type, upsert: false });
 
-      const normalizedFilename = doc.filename.toLowerCase();
-      const inferredDocumentType = doc.document_type || requiredDocs.find(req => normalizedFilename.includes(req)) || null;
+      const inferredDocumentType = inferDocumentType(doc.filename, doc.document_type, dbPracticeType);
 
       await supabaseAdmin.from('practice_documents').insert({
         practice_id: practice.id,

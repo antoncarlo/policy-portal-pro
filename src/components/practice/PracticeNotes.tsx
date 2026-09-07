@@ -6,37 +6,25 @@ import { Textarea } from "@/components/ui/textarea";
 import { FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { composeNotes, extractNotesSections } from "@/lib/practiceSummary";
 
 interface PracticeNotesProps {
   practiceId: string;
   initialNotes: string;
+  onNotesSaved?: (notes: string | null) => void;
 }
 
-export const PracticeNotes = ({ practiceId, initialNotes }: PracticeNotesProps) => {
+/**
+ * Note e appunti della pratica (per l'assuntore / il partner).
+ * I dati specifici della polizza e la chiave di idempotenza del webhook sono
+ * salvati nello stesso campo `notes`, ma non vengono mostrati qui: al salvataggio
+ * vengono preservati e riaccodati, cosi' il riepilogo non va perso.
+ */
+export const PracticeNotes = ({ practiceId, initialNotes, onNotesSaved }: PracticeNotesProps) => {
   const { toast } = useToast();
-  
-  // Filter out JSON data and show only textual notes
-  const getTextualNotes = (notesContent: string) => {
-    if (!notesContent) return '';
-    
-    // Check if content contains the policy data header
-    if (notesContent.includes('--- Dati Specifici Polizza ---')) {
-      // This is policy data, return empty string
-      return '';
-    }
-    
-    try {
-      // Try to parse as JSON
-      JSON.parse(notesContent);
-      // If it's valid JSON (policy data), return empty string
-      return '';
-    } catch {
-      // If it's not JSON and doesn't have the header, it's textual notes - return as is
-      return notesContent;
-    }
-  };
-  
-  const [notes, setNotes] = useState(getTextualNotes(initialNotes));
+  const sections = extractNotesSections(initialNotes);
+
+  const [notes, setNotes] = useState(sections.textualNotes);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,9 +32,15 @@ export const PracticeNotes = ({ practiceId, initialNotes }: PracticeNotesProps) 
     setLoading(true);
 
     try {
+      const composed = composeNotes({
+        idempotencyKey: sections.idempotencyKey,
+        textualNotes: notes,
+        specificFields: sections.specificFields,
+      });
+
       const { error } = await supabase
         .from("practices")
-        .update({ notes })
+        .update({ notes: composed })
         .eq("id", practiceId);
 
       if (error) throw error;
@@ -55,11 +49,12 @@ export const PracticeNotes = ({ practiceId, initialNotes }: PracticeNotesProps) 
         title: "Note aggiornate",
         description: "Le note sono state salvate con successo.",
       });
+      onNotesSaved?.(composed);
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Errore salvataggio",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Errore imprevisto durante il salvataggio.",
       });
     } finally {
       setLoading(false);
@@ -68,10 +63,13 @@ export const PracticeNotes = ({ practiceId, initialNotes }: PracticeNotesProps) 
 
   return (
     <Card className="p-6">
-      <h2 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
+      <h2 className="text-xl font-semibold text-foreground mb-1 flex items-center gap-2">
         <FileText className="h-5 w-5" />
-        Note e Dettagli
+        Note e Appunti
       </h2>
+      <p className="text-sm text-muted-foreground mb-4">
+        Appunti per l'assuntore o per il partner. I dati della polizza sono nel riepilogo in alto.
+      </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">

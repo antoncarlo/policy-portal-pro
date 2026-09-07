@@ -21,15 +21,15 @@ import { mapPracticeTypeToEnum } from "@/utils/practiceTypeMapping";
 import { notifyAdminNewPractice } from "@/services/emailService";
 import { DocumentUploadSection } from "@/components/upload/DocumentUploadSection";
 import { requiredDocumentsConfig } from "@/config/requiredDocuments";
+import { composeNotes } from "@/lib/practiceSummary";
 import { Enums, TablesInsert } from "@/integrations/supabase/types";
 
 type PolicyFieldValue = string | number | boolean;
 type PetQuote = {
-  planName?: string;
-  premium?: number;
-  monthlyPremium?: number;
-  annualPremium?: number;
-  [key: string]: unknown;
+  animalType: string;
+  selectedCoverages: string[];
+  totalAnnual: number;
+  totalMonthly: number;
 };
 
 export const UploadForm = () => {
@@ -343,12 +343,19 @@ export const UploadForm = () => {
       // commission_percentage and commission_amount are auto-calculated by the database trigger
       // using the user's base commission plus any production bonus tiers.
 
-      // Prepare notes with dynamic fields
-      let finalNotes = notes?.trim() || '';
-      if (Object.keys(dynamicFields).length > 0) {
-        const dynamicFieldsSection = `\n\n--- Dati Specifici Polizza ---\n${JSON.stringify(dynamicFields, null, 2)}`;
-        finalNotes += dynamicFieldsSection;
+      // Dati specifici polizza: campi dinamici + (per Pet) il preventivo del configuratore,
+      // cosi' il riepilogo completo resta disponibile nella pagina pratica e via API.
+      const specificFields: Record<string, PolicyFieldValue | string[]> = { ...dynamicFields };
+      if (practiceType === "Pet" && petQuote) {
+        specificFields.animal_type = petQuote.animalType;
+        specificFields.selected_coverages = petQuote.selectedCoverages;
+        specificFields.total_annual = Math.round(petQuote.totalAnnual * 100) / 100;
+        specificFields.total_monthly = Math.round(petQuote.totalMonthly * 100) / 100;
       }
+      const finalNotes = composeNotes({
+        textualNotes: notes?.trim() || "",
+        specificFields: Object.keys(specificFields).length > 0 ? specificFields : null,
+      }) ?? "";
 
       // Insert practice into database (practice_number auto-generated)
       const { data: practice, error: practiceError } = await supabase
@@ -578,9 +585,9 @@ export const UploadForm = () => {
             <PetInsuranceCalculator
               onQuoteGenerated={(quote) => {
                 setPetQuote(quote);
-                // Auto-fill financial data if admin
-                if (isAdmin && quote.totalAnnual) {
-                  setPremiumGross(quote.totalAnnual.toString());
+                // Il totale del preventivo diventa il premio lordo della pratica
+                if (quote.totalAnnual) {
+                  setPremiumGross(quote.totalAnnual.toFixed(2));
                 }
               }}
             />

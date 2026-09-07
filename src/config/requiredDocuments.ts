@@ -134,13 +134,6 @@ export const requiredDocumentsConfig: PracticeTypeDocConfig[] = [
         description: "Documento veterinario attestante l'identità dell'animale",
         isQuestionnaire: false,
       },
-      {
-        id: "questionario_pet",
-        label: "Questionario Pet Compilato e Firmato",
-        description: "Questionario sullo stato di salute dell'animale",
-        isQuestionnaire: true,
-        questionnaireFile: "/questionari/questionario_pet_cocco.pdf",
-      },
     ],
   },
   {

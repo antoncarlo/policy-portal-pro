@@ -11,6 +11,7 @@ import { PracticeTimeline } from "@/components/practice/PracticeTimeline";
 import { PracticeDocuments } from "@/components/practice/PracticeDocuments";
 import { PracticeStatusForm } from "@/components/practice/PracticeStatusForm";
 import { PracticeNotes } from "@/components/practice/PracticeNotes";
+import { PracticeSummaryCard } from "@/components/practice/PracticeSummaryCard";
 
 
 type PracticeStatus = "in_lavorazione" | "in_attesa" | "approvata" | "rifiutata" | "completata";
@@ -27,9 +28,15 @@ interface Practice {
   policy_number: string | null;
   beneficiary: string | null;
   owner_tax_code: string | null;
+  pet_microchip: string | null;
   policy_start_date: string | null;
   policy_end_date: string | null;
+  premium_net: number | null;
+  premium_taxable: number | null;
+  premium_taxes: number | null;
   premium_gross: number | null;
+  commission_percentage: number | null;
+  commission_amount: number | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -281,6 +288,10 @@ const PracticeDetail = () => {
           </div>
         </Card>
 
+        {practice.practice_type !== "vies" && (
+          <PracticeSummaryCard practice={practice} />
+        )}
+
         {practice.practice_type === "vies" && (
           <Card className="p-6 border-blue-200 bg-blue-50/60">
             <div className="flex items-start gap-3 mb-5">
@@ -334,9 +345,11 @@ const PracticeDetail = () => {
               onStatusUpdate={handleStatusUpdate}
               userRole={userRole}
             />
-            <PracticeNotes 
+            <PracticeNotes
+              key={practice.updated_at}
               practiceId={practice.id}
               initialNotes={practice.notes || ""}
+              onNotesSaved={(notes) => setPractice((prev) => (prev ? { ...prev, notes } : prev))}
             />
           </div>
           
