@@ -1,6 +1,6 @@
 # Guida all'Integrazione API - Policy Portal Pro
 
-**Versione:** 2.4
+**Versione:** 2.5
 **Data:** Settembre 2026
 **Autore:** Anton Carlo Santoro
 
@@ -129,11 +129,11 @@ Crea una nuova pratica nel portale con i dati del cliente, della polizza, **tutt
   "practice_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "practice_number": "PR-2026-1045",
   "message": "Pratica creata con successo.",
-  "quote_document": { "file_name": "Ricapitolo Richiesta per Fido.pdf", "document_type": "preventivo_pet" }
+  "quote_document": { "file_name": "Ricapitolo Richiesta per Fido.zip", "document_type": "preventivo_pet", "attachments": ["Helpet-Condizioni-Generali-CGA.pdf", "Helpet-DIP-Aggiuntivo-Danni.pdf"] }
 }
 ```
 
-**Ricapitolo Richiesta (solo Pet):** se la pratica e' di tipo `pet` e sono presenti `selected_coverages` (oppure `total_annual` / `premium_gross`), il portale genera automaticamente il PDF "Ricapitolo Richiesta per <nome animale>", con lo stesso layout e testo della mail di preventivo inviata al cliente (coperture incluse SI/NO, premio annuale, rata mensile, condizioni). Il file viene allegato alla pratica con `document_type = preventivo_pet` ed e' scaricabile da `get-practice-documents`. Per questo e' importante inviare `selected_coverages` con gli id del catalogo coperture: senza coperture o premio il documento non viene generato (`quote_document: null`).
+**Ricapitolo Richiesta (solo Pet):** se la pratica e' di tipo `pet` e sono presenti `selected_coverages` (oppure `plan_id`, `total_annual` / `premium_gross`), il portale genera automaticamente il pacchetto ZIP "Ricapitolo Richiesta per <nome animale>.zip" che contiene il PDF del preventivo (stesso layout e testo della mail di preventivo inviata al cliente: testata Helpet, coperture incluse SI/NO, premio annuale, rata mensile, condizioni) e la documentazione contrattuale Helpet (Condizioni Generali di Assicurazione e DIP aggiuntivo Danni). Il file viene allegato alla pratica con `document_type = preventivo_pet` ed e' scaricabile da `get-practice-documents`. Per questo e' importante inviare `selected_coverages` con gli id del catalogo coperture: senza coperture o premio il documento non viene generato (`quote_document: null`).
 
 Un reinvio con la stessa idempotency key restituisce `200` con `duplicate: true` e gli stessi identificativi. Il confronto della chiave e' esatto (`EXT-2` non coincide con `EXT-2026-000123`).
 
@@ -1028,6 +1028,10 @@ L'array `required_documents` di `get-practice-status` indica per ogni tipologia 
 - Il questionario Pet (`questionario_pet`) e' stato rimosso: per Pet sono richiesti solo documento d'identita' e libretto sanitario/microchip.
 - `get-practice-status` restituisce i nuovi campi `summary`, `pet`, `client.tax_code`, `policy.days_until_expiry`, `payment`, `missing_documents`, `documents_complete`.
 - Nuovi endpoint: `get-practices`, `get-expiries`, `get-reports`, `get-administration`.
+
+## Note versione 2.5
+
+- Il "Ricapitolo Richiesta" Pet e' ora un pacchetto ZIP: PDF del preventivo con la testata grafica Helpet + Condizioni Generali (CGA) + DIP aggiuntivo Danni. `quote_document` nella risposta del webhook riporta anche `attachments`.
 
 ## Note versione 2.4
 

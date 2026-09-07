@@ -22,14 +22,14 @@ import { notifyAdminNewPractice } from "@/services/emailService";
 import { DocumentUploadSection } from "@/components/upload/DocumentUploadSection";
 import { requiredDocumentsConfig } from "@/config/requiredDocuments";
 import { buildPetSummary, composeNotes } from "@/lib/practiceSummary";
+import { PET_QUOTE_DOCUMENT_TYPE, canGeneratePetQuote, generatePetQuotePdf, petQuotePdfToBytes } from "@/lib/petQuotePdf";
 import {
-  PET_QUOTE_DOCUMENT_TYPE,
-  PET_QUOTE_MIME_TYPE,
-  buildPetQuoteFileName,
-  canGeneratePetQuote,
-  generatePetQuotePdf,
-  petQuotePdfToBytes,
-} from "@/lib/petQuotePdf";
+  PET_QUOTE_ZIP_MIME_TYPE,
+  buildPetQuoteReadme,
+  buildPetQuoteZip,
+  buildPetQuoteZipFileName,
+  loadPetQuoteAttachments,
+} from "@/lib/petQuoteBundle";
 import { Enums, TablesInsert } from "@/integrations/supabase/types";
 
 type PolicyFieldValue = string | number | boolean;
@@ -448,19 +448,26 @@ export const UploadForm = () => {
               clientName: clientName.trim(),
               pet,
             });
-            const bytes = petQuotePdfToBytes(pdf);
-            const fileName = buildPetQuoteFileName(pet.name);
-            const storagePath = `${practice.id}/${Date.now()}-ricapitolo-richiesta-pet.pdf`;
+            // ZIP: PDF del preventivo + documentazione contrattuale Helpet (CGA, DIP)
+            const attachments = await loadPetQuoteAttachments();
+            const bytes = buildPetQuoteZip({
+              petName: pet.name,
+              quotePdf: petQuotePdfToBytes(pdf),
+              attachments,
+              readme: buildPetQuoteReadme(pet.name, attachments),
+            });
+            const fileName = buildPetQuoteZipFileName(pet.name);
+            const storagePath = `${practice.id}/${Date.now()}-ricapitolo-richiesta-pet.zip`;
             const { error: quoteUploadError } = await supabase.storage
               .from("practice-documents")
-              .upload(storagePath, new Blob([bytes], { type: PET_QUOTE_MIME_TYPE }), { contentType: PET_QUOTE_MIME_TYPE });
+              .upload(storagePath, new Blob([bytes], { type: PET_QUOTE_ZIP_MIME_TYPE }), { contentType: PET_QUOTE_ZIP_MIME_TYPE });
             if (quoteUploadError) throw quoteUploadError;
             const { error: quoteInsertError } = await supabase.from("practice_documents").insert({
               practice_id: practice.id,
               file_name: fileName,
               file_path: storagePath,
               file_size: bytes.length,
-              mime_type: PET_QUOTE_MIME_TYPE,
+              mime_type: PET_QUOTE_ZIP_MIME_TYPE,
               uploaded_by: session.user.id,
               document_type: PET_QUOTE_DOCUMENT_TYPE,
             });
@@ -474,7 +481,7 @@ export const UploadForm = () => {
 
       toast({
         title: "Pratica caricata con successo",
-        description: `Pratica ${practice.practice_number} creata con ${documentFiles.length} documento/i obbligatorio/i allegato/i${quoteAttached ? " e Ricapitolo Richiesta PDF" : ""}.`,
+        description: `Pratica ${practice.practice_number} creata con ${documentFiles.length} documento/i obbligatorio/i allegato/i${quoteAttached ? " e Ricapitolo Richiesta (ZIP con preventivo e documentazione)" : ""}.`,
       });
 
       // Fire-and-forget admin notification

@@ -4,13 +4,25 @@ import * as crypto from 'crypto';
 import { buildPetSummary, composeNotes, extractNotesSections, resolvePetCoverages, type SpecificFields } from '../src/lib/practiceSummary.js';
 import {
   PET_QUOTE_DOCUMENT_TYPE,
-  PET_QUOTE_MIME_TYPE,
-  buildPetQuoteFileName,
   canGeneratePetQuote,
   generatePetQuotePdf,
   petQuotePdfToBytes,
 } from '../src/lib/petQuotePdf.js';
 import { computePetQuote } from '../src/lib/petQuoteEngine.js';
+import {
+  PET_QUOTE_ZIP_MIME_TYPE,
+  buildPetQuoteReadme,
+  buildPetQuoteZip,
+  buildPetQuoteZipFileName,
+  loadPetQuoteAttachments,
+} from '../src/lib/petQuoteBundle.js';
+
+/** URL pubblico del portale, da cui la function scarica la documentazione contrattuale (public/helpet). */
+function getPortalPublicUrl(): string {
+  if (process.env.PORTAL_PUBLIC_URL) return process.env.PORTAL_PUBLIC_URL.replace(/\/$/, '');
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  return 'https://policy-portal-pro.vercel.app';
+}
 import { DOCUMENT_TYPE_ALIASES, normalizeDocumentType, type AdminClient } from './_lib/partner-api.js';
 
 // ---------------------------------------------------------------------------
@@ -678,7 +690,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Pet: genera e allega il "Ricapitolo Richiesta" (stesso layout/testo della
     // mail di preventivo inviata al cliente), cosi' e' scaricabile tra i documenti.
-    let petQuoteDocument: { file_name: string; document_type: string } | null = null;
+    let petQuoteDocument: { file_name: string; document_type: string; attachments: string[] } | null = null;
     if (dbPracticeType === 'pet') {
       try {
         const pet = buildPetSummary({
@@ -694,13 +706,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             clientName: (body.client_name as string).trim(),
             pet,
           });
-          const bytes = Buffer.from(petQuotePdfToBytes(pdf));
-          const fileName = buildPetQuoteFileName(pet.name);
-          const storagePath = `${practice.id}/${Date.now()}-ricapitolo-richiesta-pet.pdf`;
+          // ZIP: PDF del preventivo + documentazione contrattuale Helpet (CGA, DIP)
+          const quotePdf = petQuotePdfToBytes(pdf);
+          const attachments = await loadPetQuoteAttachments(getPortalPublicUrl());
+          const bytes = Buffer.from(buildPetQuoteZip({
+            petName: pet.name,
+            quotePdf,
+            attachments,
+            readme: buildPetQuoteReadme(pet.name, attachments),
+          }));
+          const fileName = buildPetQuoteZipFileName(pet.name);
+          const storagePath = `${practice.id}/${Date.now()}-ricapitolo-richiesta-pet.zip`;
 
           const { error: quoteUploadError } = await supabaseAdmin.storage
             .from('practice-documents')
-            .upload(storagePath, bytes, { contentType: PET_QUOTE_MIME_TYPE, upsert: false });
+            .upload(storagePath, bytes, { contentType: PET_QUOTE_ZIP_MIME_TYPE, upsert: false });
           if (quoteUploadError) throw new Error(quoteUploadError.message);
 
           const { error: quoteInsertError } = await supabaseAdmin.from('practice_documents').insert({
@@ -708,13 +728,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             file_name: fileName,
             file_path: storagePath,
             file_size: bytes.length,
-            mime_type: PET_QUOTE_MIME_TYPE,
+            mime_type: PET_QUOTE_ZIP_MIME_TYPE,
             uploaded_by: ownerUserId,
             document_type: PET_QUOTE_DOCUMENT_TYPE,
           });
           if (quoteInsertError) throw new Error(quoteInsertError.message);
 
-          petQuoteDocument = { file_name: fileName, document_type: PET_QUOTE_DOCUMENT_TYPE };
+          petQuoteDocument = { file_name: fileName, document_type: PET_QUOTE_DOCUMENT_TYPE, attachments: attachments.map(a => a.fileName) };
         }
       } catch (err) {
         // Il preventivo e' un documento accessorio: non blocca la creazione della pratica

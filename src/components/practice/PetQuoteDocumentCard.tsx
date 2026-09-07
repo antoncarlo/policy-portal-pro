@@ -5,14 +5,15 @@ import { Download, FileText, PawPrint } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { buildPetSummary, extractNotesSections } from "@/lib/practiceSummary";
+import { PET_QUOTE_DOCUMENT_TYPE, canGeneratePetQuote, generatePetQuotePdf, petQuotePdfToBytes } from "@/lib/petQuotePdf";
 import {
-  PET_QUOTE_DOCUMENT_TYPE,
-  PET_QUOTE_MIME_TYPE,
-  buildPetQuoteFileName,
-  canGeneratePetQuote,
-  generatePetQuotePdf,
-  petQuotePdfToBytes,
-} from "@/lib/petQuotePdf";
+  PET_QUOTE_ATTACHMENTS,
+  PET_QUOTE_ZIP_MIME_TYPE,
+  buildPetQuoteReadme,
+  buildPetQuoteZip,
+  buildPetQuoteZipFileName,
+  loadPetQuoteAttachments,
+} from "@/lib/petQuoteBundle";
 
 interface PetQuoteDocumentCardProps {
   practice: {
@@ -49,27 +50,39 @@ export const PetQuoteDocumentCard = ({ practice, onDocumentCreated }: PetQuoteDo
   }, [practice.notes, practice.owner_tax_code, practice.pet_microchip, practice.premium_gross]);
 
   const canGenerate = canGeneratePetQuote(pet);
-  const fileName = buildPetQuoteFileName(pet?.name);
+  const fileName = buildPetQuoteZipFileName(pet?.name);
 
-  const buildPdfBytes = () => {
+  /** ZIP con il PDF del preventivo e la documentazione contrattuale Helpet (CGA, DIP). */
+  const buildZipBytes = async () => {
     if (!canGeneratePetQuote(pet)) return null;
     const doc = generatePetQuotePdf({
       practiceNumber: practice.practice_number,
       clientName: practice.client_name,
       pet,
     });
-    return petQuotePdfToBytes(doc);
+    const attachments = await loadPetQuoteAttachments();
+    return buildPetQuoteZip({
+      petName: pet.name,
+      quotePdf: petQuotePdfToBytes(doc),
+      attachments,
+      readme: buildPetQuoteReadme(pet.name, attachments),
+    });
   };
 
-  const handleDownload = () => {
-    const bytes = buildPdfBytes();
-    if (!bytes) return;
-    const url = URL.createObjectURL(new Blob([bytes], { type: PET_QUOTE_MIME_TYPE }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleDownload = async () => {
+    setWorking(true);
+    try {
+      const bytes = await buildZipBytes();
+      if (!bytes) return;
+      const url = URL.createObjectURL(new Blob([bytes], { type: PET_QUOTE_ZIP_MIME_TYPE }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setWorking(false);
+    }
   };
 
   const handleAttach = async () => {
@@ -77,13 +90,13 @@ export const PetQuoteDocumentCard = ({ practice, onDocumentCreated }: PetQuoteDo
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Non autenticato");
-      const bytes = buildPdfBytes();
+      const bytes = await buildZipBytes();
       if (!bytes) throw new Error("Dati del preventivo non disponibili");
 
-      const storagePath = `${practice.id}/${Date.now()}-ricapitolo-richiesta-pet.pdf`;
+      const storagePath = `${practice.id}/${Date.now()}-ricapitolo-richiesta-pet.zip`;
       const { error: uploadError } = await supabase.storage
         .from("practice-documents")
-        .upload(storagePath, new Blob([bytes], { type: PET_QUOTE_MIME_TYPE }), { contentType: PET_QUOTE_MIME_TYPE });
+        .upload(storagePath, new Blob([bytes], { type: PET_QUOTE_ZIP_MIME_TYPE }), { contentType: PET_QUOTE_ZIP_MIME_TYPE });
       if (uploadError) throw uploadError;
 
       const { error: insertError } = await supabase.from("practice_documents").insert({
@@ -91,7 +104,7 @@ export const PetQuoteDocumentCard = ({ practice, onDocumentCreated }: PetQuoteDo
         file_name: fileName,
         file_path: storagePath,
         file_size: bytes.length,
-        mime_type: PET_QUOTE_MIME_TYPE,
+        mime_type: PET_QUOTE_ZIP_MIME_TYPE,
         uploaded_by: session.user.id,
         document_type: PET_QUOTE_DOCUMENT_TYPE,
       });
@@ -120,7 +133,7 @@ export const PetQuoteDocumentCard = ({ practice, onDocumentCreated }: PetQuoteDo
           </h2>
           <p className="text-sm text-muted-foreground">
             {canGenerate
-              ? "Preventivo in PDF con lo stesso layout e testo della mail inviata al cliente: coperture incluse, premio annuale e rata mensile."
+              ? `Pacchetto ZIP con il preventivo in PDF (stesso layout e testo della mail inviata al cliente) e la documentazione contrattuale Helpet: ${PET_QUOTE_ATTACHMENTS.map((a) => a.label).join(", ")}.`
               : "Per generare il preventivo servono le coperture selezionate o il premio annuale nei dati della pratica."}
           </p>
         </div>

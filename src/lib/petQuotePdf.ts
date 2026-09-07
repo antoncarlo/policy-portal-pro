@@ -10,6 +10,7 @@ import { jsPDF } from "jspdf";
 import * as autoTableModule from "jspdf-autotable";
 import type { PetCoverageSummary, PetSummary } from "./practiceSummary.js";
 import { buildGuaranteeTable } from "./petQuoteEngine.js";
+import { PET_QUOTE_HERO_HEIGHT, PET_QUOTE_HERO_JPEG_BASE64, PET_QUOTE_HERO_WIDTH } from "./petQuoteAssets.js";
 
 // jspdf-autotable espone la funzione come default export sia nel build ESM
 // (browser / Vite) sia in quello CommonJS (Node / Vercel Functions): il
@@ -188,29 +189,21 @@ export function generatePetQuotePdf(input: PetQuotePdfInput): jsPDF {
   };
 
   // ---------------------------------------------------------------------
-  // Testata Helpet (fascia magenta) + claim
+  // Testata: immagine della mail Helpet (logo, forme magenta, cane) con il
+  // claim sovrapposto nell'area bianca, come nella mail originale
   // ---------------------------------------------------------------------
-  doc.setFillColor(HELPET_MAGENTA[0], HELPET_MAGENTA[1], HELPET_MAGENTA[2]);
-  doc.roundedRect(-20, -20, pageWidth * 0.62, 58, 22, 22, "F");
-  doc.setFillColor(HELPET_MAGENTA[0], HELPET_MAGENTA[1], HELPET_MAGENTA[2]);
-  doc.circle(pageWidth + 4, 34, 26, "F");
-  setText(30, true, [255, 255, 255]);
-  doc.text("Helpet", margin + 2, 27);
-  setText(8, false, [255, 255, 255]);
-  doc.text("Assicurazioni per cani e gatti", margin + 2.5, 32.5);
+  const heroWidth = contentWidth;
+  const heroHeight = (heroWidth * PET_QUOTE_HERO_HEIGHT) / PET_QUOTE_HERO_WIDTH;
+  const heroTop = 12;
+  doc.addImage(`data:image/jpeg;base64,${PET_QUOTE_HERO_JPEG_BASE64}`, "JPEG", margin, heroTop, heroWidth, heroHeight, "helpet-hero", "FAST");
 
-  y = 52;
-  setText(8, false, TEXT_MUTED);
-  doc.text(`Rif. pratica ${input.practiceNumber} - Preventivo del ${formatDateIt(generatedAt)}`, pageWidth - margin, y, { align: "right" });
-  y += 8;
+  setText(7.5, false, TEXT_MUTED);
+  doc.text(`Rif. pratica ${input.practiceNumber} - Preventivo del ${formatDateIt(generatedAt)}`, pageWidth - margin, heroTop + heroHeight + 5, { align: "right" });
 
-  setText(15, true, [17, 24, 39]);
-  const claimLines = doc.splitTextToSize(
-    "Buone notizie: ecco il preventivo personalizzato per prenderti cura del tuo cucciolo al meglio!",
-    contentWidth
-  ) as string[];
-  doc.text(claimLines, margin, y);
-  y += claimLines.length * 6.5 + 6;
+  // Il claim "Buone notizie: ecco il preventivo personalizzato..." e la zampa
+  // fanno gia' parte dell'immagine, come nella mail originale.
+
+  y = heroTop + heroHeight + 12;
 
   // ---------------------------------------------------------------------
   // Saluto
