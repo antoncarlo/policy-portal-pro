@@ -86,6 +86,8 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
   const [selectedPracticeIds, setSelectedPracticeIds] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<PracticeStatus>("in_lavorazione");
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  // Solo gli amministratori possono cambiare lo stato delle pratiche
+  const [canChangeStatus, setCanChangeStatus] = useState(false);
 
   const loadPractices = async () => {
     setLoading(true);
@@ -105,6 +107,7 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
       .single();
 
     const isAdmin = roleData?.role === 'admin';
+    setCanChangeStatus(isAdmin);
 
     let query = supabase
       .from("practices")
@@ -321,7 +324,7 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
   };
 
   const handleBulkStatusUpdate = async () => {
-    if (selectedPracticeIds.size === 0) return;
+    if (!canChangeStatus || selectedPracticeIds.size === 0) return;
     setBulkUpdating(true);
     try {
       const { error } = await supabase
@@ -351,24 +354,30 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3 md:flex-row md:items-center">
-          <span className="text-sm font-medium">{selectedPractices.length} pratiche selezionate</span>
-          <Select value={bulkStatus} onValueChange={(value) => setBulkStatus(value as PracticeStatus)}>
-            <SelectTrigger className="w-full md:w-[190px]">
-              <SelectValue placeholder="Nuovo stato" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="in_lavorazione">In Lavorazione</SelectItem>
-              <SelectItem value="in_attesa">In Attesa</SelectItem>
-              <SelectItem value="approvata">Approvata</SelectItem>
-              <SelectItem value="rifiutata">Rifiutata</SelectItem>
-              <SelectItem value="completata">Completata</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button onClick={handleBulkStatusUpdate} disabled={selectedPractices.length === 0 || bulkUpdating}>
-            Cambia stato selezionate
-          </Button>
-        </div>
+        {canChangeStatus ? (
+          <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3 md:flex-row md:items-center">
+            <span className="text-sm font-medium">{selectedPractices.length} pratiche selezionate</span>
+            <Select value={bulkStatus} onValueChange={(value) => setBulkStatus(value as PracticeStatus)}>
+              <SelectTrigger className="w-full md:w-[190px]">
+                <SelectValue placeholder="Nuovo stato" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="in_lavorazione">In Lavorazione</SelectItem>
+                <SelectItem value="in_attesa">In Attesa</SelectItem>
+                <SelectItem value="approvata">Approvata</SelectItem>
+                <SelectItem value="rifiutata">Rifiutata</SelectItem>
+                <SelectItem value="completata">Completata</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={handleBulkStatusUpdate} disabled={selectedPractices.length === 0 || bulkUpdating}>
+              Cambia stato selezionate
+            </Button>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Lo stato delle pratiche viene aggiornato dall'ufficio assunzione.
+          </p>
+        )}
         <PracticesExport practices={filteredPractices} />
       </div>
       <Card className="overflow-hidden">

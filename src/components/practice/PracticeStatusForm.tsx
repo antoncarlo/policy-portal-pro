@@ -10,10 +10,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AlertCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 type PracticeStatus = "in_lavorazione" | "in_attesa" | "approvata" | "rifiutata" | "completata";
+
+const STATUS_LABELS: Record<PracticeStatus, string> = {
+  in_lavorazione: "In Lavorazione",
+  in_attesa: "In Attesa",
+  approvata: "Approvata",
+  rifiutata: "Rifiutata",
+  completata: "Completata",
+};
 
 interface PracticeStatusFormProps {
   practiceId: string;
@@ -78,16 +87,22 @@ export const PracticeStatusForm = ({
         Gestione Stato
       </h2>
 
-      {!canEditStatus && (
-        <div className="mb-4 p-3 bg-muted/50 border border-muted rounded-md text-sm text-muted-foreground">
-          ℹ️ Solo gli amministratori possono modificare lo stato delle pratiche.
+      {!canEditStatus ? (
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">Stato attuale</span>
+            <Badge variant="secondary">{STATUS_LABELS[currentStatus] ?? currentStatus}</Badge>
+          </div>
+          <div className="p-3 bg-muted/50 border border-muted rounded-md text-sm text-muted-foreground">
+            Lo stato della pratica viene aggiornato dall'ufficio assunzione: solo gli amministratori possono modificarlo.
+            Ogni cambio di stato compare nella cronologia della pratica.
+          </div>
         </div>
-      )}
-
+      ) : (
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="status">Stato Pratica</Label>
-          <Select value={status} onValueChange={(value) => setStatus(value as PracticeStatus)} disabled={!canEditStatus}>
+          <Select value={status} onValueChange={(value) => setStatus(value as PracticeStatus)}>
             <SelectTrigger id="status">
               <SelectValue />
             </SelectTrigger>
@@ -101,10 +116,11 @@ export const PracticeStatusForm = ({
           </Select>
         </div>
 
-        <Button type="submit" disabled={!canEditStatus || loading || status === currentStatus}>
+        <Button type="submit" disabled={loading || status === currentStatus}>
           {loading ? "Aggiornamento..." : "Aggiorna Stato"}
         </Button>
       </form>
+      )}
     </Card>
   );
 };
