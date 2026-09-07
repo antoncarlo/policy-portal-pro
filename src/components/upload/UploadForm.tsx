@@ -21,7 +21,15 @@ import { mapPracticeTypeToEnum } from "@/utils/practiceTypeMapping";
 import { notifyAdminNewPractice } from "@/services/emailService";
 import { DocumentUploadSection } from "@/components/upload/DocumentUploadSection";
 import { requiredDocumentsConfig } from "@/config/requiredDocuments";
-import { composeNotes } from "@/lib/practiceSummary";
+import { buildPetSummary, composeNotes } from "@/lib/practiceSummary";
+import {
+  PET_QUOTE_DOCUMENT_TYPE,
+  PET_QUOTE_MIME_TYPE,
+  buildPetQuoteFileName,
+  canGeneratePetQuote,
+  generatePetQuotePdf,
+  petQuotePdfToBytes,
+} from "@/lib/petQuotePdf";
 import { Enums, TablesInsert } from "@/integrations/supabase/types";
 
 type PolicyFieldValue = string | number | boolean;
@@ -422,9 +430,51 @@ export const UploadForm = () => {
 
       await Promise.all(uploadPromises);
 
+      // Pet: allega il "Ricapitolo Richiesta" in PDF (stesso layout/testo della
+      // mail di preventivo), scaricabile dal riepilogo pratica tra i documenti.
+      let quoteAttached = false;
+      if (practiceType === "Pet") {
+        try {
+          const pet = buildPetSummary({
+            practice_type: "pet",
+            owner_tax_code: null,
+            pet_microchip: String(dynamicFields.pet_microchip ?? ""),
+            premium_gross: financialData.premium_gross ?? null,
+            specific_fields: specificFields,
+          });
+          if (canGeneratePetQuote(pet)) {
+            const pdf = generatePetQuotePdf({
+              practiceNumber: practice.practice_number,
+              clientName: clientName.trim(),
+              pet,
+            });
+            const bytes = petQuotePdfToBytes(pdf);
+            const fileName = buildPetQuoteFileName(pet.name);
+            const storagePath = `${practice.id}/${Date.now()}-ricapitolo-richiesta-pet.pdf`;
+            const { error: quoteUploadError } = await supabase.storage
+              .from("practice-documents")
+              .upload(storagePath, new Blob([bytes], { type: PET_QUOTE_MIME_TYPE }), { contentType: PET_QUOTE_MIME_TYPE });
+            if (quoteUploadError) throw quoteUploadError;
+            const { error: quoteInsertError } = await supabase.from("practice_documents").insert({
+              practice_id: practice.id,
+              file_name: fileName,
+              file_path: storagePath,
+              file_size: bytes.length,
+              mime_type: PET_QUOTE_MIME_TYPE,
+              uploaded_by: session.user.id,
+              document_type: PET_QUOTE_DOCUMENT_TYPE,
+            });
+            if (quoteInsertError) throw quoteInsertError;
+            quoteAttached = true;
+          }
+        } catch (quoteError) {
+          console.error("Pet quote PDF generation failed:", quoteError);
+        }
+      }
+
       toast({
         title: "Pratica caricata con successo",
-        description: `Pratica ${practice.practice_number} creata con ${documentFiles.length} documento/i obbligatorio/i allegato/i.`,
+        description: `Pratica ${practice.practice_number} creata con ${documentFiles.length} documento/i obbligatorio/i allegato/i${quoteAttached ? " e Ricapitolo Richiesta PDF" : ""}.`,
       });
 
       // Fire-and-forget admin notification

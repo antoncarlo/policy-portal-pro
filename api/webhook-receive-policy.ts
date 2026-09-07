@@ -1,7 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import * as crypto from 'crypto';
-import { composeNotes, extractNotesSections, resolvePetCoverages, type SpecificFields } from '../src/lib/practiceSummary.js';
+import { buildPetSummary, composeNotes, extractNotesSections, resolvePetCoverages, type SpecificFields } from '../src/lib/practiceSummary.js';
+import {
+  PET_QUOTE_DOCUMENT_TYPE,
+  PET_QUOTE_MIME_TYPE,
+  buildPetQuoteFileName,
+  canGeneratePetQuote,
+  generatePetQuotePdf,
+  petQuotePdfToBytes,
+} from '../src/lib/petQuotePdf.js';
 import { DOCUMENT_TYPE_ALIASES, normalizeDocumentType, type AdminClient } from './_lib/partner-api.js';
 
 // ---------------------------------------------------------------------------
@@ -646,6 +654,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    // Pet: genera e allega il "Ricapitolo Richiesta" (stesso layout/testo della
+    // mail di preventivo inviata al cliente), cosi' e' scaricabile tra i documenti.
+    let petQuoteDocument: { file_name: string; document_type: string } | null = null;
+    if (dbPracticeType === 'pet') {
+      try {
+        const pet = buildPetSummary({
+          practice_type: 'pet',
+          owner_tax_code: ownerTaxCode,
+          pet_microchip: petMicrochip,
+          premium_gross: premiumValues.premium_gross ?? null,
+          specific_fields: specificFields,
+        });
+        if (canGeneratePetQuote(pet)) {
+          const pdf = generatePetQuotePdf({
+            practiceNumber: practice.practice_number,
+            clientName: (body.client_name as string).trim(),
+            pet,
+          });
+          const bytes = Buffer.from(petQuotePdfToBytes(pdf));
+          const fileName = buildPetQuoteFileName(pet.name);
+          const storagePath = `${practice.id}/${Date.now()}-ricapitolo-richiesta-pet.pdf`;
+
+          const { error: quoteUploadError } = await supabaseAdmin.storage
+            .from('practice-documents')
+            .upload(storagePath, bytes, { contentType: PET_QUOTE_MIME_TYPE, upsert: false });
+          if (quoteUploadError) throw new Error(quoteUploadError.message);
+
+          const { error: quoteInsertError } = await supabaseAdmin.from('practice_documents').insert({
+            practice_id: practice.id,
+            file_name: fileName,
+            file_path: storagePath,
+            file_size: bytes.length,
+            mime_type: PET_QUOTE_MIME_TYPE,
+            uploaded_by: ownerUserId,
+            document_type: PET_QUOTE_DOCUMENT_TYPE,
+          });
+          if (quoteInsertError) throw new Error(quoteInsertError.message);
+
+          petQuoteDocument = { file_name: fileName, document_type: PET_QUOTE_DOCUMENT_TYPE };
+        }
+      } catch (err) {
+        // Il preventivo e' un documento accessorio: non blocca la creazione della pratica
+        console.error('Pet quote PDF generation failed:', err instanceof Error ? err.message : err);
+      }
+    }
+
     // Admin notification (fire-and-forget)
     notifyAdminNewPractice({
       practiceNumber: practice.practice_number,
@@ -673,6 +727,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       practice_id: practice.id,
       practice_number: practice.practice_number,
       message: 'Pratica creata con successo.',
+      quote_document: petQuoteDocument,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Errore sconosciuto';

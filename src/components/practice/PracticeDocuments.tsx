@@ -16,6 +16,8 @@ interface Document {
 
 interface PracticeDocumentsProps {
   practiceId: string;
+  /** Cambiando questo valore l'elenco viene ricaricato (es. dopo la generazione del preventivo Pet). */
+  refreshToken?: number;
 }
 
 const buildDocumentStoragePath = (practiceId: string, file: File, index: number) => {
@@ -58,7 +60,7 @@ const getDocumentStorageReference = (filePath: string) => {
   };
 };
 
-export const PracticeDocuments = ({ practiceId }: PracticeDocumentsProps) => {
+export const PracticeDocuments = ({ practiceId, refreshToken = 0 }: PracticeDocumentsProps) => {
   const { toast } = useToast();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,7 +69,7 @@ export const PracticeDocuments = ({ practiceId }: PracticeDocumentsProps) => {
   useEffect(() => {
     loadDocuments();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
-  }, [practiceId]);
+  }, [practiceId, refreshToken]);
 
   const loadDocuments = async () => {
     try {

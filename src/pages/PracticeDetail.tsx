@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { PracticeTimeline } from "@/components/practice/PracticeTimeline";
 import { PracticeDocuments } from "@/components/practice/PracticeDocuments";
+import { PetQuoteDocumentCard } from "@/components/practice/PetQuoteDocumentCard";
 import { PracticeStatusForm } from "@/components/practice/PracticeStatusForm";
 import { PracticeNotes } from "@/components/practice/PracticeNotes";
 import { PracticeSummaryCard } from "@/components/practice/PracticeSummaryCard";
@@ -58,6 +59,7 @@ const PracticeDetail = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [practice, setPractice] = useState<Practice | null>(null);
+  const [documentsRefreshToken, setDocumentsRefreshToken] = useState(0);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string>('');
 
@@ -358,7 +360,14 @@ const PracticeDetail = () => {
           </div>
         </div>
 
-        <PracticeDocuments practiceId={practice.id} />
+        {practice.practice_type === "pet" && (
+          <PetQuoteDocumentCard
+            practice={practice}
+            onDocumentCreated={() => setDocumentsRefreshToken((t) => t + 1)}
+          />
+        )}
+
+        <PracticeDocuments practiceId={practice.id} refreshToken={documentsRefreshToken} />
       </div>
     </DashboardLayout>
   );

@@ -1,6 +1,6 @@
 # Guida all'Integrazione API - Policy Portal Pro
 
-**Versione:** 2.2
+**Versione:** 2.3
 **Data:** Settembre 2026
 **Autore:** Anton Carlo Santoro
 
@@ -126,9 +126,12 @@ Crea una nuova pratica nel portale con i dati del cliente, della polizza, **tutt
   "success": true,
   "practice_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "practice_number": "PR-2026-1045",
-  "message": "Pratica creata con successo."
+  "message": "Pratica creata con successo.",
+  "quote_document": { "file_name": "Ricapitolo Richiesta per Fido.pdf", "document_type": "preventivo_pet" }
 }
 ```
+
+**Ricapitolo Richiesta (solo Pet):** se la pratica e' di tipo `pet` e sono presenti `selected_coverages` (oppure `total_annual` / `premium_gross`), il portale genera automaticamente il PDF "Ricapitolo Richiesta per <nome animale>", con lo stesso layout e testo della mail di preventivo inviata al cliente (coperture incluse SI/NO, premio annuale, rata mensile, condizioni). Il file viene allegato alla pratica con `document_type = preventivo_pet` ed e' scaricabile da `get-practice-documents`. Per questo e' importante inviare `selected_coverages` con gli id del catalogo coperture: senza coperture o premio il documento non viene generato (`quote_document: null`).
 
 Un reinvio con la stessa idempotency key restituisce `200` con `duplicate: true` e gli stessi identificativi. Il confronto della chiave e' esatto (`EXT-2` non coincide con `EXT-2026-000123`).
 
@@ -903,6 +906,10 @@ L'array `required_documents` di `get-practice-status` indica per ogni tipologia 
 - Il questionario Pet (`questionario_pet`) e' stato rimosso: per Pet sono richiesti solo documento d'identita' e libretto sanitario/microchip.
 - `get-practice-status` restituisce i nuovi campi `summary`, `pet`, `client.tax_code`, `policy.days_until_expiry`, `payment`, `missing_documents`, `documents_complete`.
 - Nuovi endpoint: `get-practices`, `get-expiries`, `get-reports`, `get-administration`.
+
+## Note versione 2.3
+
+- Pet: alla creazione della pratica viene generato e allegato automaticamente il PDF "Ricapitolo Richiesta per <nome animale>" (`document_type = preventivo_pet`), scaricabile via `get-practice-documents`. La risposta del webhook include `quote_document`.
 
 ## Note versione 2.2
 
