@@ -1,6 +1,6 @@
 # Guida all'Integrazione API - Policy Portal Pro
 
-**Versione:** 2.6
+**Versione:** 2.7
 **Data:** Settembre 2026
 **Autore:** Anton Carlo Santoro
 
@@ -16,6 +16,131 @@ Questa guida documenta tutti gli endpoint disponibili per l'integrazione con Pol
 - **Formato Dati:** JSON (`Content-Type: application/json`)
 - **Perimetro dati (tenant isolation):** ogni API Key vede esclusivamente le pratiche create con la chiave stessa e, se la chiave e' associata a un utente del portale, anche le pratiche di quell'utente. In questo modo il partner ha una dashboard completa delle proprie pratiche.
 - **Chiamate solo da backend:** le credenziali non devono mai essere esposte in frontend o script lato client.
+- **Credenziali:** `X-API-Key` e `WEBHOOK_SECRET` vengono consegnati dal team Policy Portal Pro su canale riservato. La chiave e' associata all'utente del partner nel portale: le pratiche create via API compaiono nella sua area riservata.
+
+---
+
+## Autenticazione e Firma HMAC
+
+Tutte le chiamate richiedono l'header `X-API-Key`. La sola creazione pratica (`POST /api/webhook-receive-policy`) richiede anche `X-Signature`, calcolata come HMAC-SHA256 del body JSON con il `WEBHOOK_SECRET`, in esadecimale, con prefisso `sha256=`.
+
+**Regola fondamentale:** il server ricalcola la firma sul JSON che riceve, riserializzato in forma compatta (equivalente a `JSON.stringify` di JavaScript). Per far coincidere le firme il body inviato deve essere:
+
+- JSON compatto: nessuno spazio o a capo tra chiavi e valori;
+- senza escape di `/` e dei caratteri non ASCII (es. `è`, non `\u00e8`);
+- numeri senza zeri decimali finali (`318`, non `318.0`; `26.5` va bene);
+- inviato esattamente come firmato (stessa stringa, stesso ordine delle chiavi), con `Content-Type: application/json`.
+
+**PHP**
+```php
+$body = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+$signature = 'sha256=' . hash_hmac('sha256', $body, $webhookSecret);
+
+$ch = curl_init('https://policy-portal-pro.vercel.app/api/webhook-receive-policy');
+curl_setopt_array($ch, [
+  CURLOPT_POST => true,
+  CURLOPT_POSTFIELDS => $body,
+  CURLOPT_RETURNTRANSFER => true,
+  CURLOPT_HTTPHEADER => [
+    'Content-Type: application/json',
+    'X-API-Key: ' . $apiKey,
+    'X-Signature: ' . $signature,
+    'X-Idempotency-Key: ' . $payload['idempotency_key'],
+  ],
+]);
+$response = json_decode(curl_exec($ch), true);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+```
+
+**Node.js**
+```js
+const crypto = require("crypto");
+const body = JSON.stringify(payload);
+const signature = "sha256=" + crypto.createHmac("sha256", process.env.WEBHOOK_SECRET).update(body, "utf8").digest("hex");
+const res = await fetch("https://policy-portal-pro.vercel.app/api/webhook-receive-policy", {
+  method: "POST",
+  headers: { "Content-Type": "application/json", "X-API-Key": process.env.API_KEY, "X-Signature": signature },
+  body,
+});
+```
+
+**Python**
+```python
+import hmac, hashlib, json, requests
+body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
+signature = "sha256=" + hmac.new(WEBHOOK_SECRET.encode(), body.encode("utf-8"), hashlib.sha256).hexdigest()
+r = requests.post("https://policy-portal-pro.vercel.app/api/webhook-receive-policy", data=body.encode("utf-8"),
+                  headers={"Content-Type": "application/json", "X-API-Key": API_KEY, "X-Signature": signature})
+```
+
+Gli endpoint di lettura (`GET`) e `POST /api/add-practice-note` / `POST /api/pet-quote` non richiedono la firma: basta `X-API-Key`.
+
+---
+
+## Esempio Completo: Flusso Pet dalla Piattaforma del Partner (PHP)
+
+```php
+$base = 'https://policy-portal-pro.vercel.app';
+$headers = ['Content-Type: application/json', 'X-API-Key: ' . $apiKey];
+
+function call($method, $url, $headers, $body = null) {
+  $ch = curl_init($url);
+  curl_setopt_array($ch, [CURLOPT_CUSTOMREQUEST => $method, CURLOPT_RETURNTRANSFER => true, CURLOPT_HTTPHEADER => $headers]);
+  if ($body !== null) curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+  $out = json_decode(curl_exec($ch), true);
+  return [curl_getinfo($ch, CURLINFO_HTTP_CODE), $out];
+}
+
+// 1) Catalogo coperture (da mettere in cache lato partner)
+[$code, $catalog] = call('GET', "$base/api/pet-quote-catalog", $headers);
+
+// 2) Preventivo: l'utente sceglie categoria e coperture nel portale del partner
+$quoteBody = json_encode([
+  'pet_species' => 'cane', 'pet_weight' => 18,
+  'selected_coverages' => ['rsv_gold_1000', 'rct_100k', 'tl_standard'],
+  'pet_name' => 'Fido',
+], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+[$code, $quote] = call('POST', "$base/api/pet-quote", $headers, $quoteBody);
+// $quote['total_annual'] = 318, $quote['total_monthly'] = 26.5, $quote['guarantees'] = tabella SI/NO
+
+// 3) Creazione pratica con i dati del preventivo e i documenti
+$payload = [
+  'source' => 'portale-mariano',
+  'idempotency_key' => 'EXT-' . $idPraticaPartner,
+  'practice_type' => 'pet',
+  'client_name' => 'Mario Rossi',
+  'client_email' => 'mario.rossi@example.com',
+  'client_phone' => '+39 333 1234567',
+  'owner_tax_code' => 'RSSMRA80A01H501U',
+  'pet_microchip' => '380260001234567',
+  'policy_start_date' => '2026-10-01',
+  'policy_end_date' => '2027-10-01',
+  'specific_fields' => array_merge($quote['specific_fields'], [
+    'pet_name' => 'Fido', 'pet_species' => 'cane', 'pet_breed' => 'Labrador',
+    'pet_birth_date' => '2021-03-15', 'pet_gender' => 'maschio', 'pet_sterilized' => true,
+    'pet_weight' => 18, 'pet_previous_diseases' => 'Nessuna',
+  ]),
+  'documents' => [
+    ['filename' => 'documento_identita.pdf', 'mime_type' => 'application/pdf', 'document_type' => 'documento_identita',
+     'content_base64' => base64_encode(file_get_contents($pathDocumentoIdentita))],
+    ['filename' => 'libretto_sanitario.pdf', 'mime_type' => 'application/pdf', 'document_type' => 'libretto_sanitario',
+     'content_base64' => base64_encode(file_get_contents($pathLibretto))],
+  ],
+];
+$body = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+$signed = array_merge($headers, ['X-Signature: sha256=' . hash_hmac('sha256', $body, $webhookSecret)]);
+[$code, $created] = call('POST', "$base/api/webhook-receive-policy", $signed, $body);
+// $created['practice_number'] = 'PR-2026-1045', $created['quote_document']['file_name'] = 'Ricapitolo Richiesta per Fido.zip'
+
+// 4) Stato pratica (polling o su richiesta dell'utente)
+[$code, $status] = call('GET', "$base/api/get-practice-status?practice_id=" . $created['practice_id'], $headers);
+
+// 5) Download del Ricapitolo Richiesta (URL valido 1 ora)
+[$code, $docs] = call('GET', "$base/api/get-practice-documents?practice_id=" . $created['practice_id'], $headers);
+foreach ($docs['documents'] as $doc) {
+  if ($doc['document_type'] === 'preventivo_pet') { $zipUrl = $doc['download_url']; }
+}
+```
 
 ---
 
@@ -139,7 +264,7 @@ Crea una nuova pratica nel portale con i dati del cliente, della polizza, **tutt
   "practice_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "practice_number": "PR-2026-1045",
   "message": "Pratica creata con successo.",
-  "quote_document": { "file_name": "Ricapitolo Richiesta per Fido.zip", "document_type": "preventivo_pet", "attachments": ["Helpet-Condizioni-Generali-CGA.pdf", "Helpet-DIP-Aggiuntivo-Danni.pdf"] }
+  "quote_document": { "document_id": "doc-uuid-3", "file_name": "Ricapitolo Richiesta per Fido.zip", "document_type": "preventivo_pet", "file_size": 898152, "attachments": ["Helpet-Condizioni-Generali-CGA.pdf", "Helpet-DIP-Aggiuntivo-Danni.pdf"] }
 }
 ```
 
@@ -424,7 +549,7 @@ Restituisce l'elenco dei documenti allegati con URL pre-firmati temporanei (vali
 }
 ```
 
-Il Ricapitolo Richiesta (`document_type = preventivo_pet`) e' uno ZIP che contiene `Ricapitolo Richiesta per <nome>.pdf`, `Helpet-Condizioni-Generali-CGA.pdf`, `Helpet-DIP-Aggiuntivo-Danni.pdf` e un `LEGGIMI.txt`. Gli URL pre-firmati scadono dopo 1 ora: richiederli di nuovo quando servono, senza memorizzarli.
+Il Ricapitolo Richiesta (`document_type = preventivo_pet`) e' uno ZIP che contiene `Ricapitolo Richiesta per <nome>.pdf`, `Helpet-Condizioni-Generali-CGA.pdf`, `Helpet-DIP-Aggiuntivo-Danni.pdf`. Gli URL pre-firmati scadono dopo 1 ora: richiederli di nuovo quando servono, senza memorizzarli.
 
 ---
 
@@ -1065,6 +1190,11 @@ Il cambio di `status` e' riservato agli amministratori del portale: non esiste u
 - Il questionario Pet (`questionario_pet`) e' stato rimosso: per Pet sono richiesti solo documento d'identita' e libretto sanitario/microchip.
 - `get-practice-status` restituisce i nuovi campi `summary`, `pet`, `client.tax_code`, `policy.days_until_expiry`, `payment`, `missing_documents`, `documents_complete`.
 - Nuovi endpoint: `get-practices`, `get-expiries`, `get-reports`, `get-administration`.
+
+## Note versione 2.7
+
+- Nuova sezione "Autenticazione e Firma HMAC" con le regole di serializzazione del body ed esempi in PHP, Node.js e Python; esempio completo del flusso Pet in PHP (catalogo, preventivo, creazione pratica con documenti, stato, download ZIP).
+- Lo ZIP del Ricapitolo Richiesta non contiene piu' il file LEGGIMI.txt; `quote_document` include `document_id` e `file_size`.
 
 ## Note versione 2.6
 
