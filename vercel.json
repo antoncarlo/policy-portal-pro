@@ -6,6 +6,14 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/api/pet-quote-catalog",
+      "destination": "/api/pet-quote"
+    },
+    {
+      "source": "/api/get-practice-documents",
+      "destination": "/api/get-practice-status?view=documents"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

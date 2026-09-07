@@ -8,6 +8,7 @@ import {
   todayIsoDate,
 } from './_lib/partner-api.js';
 import { buildPracticeSummary, extractNotesSections } from '../src/lib/practiceSummary.js';
+import { handlePracticeDocuments } from './_lib/practice-documents.js';
 
 // ---------------------------------------------------------------------------
 // Documenti obbligatori per tipologia (allineati a src/config/requiredDocuments.ts)
@@ -94,6 +95,9 @@ const REQUIRED_DOCUMENTS_BY_TYPE: Record<string, RequiredDocDef[]> = {
 // ---------------------------------------------------------------------------
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // /api/get-practice-documents viene riscritto qui con view=documents (vedi vercel.json)
+  if (queryString(req, 'view') === 'documents') return handlePracticeDocuments(req, res);
+
   const api = await prepareGetEndpoint(req, res, '/api/get-practice-status');
   if (!api) return;
   const { supabaseAdmin, ctx, respond } = api;

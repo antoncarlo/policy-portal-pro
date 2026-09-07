@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { practiceBelongsToTenant, prepareGetEndpoint, queryString } from './_lib/partner-api.js';
+import { practiceBelongsToTenant, prepareGetEndpoint, queryString } from './partner-api.js';
 
 const SIGNED_URL_EXPIRY_SECONDS = 3600; // 1 hour
 const PRACTICE_DOCUMENTS_BUCKET = 'practice-documents';
@@ -20,7 +20,12 @@ function getDocumentStorageReference(filePath: string) {
   };
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+/**
+ * GET /api/get-practice-documents
+ * Servito dalla function get-practice-status (rewrite in vercel.json, per
+ * restare entro il limite di 12 Serverless Functions del piano Vercel Hobby).
+ */
+export async function handlePracticeDocuments(req: VercelRequest, res: VercelResponse) {
   const api = await prepareGetEndpoint(req, res, '/api/get-practice-documents');
   if (!api) return;
   const { supabaseAdmin, ctx, respond } = api;

@@ -1,10 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { prepareGetEndpoint } from './_lib/partner-api.js';
-import { computePetQuote, type PetQuoteRequest } from '../src/lib/petQuoteEngine.js';
+import { buildPetQuoteCatalog, computePetQuote, type PetQuoteRequest } from '../src/lib/petQuoteEngine.js';
 import { buildPetSummary } from '../src/lib/practiceSummary.js';
 import { buildPetQuoteFileName, generatePetQuotePdf, petQuotePdfToBytes } from '../src/lib/petQuotePdf.js';
 
 /**
+ * GET  /api/pet-quote-catalog  (Preventivatore Pet - catalogo; rewrite -> GET /api/pet-quote)
+ * Categorie animale, coperture con premi, piani predefiniti, regole di
+ * composizione e tabella garanzie: tutto cio' che serve al partner per
+ * replicare il configuratore Pet del portale.
+ *
  * POST /api/pet-quote  (Preventivatore Pet - calcolo)
  * Body: animal_type (o pet_species + pet_weight) e la selezione coperture
  * (selected_coverages | plan_id | rsv/rct/tutela_legale). Opzionali:
@@ -14,6 +19,16 @@ import { buildPetQuoteFileName, generatePetQuotePdf, petQuotePdfToBytes } from '
  * l'oggetto `specific_fields` pronto per il webhook di creazione pratica.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method === 'GET') {
+    const catalogApi = await prepareGetEndpoint(req, res, '/api/pet-quote-catalog', 'GET');
+    if (!catalogApi) return;
+    return catalogApi.respond(200, {
+      success: true,
+      generated_at: new Date().toISOString(),
+      ...buildPetQuoteCatalog(),
+    });
+  }
+
   const api = await prepareGetEndpoint(req, res, '/api/pet-quote', 'POST');
   if (!api) return;
   const { respond } = api;
