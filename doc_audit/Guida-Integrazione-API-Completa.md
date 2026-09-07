@@ -1,8 +1,6 @@
 # Guida all'Integrazione API - Policy Portal Pro
 
 **Versione:** 2.7
-**Data:** Settembre 2026
-**Autore:** Anton Carlo Santoro
 
 Questa guida documenta tutti gli endpoint disponibili per l'integrazione con Policy Portal Pro: **preventivatore Pet** (catalogo coperture e calcolo), creazione pratica con **tutti i dati della quotazione**, **Ricapitolo Richiesta** generato automaticamente (ZIP con preventivo PDF e documentazione contrattuale), stato completo della pratica con **riepilogo**, documenti, messaggistica e gli endpoint di **dashboard** (elenco pratiche, scadenzario, report produzione, amministrazione).
 
@@ -1219,7 +1217,3 @@ Il cambio di `status` e' riservato agli amministratori del portale: non esiste u
 - Le date in formato italiano `DD/MM/YYYY` dentro `specific_fields` vengono interpretate correttamente nel riepilogo.
 - Per Pet, se manca `premium_gross` e `total_annual`, il premio lordo viene calcolato dalla somma delle `selected_coverages`.
 - Il controllo di idempotenza confronta la chiave in modo esatto (nessuna collisione tra chiavi con lo stesso prefisso).
-
----
-
-*Documento tecnico a cura di Anton Carlo Santoro - Policy Portal Pro*
