@@ -324,3 +324,40 @@ export function addDaysIso(days: number): string {
 export function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
+
+// ---------------------------------------------------------------------------
+// Slot documentali: alias keyword partner -> id slot del portale
+// (src/config/requiredDocuments.ts). Usati sia in scrittura (webhook) sia in
+// lettura (stato pratica), cosi' anche i documenti salvati con la keyword
+// storica (es. libretto_sanitario_o_microchip) risultano "caricati".
+// ---------------------------------------------------------------------------
+
+export const DOCUMENT_TYPE_ALIASES: Record<string, string> = {
+  libretto_sanitario_o_microchip: 'libretto_sanitario',
+  libretto_sanitario: 'libretto_sanitario',
+  certificato_microchip: 'libretto_sanitario',
+  microchip: 'libretto_sanitario',
+  documento_identita_legale_rappresentante: 'documento_identita',
+  documento_identita: 'documento_identita',
+  carta_identita: 'documento_identita',
+  passaporto: 'documento_identita',
+  lista_macchinari: 'lista_beni',
+  atto_gara_bando: 'atto_gara',
+  bando_gara: 'atto_gara',
+  profilo_rischio_mifid: 'questionario_salute_risparmio',
+  tessera_sanitaria: 'codice_fiscale',
+};
+
+/** Normalizza un document_type (o keyword) nello slot documentale del portale. */
+export function normalizeDocumentType(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const key = value.toLowerCase().trim();
+  if (!key) return null;
+  if (DOCUMENT_TYPE_ALIASES[key]) return DOCUMENT_TYPE_ALIASES[key];
+  // Alias contenuti nel valore (es. "libretto_sanitario_o_microchip_fido")
+  const aliasKeys = Object.keys(DOCUMENT_TYPE_ALIASES).sort((a, b) => b.length - a.length);
+  for (const alias of aliasKeys) {
+    if (key.includes(alias)) return DOCUMENT_TYPE_ALIASES[alias];
+  }
+  return key;
+}

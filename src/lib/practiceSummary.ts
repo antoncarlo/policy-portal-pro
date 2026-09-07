@@ -242,8 +242,8 @@ function formatFieldValue(
   if (key === "pet_species") return PET_ANIMAL_TYPE_LABELS[value] ?? value;
 
   if (def?.type === "date" || /_date$/.test(key)) {
-    const d = new Date(value);
-    if (!Number.isNaN(d.getTime())) return d.toLocaleDateString("it-IT");
+    const d = parseDateFlexible(value);
+    if (d) return d.toLocaleDateString("it-IT");
   }
 
   return value;
@@ -345,10 +345,28 @@ const toBooleanOrNull = (value: unknown): boolean | null => {
   return null;
 };
 
+/**
+ * Interpreta una data in formato ISO (YYYY-MM-DD) oppure italiano (DD/MM/YYYY,
+ * DD-MM-YYYY): alcuni partner inviano le date gia' in formato italiano e
+ * `new Date("05/07/2022")` le leggerebbe come mese/giorno.
+ */
+export function parseDateFlexible(value: unknown): Date | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  const s = String(value).trim();
+  const it = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+  if (it) {
+    const d = new Date(Number(it[3]), Number(it[2]) - 1, Number(it[1]));
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 function formatDateIt(value: string | null | undefined): string | null {
   if (!value) return null;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? value : d.toLocaleDateString("it-IT");
+  const d = parseDateFlexible(value);
+  return d ? d.toLocaleDateString("it-IT") : value;
 }
 
 /** Deduce la categoria tariffaria pet (gatti / cani per peso) quando non e' indicata esplicitamente. */

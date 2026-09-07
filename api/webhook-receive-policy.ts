@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import * as crypto from 'crypto';
-import { composeNotes, extractNotesSections, type SpecificFields } from '../src/lib/practiceSummary.js';
-import type { AdminClient } from './_lib/partner-api.js';
+import { composeNotes, extractNotesSections, resolvePetCoverages, type SpecificFields } from '../src/lib/practiceSummary.js';
+import { DOCUMENT_TYPE_ALIASES, normalizeDocumentType, type AdminClient } from './_lib/partner-api.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -35,25 +35,13 @@ const PORTAL_DOCUMENT_SLOTS_BY_DB_TYPE: Record<string, string[]> = {
   salute: ['documento_identita', 'codice_fiscale', 'questionario_sanitario'],
 };
 
-// Keyword accettate nel nome file / document_type -> slot del portale
-const DOCUMENT_TYPE_ALIASES: Record<string, string> = {
-  libretto_sanitario_o_microchip: 'libretto_sanitario',
-  libretto_sanitario: 'libretto_sanitario',
-  microchip: 'libretto_sanitario',
-  certificato_microchip: 'libretto_sanitario',
-  documento_identita_legale_rappresentante: 'documento_identita',
-  documento_identita: 'documento_identita',
-  carta_identita: 'documento_identita',
-  passaporto: 'documento_identita',
-  lista_macchinari: 'lista_beni',
-  profilo_rischio_mifid: 'questionario_salute_risparmio',
-  tessera_sanitaria: 'codice_fiscale',
-};
+// Keyword accettate nel nome file / document_type -> slot del portale: vedi
+// DOCUMENT_TYPE_ALIASES in ./_lib/partner-api.ts (condivisi con get-practice-status).
 
 function inferDocumentType(filename: string, explicitType: string | undefined, dbPracticeType: string): string | null {
   const normalizedName = filename.toLowerCase();
-  const explicit = explicitType?.toLowerCase().trim();
-  if (explicit) return DOCUMENT_TYPE_ALIASES[explicit] ?? explicit;
+  const explicit = normalizeDocumentType(explicitType);
+  if (explicit) return explicit;
 
   const slots = PORTAL_DOCUMENT_SLOTS_BY_DB_TYPE[dbPracticeType] ?? [];
   // Prima gli alias piu' specifici (chiavi piu' lunghe), poi gli slot del portale
@@ -486,10 +474,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     if (parsed !== undefined) premiumValues[field] = parsed;
   }
-  // Pet: se il partner invia il totale del preventivo, lo usiamo come premio lordo
+  // Pet: se il partner invia il totale del preventivo (o le coperture selezionate),
+  // lo usiamo come premio lordo della pratica
   if (practiceTypeRaw === 'pet' && premiumValues.premium_gross === undefined) {
     const totalAnnual = parseOptionalNumber(specificFields?.total_annual);
-    if (typeof totalAnnual === 'number') premiumValues.premium_gross = totalAnnual;
+    if (typeof totalAnnual === 'number') {
+      premiumValues.premium_gross = totalAnnual;
+    } else {
+      const coverages = resolvePetCoverages(specificFields);
+      if (coverages.length > 0) {
+        premiumValues.premium_gross = Math.round(coverages.reduce((sum, c) => sum + c.price, 0) * 100) / 100;
+      }
+    }
   }
 
   // 8. Idempotency check
@@ -497,11 +493,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     (typeof body.idempotency_key === 'string' ? body.idempotency_key : undefined);
 
   if (idempotencyKey) {
-    const { data: existing } = await supabaseAdmin
+    // Prefiltro per prefisso, poi confronto esatto sulla prima riga delle note:
+    // "EXT-2" non deve collidere con "EXT-2026-000123".
+    const { data: candidates } = await supabaseAdmin
       .from('practices')
-      .select('id, practice_number')
+      .select('id, practice_number, notes')
       .ilike('notes', `idempotency:${idempotencyKey}%`)
-      .maybeSingle();
+      .limit(20);
+
+    const existing = (candidates ?? []).find(
+      (p: { notes: string | null }) => extractNotesSections(p.notes).idempotencyKey === idempotencyKey
+    );
 
     if (existing) {
       return logAndRespond(200, {
@@ -689,4 +691,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'Errore interno del server.' });
   }
 }
-
+

@@ -1,6 +1,6 @@
 # Guida all'Integrazione API - Policy Portal Pro
 
-**Versione:** 2.1
+**Versione:** 2.2
 **Data:** Settembre 2026
 **Autore:** Anton Carlo Santoro
 
@@ -65,7 +65,7 @@ Crea una nuova pratica nel portale con i dati del cliente, della polizza, **tutt
 | `premium_net` | number | No | Premio netto (base provvigionale) |
 | `premium_taxable` | number | No | Imponibile |
 | `premium_taxes` | number | No | Imposte |
-| `premium_gross` | number | No | Premio lordo. Per Pet, se assente, viene usato `specific_fields.total_annual` |
+| `premium_gross` | number | No | Premio lordo. Per Pet, se assente, viene usato `specific_fields.total_annual` oppure la somma delle `selected_coverages` |
 | `notes` | string | No | **Appunti liberi** per l'assuntore (non usare per i dati della quotazione) |
 | `idempotency_key` | string | Consigliato | Chiave di idempotenza (alternativa all'header) |
 | `documents` | array | Si in pratica | Allegati inline in Base64 (vedi sezione Allegati) |
@@ -130,7 +130,9 @@ Crea una nuova pratica nel portale con i dati del cliente, della polizza, **tutt
 }
 ```
 
-Un reinvio con la stessa idempotency key restituisce `200` con `duplicate: true` e gli stessi identificativi.
+Un reinvio con la stessa idempotency key restituisce `200` con `duplicate: true` e gli stessi identificativi. Il confronto della chiave e' esatto (`EXT-2` non coincide con `EXT-2026-000123`).
+
+**Formato date:** il formato consigliato e' ISO `YYYY-MM-DD`. Nei campi di `specific_fields` (es. `pet_birth_date`) viene accettato anche il formato italiano `DD/MM/YYYY`, che nel riepilogo viene interpretato correttamente come giorno/mese/anno.
 
 ### Allegati documentali
 
@@ -146,7 +148,7 @@ Keyword richieste per tipologia:
 | rc | `visura_camerale`, `documento_identita` |
 | car | `preventivo_o_contratto`, `visura_camerale` |
 | casa | `visura_catastale`, `documento_identita` |
-| fidejussioni | `visura_camerale`, `bilancio_ultimo_anno`, `documento_identita_legale_rappresentante` |
+| fidejussioni | `visura_camerale`, `bilancio_ultimo_anno`, `documento_identita_legale_rappresentante` (facoltativo `atto_gara` / `atto_gara_bando`) |
 | fotovoltaico | `progetto_impianto`, `visura_camerale` |
 | catastrofali | `perizia_immobile`, `visura_catastale` |
 | azienda | `visura_camerale`, `bilancio` |
@@ -901,6 +903,13 @@ L'array `required_documents` di `get-practice-status` indica per ogni tipologia 
 - Il questionario Pet (`questionario_pet`) e' stato rimosso: per Pet sono richiesti solo documento d'identita' e libretto sanitario/microchip.
 - `get-practice-status` restituisce i nuovi campi `summary`, `pet`, `client.tax_code`, `policy.days_until_expiry`, `payment`, `missing_documents`, `documents_complete`.
 - Nuovi endpoint: `get-practices`, `get-expiries`, `get-reports`, `get-administration`.
+
+## Note versione 2.2
+
+- Lo stato "caricato/mancante" dei documenti obbligatori riconosce anche le keyword storiche usate in creazione (`libretto_sanitario_o_microchip`, `microchip`, `documento_identita_legale_rappresentante`, `atto_gara_bando`, `lista_macchinari`, ...): le pratiche gia' inviate risultano complete senza reinvio.
+- Le date in formato italiano `DD/MM/YYYY` dentro `specific_fields` vengono interpretate correttamente nel riepilogo.
+- Per Pet, se manca `premium_gross` e `total_annual`, il premio lordo viene calcolato dalla somma delle `selected_coverages`.
+- Il controllo di idempotenza confronta la chiave in modo esatto (nessuna collisione tra chiavi con lo stesso prefisso).
 
 ---
 
