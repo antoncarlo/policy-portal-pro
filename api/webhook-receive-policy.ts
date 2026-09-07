@@ -10,6 +10,7 @@ import {
   generatePetQuotePdf,
   petQuotePdfToBytes,
 } from '../src/lib/petQuotePdf.js';
+import { computePetQuote } from '../src/lib/petQuoteEngine.js';
 import { DOCUMENT_TYPE_ALIASES, normalizeDocumentType, type AdminClient } from './_lib/partner-api.js';
 
 // ---------------------------------------------------------------------------
@@ -463,6 +464,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     specificFields = notesSections.specificFields;
   }
   const textualNotes = notesSections.textualNotes;
+
+  // Pet: se il partner indica plan_id, scelta strutturata (rsv/rct/tutela_legale)
+  // o selected_coverages, il preventivatore calcola coperture, coverage_type,
+  // premio annuale e rata mensile (stessa logica del configuratore del portale).
+  if (practiceTypeRaw === 'pet' && specificFields) {
+    const hasSelection =
+      specificFields.plan_id !== undefined ||
+      specificFields.rsv !== undefined ||
+      specificFields.rct !== undefined ||
+      (Array.isArray(specificFields.selected_coverages) && specificFields.selected_coverages.length > 0) ||
+      typeof specificFields.selected_coverages === 'string';
+    if (hasSelection) {
+      const outcome = computePetQuote(specificFields);
+      if (!outcome.ok) {
+        return logAndRespond(422, { error: 'pet_quote_invalid', message: outcome.error, ...(outcome.details ?? {}) },
+          { source, error_message: `Pet quote invalid: ${outcome.error}`, size: bodySize });
+      }
+      const { rsv: _rsv, rct: _rct, tutela_legale: _tl, ...rest } = specificFields;
+      specificFields = { ...rest, ...outcome.quote.specific_fields };
+    }
+  }
 
   const ownerTaxCode = (typeof body.owner_tax_code === 'string' && body.owner_tax_code.trim())
     || (typeof specificFields?.owner_tax_code === 'string' && specificFields.owner_tax_code.trim())

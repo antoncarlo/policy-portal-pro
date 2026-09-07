@@ -1,6 +1,6 @@
 # Guida all'Integrazione API - Policy Portal Pro
 
-**Versione:** 2.3
+**Versione:** 2.4
 **Data:** Settembre 2026
 **Autore:** Anton Carlo Santoro
 
@@ -31,6 +31,8 @@ Questa guida documenta tutti gli endpoint disponibili per l'integrazione con Pol
 | GET | `/api/get-expiries` | Scadenzario polizze |
 | GET | `/api/get-reports` | Report produzione e KPI |
 | GET | `/api/get-administration` | Amministrazione: premi, provvigioni, incassi |
+| GET | `/api/pet-quote-catalog` | Preventivatore Pet: catalogo coperture, premi, piani e regole |
+| POST | `/api/pet-quote` | Preventivatore Pet: calcolo del preventivo (e anteprima PDF) |
 
 ---
 
@@ -635,6 +637,126 @@ Significato dei campi del riepilogo:
 
 ---
 
+## 9. Preventivatore Pet (Catalogo e Calcolo)
+
+Il partner puo' replicare nel proprio portale il configuratore Pet del portale: le stesse coperture, gli stessi premi e le stesse regole. Il flusso consigliato e':
+
+1. `GET /api/pet-quote-catalog` per caricare (e mettere in cache) coperture, premi e piani;
+2. `POST /api/pet-quote` ad ogni modifica della selezione dell'utente per ottenere totale annuale, rata mensile e tabella garanzie;
+3. `POST /api/webhook-receive-policy` inviando in `specific_fields` l'oggetto `specific_fields` restituito dal preventivo (piu' i dati dell'animale): il portale allega automaticamente il PDF "Ricapitolo Richiesta".
+
+### 9.1 Catalogo
+
+**`GET /api/pet-quote-catalog`** — Header: `X-API-Key`.
+
+```json
+{
+  "success": true,
+  "currency": "EUR",
+  "animal_types": [
+    { "id": "gatti", "label": "Gatto", "species": "gatto", "max_weight_kg": null, "min_weight_kg": null },
+    { "id": "cani_0_20kg", "label": "Cane fino a 20 kg", "species": "cane", "max_weight_kg": 20, "min_weight_kg": null },
+    { "id": "cani_oltre_20kg", "label": "Cane oltre 20 kg", "species": "cane", "max_weight_kg": null, "min_weight_kg": 20 }
+  ],
+  "coverage_types": [ { "id": "rct", "label": "Solo RC Terzi (RCT)" }, { "id": "rsv", "label": "..." }, { "id": "rct_rsv", "label": "..." }, { "id": "completa", "label": "..." } ],
+  "categories": [
+    { "category": "assistenza", "label": "Assistenza", "required": true, "max_selectable": 1, "coverages": [ { "id": "ass_standard", "name": "Assistenza Standard", "price_annual": 14.00, "..." : "..." } ] },
+    { "category": "rsv", "label": "Rimborso Spese Veterinarie", "required": false, "max_selectable": 1, "coverages": [ "..." ] },
+    { "category": "rct", "label": "Responsabilità Civile verso Terzi", "required": false, "max_selectable": 1, "coverages": [ "..." ] },
+    { "category": "tl", "label": "Tutela Legale", "required": false, "max_selectable": 1, "coverages": [ "..." ] }
+  ],
+  "coverages": [
+    { "id": "rsv_gold_1000", "name": "RSV Gold 1.000€", "category": "rsv", "category_label": "Rimborso Spese Veterinarie", "description": "Rimborso spese veterinarie - Massimale 1.000€ - Scoperto 10% min €100 - Max 2 sinistri/anno", "max_coverage": "1.000€", "price_annual": 232.00 }
+  ],
+  "plans": [
+    { "id": "cani_0_20_smart", "name": "Smart", "animal_type": "cani_0_20kg", "animal_type_label": "Cane fino a 20 kg", "coverages": ["ass_standard", "rsv_gold_1000", "rct_100k", "tl_standard"], "coverage_type": "completa", "total_annual": 318.00, "total_monthly": 26.50 }
+  ],
+  "rules": {
+    "assistenza": "sempre inclusa (ass_standard)",
+    "rsv": "facoltativa, al massimo una copertura della categoria rsv",
+    "rct": "facoltativa, al massimo una copertura della categoria rct",
+    "tl": "facoltativa (tl_standard)",
+    "minimum": "obbligatoria almeno una copertura tra rsv e rct",
+    "premium": "premio annuale = somma dei premi delle coperture selezionate; rata mensile = premio annuale / 12"
+  },
+  "guarantees": [ { "position": 1, "name": "Assistenza PET", "description": "..." }, "..." ]
+}
+```
+
+I piani predefiniti (`plans`) sono le combinazioni proposte dal portale per categoria animale (Light, Smart, Medium, Premium); il partner puo' proporli come scelte rapide oppure lasciare la composizione libera per copertura.
+
+### 9.2 Calcolo preventivo
+
+**`POST /api/pet-quote`** — Header: `X-API-Key`, `Content-Type: application/json`.
+
+| Campo | Tipo | Obbligatorio | Descrizione |
+|-------|------|:---:|-------------|
+| `animal_type` | string | Si* | `gatti`, `cani_0_20kg`, `cani_oltre_20kg`. *In alternativa `pet_species` (`cane`/`gatto`) e `pet_weight` (kg) |
+| `selected_coverages` | string[] | Si** | Id delle coperture scelte (l'assistenza standard viene aggiunta se assente) |
+| `plan_id` | string | Si** | In alternativa: id di un piano predefinito del catalogo |
+| `rsv`, `rct`, `tutela_legale` | string, string, boolean | Si** | In alternativa: scelta strutturata per categoria (`rsv: "rsv_gold_1000"`, `rct: "rct_100k"`, `tutela_legale: true`) |
+| `pet_name`, `client_name` | string | No | Usati solo per l'anteprima PDF |
+| `include_pdf` | boolean | No | `true` per ricevere il "Ricapitolo Richiesta" in base64 (anteprima non salvata) |
+| `reference` | string | No | Riferimento mostrato nell'anteprima PDF al posto del numero pratica |
+
+** Una sola delle tre modalita' e' necessaria; `selected_coverages` ha la precedenza.
+
+**Esempio:**
+```json
+{ "pet_species": "cane", "pet_weight": 18, "selected_coverages": ["rsv_gold_1000", "rct_100k", "tl_standard"], "pet_name": "Fido" }
+```
+
+**Risposta (200 OK):**
+```json
+{
+  "success": true,
+  "pet_name": "Fido",
+  "animal_type": "cani_0_20kg",
+  "animal_type_label": "Cane fino a 20 kg",
+  "coverage_type": "completa",
+  "coverage_type_label": "Copertura Completa (RCT + RSV + TL)",
+  "plan_id": "cani_0_20_smart",
+  "plan_name": "Smart",
+  "coverages": [
+    { "id": "ass_standard", "name": "Assistenza Standard", "category": "assistenza", "category_label": "Assistenza", "price_annual": 14.00, "max_coverage": null, "description": "..." },
+    { "id": "rsv_gold_1000", "name": "RSV Gold 1.000€", "category": "rsv", "price_annual": 232.00, "max_coverage": "1.000€", "..." : "..." },
+    { "id": "rct_100k", "name": "RCT 100K€", "category": "rct", "price_annual": 40.00, "max_coverage": "100.000€", "..." : "..." },
+    { "id": "tl_standard", "name": "Tutela Legale Standard", "category": "tl", "price_annual": 32.00, "max_coverage": null, "..." : "..." }
+  ],
+  "selected_coverages": ["ass_standard", "rsv_gold_1000", "rct_100k", "tl_standard"],
+  "total_annual": 318.00,
+  "total_monthly": 26.50,
+  "guarantees": [
+    { "position": 1, "name": "Assistenza PET", "description": "...", "included": true },
+    { "position": 2, "name": "Rimborso Spese Veterinarie (Silver)", "description": "...", "included": false },
+    { "position": 3, "name": "Rimborso Spese Veterinarie (Gold)", "description": "...", "included": true },
+    { "position": 4, "name": "Rimborso Spese Veterinarie (Platinum)", "description": "...", "included": false },
+    { "position": 5, "name": "Responsabilita' Civile Terzi", "description": "...", "included": true },
+    { "position": 6, "name": "Tutela Legale", "description": "...", "included": true }
+  ],
+  "specific_fields": {
+    "animal_type": "cani_0_20kg",
+    "coverage_type": "completa",
+    "selected_coverages": ["ass_standard", "rsv_gold_1000", "rct_100k", "tl_standard"],
+    "total_annual": 318.00,
+    "total_monthly": 26.50,
+    "plan_id": "cani_0_20_smart",
+    "plan_name": "Smart"
+  },
+  "pdf": null
+}
+```
+
+`guarantees` e' la tabella "Coperture incluse nel preventivo" (SI/NO) mostrata nella mail e nel PDF. `specific_fields` va copiato cosi' com'e' nel body del webhook di creazione pratica, aggiungendo i dati dell'animale (`pet_name`, `pet_species`, `pet_breed`, ...).
+
+**Errori (422 `pet_quote_invalid`):** categoria animale mancante, copertura non a catalogo (`unknown_coverages`), piano non disponibile per la categoria, piu' di una copertura per categoria, nessuna copertura tra rsv e rct.
+
+### 9.3 Creazione pratica con selezione del preventivatore
+
+Il webhook accetta direttamente anche `plan_id` oppure `rsv` / `rct` / `tutela_legale` dentro `specific_fields`: le coperture, `coverage_type`, `total_annual` e `total_monthly` vengono calcolati dal portale con le stesse regole. Una selezione non valida restituisce 422 `pet_quote_invalid`. Il vecchio formato con il solo `coverage_type` resta accettato, ma senza coperture il premio e il PDF non possono essere prodotti.
+
+---
+
 ## Tabelle di Riferimento (Enum)
 
 ### Stati Pratica (`status`)
@@ -906,6 +1028,11 @@ L'array `required_documents` di `get-practice-status` indica per ogni tipologia 
 - Il questionario Pet (`questionario_pet`) e' stato rimosso: per Pet sono richiesti solo documento d'identita' e libretto sanitario/microchip.
 - `get-practice-status` restituisce i nuovi campi `summary`, `pet`, `client.tax_code`, `policy.days_until_expiry`, `payment`, `missing_documents`, `documents_complete`.
 - Nuovi endpoint: `get-practices`, `get-expiries`, `get-reports`, `get-administration`.
+
+## Note versione 2.4
+
+- Preventivatore Pet via API: `GET /api/pet-quote-catalog` (catalogo coperture, premi, piani, regole) e `POST /api/pet-quote` (calcolo preventivo, tabella garanzie, `specific_fields` pronto per il webhook, anteprima PDF con `include_pdf`).
+- Il webhook accetta `plan_id` oppure `rsv` / `rct` / `tutela_legale` in `specific_fields` e calcola coperture e premio; selezione non valida -> 422 `pet_quote_invalid`.
 
 ## Note versione 2.3
 

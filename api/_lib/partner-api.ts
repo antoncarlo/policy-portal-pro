@@ -212,11 +212,12 @@ export interface GetEndpointContext {
 export async function prepareGetEndpoint(
   req: VercelRequest,
   res: VercelResponse,
-  endpoint: string
+  endpoint: string,
+  allowedMethod: 'GET' | 'POST' = 'GET'
 ): Promise<GetEndpointContext | null> {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'X-API-Key');
+  res.setHeader('Access-Control-Allow-Methods', `${allowedMethod}, OPTIONS`);
+  res.setHeader('Access-Control-Allow-Headers', 'X-API-Key, Content-Type');
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -224,8 +225,8 @@ export async function prepareGetEndpoint(
   }
 
   const method = req.method ?? 'UNKNOWN';
-  if (method !== 'GET') {
-    res.status(405).json({ error: 'Metodo non consentito. Utilizzare GET.' });
+  if (method !== allowedMethod) {
+    res.status(405).json({ error: `Metodo non consentito. Utilizzare ${allowedMethod}.` });
     return null;
   }
 

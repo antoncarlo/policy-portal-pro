@@ -9,6 +9,7 @@
 import { jsPDF } from "jspdf";
 import * as autoTableModule from "jspdf-autotable";
 import type { PetCoverageSummary, PetSummary } from "./practiceSummary.js";
+import { buildGuaranteeTable } from "./petQuoteEngine.js";
 
 // jspdf-autotable espone la funzione come default export sia nel build ESM
 // (browser / Vite) sia in quello CommonJS (Node / Vercel Functions): il
@@ -41,55 +42,6 @@ export interface PetQuotePdfInput {
   pet: PetSummary;
   generatedAt?: Date;
 }
-
-interface GuaranteeRow {
-  name: string;
-  description: string;
-  included: (coverages: PetCoverageSummary[]) => boolean;
-}
-
-const hasCoverage = (coverages: PetCoverageSummary[], predicate: (c: PetCoverageSummary) => boolean) =>
-  coverages.some(predicate);
-
-// Le sei garanzie elencate nella mail di preventivo (testi identici alla mail).
-const GUARANTEE_ROWS: GuaranteeRow[] = [
-  {
-    name: "Assistenza PET",
-    description:
-      "Fornisce assistenza telefonica specializzata per esigenze urgenti legate al PET. Ovunque ti trovi, potrai sempre contare sull'assistenza offerta da un call center specializzato (800.06.63.20 - numero gratuito dall'Italia).",
-    included: (c) => hasCoverage(c, (x) => x.category === "assistenza") || c.length > 0,
-  },
-  {
-    name: "Rimborso Spese Veterinarie (Silver)",
-    description:
-      "Copre le spese veterinarie legate a interventi chirurgici che comportino il ricovero / day hospital del tuo PET e gli esami collegati all'intervento se effettuati nei 30 giorni precedenti o successivi all'intervento.",
-    included: (c) => hasCoverage(c, (x) => x.id.startsWith("rsv_silver")),
-  },
-  {
-    name: "Rimborso Spese Veterinarie (Gold)",
-    description:
-      "Copre le spese veterinarie per ricovero / day hospital anche non vincolati a interventi chirurgici, incluse visite, analisi, esami e accertamenti collegati al ricovero se effettuati nei 30 giorni precedenti o successivi.",
-    included: (c) => hasCoverage(c, (x) => x.id.startsWith("rsv_gold")),
-  },
-  {
-    name: "Rimborso Spese Veterinarie (Platinum)",
-    description:
-      "Copre le spese veterinarie in caso di ricoveri / day hospital, incluse visite, analisi, esami e accertamenti collegati. Inoltre, riconosce i costi sostenuti per accertamenti da infortuni, nonche' le spese successive a ritrovamento dopo lo smarrimento.",
-    included: (c) => hasCoverage(c, (x) => x.id.startsWith("rsv_platinum")),
-  },
-  {
-    name: "Responsabilita' Civile Terzi",
-    description:
-      "Copre i danni o le lesioni causati dal tuo PET a persone, beni o altri animali; anche quando e' temporaneamente affidato a terzi non professionisti.",
-    included: (c) => hasCoverage(c, (x) => x.category === "rct"),
-  },
-  {
-    name: "Tutela Legale",
-    description:
-      "Copre le spese legali, peritali e di consulenza in caso di liti civili relative a danni o lesioni subiti dal tuo PET. Include assistenza telefonica per informazioni e consigli legali.",
-    included: (c) => hasCoverage(c, (x) => x.category === "tl"),
-  },
-];
 
 const BEFORE_SIGNING_BULLETS = [
   "puoi assicurare cani e gatti di qualsiasi razza o peso, che abbiano almeno 4 mesi compiuti e meno di 10 anni;",
@@ -274,7 +226,7 @@ export function generatePetQuotePdf(input: PetQuotePdfInput): jsPDF {
     startY: y,
     margin: { left: margin, right: margin },
     head: [["#", "Nome Garanzia", "Di cosa si tratta", "Inclusa"]],
-    body: GUARANTEE_ROWS.map((row, index) => [String(index + 1), row.name, row.description, row.included(coverages) ? "SI" : "NO"]),
+    body: buildGuaranteeTable(coverages).map((row) => [String(row.position), row.name, row.description, row.included ? "SI" : "NO"]),
     styles: { font: "helvetica", fontSize: 8, cellPadding: 1.8, textColor: TEXT_DARK, lineWidth: 0, valign: "middle" },
     headStyles: { fillColor: [255, 255, 255], textColor: TEXT_DARK, fontStyle: "bold", halign: "center" },
     bodyStyles: { fillColor: [255, 255, 255] },
