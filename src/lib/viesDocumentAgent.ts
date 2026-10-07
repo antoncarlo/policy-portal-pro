@@ -47,27 +47,37 @@ const toBase64 = (bytes: Uint8Array) => {
   return btoa(binary);
 };
 
-export const callViesDocumentAgent = async (bytes: Uint8Array, mediaType: string, fileName: string): Promise<AgentCallOutcome> => {
+const invokeAgent = async (body: Record<string, unknown>) => {
   // Loaded on call so the pure helpers below stay importable without a Supabase client.
   const { supabase } = await import("../integrations/supabase/client");
-  const { data, error } = await supabase.functions.invoke("vies-document-agent", {
-    body: { file_name: fileName, media_type: mediaType, data: toBase64(bytes) },
-  });
-  if (error) {
-    let payload: { error?: string; code?: string } | null = null;
-    if (error instanceof FunctionsHttpError) {
-      try {
-        payload = await error.context.json();
-      } catch {
-        payload = null;
-      }
+  return supabase.functions.invoke("vies-document-agent", { body });
+};
+
+const toFailure = async (error: Error): Promise<Exclude<AgentCallOutcome, { status: "ok" }>> => {
+  let payload: { error?: string; code?: string } | null = null;
+  if (error instanceof FunctionsHttpError) {
+    try {
+      payload = await error.context.json();
+    } catch {
+      payload = null;
     }
-    const message = payload?.error ?? error.message ?? "Agent non raggiungibile.";
-    // Function not deployed, or deployed without its API key.
-    const unavailable =
-      payload?.code === "AGENT_NOT_CONFIGURED" || (error instanceof FunctionsHttpError && error.context.status === 404);
-    return unavailable ? { status: "unavailable", message } : { status: "error", message };
   }
+  const message = payload?.error ?? error.message ?? "Agent non raggiungibile.";
+  // Function not deployed, or deployed without its API key.
+  const unavailable =
+    payload?.code === "AGENT_NOT_CONFIGURED" || (error instanceof FunctionsHttpError && error.context.status === 404);
+  return unavailable ? { status: "unavailable", message } : { status: "error", message };
+};
+
+/** Quick check, without any document, that the agent is deployed and has its API key. */
+export const probeViesDocumentAgent = async (): Promise<{ ready: true } | Exclude<AgentCallOutcome, { status: "ok" }>> => {
+  const { error } = await invokeAgent({ probe: true });
+  return error ? toFailure(error) : { ready: true };
+};
+
+export const callViesDocumentAgent = async (bytes: Uint8Array, mediaType: string, fileName: string): Promise<AgentCallOutcome> => {
+  const { data, error } = await invokeAgent({ file_name: fileName, media_type: mediaType, data: toBase64(bytes) });
+  if (error) return toFailure(error);
   return { status: "ok", result: (data as { result: AgentDocumentResult }).result };
 };
 

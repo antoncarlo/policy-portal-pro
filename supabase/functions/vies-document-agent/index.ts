@@ -99,6 +99,15 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json(405, { error: "Metodo non consentito." });
 
+  // The body is read before any early return: answering while a large upload is
+  // still in flight leaves the connection hanging until the gateway times out.
+  let body: { file_name?: string; media_type?: string; data?: string; probe?: boolean };
+  try {
+    body = await req.json();
+  } catch {
+    return json(400, { error: "Richiesta non valida." });
+  }
+
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) {
     return json(503, { error: "Agent documentale non configurato: manca il segreto ANTHROPIC_API_KEY.", code: "AGENT_NOT_CONFIGURED" });
@@ -111,12 +120,9 @@ Deno.serve(async (req) => {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user) return json(401, { error: "Sessione non valida." });
 
-  let body: { file_name?: string; media_type?: string; data?: string };
-  try {
-    body = await req.json();
-  } catch {
-    return json(400, { error: "Richiesta non valida." });
-  }
+  // Availability check sent by the portal before uploading the scans.
+  if (body.probe) return json(200, { ready: true, model: MODEL });
+
   const mediaType = body.media_type as MediaType;
   if (!body.data || !MEDIA_TYPES.includes(mediaType)) {
     return json(400, { error: "Servono data (base64) e un media_type tra PDF, JPEG, PNG, WEBP, GIF." });

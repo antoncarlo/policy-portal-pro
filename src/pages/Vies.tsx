@@ -52,6 +52,7 @@ import { VIES_DOCUMENT_TYPES, classifyDocumentText, type ViesDocumentType } from
 import {
   agentMediaType,
   callViesDocumentAgent,
+  probeViesDocumentAgent,
   verifiedAgentIdentifiers,
   type AgentCallOutcome,
 } from "@/lib/viesDocumentAgent";
@@ -1346,6 +1347,15 @@ const Vies = () => {
         let failed = 0;
         let unavailable: string | null = null;
         const outcomes = new Map<string, AgentCallOutcome>();
+        setZipProcessingStatus("Verifica disponibilità dell'agent documentale…");
+        // One light call first: if the agent is not configured, no scan is uploaded for nothing.
+        const probe = await probeViesDocumentAgent().catch(
+          (error: unknown): AgentCallOutcome => ({
+            status: "error",
+            message: error instanceof Error ? error.message : "Agent non raggiungibile.",
+          }),
+        );
+        if ("status" in probe && probe.status === "unavailable") unavailable = probe.message;
         setAgentProgress({ done, failed, total: agentCandidates.length, unavailable });
         await runWithConcurrency(agentCandidates, AGENT_CONCURRENCY, async (candidate) => {
           setZipProcessingStatus(`Agent documentale: ${done}/${agentCandidates.length} documenti letti`);
