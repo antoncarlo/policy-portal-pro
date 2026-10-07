@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
@@ -14,7 +14,6 @@ import {
   RefreshCw,
   ShieldCheck,
   UploadCloud,
-  Workflow,
   XCircle,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -24,7 +23,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -541,10 +539,18 @@ const buildStableZipStorageName = (fileName: string, occurrence = 1) => {
   return `${safeBaseName}${duplicateSuffix}${safeExtension}`;
 };
 
+// Column header as the parser compares it: "P.IVA *" or "ZIP (1-20):" read as "p.iva" and "zip".
+const normalizeHeader = (value: unknown) =>
+  normalizeText(value)
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/[*:]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
 // An exact header match wins over a partial one, so "cod" or "indirizzo" never
 // resolve to a longer header such as "codice fiscale cn" by accident.
 const getCellByAliases = (row: Record<string, string>, aliases: string[], { exactOnly = false } = {}) => {
-  const entries = Object.entries(row).map(([header, value]) => [normalizeText(header), value] as const);
+  const entries = Object.entries(row).map(([header, value]) => [normalizeHeader(header), value] as const);
   for (const alias of aliases) {
     const exact = entries.find(([header]) => header === alias);
     if (exact) return exact[1];
@@ -564,7 +570,30 @@ const fiscalRepresentativeNameHeaders = [
   "nome rappresentante fiscale",
 ];
 
-const headerRowMarkers = ["contraente", "beneficiario", "partita iva", "p.iva", "p. iva", "ragione sociale", "codice credito sociale"];
+// Column names the parser knows. The header row is the row that contains the
+// most of them, so title rows, a logo or notes above the table are skipped.
+const KNOWN_COLUMN_HEADERS = new Set([
+  "zip", "nome zip", "n. zip", "n zip", "numero zip", "file zip", "ragione sociale", "contraente", "denominazione cn",
+  "p.iva", "p. iva", "partita iva",
+  "partita iva ditta", "codice credito sociale", "codice fiscale cn", "sede legale estera", "indirizzo",
+  "legale rappresentante", "legale rappre", "documento identita legale rappresentante", "carta identita n",
+  "data di nascita legale rappresentante", "telefono", "email", "pec", "beneficiario", "indirizzo beneficiario",
+  "rappresentante fiscale", "indirizzo rappresentante fiscale", "numero progressivo", "progressivo",
+]);
+const MIN_HEADER_MATCHES = 3;
+
+const findHeaderRowIndex = (rows: string[][]) => {
+  let bestIndex = -1;
+  let bestScore = 0;
+  rows.slice(0, 40).forEach((row, index) => {
+    const score = row.filter((cell) => KNOWN_COLUMN_HEADERS.has(normalizeHeader(cell))).length;
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = index;
+    }
+  });
+  return bestScore >= MIN_HEADER_MATCHES ? bestIndex : -1;
+};
 
 // Excel often declares a range far larger than the data (e.g. A1:XFD1048576 after
 // formatting whole columns). sheet_to_json materializes every cell in that range,
@@ -627,21 +656,18 @@ const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; she
   }
   const rows = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1, defval: "", range: usedRange });
 
-  const headerIndex = rows.findIndex((row) => {
-    const normalizedRow = row.map(normalizeText).join(" ");
-    return headerRowMarkers.some((marker) => normalizedRow.includes(marker));
-  });
+  const headerIndex = findHeaderRowIndex(rows);
 
   if (headerIndex === -1) {
     throw new Error(
-      "Non ho trovato la riga di intestazione nell'Excel: serve almeno una colonna tra Contraente, Ragione Sociale, Partita IVA / P.IVA o Beneficiario.",
+      "Non ho trovato la riga di intestazione nell'Excel: servono almeno 3 colonne del modello (es. ZIP, Ragione Sociale, Codice credito sociale, P.IVA).",
     );
   }
 
   const headers = rows[headerIndex].map((cell, index) => String(cell || `Colonna ${index + 1}`).trim());
   // In the original VIES template "Indirizzo" is the beneficiary's address; in the
   // client database (no beneficiary column) it is the contraente's registered office.
-  const hasBeneficiaryColumn = headers.some((header) => beneficiaryNameHeaders.includes(normalizeText(header)));
+  const hasBeneficiaryColumn = headers.some((header) => beneficiaryNameHeaders.includes(normalizeHeader(header)));
 
   const parsedRecords = rows
     .slice(headerIndex + 1)
@@ -654,7 +680,7 @@ const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; she
       const record: ExcelRecord = {
         rowNumber: headerIndex + index + 2,
         progressivo: getCellByAliases(raw, ["numero progressivo", "progressivo", "numero"]),
-        nomeZip: getCellByAliases(raw, ["nome zip", "nome archivio", "zip nominativo", "zip"]),
+        nomeZip: getCellByAliases(raw, ["nome zip", "zip", "n. zip", "n zip", "numero zip", "file zip", "nome archivio", "zip nominativo"]),
         contraente: getCellByAliases(raw, ["contraente", "ragione sociale", "nome ditta", "ditta"]),
         denominazioneCn: getCellByAliases(raw, ["denominazione cn", "denominazione cinese", "nome cinese"], { exactOnly: true }),
         uscc: normalizeUscc(
@@ -730,7 +756,15 @@ const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; she
 
       return record;
     })
-    .filter((record) => Object.values(record.raw).some((value) => normalizeText(value).length > 0));
+    // A practice row has a company name or code, or at least some data besides the
+    // ZIP number: the template's pre-numbered empty rows (only "ZIP" filled), a
+    // repeated header row or a note under the table are not practices.
+    .filter((record) => {
+      const values = Object.values(record.raw).map(normalizeHeader).filter(Boolean);
+      const looksLikeHeader = values.filter((value) => KNOWN_COLUMN_HEADERS.has(value)).length >= MIN_HEADER_MATCHES;
+      const hasDataBesidesZip = values.length > (record.nomeZip ? 1 : 0);
+      return !looksLikeHeader && (Boolean(record.contraente || record.uscc || record.partitaIvaContraente) || hasDataBesidesZip);
+    });
 
   if (parsedRecords.length > VIES_MAX_PRACTICES_PER_SHEET) {
     throw new Error(
@@ -921,7 +955,7 @@ const Vies = () => {
     [parsedRecords, sheetData],
   );
   const [documents, setDocuments] = useState<ZipDocument[]>([]);
-  const [agentProgress, setAgentProgress] = useState<{ done: number; total: number; unavailable: string | null } | null>(null);
+  const [agentProgress, setAgentProgress] = useState<{ done: number; failed: number; total: number; unavailable: string | null } | null>(null);
   const [loadingExcel, setLoadingExcel] = useState(false);
   const [loadingZip, setLoadingZip] = useState(false);
   const [zipProcessingStatus, setZipProcessingStatus] = useState<string | null>(null);
@@ -941,14 +975,18 @@ const Vies = () => {
   const documentMatches = useMemo(() => {
     return documentRequirements.map((requirement) => {
       const matchedDocuments = documents.filter((document) => documentMatchesRequirement(document, requirement));
+      const coveredZips = new Set(matchedDocuments.map((document) => document.sourceZipName));
+      const zipsMissing = zipFiles.map((file) => file.name).filter((name) => !coveredZips.has(name));
 
       return {
         ...requirement,
         matchedDocuments,
-        completed: matchedDocuments.length > 0,
+        coveredZipCount: coveredZips.size,
+        zipsMissing,
+        completed: zipFiles.length > 0 && zipsMissing.length === 0,
       };
     });
-  }, [documents]);
+  }, [documents, zipFiles]);
 
   const completedRequirements = documentMatches.filter((requirement) => requirement.completed).length;
   const validationProgress = documentRequirements.length
@@ -1003,7 +1041,10 @@ const Vies = () => {
       }
 
       if (!record.nomeZip && !linkedByVat) errors.push("Nome ZIP mancante");
-      if (record.nomeZip && matchedZipFiles.length === 0) errors.push("ZIP mancante");
+      if (nameZipKey && records.filter((other) => getZipReconciliationKey(other.nomeZip) === nameZipKey).length > 1) {
+        errors.push(`Il numero ZIP ${record.nomeZip} è indicato su più righe`);
+      }
+      if (record.nomeZip && matchedZipFiles.length === 0) errors.push(`ZIP ${record.nomeZip}.zip non caricato`);
       if (matchedZipFiles.length > 1) errors.push("ZIP duplicato");
 
       const rowDocuments = zipKey && matchedZipFiles.length
@@ -1214,9 +1255,10 @@ const Vies = () => {
       // Scans and photos: classified and read by the document agent (Claude).
       if (agentCandidates.length) {
         let done = 0;
+        let failed = 0;
         let unavailable: string | null = null;
         const outcomes = new Map<string, AgentCallOutcome>();
-        setAgentProgress({ done, total: agentCandidates.length, unavailable });
+        setAgentProgress({ done, failed, total: agentCandidates.length, unavailable });
         await runWithConcurrency(agentCandidates, AGENT_CONCURRENCY, async (candidate) => {
           setZipProcessingStatus(`Agent documentale: ${done}/${agentCandidates.length} documenti letti`);
           const outcome: AgentCallOutcome = unavailable
@@ -1230,7 +1272,8 @@ const Vies = () => {
           if (outcome.status === "unavailable") unavailable = outcome.message;
           outcomes.set(candidate.key, outcome);
           done += 1;
-          setAgentProgress({ done, total: agentCandidates.length, unavailable });
+          if (outcome.status !== "ok") failed += 1;
+          setAgentProgress({ done, failed, total: agentCandidates.length, unavailable });
           return outcome;
         });
         parsedDocuments = parsedDocuments.map((document) => {
@@ -1441,6 +1484,9 @@ const Vies = () => {
     const errors: string[] = [];
 
     if (!record.contraente) errors.push("Contraente mancante");
+    if (record.nomeZip && !/^([1-9]|1\d|20)$/.test(record.nomeZip.trim())) {
+      errors.push(`Numero ZIP non valido (${record.nomeZip}): atteso un numero da 1 a ${VIES_MAX_PRACTICES_PER_SHEET}`);
+    }
     if (record.partitaIvaContraente && !isValidItalianVat(record.partitaIvaContraente)) {
       errors.push("Partita IVA contraente non valida");
     }
@@ -1468,6 +1514,16 @@ const Vies = () => {
 
     return errors;
   };
+
+  const getRowBlockingErrors = (reconciliation: ViesReconciliationRow) => [
+    ...new Set([...reconciliation.errors, ...getRecordValidationErrors(reconciliation.record)]),
+  ];
+
+  const readyRowCount = reconciliationRows.filter(
+    (reconciliation) =>
+      getRowBlockingErrors(reconciliation).length === 0 &&
+      !(reconciliation.zipFile && reconciliation.missingRequirements.length),
+  ).length;
 
   const handlePrepareBatch = async () => {
     if (accessStatus !== "allowed") {
@@ -2024,13 +2080,13 @@ const Vies = () => {
               <div>
                 <h1 className="text-3xl font-bold text-foreground">VIES</h1>
                 <p className="text-muted-foreground mt-1">
-                  Import massivo per clienti cinesi Amazon, documenti obbligatori e preparazione agent sul portale esterno.
+                  Fideiussioni VIES a lotti: un Excel fino a {VIES_MAX_PRACTICES_PER_SHEET} pratiche, uno ZIP per pratica, controllo dei documenti per contenuto e creazione automatica.
                 </p>
               </div>
             </div>
           </div>
-          <Badge variant="secondary" className="w-fit text-sm">
-            Prima versione operativa
+          <Badge variant="secondary" className="w-fit shrink-0 text-sm">
+            {VIES_GUARANTEED_AMOUNT.toLocaleString("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 })} garantiti · {VIES_DURATION_MONTHS / 12} anni
           </Badge>
         </div>
 
@@ -2073,283 +2129,454 @@ const Vies = () => {
           </Card>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <UploadCloud className="h-5 w-5" />
-                Caricamento batch VIES
-              </CardTitle>
-              <CardDescription>
-                Carica il tracciato Excel e il pacchetto ZIP dei documenti. Il sistema prepara la pre-validazione prima dell'invio agli agent.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2 rounded-lg border border-dashed p-4">
-                  <div className="flex items-center gap-2 font-medium">
-                    <FileSpreadsheet className="h-5 w-5 text-primary" />
-                    File Excel
-                  </div>
-                  <Input
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={(event) => {
-                      setPersistedBatchId(null);
-                      handleExcelUpload(event.target.files?.[0]);
-                    }}
-                    disabled={loadingExcel || savingBatch}
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    {loadingExcel ? "Lettura in corso..." : excelFile?.name || "Nessun Excel selezionato"}
-                  </p>
-                  <a href="/vies/VIES_modello.xlsx" download className="text-xs font-medium text-primary underline-offset-4 hover:underline">
-                    Scarica il modello Excel (fogli PRATICHE, DATI FOGLIO, ISTRUZIONI)
-                  </a>
-                </div>
-
-                <div className="space-y-2 rounded-lg border border-dashed p-4">
-                  <div className="flex items-center gap-2 font-medium">
-                    <FileArchive className="h-5 w-5 text-primary" />
-                    ZIP nominativi
-                  </div>
-                  <Input
-                    type="file"
-                    accept=".zip"
-                    multiple
-                    onChange={(event) => {
-                      setPersistedBatchId(null);
-                      handleZipUpload(Array.from(event.target.files ?? []));
-                    }}
-                    disabled={loadingZip || savingBatch}
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    {loadingZip
-                      ? zipProcessingStatus ?? "Indicizzazione in corso..."
-                      : zipFiles.length
-                        ? `${zipFiles.length} ZIP selezionati (${formatBytes(selectedZipTotalSize)}): ${zipFiles.map((file) => file.name).join(", ")}`
-                        : "Nessuno ZIP selezionato"}
-                  </p>
-                  {agentProgress && (
-                    <p className={agentProgress.unavailable ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
-                      {agentProgress.unavailable
-                        ? `Agent documentale non disponibile (${agentProgress.unavailable}). Le scansioni non verificate bloccano le pratiche.`
-                        : `Agent documentale: ${agentProgress.done}/${agentProgress.total} scansioni lette per contenuto.`}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-4 rounded-lg border p-4">
-                <div>
-                  <p className="font-medium">Dati del foglio Excel</p>
-                  <p className="text-sm text-muted-foreground">
-                    Valgono per tutte le pratiche di questo foglio (massimo {VIES_MAX_PRACTICES_PER_SHEET}). Se l'Excel ha
-                    una colonna con lo stesso dato, per quella riga prevale l'Excel.
-                  </p>
-                </div>
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="space-y-3">
-                    <p className="text-sm font-semibold">Beneficiario</p>
-                    <SheetField
-                      id="vies-beneficiario"
-                      label="Denominazione"
-                      value={sheetData.beneficiario}
-                      placeholder="Agenzia delle Entrate – Direzione Provinciale …"
-                      disabled={savingBatch}
-                      onChange={updateSheetData("beneficiario")}
-                    />
-                    <SheetField
-                      id="vies-indirizzo-beneficiario"
-                      label="Indirizzo"
-                      value={sheetData.indirizzoBeneficiario}
-                      placeholder="Via, numero, CAP, città"
-                      disabled={savingBatch}
-                      onChange={updateSheetData("indirizzoBeneficiario")}
-                    />
-                    <SheetField
-                      id="vies-cf-beneficiario"
-                      label="Codice fiscale"
-                      value={sheetData.codiceFiscaleBeneficiario}
-                      placeholder="11 cifre"
-                      isTaxCode
-                      disabled={savingBatch}
-                      onChange={updateSheetData("codiceFiscaleBeneficiario")}
-                    />
-                  </div>
-                  <div className="space-y-3">
-                    <p className="text-sm font-semibold">Rappresentante fiscale</p>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="vies-visura">Visura della società di rappresentanza (PDF)</Label>
-                      <Input
-                        id="vies-visura"
-                        type="file"
-                        accept=".pdf,application/pdf"
-                        disabled={savingBatch}
-                        onChange={(event) => handleVisuraUpload(event.target.files?.[0])}
-                      />
-                      {visuraData ? (
-                        <p className="text-xs text-muted-foreground">
-                          {describeVisura(visuraData) ?? "Visura letta"}: compila i campi sotto, da verificare.
-                        </p>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">
-                          Compila denominazione, codice fiscale, sede, PEC e amministratore.
-                        </p>
-                      )}
-                    </div>
-                    {visuraData && visuraData.amministratori.length > 1 && (
-                      <div className="space-y-1.5">
-                        <Label htmlFor="vies-visura-amministratore">Amministratore che rappresenta la società</Label>
-                        <select
-                          id="vies-visura-amministratore"
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                          value={visuraAdminIndex}
-                          disabled={savingBatch}
-                          onChange={(event) => {
-                            setPersistedBatchId(null);
-                            applyVisuraAdministrator(visuraData, Number(event.target.value));
-                          }}
-                        >
-                          {visuraData.amministratori.map((admin, index) => (
-                            <option key={`${admin.name}-${index}`} value={index}>
-                              {admin.name} — {admin.role}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                    <SheetField
-                      id="vies-rappresentante"
-                      label="Denominazione società"
-                      value={sheetData.rappresentanteFiscale}
-                      placeholder="Es. SE&SE AUDITORS & CHARTERED ACCOUNTANT S.P.A."
-                      disabled={savingBatch}
-                      onChange={updateSheetData("rappresentanteFiscale")}
-                    />
-                    <SheetField
-                      id="vies-cf-rappresentante"
-                      label="Codice fiscale / P.IVA società"
-                      value={sheetData.codiceFiscaleRappresentante}
-                      placeholder="11 cifre"
-                      isTaxCode
-                      disabled={savingBatch}
-                      onChange={updateSheetData("codiceFiscaleRappresentante")}
-                    />
-                    <SheetField
-                      id="vies-amministratore"
-                      label="Amministratore (legale rappresentante)"
-                      value={sheetData.amministratoreRappresentante}
-                      placeholder="Cognome e nome, dalla visura"
-                      disabled={savingBatch}
-                      onChange={updateSheetData("amministratoreRappresentante")}
-                    />
-                    <SheetField
-                      id="vies-cf-amministratore"
-                      label="Codice fiscale amministratore"
-                      value={sheetData.codiceFiscaleAmministratore}
-                      placeholder="16 caratteri"
-                      isTaxCode
-                      disabled={savingBatch}
-                      onChange={updateSheetData("codiceFiscaleAmministratore")}
-                    />
-                    <SheetField
-                      id="vies-domicilio-rappresentante"
-                      label="Sede della società (indirizzo italiano delle società clienti)"
-                      value={sheetData.indirizzoRappresentanteFiscale}
-                      placeholder="Via, numero, CAP, città"
-                      disabled={savingBatch}
-                      onChange={updateSheetData("indirizzoRappresentanteFiscale")}
-                    />
-                    <SheetField
-                      id="vies-pec-rappresentante"
-                      label="PEC"
-                      value={sheetData.pecRappresentante}
-                      placeholder="Usata per i clienti senza PEC propria nell'Excel"
-                      disabled={savingBatch}
-                      onChange={updateSheetData("pecRappresentante")}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-3">
-                <Button
-                  disabled={!records.length || !documents.length || loadingExcel || loadingZip || savingBatch}
-                  className="w-full md:w-auto"
-                  onClick={handlePrepareBatch}
-                >
-                  {loadingExcel || loadingZip || savingBatch ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <PlayCircle className="mr-2 h-4 w-4" />
-                  )}
-                  {savingBatch ? "Creazione batch in corso..." : "Prepara batch per orchestratore"}
-                </Button>
-
-                {(savingBatch || batchUploadStatus) && (
-                  <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
-                    <div className="flex items-center justify-between gap-3">
-                      <span>{batchUploadStatus ?? "Preparazione batch in corso..."}</span>
-                      <span className="font-mono">{batchUploadProgress}%</span>
-                    </div>
-                    <Progress value={batchUploadProgress} />
-                  </div>
-                )}
-
-                {persistedBatchId && (
-                  <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900">
-                    Batch salvato su Supabase con ID <span className="font-mono">{persistedBatchId}</span>. La coda è pronta per il worker/agent.
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Workflow className="h-5 w-5" />
-                Flusso agent previsto
-              </CardTitle>
-              <CardDescription>
-                La pagina è la cabina di regia. La fase successiva collegherà coda, log e compilazione del portale esterno.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {[
-                "Validazione Excel e documenti obbligatori",
-                "Creazione batch e suddivisione in pratiche",
-                "Assegnazione a un agent operativo a rotazione",
-                "Compilazione portale esterno e upload allegati",
-                "Esito, retry e report errori per riga",
-              ].map((step, index) => (
-                <div key={step} className="flex gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                    {index + 1}
-                  </div>
-                  <div>
-                    <p className="font-medium">{step}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {index === 2 ? "Gestione agent predisposta per lavoro in parallelo controllato." : "Controllo tracciato in cabina di regia VIES."}
-                    </p>
-                  </div>
-                </div>
-              ))}
-              <div className="rounded-lg border bg-muted/40 p-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <UploadCloud className="h-5 w-5" />
+              1. File del lotto
+            </CardTitle>
+            <CardDescription>
+              Un Excel con al massimo {VIES_MAX_PRACTICES_PER_SHEET} pratiche e uno ZIP per pratica, chiamato con il numero della colonna ZIP (1.zip, 2.zip …).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2 rounded-lg border border-dashed p-4">
                 <div className="flex items-center gap-2 font-medium">
-                  <Bot className="h-5 w-5 text-primary" />
-                  Nota operativa
+                  <FileSpreadsheet className="h-5 w-5 text-primary" />
+                  File Excel
                 </div>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  L'agent di compilazione verrà collegato solo dopo aver definito accesso, credenziali, limiti e schermate del portale esterno.
+                <Input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={(event) => {
+                    setPersistedBatchId(null);
+                    handleExcelUpload(event.target.files?.[0]);
+                  }}
+                  disabled={loadingExcel || savingBatch}
+                />
+                <p className="text-sm text-muted-foreground">
+                  {loadingExcel ? "Lettura in corso..." : excelFile?.name || "Nessun Excel selezionato"}
+                </p>
+                <a href="/vies/VIES_modello.xlsx" download className="text-xs font-medium text-primary underline-offset-4 hover:underline">
+                  Scarica il modello Excel (fogli PRATICHE, DATI FOGLIO, ISTRUZIONI)
+                </a>
+              </div>
+
+              <div className="space-y-2 rounded-lg border border-dashed p-4">
+                <div className="flex items-center gap-2 font-medium">
+                  <FileArchive className="h-5 w-5 text-primary" />
+                  ZIP nominativi
+                </div>
+                <Input
+                  type="file"
+                  accept=".zip"
+                  multiple
+                  onChange={(event) => {
+                    setPersistedBatchId(null);
+                    handleZipUpload(Array.from(event.target.files ?? []));
+                  }}
+                  disabled={loadingZip || savingBatch}
+                />
+                <p className="break-words text-sm text-muted-foreground">
+                  {loadingZip
+                    ? zipProcessingStatus ?? "Indicizzazione in corso..."
+                    : zipFiles.length
+                      ? `${zipFiles.length} ZIP selezionati (${formatBytes(selectedZipTotalSize)}): ${zipFiles.map((file) => file.name).join(", ")}`
+                      : "Nessuno ZIP selezionato"}
+                </p>
+                {agentProgress && (
+                  <p className={agentProgress.unavailable ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
+                    {agentProgress.unavailable
+                      ? `Agent documentale non disponibile (${agentProgress.unavailable}). Le scansioni non verificate bloccano le pratiche.`
+                      : agentProgress.failed
+                        ? `Agent documentale: ${agentProgress.done - agentProgress.failed}/${agentProgress.total} scansioni lette, ${agentProgress.failed} non leggibili (bloccano la pratica).`
+                        : `Agent documentale: ${agentProgress.done}/${agentProgress.total} scansioni lette per contenuto.`}
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="h-5 w-5" />
+              2. Dati del foglio
+            </CardTitle>
+            <CardDescription>
+              Beneficiario e rappresentante fiscale valgono per tutte le pratiche del foglio. Si compilano dal foglio DATI FOGLIO dell'Excel o
+              dalla visura; se l'Excel ha una colonna con lo stesso dato, per quella riga prevale l'Excel.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              <section className="space-y-4">
+                <h3 className="border-b pb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Beneficiario</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <SheetField
+                    id="vies-beneficiario"
+                    label="Denominazione"
+                    value={sheetData.beneficiario}
+                    placeholder="Agenzia delle Entrate – Direzione Provinciale …"
+                    disabled={savingBatch}
+                    onChange={updateSheetData("beneficiario")}
+                  />
+                  <SheetField
+                    id="vies-cf-beneficiario"
+                    label="Codice fiscale"
+                    value={sheetData.codiceFiscaleBeneficiario}
+                    placeholder="11 cifre"
+                    isTaxCode
+                    disabled={savingBatch}
+                    onChange={updateSheetData("codiceFiscaleBeneficiario")}
+                  />
+                </div>
+                <SheetField
+                  id="vies-indirizzo-beneficiario"
+                  label="Indirizzo"
+                  value={sheetData.indirizzoBeneficiario}
+                  placeholder="Via, numero, CAP, città"
+                  disabled={savingBatch}
+                  onChange={updateSheetData("indirizzoBeneficiario")}
+                />
+              </section>
+
+              <section className="space-y-4">
+                <h3 className="border-b pb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Rappresentante fiscale</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="vies-visura">Visura della società di rappresentanza (PDF)</Label>
+                    <Input
+                      id="vies-visura"
+                      type="file"
+                      accept=".pdf,application/pdf"
+                      disabled={savingBatch}
+                      onChange={(event) => handleVisuraUpload(event.target.files?.[0])}
+                    />
+                    {visuraData ? (
+                      <p className="text-xs text-muted-foreground">
+                        {describeVisura(visuraData) ?? "Visura letta"}: compila i campi sotto, da verificare.
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Compila denominazione, codice fiscale, sede, PEC e amministratore.
+                      </p>
+                    )}
+                  </div>
+                  {visuraData && visuraData.amministratori.length > 1 && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="vies-visura-amministratore">Amministratore che rappresenta la società</Label>
+                      <select
+                        id="vies-visura-amministratore"
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        value={visuraAdminIndex}
+                        disabled={savingBatch}
+                        onChange={(event) => {
+                          setPersistedBatchId(null);
+                          applyVisuraAdministrator(visuraData, Number(event.target.value));
+                        }}
+                      >
+                        {visuraData.amministratori.map((admin, index) => (
+                          <option key={`${admin.name}-${index}`} value={index}>
+                            {admin.name} — {admin.role}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <SheetField
+                    id="vies-rappresentante"
+                    label="Denominazione società"
+                    value={sheetData.rappresentanteFiscale}
+                    placeholder="Es. SE&SE AUDITORS & CHARTERED ACCOUNTANT S.P.A."
+                    disabled={savingBatch}
+                    onChange={updateSheetData("rappresentanteFiscale")}
+                  />
+                  <SheetField
+                    id="vies-cf-rappresentante"
+                    label="Codice fiscale / P.IVA società"
+                    value={sheetData.codiceFiscaleRappresentante}
+                    placeholder="11 cifre"
+                    isTaxCode
+                    disabled={savingBatch}
+                    onChange={updateSheetData("codiceFiscaleRappresentante")}
+                  />
+                  <SheetField
+                    id="vies-amministratore"
+                    label="Amministratore (legale rappresentante)"
+                    value={sheetData.amministratoreRappresentante}
+                    placeholder="Cognome e nome, dalla visura"
+                    disabled={savingBatch}
+                    onChange={updateSheetData("amministratoreRappresentante")}
+                  />
+                  <SheetField
+                    id="vies-cf-amministratore"
+                    label="Codice fiscale amministratore"
+                    value={sheetData.codiceFiscaleAmministratore}
+                    placeholder="16 caratteri"
+                    isTaxCode
+                    disabled={savingBatch}
+                    onChange={updateSheetData("codiceFiscaleAmministratore")}
+                  />
+                  <SheetField
+                    id="vies-domicilio-rappresentante"
+                    label="Sede della società (indirizzo italiano delle società clienti)"
+                    value={sheetData.indirizzoRappresentanteFiscale}
+                    placeholder="Via, numero, CAP, città"
+                    disabled={savingBatch}
+                    onChange={updateSheetData("indirizzoRappresentanteFiscale")}
+                  />
+                  <SheetField
+                    id="vies-pec-rappresentante"
+                    label="PEC"
+                    value={sheetData.pecRappresentante}
+                    placeholder="Usata per i clienti senza PEC propria nell'Excel"
+                    disabled={savingBatch}
+                    onChange={updateSheetData("pecRappresentante")}
+                  />
+                </div>
+              </section>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>3. Controllo pratiche</CardTitle>
+            <CardDescription>
+              Ogni riga Excel viene abbinata allo ZIP indicato nella colonna ZIP (es. 1 → 1.zip). Documenti mancanti ed errori bloccano solo la pratica di quella riga, non il resto del lotto.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {records.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
+                Carica l'Excel per vedere il controllo di riconciliazione.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2 text-sm">
+                  <Badge variant="secondary">{reconciliationRows.length} pratiche nel foglio</Badge>
+                  <Badge variant="secondary" className="bg-emerald-100 text-emerald-900 hover:bg-emerald-100">
+                    {readyRowCount} pronte
+                  </Badge>
+                  {reconciliationRows.length - readyRowCount > 0 && (
+                    <Badge variant="destructive">{reconciliationRows.length - readyRowCount} bloccate</Badge>
+                  )}
+                </div>
+                <div className="overflow-x-auto rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="w-12">ZIP</TableHead>
+                        <TableHead className="min-w-48">Contraente</TableHead>
+                        <TableHead className="whitespace-nowrap">Documenti</TableHead>
+                        <TableHead className="whitespace-nowrap">Identità</TableHead>
+                        <TableHead className="text-right">Stato</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {reconciliationRows.map((reconciliation) => {
+                        const rowErrors = getRowBlockingErrors(reconciliation);
+                        const missing = reconciliation.zipFile ? reconciliation.missingRequirements : [];
+                        const ready = rowErrors.length === 0 && missing.length === 0;
+                        return (
+                          <Fragment key={`reconciliation-${reconciliation.record.rowNumber}`}>
+                            <TableRow className={ready ? undefined : "border-b-0"}>
+                              <TableCell className="font-mono text-base font-semibold">{reconciliation.record.nomeZip || "—"}</TableCell>
+                              <TableCell className="min-w-48">
+                                <p className="break-words font-medium">{reconciliation.record.contraente || "Da completare"}</p>
+                                <div className="mt-0.5 flex flex-wrap gap-x-3 font-mono text-xs text-muted-foreground">
+                                  {reconciliation.record.partitaIvaContraente && <span>P.IVA {reconciliation.record.partitaIvaContraente}</span>}
+                                  {reconciliation.record.uscc && <span>USCC {reconciliation.record.uscc}</span>}
+                                </div>
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap">
+                                <p>{reconciliation.zipFile?.name ?? "ZIP non caricato"}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {reconciliation.zipFile
+                                    ? `${reconciliation.documents.length} documenti${reconciliation.linkedByVat ? " · collegato tramite P.IVA" : ""}`
+                                    : "—"}
+                                </p>
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap">
+                                {reconciliation.vatCheck === "verified" && <Badge variant="secondary">Verificata</Badge>}
+                                {reconciliation.vatCheck === "mismatch" && <Badge variant="destructive">Non corrisponde</Badge>}
+                                {reconciliation.vatCheck === "unverifiable" && (
+                                  <Badge variant="outline" className="border-amber-300 text-amber-900">
+                                    Nessun codice leggibile
+                                  </Badge>
+                                )}
+                                {reconciliation.vatCheck === "not_applicable" && <span className="text-muted-foreground">—</span>}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {ready ? (
+                                  <Badge className="bg-emerald-600 hover:bg-emerald-600">Pronta</Badge>
+                                ) : (
+                                  <Badge variant="destructive">Bloccata</Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                            {!ready && (
+                              <TableRow className="hover:bg-transparent">
+                                <TableCell colSpan={5} className="pt-0">
+                                  <div className="space-y-2 rounded-md bg-muted/40 p-3 text-sm">
+                                    {missing.length > 0 && (
+                                      <div className="flex gap-2 text-amber-900">
+                                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                                        <p className="min-w-0 break-words">
+                                          <span className="font-medium">Documenti mancanti: </span>
+                                          {missing.map((requirement) => requirement.label).join(", ")}
+                                        </p>
+                                      </div>
+                                    )}
+                                    {rowErrors.map((error) => (
+                                      <div key={error} className="flex gap-2 text-destructive">
+                                        <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                                        <p className="min-w-0 break-words">{error}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </Fragment>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+                {unmatchedZips.length > 0 && (
+                  <div className="mt-4 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div className="space-y-1 text-sm">
+                      <p className="font-medium">
+                        {unmatchedZips.length} ZIP non abbinati a nessuna riga dell'Excel:
+                      </p>
+                      {unmatchedZips.map(({ file, vatNumbers }) => (
+                        <p key={file.name}>
+                          <span className="font-mono">{file.name}</span>
+                          {vatNumbers.length
+                            ? ` — contiene documenti della società ${vatNumbers.join(", ")}, assente dall'Excel.`
+                            : " — nessun identificativo leggibile nei documenti."}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>4. Documenti obbligatori VIES</CardTitle>
+            <CardDescription>
+              Documenti riconosciuti dal contenuto, non dal nome del file, e verificati ZIP per ZIP. Le scansioni senza testo vengono lette dall'agent.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-2">
+            {documentMatches.map((requirement) => (
+              <div key={requirement.id} className="flex items-start justify-between gap-3 rounded-lg border p-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    {requirement.completed ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-destructive" />
+                    )}
+                    <p className="font-medium">{requirement.label}</p>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {requirement.subject === "rappresentante" ? "Documento del rappresentante fiscale" : "Documento del cliente"}
+                  </p>
+                  {zipFiles.length > 0 && (
+                    <p className="mt-1 break-words text-xs text-muted-foreground">
+                      Presente in {requirement.coveredZipCount} ZIP su {zipFiles.length}
+                      {requirement.zipsMissing.length > 0 && ` · manca in ${requirement.zipsMissing.join(", ")}`}
+                    </p>
+                  )}
+                </div>
+                <Badge variant={requirement.completed ? "secondary" : "destructive"} className="shrink-0">
+                  {requirement.completed ? "OK" : "Manca"}
+                </Badge>
+              </div>
+            ))}
+
+            {missingRequirements.length > 0 && documents.length > 0 && (
+              <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900 md:col-span-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p className="text-sm">
+                  {missingRequirements.length} tipologie documento mancano in almeno uno ZIP (assenti o scansioni non riconosciute): il dettaglio per pratica è nel punto 3.
                 </p>
               </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <PlayCircle className="h-5 w-5" />
+              5. Crea le pratiche
+            </CardTitle>
+            <CardDescription>
+              Vengono create tutte le righe del foglio; quelle con errori restano bloccate e non ricevono il documento di polizza.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <Button
+                disabled={!records.length || !documents.length || loadingExcel || loadingZip || savingBatch}
+                className="w-full md:w-auto"
+                onClick={handlePrepareBatch}
+              >
+                {loadingExcel || loadingZip || savingBatch ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <PlayCircle className="mr-2 h-4 w-4" />
+                )}
+                {savingBatch
+                  ? "Creazione pratiche in corso..."
+                  : `Crea ${records.length} pratiche VIES (${readyRowCount} pronte, ${records.length - readyRowCount} bloccate)`}
+              </Button>
+
+              {(savingBatch || batchUploadStatus) && (
+                <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+                  <div className="flex items-center justify-between gap-3">
+                    <span>{batchUploadStatus ?? "Preparazione batch in corso..."}</span>
+                    <span className="font-mono">{batchUploadProgress}%</span>
+                  </div>
+                  <Progress value={batchUploadProgress} />
+                </div>
+              )}
+
+              {persistedBatchId && (
+                <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900">
+                  Lotto salvato con ID <span className="font-mono">{persistedBatchId}</span>: pratiche create e documenti allegati.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {lastCreatedPracticeIds.length > 0 && (
+          <Card className="border-green-200 bg-green-50">
+            <CardContent className="flex flex-col gap-3 pt-6 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="font-semibold text-green-950">Pratiche VIES create: {lastCreatedPracticeIds.length}</p>
+                <p className="text-sm text-green-900">Sono disponibili nella sezione Pratiche con tipo VIES separato da Fidejussioni per il controllo massivo.</p>
+              </div>
+              <Button variant="secondary" onClick={() => navigate("/practices?type=vies")}>
+                Vai alle pratiche VIES
+              </Button>
             </CardContent>
           </Card>
-        </div>
+        )}
 
         {persistedBatchId && batchMonitor && (
           <Card>
@@ -2468,231 +2695,11 @@ const Vies = () => {
           </Card>
         )}
 
-        {lastCreatedPracticeIds.length > 0 && (
-          <Card className="border-green-200 bg-green-50">
-            <CardContent className="flex flex-col gap-3 pt-6 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="font-semibold text-green-950">Pratiche VIES create: {lastCreatedPracticeIds.length}</p>
-                <p className="text-sm text-green-900">Sono disponibili nella sezione Pratiche con tipo VIES separato da Fidejussioni per il controllo massivo.</p>
-              </div>
-              <Button variant="secondary" onClick={() => navigate("/practices?type=vies")}>
-                Vai alle pratiche VIES
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-          <Card>
-            <CardHeader>
-              <CardTitle>Documenti obbligatori VIES</CardTitle>
-              <CardDescription>
-                Documenti riconosciuti dal contenuto, non dal nome del file, sommando tutti gli ZIP. Le scansioni senza testo vengono riconosciute dall'agent.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {documentMatches.map((requirement) => (
-                <div key={requirement.id} className="flex items-start justify-between gap-3 rounded-lg border p-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      {requirement.completed ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      ) : (
-                        <XCircle className="h-4 w-4 text-destructive" />
-                      )}
-                      <p className="font-medium">{requirement.label}</p>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {requirement.subject === "rappresentante" ? "Documento del rappresentante fiscale" : "Documento del cliente"}
-                    </p>
-                    {requirement.matchedDocuments.length > 0 && (
-                      <p className="mt-1 truncate text-xs text-muted-foreground">
-                        Trovato: {requirement.matchedDocuments.map((document) => document.name).join(", ")}
-                      </p>
-                    )}
-                  </div>
-                  <Badge variant={requirement.completed ? "secondary" : "destructive"}>
-                    {requirement.completed ? "OK" : "Manca"}
-                  </Badge>
-                </div>
-              ))}
-
-              {missingRequirements.length > 0 && documents.length > 0 && (
-                <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <p className="text-sm">
-                    Mancano {missingRequirements.length} tipologie documento: assenti, oppure scansioni non ancora riconosciute dall'agent.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Anteprima righe Excel</CardTitle>
-              <CardDescription>
-                Prime righe utili che formeranno la coda di pratiche VIES da lavorare.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {records.length === 0 ? (
-                <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-                  Carica un Excel per visualizzare l'anteprima delle pratiche.
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Riga</TableHead>
-                        <TableHead>Contraente</TableHead>
-                        <TableHead>P. IVA contraente</TableHead>
-                        <TableHead>Beneficiario</TableHead>
-                        <TableHead>PEC</TableHead>
-                        <TableHead>NOME ZIP</TableHead>
-                        <TableHead>Documenti indicati</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {records.slice(0, 8).map((record) => (
-                        <TableRow key={`${record.rowNumber}-${record.contraente}-${record.beneficiario}`}>
-                          <TableCell>{record.rowNumber}</TableCell>
-                          <TableCell className="min-w-48 font-medium">{record.contraente || "Da completare"}</TableCell>
-                          <TableCell>{record.partitaIvaContraente || "Da completare"}</TableCell>
-                          <TableCell>{record.beneficiario || "Da completare"}</TableCell>
-                          <TableCell>{record.pec || "Da completare"}</TableCell>
-                          <TableCell>{record.nomeZip || "Da completare"}</TableCell>
-                          <TableCell className="max-w-64 truncate">{record.documentiIndicati || "Non indicati"}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  {records.length > 8 && (
-                    <p className="mt-3 text-sm text-muted-foreground">Mostrate 8 righe su {records.length}. La tabella completa sarà gestita nel batch persistente.</p>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Controllore riconciliazione ZIP</CardTitle>
-            <CardDescription>
-              Ogni riga Excel viene abbinata allo ZIP indicato nella colonna ZIP (es. 1 → 1.zip). Documenti mancanti ed errori bloccano solo la pratica di quella riga, non il resto del lotto.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {records.length === 0 ? (
-              <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-                Carica l'Excel per vedere il controllo di riconciliazione.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Riga</TableHead>
-                      <TableHead>Contraente</TableHead>
-                      <TableHead>NOME ZIP</TableHead>
-                      <TableHead>ZIP collegato</TableHead>
-                      <TableHead>Identità nei documenti</TableHead>
-                      <TableHead>Documenti</TableHead>
-                      <TableHead>Documenti mancanti</TableHead>
-                      <TableHead>Errori</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {reconciliationRows.map((reconciliation) => (
-                      <TableRow key={`reconciliation-${reconciliation.record.rowNumber}`}>
-                        <TableCell>{reconciliation.record.rowNumber}</TableCell>
-                        <TableCell className="min-w-48 font-medium">{reconciliation.record.contraente || "Da completare"}</TableCell>
-                        <TableCell>{reconciliation.record.nomeZip || "—"}</TableCell>
-                        <TableCell>
-                          {reconciliation.zipFile?.name || "Non collegato"}
-                          {reconciliation.linkedByVat && (
-                            <span className="block text-xs text-muted-foreground">collegato tramite P.IVA</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="min-w-40">
-                          {reconciliation.vatCheck === "verified" && <Badge variant="secondary">Verificata</Badge>}
-                          {reconciliation.vatCheck === "mismatch" && <Badge variant="destructive">Non corrisponde</Badge>}
-                          {reconciliation.vatCheck === "unverifiable" && (
-                            <Badge variant="outline" className="border-amber-300 text-amber-900">
-                              Non verificabile (nessun codice leggibile)
-                            </Badge>
-                          )}
-                          {reconciliation.vatCheck === "not_applicable" && <span className="text-muted-foreground">—</span>}
-                        </TableCell>
-                        <TableCell>{reconciliation.documents.length}</TableCell>
-                        <TableCell className="min-w-56">
-                          {!reconciliation.zipFile ? (
-                            <span className="text-muted-foreground">—</span>
-                          ) : reconciliation.missingRequirements.length ? (
-                            <div className="flex flex-wrap gap-1">
-                              {reconciliation.missingRequirements.map((requirement) => (
-                                <Badge key={requirement.id} variant="outline" className="border-amber-300 text-amber-900">
-                                  {requirement.label}
-                                </Badge>
-                              ))}
-                            </div>
-                          ) : (
-                            <Badge variant="secondary">Completo</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="min-w-56">
-                          {(() => {
-                            const rowErrors = [
-                              ...reconciliation.errors,
-                              ...getRecordValidationErrors(reconciliation.record),
-                            ];
-                            return rowErrors.length ? (
-                              <div className="flex flex-wrap gap-1">
-                                {rowErrors.map((error) => (
-                                  <Badge key={error} variant="destructive">
-                                    {error}
-                                  </Badge>
-                                ))}
-                              </div>
-                            ) : (
-                              <Badge variant="secondary">OK</Badge>
-                            );
-                          })()}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                {unmatchedZips.length > 0 && (
-                  <div className="mt-4 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                    <div className="space-y-1 text-sm">
-                      <p className="font-medium">
-                        {unmatchedZips.length} ZIP non abbinati a nessuna riga dell'Excel:
-                      </p>
-                      {unmatchedZips.map(({ file, vatNumbers }) => (
-                        <p key={file.name}>
-                          <span className="font-mono">{file.name}</span>
-                          {vatNumbers.length
-                            ? ` — contiene documenti della società ${vatNumbers.join(", ")}, assente dall'Excel.`
-                            : " — nessun identificativo leggibile nei documenti."}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
         <Card>
           <CardHeader>
             <CardTitle>Documenti rilevati negli ZIP</CardTitle>
             <CardDescription>
-              Elenco dei file indicizzati, inclusi quelli contenuti dentro ZIP secondari.
+              File letti negli ZIP (anche dentro ZIP annidati) e tipologia riconosciuta dal contenuto.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -2705,21 +2712,35 @@ const Vies = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nome file</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Livello</TableHead>
-                      <TableHead>Dimensione</TableHead>
-                      <TableHead>Percorso</TableHead>
+                      <TableHead className="w-16">ZIP</TableHead>
+                      <TableHead className="min-w-48">Documento</TableHead>
+                      <TableHead>Riconosciuto come</TableHead>
+                      <TableHead className="whitespace-nowrap text-right">Dimensione</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {documents.slice(0, 20).map((document) => (
-                      <TableRow key={document.path}>
-                        <TableCell className="min-w-72 font-medium">{document.name}</TableCell>
-                        <TableCell>{document.extension || "file"}</TableCell>
-                        <TableCell>{document.depth === 0 ? "ZIP nominativo" : `ZIP annidato ${document.depth}`}</TableCell>
-                        <TableCell>{formatBytes(document.size)}</TableCell>
-                        <TableCell className="max-w-96 truncate text-muted-foreground">{document.path}</TableCell>
+                      <TableRow key={documentKey(document)}>
+                        <TableCell className="whitespace-nowrap font-mono">{document.sourceZipName}</TableCell>
+                        <TableCell className="min-w-48">
+                          <p className="break-words font-medium">{document.name}</p>
+                          {document.depth > 0 && (
+                            <p className="break-words text-xs text-muted-foreground">{document.path}</p>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {document.documentType ? (
+                            <>
+                              <p>{documentRequirements.find((requirement) => requirement.id === document.documentType)?.label ?? document.documentType}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {document.recognisedBy === "agent" ? "letto dall'agent" : "dal testo del documento"}
+                              </p>
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground">{document.isNestedZip ? "ZIP annidato" : "Non riconosciuto"}</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-right">{formatBytes(document.size)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
