@@ -22,12 +22,18 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { normalizeItalianVat, scanPdfForVatNumbers } from "@/lib/viesDocumentScan";
+import {
+  isValidItalianTaxCode,
+  isValidItalianVat,
+  normalizeItalianVat,
+  scanPdfForVatNumbers,
+} from "@/lib/viesDocumentScan";
 
 type ExcelRecord = {
   rowNumber: number;
@@ -35,6 +41,8 @@ type ExcelRecord = {
   nomeZip: string;
   contraente: string;
   indirizzoContraente: string;
+  rappresentanteFiscale: string;
+  codiceFiscaleRappresentante: string;
   indirizzoRappresentanteFiscale: string;
   partitaIvaContraente: string;
   beneficiario: string;
@@ -367,6 +375,39 @@ const uploadViesFileResumable = async ({
 
 const VIES_GUARANTEED_AMOUNT = 50000;
 const VIES_DEFAULT_BENEFICIARY = "Agenzia delle Entrate";
+const VIES_MAX_PRACTICES_PER_SHEET = 20;
+
+// Beneficiary office and fiscal representative are fixed for one Excel sheet:
+// entered once, applied to every row unless the row has its own Excel column.
+type ViesSheetData = {
+  beneficiario: string;
+  indirizzoBeneficiario: string;
+  codiceFiscaleBeneficiario: string;
+  rappresentanteFiscale: string;
+  codiceFiscaleRappresentante: string;
+  indirizzoRappresentanteFiscale: string;
+};
+
+const initialSheetData: ViesSheetData = {
+  beneficiario: VIES_DEFAULT_BENEFICIARY,
+  indirizzoBeneficiario: "",
+  codiceFiscaleBeneficiario: "",
+  rappresentanteFiscale: "",
+  codiceFiscaleRappresentante: "",
+  indirizzoRappresentanteFiscale: "",
+};
+
+const normalizeTaxCode = (value: string) => value.replace(/\s+/g, "").toUpperCase();
+
+const applySheetData = (record: ExcelRecord, sheet: ViesSheetData): ExcelRecord => ({
+  ...record,
+  beneficiario: record.beneficiario || sheet.beneficiario.trim(),
+  indirizzoBeneficiario: record.indirizzoBeneficiario || sheet.indirizzoBeneficiario.trim(),
+  partitaIvaBeneficiario: normalizeTaxCode(record.partitaIvaBeneficiario || sheet.codiceFiscaleBeneficiario),
+  rappresentanteFiscale: record.rappresentanteFiscale || sheet.rappresentanteFiscale.trim(),
+  codiceFiscaleRappresentante: normalizeTaxCode(record.codiceFiscaleRappresentante || sheet.codiceFiscaleRappresentante),
+  indirizzoRappresentanteFiscale: record.indirizzoRappresentanteFiscale || sheet.indirizzoRappresentanteFiscale.trim(),
+});
 const VIES_GUARANTEE_OBJECT = "Garanzia richiesta per iscrizione/operatività VIES ai sensi dell’art. 35, comma 7-quater, DPR 633/1972.";
 const VIES_DURATION_MONTHS = 36;
 
@@ -401,11 +442,12 @@ const buildViesPracticeNotes = ({
   "Pratica prodotto VIES: compilare automaticamente i dati del contraente e del beneficiario; mantenere distinta da Fidejussioni.",
   `Contraente: ${record.contraente || "da completare"}.`,
   `Sede contraente: ${record.indirizzoContraente || "da completare"}.`,
-  `Indirizzo contraente/rappresentante fiscale: ${record.indirizzoRappresentanteFiscale || "da completare"}.`,
+  `Rappresentante fiscale: ${record.rappresentanteFiscale || "da completare"}${record.codiceFiscaleRappresentante ? ` (C.F. ${record.codiceFiscaleRappresentante})` : ""}.`,
+  `Domicilio fiscale (indirizzo rappresentante fiscale): ${record.indirizzoRappresentanteFiscale || "da completare"}.`,
   `Partita IVA contraente: ${record.partitaIvaContraente || "da completare"}.`,
   `Beneficiario: ${record.beneficiario || "da completare"}.`,
   `Indirizzo beneficiario: ${record.indirizzoBeneficiario || "da completare"}.`,
-  `Partita IVA beneficiario: ${record.partitaIvaBeneficiario || "da completare"}.`,
+  `Codice fiscale beneficiario: ${record.partitaIvaBeneficiario || "da completare"}.`,
   `PEC: ${record.pec || "da completare"}.`,
   `Email: ${record.email || "non indicata"}.`,
   `Dati Excel originali: ${Object.entries(record.raw)
@@ -457,13 +499,26 @@ const buildStableZipStorageName = (fileName: string, occurrence = 1) => {
 
 // An exact header match wins over a partial one, so "cod" or "indirizzo" never
 // resolve to a longer header such as "codice fiscale cn" by accident.
-const getCellByAliases = (row: Record<string, string>, aliases: string[]) => {
-  const entries = Object.entries(row);
-  const exact = entries.find(([header]) => aliases.includes(normalizeText(header)));
-  if (exact) return exact[1];
-  const partial = entries.find(([header]) => aliases.some((alias) => normalizeText(header).includes(alias)));
-  return partial?.[1] ?? "";
+const getCellByAliases = (row: Record<string, string>, aliases: string[], { exactOnly = false } = {}) => {
+  const entries = Object.entries(row).map(([header, value]) => [normalizeText(header), value] as const);
+  for (const alias of aliases) {
+    const exact = entries.find(([header]) => header === alias);
+    if (exact) return exact[1];
+  }
+  if (exactOnly) return "";
+  for (const alias of aliases) {
+    const partial = entries.find(([header]) => header.includes(alias));
+    if (partial) return partial[1];
+  }
+  return "";
 };
+
+const beneficiaryNameHeaders = ["beneficiario", "denominazione beneficiario", "nome beneficiario"];
+const fiscalRepresentativeNameHeaders = [
+  "rappresentante fiscale",
+  "denominazione rappresentante fiscale",
+  "nome rappresentante fiscale",
+];
 
 const headerRowMarkers = ["contraente", "beneficiario", "partita iva", "p.iva", "p. iva", "ragione sociale"];
 
@@ -510,9 +565,9 @@ const parseExcelFile = async (file: File): Promise<ExcelRecord[]> => {
   const headers = rows[headerIndex].map((cell, index) => String(cell || `Colonna ${index + 1}`).trim());
   // In the original VIES template "Indirizzo" is the beneficiary's address; in the
   // client database (no beneficiary column) it is the contraente's registered office.
-  const hasBeneficiaryColumn = headers.some((header) => normalizeText(header).includes("beneficiario"));
+  const hasBeneficiaryColumn = headers.some((header) => beneficiaryNameHeaders.includes(normalizeText(header)));
 
-  return rows
+  const parsedRecords = rows
     .slice(headerIndex + 1)
     .map((row, index) => {
       const raw = headers.reduce<Record<string, string>>((acc, header, headerPosition) => {
@@ -529,11 +584,18 @@ const parseExcelFile = async (file: File): Promise<ExcelRecord[]> => {
           raw,
           hasBeneficiaryColumn ? ["indirizzo contraente", "indirizzo ditta"] : ["indirizzo contraente", "indirizzo ditta", "indirizzo"],
         ),
-        indirizzoRappresentanteFiscale: getCellByAliases(raw, ["indirizzo rappresentante fiscale", "rappresentante fiscale"]),
+        rappresentanteFiscale: getCellByAliases(raw, fiscalRepresentativeNameHeaders, { exactOnly: true }),
+        codiceFiscaleRappresentante: getCellByAliases(raw, [
+          "codice fiscale rappresentante fiscale",
+          "c.f. rappresentante fiscale",
+          "cf rappresentante fiscale",
+          "codice fiscale rappresentante",
+        ]),
+        indirizzoRappresentanteFiscale: getCellByAliases(raw, ["indirizzo rappresentante fiscale", "domicilio fiscale"]),
         partitaIvaContraente: normalizeItalianVat(
           getCellByAliases(raw, ["partita iva ditta", "p iva ditta", "p.iva ditta", "p.iva", "p. iva", "piva"]),
         ),
-        beneficiario: getCellByAliases(raw, ["beneficiario"]) || (hasBeneficiaryColumn ? "" : VIES_DEFAULT_BENEFICIARY),
+        beneficiario: getCellByAliases(raw, beneficiaryNameHeaders, { exactOnly: true }),
         indirizzoBeneficiario: getCellByAliases(
           raw,
           hasBeneficiaryColumn ? ["indirizzo beneficiario", "indirizzo"] : ["indirizzo beneficiario"],
@@ -554,6 +616,14 @@ const parseExcelFile = async (file: File): Promise<ExcelRecord[]> => {
       return record;
     })
     .filter((record) => Object.values(record.raw).some((value) => normalizeText(value).length > 0));
+
+  if (parsedRecords.length > VIES_MAX_PRACTICES_PER_SHEET) {
+    throw new Error(
+      `L'Excel contiene ${parsedRecords.length} righe: il limite è ${VIES_MAX_PRACTICES_PER_SHEET} pratiche per foglio. Dividere il lotto in più file.`,
+    );
+  }
+
+  return parsedRecords;
 };
 
 const readZipRecursive = async (file: File): Promise<ZipDocument[]> => {
@@ -621,12 +691,56 @@ const readZipRecursive = async (file: File): Promise<ZipDocument[]> => {
   return documents;
 };
 
+const SheetField = ({
+  id,
+  label,
+  value,
+  placeholder,
+  isTaxCode = false,
+  disabled,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  placeholder: string;
+  isTaxCode?: boolean;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}) => {
+  const taxCodeValid = isTaxCode && value.trim() ? isValidItalianTaxCode(value) : null;
+
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <Input
+        id={id}
+        value={value}
+        placeholder={placeholder}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+        className={isTaxCode ? "font-mono uppercase" : undefined}
+      />
+      {taxCodeValid !== null && (
+        <p className={taxCodeValid ? "text-xs text-emerald-700" : "text-xs text-destructive"}>
+          {taxCodeValid ? "Codice valido" : "Codice non valido: controllare lettere e cifre"}
+        </p>
+      )}
+    </div>
+  );
+};
+
 const Vies = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [zipFiles, setZipFiles] = useState<File[]>([]);
-  const [records, setRecords] = useState<ExcelRecord[]>([]);
+  const [parsedRecords, setRecords] = useState<ExcelRecord[]>([]);
+  const [sheetData, setSheetData] = useState<ViesSheetData>(initialSheetData);
+  const records = useMemo(
+    () => parsedRecords.map((record) => applySheetData(record, sheetData)),
+    [parsedRecords, sheetData],
+  );
   const [documents, setDocuments] = useState<ZipDocument[]>([]);
   const [loadingExcel, setLoadingExcel] = useState(false);
   const [loadingZip, setLoadingZip] = useState(false);
@@ -758,6 +872,11 @@ const Vies = () => {
       });
   }, [documents, reconciliationRows, zipFiles]);
 
+  const updateSheetData = (field: keyof ViesSheetData) => (value: string) => {
+    setPersistedBatchId(null);
+    setSheetData((current) => ({ ...current, [field]: value }));
+  };
+
   const handleExcelUpload = async (file: File | undefined) => {
     if (!file) return;
     setExcelFile(file);
@@ -785,6 +904,14 @@ const Vies = () => {
   const handleZipUpload = async (files: FileList | File[] | null | undefined) => {
     const selectedFiles = Array.from(files ?? []).filter((file) => file.name.toLowerCase().endsWith(".zip"));
     if (!selectedFiles.length) return;
+    if (selectedFiles.length > VIES_MAX_PRACTICES_PER_SHEET) {
+      toast({
+        variant: "destructive",
+        title: "Troppi ZIP",
+        description: `Selezionati ${selectedFiles.length} ZIP: il limite è ${VIES_MAX_PRACTICES_PER_SHEET}, uno per pratica del foglio Excel.`,
+      });
+      return;
+    }
 
     setZipFiles(selectedFiles);
     setDocuments([]);
@@ -1017,9 +1144,17 @@ const Vies = () => {
 
     if (!record.contraente) errors.push("Contraente mancante");
     if (!record.partitaIvaContraente) errors.push("Partita IVA contraente mancante");
+    else if (!isValidItalianVat(record.partitaIvaContraente)) errors.push("Partita IVA contraente non valida");
     if (!record.beneficiario) errors.push("Beneficiario mancante");
     if (!record.indirizzoBeneficiario) errors.push("Indirizzo beneficiario mancante");
     if (!record.partitaIvaBeneficiario) errors.push("Codice fiscale beneficiario mancante");
+    else if (!isValidItalianTaxCode(record.partitaIvaBeneficiario)) errors.push("Codice fiscale beneficiario non valido");
+    if (!record.rappresentanteFiscale) errors.push("Rappresentante fiscale mancante");
+    if (!record.codiceFiscaleRappresentante) errors.push("Codice fiscale rappresentante fiscale mancante");
+    else if (!isValidItalianTaxCode(record.codiceFiscaleRappresentante)) {
+      errors.push("Codice fiscale rappresentante fiscale non valido");
+    }
+    if (!record.indirizzoRappresentanteFiscale) errors.push("Domicilio fiscale del rappresentante mancante");
     if (!record.pec) errors.push("PEC mancante");
 
     return errors;
@@ -1615,6 +1750,74 @@ const Vies = () => {
                 </div>
               </div>
 
+              <div className="space-y-4 rounded-lg border p-4">
+                <div>
+                  <p className="font-medium">Dati del foglio Excel</p>
+                  <p className="text-sm text-muted-foreground">
+                    Valgono per tutte le pratiche di questo foglio (massimo {VIES_MAX_PRACTICES_PER_SHEET}). Se l'Excel ha
+                    una colonna con lo stesso dato, per quella riga prevale l'Excel.
+                  </p>
+                </div>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-3">
+                    <p className="text-sm font-semibold">Beneficiario</p>
+                    <SheetField
+                      id="vies-beneficiario"
+                      label="Denominazione"
+                      value={sheetData.beneficiario}
+                      placeholder="Agenzia delle Entrate – Direzione Provinciale …"
+                      disabled={savingBatch}
+                      onChange={updateSheetData("beneficiario")}
+                    />
+                    <SheetField
+                      id="vies-indirizzo-beneficiario"
+                      label="Indirizzo"
+                      value={sheetData.indirizzoBeneficiario}
+                      placeholder="Via, numero, CAP, città"
+                      disabled={savingBatch}
+                      onChange={updateSheetData("indirizzoBeneficiario")}
+                    />
+                    <SheetField
+                      id="vies-cf-beneficiario"
+                      label="Codice fiscale"
+                      value={sheetData.codiceFiscaleBeneficiario}
+                      placeholder="11 cifre"
+                      isTaxCode
+                      disabled={savingBatch}
+                      onChange={updateSheetData("codiceFiscaleBeneficiario")}
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <p className="text-sm font-semibold">Rappresentante fiscale</p>
+                    <SheetField
+                      id="vies-rappresentante"
+                      label="Nome e cognome o denominazione"
+                      value={sheetData.rappresentanteFiscale}
+                      placeholder="Rappresentante fiscale del foglio"
+                      disabled={savingBatch}
+                      onChange={updateSheetData("rappresentanteFiscale")}
+                    />
+                    <SheetField
+                      id="vies-cf-rappresentante"
+                      label="Codice fiscale"
+                      value={sheetData.codiceFiscaleRappresentante}
+                      placeholder="16 caratteri o 11 cifre"
+                      isTaxCode
+                      disabled={savingBatch}
+                      onChange={updateSheetData("codiceFiscaleRappresentante")}
+                    />
+                    <SheetField
+                      id="vies-domicilio-rappresentante"
+                      label="Domicilio fiscale (indirizzo)"
+                      value={sheetData.indirizzoRappresentanteFiscale}
+                      placeholder="Via, numero, CAP, città"
+                      disabled={savingBatch}
+                      onChange={updateSheetData("indirizzoRappresentanteFiscale")}
+                    />
+                  </div>
+                </div>
+              </div>
+
               <Separator />
 
               <div className="grid gap-3 md:grid-cols-4">
@@ -2000,12 +2203,24 @@ const Vies = () => {
                             <Badge variant="secondary">Completo</Badge>
                           )}
                         </TableCell>
-                        <TableCell>
-                          {reconciliation.errors.length ? (
-                            <Badge variant="destructive">{reconciliation.errors.join(", ")}</Badge>
-                          ) : (
-                            <Badge variant="secondary">OK</Badge>
-                          )}
+                        <TableCell className="min-w-56">
+                          {(() => {
+                            const rowErrors = [
+                              ...reconciliation.errors,
+                              ...getRecordValidationErrors(reconciliation.record),
+                            ];
+                            return rowErrors.length ? (
+                              <div className="flex flex-wrap gap-1">
+                                {rowErrors.map((error) => (
+                                  <Badge key={error} variant="destructive">
+                                    {error}
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : (
+                              <Badge variant="secondary">OK</Badge>
+                            );
+                          })()}
                         </TableCell>
                       </TableRow>
                     ))}
