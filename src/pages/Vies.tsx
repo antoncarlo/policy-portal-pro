@@ -378,7 +378,14 @@ const uploadViesFileResumable = async ({
   });
 };
 
+// Importo garantito (massimale della fideiussione), distinto dal premio di polizza.
 const VIES_GUARANTEED_AMOUNT = 50000;
+// Premio fisso di polizza: il lordo comprende l'imposta sulle assicurazioni del
+// ramo cauzioni (12,5%). Senza accessori il premio netto coincide con l'imponibile.
+const VIES_PREMIUM_GROSS = 2000;
+const VIES_PREMIUM_TAX_RATE = 0.125;
+const VIES_PREMIUM_TAXABLE = Math.round((VIES_PREMIUM_GROSS / (1 + VIES_PREMIUM_TAX_RATE)) * 100) / 100;
+const VIES_PREMIUM_TAXES = Math.round((VIES_PREMIUM_GROSS - VIES_PREMIUM_TAXABLE) * 100) / 100;
 const VIES_DEFAULT_BENEFICIARY = "Agenzia delle Entrate";
 const VIES_MAX_PRACTICES_PER_SHEET = 20;
 
@@ -1412,10 +1419,10 @@ const Vies = () => {
           policy_number: record.progressivo ? `VIES-${record.progressivo}` : null,
           policy_start_date: policyStartDate,
           policy_end_date: policyEndDate,
-          premium_gross: VIES_GUARANTEED_AMOUNT,
-          premium_net: VIES_GUARANTEED_AMOUNT,
-          premium_taxable: VIES_GUARANTEED_AMOUNT,
-          premium_taxes: 0,
+          premium_gross: VIES_PREMIUM_GROSS,
+          premium_net: VIES_PREMIUM_TAXABLE,
+          premium_taxable: VIES_PREMIUM_TAXABLE,
+          premium_taxes: VIES_PREMIUM_TAXES,
           notes: composeNotes({
             specificFields: buildViesSpecificFields({
               batchId,

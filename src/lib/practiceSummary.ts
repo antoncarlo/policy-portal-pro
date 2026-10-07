@@ -530,7 +530,8 @@ function buildViesSummary(input: PracticeSummaryInput): PracticeSummary {
   if (beneficiario.length) sections.push({ id: "beneficiario", title: "Beneficiario", items: beneficiario });
 
   const garanzia: SummaryItem[] = [];
-  const amount = toNumber(f.vies_importo_garantito) ?? input.premium_gross ?? null;
+  // Never fall back to premium_gross: the guaranteed amount is not the premium.
+  const amount = toNumber(f.vies_importo_garantito);
   pushItem(garanzia, "vies_importo_garantito", "Importo garantito", amount !== null ? formatCurrency(amount) : null);
   pushItem(garanzia, "vies_oggetto_garanzia", "Oggetto della garanzia", str("vies_oggetto_garanzia"));
   pushItem(garanzia, "vies_durata", "Durata", formatPolicyDuration(input.policy_start_date, input.policy_end_date));
@@ -538,6 +539,15 @@ function buildViesSummary(input: PracticeSummaryInput): PracticeSummary {
   pushItem(garanzia, "policy_end_date", "Scadenza", formatDateIt(input.policy_end_date));
   pushItem(garanzia, "vies_sezione_garante", "Sezione compagnia/garante", str("vies_sezione_garante"));
   sections.push({ id: "garanzia", title: "Garanzia", items: garanzia });
+
+  const premio: SummaryItem[] = [];
+  const money = (value: number | null | undefined) =>
+    value !== null && value !== undefined ? formatCurrency(value) : null;
+  pushItem(premio, "premium_gross", "Premio lordo", money(input.premium_gross));
+  pushItem(premio, "premium_taxes", "Imposte", money(input.premium_taxes));
+  pushItem(premio, "premium_taxable", "Imponibile", money(input.premium_taxable));
+  pushItem(premio, "premium_net", "Premio netto", money(input.premium_net));
+  if (premio.length) sections.push({ id: "premio", title: "Premio di polizza", items: premio });
 
   const documentazione: SummaryItem[] = [];
   pushItem(documentazione, "vies_zip_file", "Pacchetto ZIP", str("vies_zip_file") ?? "Nessuno ZIP collegato");
