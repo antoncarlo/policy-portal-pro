@@ -44,6 +44,7 @@ export type ProcessRunSummary = {
   failed: number;
   skipped: number;
   errors: Array<{ jobId?: string; message: string }>;
+  notice?: string;
 };
 
 export function getSupabaseAdmin(): SupabaseClient {
@@ -136,6 +137,13 @@ export async function processViesQueue(options: {
     errors: [],
   };
 
+  // The portal runs standalone until an external connection is configured:
+  // queued jobs stay ready and are never marked completed by simulation.
+  if (!isExternalPortalConfigured()) {
+    summary.notice = 'Collegamento esterno non attivo: le pratiche restano pronte nel portale, nessun invio eseguito.';
+    return summary;
+  }
+
   const { data: jobs, error: claimError } = await supabase.rpc('claim_vies_jobs', {
     p_worker_id: workerId,
     p_limit: limit,
@@ -205,33 +213,15 @@ function computeRetryDelaySeconds(attempts: number): number {
   return baseSeconds * 2 ** cappedAttempt;
 }
 
+export function isExternalPortalConfigured(): boolean {
+  return Boolean(process.env.VIES_PORTAL_API_URL && process.env.VIES_PORTAL_API_KEY);
+}
+
+// Adapter for the future external connection (VIES_PORTAL_API_URL / _KEY).
+// There is deliberately no simulation mode.
 async function executeViesAgent(job: ViesJob): Promise<ViesAgentResult> {
-  const dryRun = process.env.VIES_AGENT_DRY_RUN === 'true';
-  const portalApiUrl = process.env.VIES_PORTAL_API_URL;
-  const portalApiKey = process.env.VIES_PORTAL_API_KEY;
-
-  if (dryRun) {
-    return {
-      success: true,
-      externalReference: `dry-run-${job.id}`,
-      details: {
-        mode: 'dry_run',
-        message: 'Job marcato come completato in modalità simulazione controllata.',
-        row_number: job.row_number,
-        progressivo: job.progressivo,
-      },
-    };
-  }
-
-  if (!portalApiUrl || !portalApiKey) {
-    return {
-      success: false,
-      retryable: false,
-      errorCode: 'VIES_PORTAL_NOT_CONFIGURED',
-      errorMessage: 'Adapter portale VIES non configurato. Impostare VIES_PORTAL_API_URL/VIES_PORTAL_API_KEY o VIES_AGENT_DRY_RUN=true per test controllati.',
-      details: { missing: ['VIES_PORTAL_API_URL', 'VIES_PORTAL_API_KEY'] },
-    };
-  }
+  const portalApiUrl = process.env.VIES_PORTAL_API_URL as string;
+  const portalApiKey = process.env.VIES_PORTAL_API_KEY as string;
 
   const response = await fetch(portalApiUrl, {
     method: 'POST',

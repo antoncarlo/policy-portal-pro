@@ -126,6 +126,7 @@ type WorkerSummary = {
   failed: number;
   skipped: number;
   errors: Array<{ jobId?: string; message: string }>;
+  notice?: string;
 };
 
 type ViesAccessStatus = "checking" | "allowed" | "denied";
@@ -2034,25 +2035,6 @@ const Vies = () => {
 
               <Separator />
 
-              <div className="grid gap-3 md:grid-cols-4">
-                <div className="rounded-lg bg-muted/50 p-3">
-                  <p className="text-xs font-medium uppercase text-muted-foreground">Stato batch</p>
-                  <p className="mt-1 font-semibold">{persistedBatchId ? "Salvato" : "Pre-validazione"}</p>
-                </div>
-                <div className="rounded-lg bg-muted/50 p-3">
-                  <p className="text-xs font-medium uppercase text-muted-foreground">Orchestratore</p>
-                  <p className="mt-1 font-semibold">{persistedBatchId ? "Coda creata" : "Pronto"}</p>
-                </div>
-                <div className="rounded-lg bg-muted/50 p-3">
-                  <p className="text-xs font-medium uppercase text-muted-foreground">Agent</p>
-                  <p className="mt-1 font-semibold">{persistedBatchId ? "Job generati" : "In attesa coda"}</p>
-                </div>
-                <div className="rounded-lg bg-muted/50 p-3">
-                  <p className="text-xs font-medium uppercase text-muted-foreground">Portale esterno</p>
-                  <p className="mt-1 font-semibold">Da collegare</p>
-                </div>
-              </div>
-
               <div className="space-y-3">
                 <Button
                   disabled={!records.length || !documents.length || loadingExcel || loadingZip || savingBatch}
@@ -2192,7 +2174,8 @@ const Vies = () => {
 
               {lastWorkerSummary && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
-                  Worker {lastWorkerSummary.workerId}: claim {lastWorkerSummary.claimed}, completati {lastWorkerSummary.completed}, falliti {lastWorkerSummary.failed}.
+                  {lastWorkerSummary.notice ??
+                    `Worker ${lastWorkerSummary.workerId}: claim ${lastWorkerSummary.claimed}, completati ${lastWorkerSummary.completed}, falliti ${lastWorkerSummary.failed}.`}
                 </div>
               )}
 
