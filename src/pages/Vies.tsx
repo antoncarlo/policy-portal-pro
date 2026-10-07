@@ -27,18 +27,21 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { normalizeItalianVat, scanPdfForVatNumbers } from "@/lib/viesDocumentScan";
 
 type ExcelRecord = {
   rowNumber: number;
   progressivo: string;
   nomeZip: string;
   contraente: string;
+  indirizzoContraente: string;
   indirizzoRappresentanteFiscale: string;
   partitaIvaContraente: string;
   beneficiario: string;
   indirizzoBeneficiario: string;
   partitaIvaBeneficiario: string;
   pec: string;
+  email: string;
   pagamento: string;
   documentiIndicati: string;
   raw: Record<string, string>;
@@ -53,6 +56,7 @@ type ZipDocument = {
   size: number;
   depth: number;
   isNestedZip: boolean;
+  vatNumbers: string[];
 };
 
 type ViesBatchMonitor = {
@@ -90,6 +94,9 @@ type ViesReconciliationRow = {
   zipFile?: File;
   documents: ZipDocument[];
   missingRequirements: DocumentRequirement[];
+  linkedByVat: boolean;
+  vatCheck: "verified" | "unverifiable" | "mismatch" | "not_applicable";
+  zipVatNumbers: string[];
   errors: string[];
 };
 
@@ -392,12 +399,18 @@ const buildViesPracticeNotes = ({
   `Durata: ${VIES_DURATION_MONTHS} mesi, decorrenza ${policyStartDate}, scadenza ${policyEndDate}.`,
   "Pratica prodotto VIES: compilare automaticamente i dati del contraente e del beneficiario; mantenere distinta da Fidejussioni.",
   `Contraente: ${record.contraente || "da completare"}.`,
+  `Sede contraente: ${record.indirizzoContraente || "da completare"}.`,
   `Indirizzo contraente/rappresentante fiscale: ${record.indirizzoRappresentanteFiscale || "da completare"}.`,
   `Partita IVA contraente: ${record.partitaIvaContraente || "da completare"}.`,
   `Beneficiario: ${record.beneficiario || "da completare"}.`,
   `Indirizzo beneficiario: ${record.indirizzoBeneficiario || "da completare"}.`,
   `Partita IVA beneficiario: ${record.partitaIvaBeneficiario || "da completare"}.`,
   `PEC: ${record.pec || "da completare"}.`,
+  `Email: ${record.email || "non indicata"}.`,
+  `Dati Excel originali: ${Object.entries(record.raw)
+    .filter(([, value]) => value)
+    .map(([header, value]) => `${header}: ${value}`)
+    .join(" | ")}.`,
   validationErrors.length ? `Avvisi validazione: ${validationErrors.join("; ")}.` : "Validazione riga: dati minimi presenti.",
 ].join("\n");
 
@@ -441,11 +454,17 @@ const buildStableZipStorageName = (fileName: string, occurrence = 1) => {
   return `${safeBaseName}${duplicateSuffix}${safeExtension}`;
 };
 
+// An exact header match wins over a partial one, so "cod" or "indirizzo" never
+// resolve to a longer header such as "codice fiscale cn" by accident.
 const getCellByAliases = (row: Record<string, string>, aliases: string[]) => {
   const entries = Object.entries(row);
-  const found = entries.find(([header]) => aliases.some((alias) => normalizeText(header).includes(alias)));
-  return found?.[1] ?? "";
+  const exact = entries.find(([header]) => aliases.includes(normalizeText(header)));
+  if (exact) return exact[1];
+  const partial = entries.find(([header]) => aliases.some((alias) => normalizeText(header).includes(alias)));
+  return partial?.[1] ?? "";
 };
+
+const headerRowMarkers = ["contraente", "beneficiario", "partita iva", "p.iva", "p. iva", "ragione sociale"];
 
 // Excel often declares a range far larger than the data (e.g. A1:XFD1048576 after
 // formatting whole columns). sheet_to_json materializes every cell in that range,
@@ -478,14 +497,19 @@ const parseExcelFile = async (file: File): Promise<ExcelRecord[]> => {
 
   const headerIndex = rows.findIndex((row) => {
     const normalizedRow = row.map(normalizeText).join(" ");
-    return normalizedRow.includes("contraente") || normalizedRow.includes("beneficiario") || normalizedRow.includes("partita iva");
+    return headerRowMarkers.some((marker) => normalizedRow.includes(marker));
   });
 
   if (headerIndex === -1) {
-    throw new Error("Non ho trovato una riga intestazione valida nell'Excel.");
+    throw new Error(
+      "Non ho trovato la riga di intestazione nell'Excel: serve almeno una colonna tra Contraente, Ragione Sociale, Partita IVA / P.IVA o Beneficiario.",
+    );
   }
 
   const headers = rows[headerIndex].map((cell, index) => String(cell || `Colonna ${index + 1}`).trim());
+  // In the original VIES template "Indirizzo" is the beneficiary's address; in the
+  // client database (no beneficiary column) it is the contraente's registered office.
+  const hasBeneficiaryColumn = headers.some((header) => normalizeText(header).includes("beneficiario"));
 
   return rows
     .slice(headerIndex + 1)
@@ -499,13 +523,23 @@ const parseExcelFile = async (file: File): Promise<ExcelRecord[]> => {
         rowNumber: headerIndex + index + 2,
         progressivo: getCellByAliases(raw, ["numero progressivo", "progressivo", "numero"]),
         nomeZip: getCellByAliases(raw, ["nome zip", "nome archivio", "zip nominativo", "zip"]),
-        contraente: getCellByAliases(raw, ["contraente", "nome ditta", "ditta"]),
+        contraente: getCellByAliases(raw, ["contraente", "ragione sociale", "nome ditta", "ditta"]),
+        indirizzoContraente: getCellByAliases(
+          raw,
+          hasBeneficiaryColumn ? ["indirizzo contraente", "indirizzo ditta"] : ["indirizzo contraente", "indirizzo ditta", "indirizzo"],
+        ),
         indirizzoRappresentanteFiscale: getCellByAliases(raw, ["indirizzo rappresentante fiscale", "rappresentante fiscale"]),
-        partitaIvaContraente: getCellByAliases(raw, ["partita iva ditta", "p iva ditta", "p.iva ditta"]),
+        partitaIvaContraente: normalizeItalianVat(
+          getCellByAliases(raw, ["partita iva ditta", "p iva ditta", "p.iva ditta", "p.iva", "p. iva", "piva"]),
+        ),
         beneficiario: getCellByAliases(raw, ["beneficiario"]),
-        indirizzoBeneficiario: getCellByAliases(raw, ["indirizzo"]),
+        indirizzoBeneficiario: getCellByAliases(
+          raw,
+          hasBeneficiaryColumn ? ["indirizzo beneficiario", "indirizzo"] : ["indirizzo beneficiario"],
+        ),
         partitaIvaBeneficiario: getCellByAliases(raw, ["partita iva"]),
         pec: getCellByAliases(raw, ["pec"]),
+        email: getCellByAliases(raw, ["email", "e-mail", "mail"]),
         pagamento: getCellByAliases(raw, ["pagamento"]),
         documentiIndicati: getCellByAliases(raw, ["simpli", "document", "file", "zip", "allegat"]),
         raw,
@@ -532,6 +566,17 @@ const readZipRecursive = async (file: File): Promise<ZipDocument[]> => {
       const size = (entry as unknown as { _data?: { uncompressedSize?: number } })._data?.uncompressedSize ?? 0;
       const isZip = extension === "zip";
 
+      let vatNumbers: string[] = [];
+      if (extension === "pdf") {
+        try {
+          vatNumbers = scanPdfForVatNumbers(await entry.async("uint8array")).vatNumbers;
+        } catch {
+          vatNumbers = [];
+        }
+        // Let the page repaint between documents.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+
       documents.push({
         path: fullPath,
         name: normalizedName,
@@ -541,6 +586,7 @@ const readZipRecursive = async (file: File): Promise<ZipDocument[]> => {
         size,
         depth,
         isNestedZip: depth > 0,
+        vatNumbers,
       });
 
       if (isZip) {
@@ -558,6 +604,7 @@ const readZipRecursive = async (file: File): Promise<ZipDocument[]> => {
             size: 0,
             depth: depth + 1,
             isNestedZip: true,
+            vatNumbers: [],
           });
         }
       }
@@ -623,18 +670,53 @@ const Vies = () => {
       zipFilesByKey.set(key, [...(zipFilesByKey.get(key) ?? []), file]);
     }
 
+    const vatNumbersByZipKey = new Map<string, Set<string>>();
+    for (const document of documents) {
+      const vatNumbers = vatNumbersByZipKey.get(document.sourceZipKey) ?? new Set<string>();
+      document.vatNumbers.forEach((vatNumber) => vatNumbers.add(vatNumber));
+      vatNumbersByZipKey.set(document.sourceZipKey, vatNumbers);
+    }
+
     return records.map((record) => {
-      const normalizedNomeZip = getZipReconciliationKey(record.nomeZip);
-      const matchedZipFiles = normalizedNomeZip ? zipFilesByKey.get(normalizedNomeZip) ?? [] : [];
+      const nameZipKey = getZipReconciliationKey(record.nomeZip);
+      let zipKey = nameZipKey;
+      let matchedZipFiles = nameZipKey ? zipFilesByKey.get(nameZipKey) ?? [] : [];
+      let linkedByVat = false;
       const errors: string[] = [];
 
-      if (!record.nomeZip) errors.push("Nome ZIP mancante");
+      // No ZIP with the expected name: accept the one ZIP whose documents carry this P.IVA.
+      if (matchedZipFiles.length === 0 && record.partitaIvaContraente) {
+        const candidateKeys = [...vatNumbersByZipKey.entries()]
+          .filter(([, vatNumbers]) => vatNumbers.has(record.partitaIvaContraente))
+          .map(([key]) => key);
+        if (candidateKeys.length === 1) {
+          zipKey = candidateKeys[0];
+          matchedZipFiles = zipFilesByKey.get(zipKey) ?? [];
+          linkedByVat = matchedZipFiles.length > 0;
+        }
+      }
+
+      if (!record.nomeZip && !linkedByVat) errors.push("Nome ZIP mancante");
       if (record.nomeZip && matchedZipFiles.length === 0) errors.push("ZIP mancante");
       if (matchedZipFiles.length > 1) errors.push("ZIP duplicato");
 
-      const rowDocuments = normalizedNomeZip
-        ? documents.filter((document) => document.sourceZipKey === normalizedNomeZip)
+      const rowDocuments = zipKey && matchedZipFiles.length
+        ? documents.filter((document) => document.sourceZipKey === zipKey)
         : [];
+      const zipVatNumbers = [...(vatNumbersByZipKey.get(zipKey) ?? [])];
+      let vatCheck: ViesReconciliationRow["vatCheck"] = "not_applicable";
+      if (matchedZipFiles.length && record.partitaIvaContraente) {
+        if (zipVatNumbers.includes(record.partitaIvaContraente)) {
+          vatCheck = "verified";
+        } else if (zipVatNumbers.length) {
+          vatCheck = "mismatch";
+          errors.push(
+            `La P.IVA ${record.partitaIvaContraente} non compare nei documenti dello ZIP (trovate: ${zipVatNumbers.join(", ")})`,
+          );
+        } else {
+          vatCheck = "unverifiable";
+        }
+      }
       // Checked per ZIP: a document in another client's ZIP must not hide a gap in this one.
       const missingRequirements = matchedZipFiles.length
         ? documentRequirements.filter(
@@ -647,12 +729,28 @@ const Vies = () => {
         zipFile: matchedZipFiles[0],
         documents: rowDocuments,
         missingRequirements,
+        linkedByVat,
+        vatCheck,
+        zipVatNumbers,
         errors,
       };
     });
   }, [documents, records, zipFiles]);
 
   const readyReconciliations = reconciliationRows.filter((row) => row.errors.length === 0);
+
+  const unmatchedZips = useMemo(() => {
+    const linkedZipNames = new Set(reconciliationRows.flatMap((row) => (row.zipFile ? [row.zipFile.name] : [])));
+    return zipFiles
+      .filter((file) => !linkedZipNames.has(file.name))
+      .map((file) => {
+        const key = getZipReconciliationKey(file.name);
+        const vatNumbers = new Set(
+          documents.filter((document) => document.sourceZipKey === key).flatMap((document) => document.vatNumbers),
+        );
+        return { file, vatNumbers: [...vatNumbers] };
+      });
+  }, [documents, reconciliationRows, zipFiles]);
 
   const handleExcelUpload = async (file: File | undefined) => {
     if (!file) return;
@@ -1846,6 +1944,7 @@ const Vies = () => {
                       <TableHead>Contraente</TableHead>
                       <TableHead>NOME ZIP</TableHead>
                       <TableHead>ZIP collegato</TableHead>
+                      <TableHead>P.IVA nei documenti</TableHead>
                       <TableHead>Documenti</TableHead>
                       <TableHead>Documenti mancanti</TableHead>
                       <TableHead>Errori</TableHead>
@@ -1857,7 +1956,22 @@ const Vies = () => {
                         <TableCell>{reconciliation.record.rowNumber}</TableCell>
                         <TableCell className="min-w-48 font-medium">{reconciliation.record.contraente || "Da completare"}</TableCell>
                         <TableCell>{reconciliation.record.nomeZip || "—"}</TableCell>
-                        <TableCell>{reconciliation.zipFile?.name || "Non collegato"}</TableCell>
+                        <TableCell>
+                          {reconciliation.zipFile?.name || "Non collegato"}
+                          {reconciliation.linkedByVat && (
+                            <span className="block text-xs text-muted-foreground">collegato tramite P.IVA</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="min-w-40">
+                          {reconciliation.vatCheck === "verified" && <Badge variant="secondary">Verificata</Badge>}
+                          {reconciliation.vatCheck === "mismatch" && <Badge variant="destructive">Non corrisponde</Badge>}
+                          {reconciliation.vatCheck === "unverifiable" && (
+                            <Badge variant="outline" className="border-amber-300 text-amber-900">
+                              Non verificabile (solo scansioni)
+                            </Badge>
+                          )}
+                          {reconciliation.vatCheck === "not_applicable" && <span className="text-muted-foreground">—</span>}
+                        </TableCell>
                         <TableCell>{reconciliation.documents.length}</TableCell>
                         <TableCell className="min-w-56">
                           {!reconciliation.zipFile ? (
@@ -1885,6 +1999,24 @@ const Vies = () => {
                     ))}
                   </TableBody>
                 </Table>
+                {unmatchedZips.length > 0 && (
+                  <div className="mt-4 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div className="space-y-1 text-sm">
+                      <p className="font-medium">
+                        {unmatchedZips.length} ZIP non abbinati a nessuna riga dell'Excel:
+                      </p>
+                      {unmatchedZips.map(({ file, vatNumbers }) => (
+                        <p key={file.name}>
+                          <span className="font-mono">{file.name}</span>
+                          {vatNumbers.length
+                            ? ` — contiene documenti con P.IVA ${vatNumbers.join(", ")}, assente dall'Excel.`
+                            : " — nessuna P.IVA leggibile nei documenti."}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
