@@ -154,11 +154,13 @@ export async function processViesQueue(options: {
       const result = await executeViesAgent(job);
 
       if (result.success) {
+        // external_reference holds the practice id that links the job to its
+        // practice: the portal's own reference goes in agent_result instead.
         const { error: completeError } = await supabase.rpc('complete_vies_job', {
           p_job_id: job.id,
           p_worker_id: workerId,
-          p_external_reference: result.externalReference ?? null,
-          p_agent_result: result.details ?? {},
+          p_external_reference: null,
+          p_agent_result: { ...(result.details ?? {}), portal_reference: result.externalReference ?? null },
         });
 
         if (completeError) throw new Error(`Completamento job fallito: ${completeError.message}`);
