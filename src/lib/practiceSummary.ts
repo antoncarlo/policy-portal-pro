@@ -477,9 +477,9 @@ function pushItem(items: SummaryItem[], key: string, label: string, value: strin
 }
 
 const VIES_VAT_CHECK_LABELS: Record<string, string> = {
-  verified: "Verificata: la P.IVA compare nei documenti dello ZIP",
+  verified: "Verificata: il codice della società compare nei documenti dello ZIP",
   mismatch: "Non corrisponde: lo ZIP contiene documenti di un'altra società",
-  unverifiable: "Non verificabile: documenti solo scansionati",
+  unverifiable: "Non verificabile: nessun codice leggibile nei documenti",
   not_applicable: "Non eseguita (nessuno ZIP collegato)",
 };
 
@@ -501,7 +501,12 @@ function buildViesSummary(input: PracticeSummaryInput): PracticeSummary {
 
   const contraente: SummaryItem[] = [];
   pushItem(contraente, "client_name", "Ragione sociale", input.client_name);
-  pushItem(contraente, "owner_tax_code", "Partita IVA", input.owner_tax_code);
+  pushItem(contraente, "vies_denominazione_cn", "Denominazione cinese", str("vies_denominazione_cn"));
+  pushItem(contraente, "vies_partita_iva", "Partita IVA italiana", str("vies_partita_iva") ?? (str("vies_uscc") ? null : input.owner_tax_code));
+  pushItem(contraente, "vies_uscc", "Codice di credito sociale", str("vies_uscc"));
+  pushItem(contraente, "vies_legale_rappresentante", "Legale rappresentante", str("vies_legale_rappresentante"));
+  pushItem(contraente, "vies_documento_legale_rappresentante", "Documento legale rappresentante", str("vies_documento_legale_rappresentante"));
+  pushItem(contraente, "vies_data_nascita_legale_rappresentante", "Data di nascita legale rappresentante", str("vies_data_nascita_legale_rappresentante"));
   pushItem(contraente, "vies_domicilio_fiscale_contraente", "Domicilio fiscale in Italia", str("vies_domicilio_fiscale"));
   pushItem(contraente, "vies_sede_contraente", "Sede legale (estero)", str("vies_sede_contraente"));
   pushItem(contraente, "client_phone", "Telefono", input.client_phone && input.client_phone !== "N/D" ? input.client_phone : null);
@@ -557,12 +562,12 @@ function buildViesSummary(input: PracticeSummaryInput): PracticeSummary {
   pushItem(documentazione, "vies_zip_file", "Pacchetto ZIP", str("vies_zip_file") ?? "Nessuno ZIP collegato");
   pushItem(documentazione, "vies_documenti_zip", "Documenti nello ZIP", str("vies_documenti_zip"));
   const vatCheck = str("vies_verifica_piva");
-  pushItem(documentazione, "vies_verifica_piva", "Verifica P.IVA", vatCheck ? VIES_VAT_CHECK_LABELS[vatCheck] ?? vatCheck : null);
-  pushItem(documentazione, "vies_piva_trovate", "P.IVA trovate nei documenti", listOrNull(f.vies_piva_trovate));
+  pushItem(documentazione, "vies_verifica_piva", "Verifica identità", vatCheck ? VIES_VAT_CHECK_LABELS[vatCheck] ?? vatCheck : null);
+  pushItem(documentazione, "vies_piva_trovate", "Codici della società nei documenti", listOrNull(f.vies_piva_trovate));
   pushItem(
     documentazione,
     "vies_documenti_mancanti",
-    "Documenti mancanti (controllo sul nome file)",
+    "Documenti mancanti",
     listOrNull(f.vies_documenti_mancanti) ?? (str("vies_zip_file") ? "Nessuno" : null),
   );
   pushItem(documentazione, "vies_avvisi", "Avvisi di validazione", listOrNull(f.vies_avvisi));

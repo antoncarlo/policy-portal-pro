@@ -37,22 +37,31 @@ import {
   viesPolicyInputFromPractice,
   viesPolicyPdfToBytes,
 } from "@/lib/viesPolicyPdf";
+import { extractPdfText } from "@/lib/pdfText";
 import {
-  extractPdfTextLines,
   isValidItalianTaxCode,
   isValidItalianVat,
+  isValidUscc,
   normalizeItalianVat,
+  normalizeUscc,
   parseVisura,
   pickLegalRepresentative,
-  scanPdfForVatNumbers,
+  scanPdf,
   type VisuraData,
 } from "@/lib/viesDocumentScan";
+import { VIES_DOCUMENT_TYPES, classifyDocumentText, type ViesDocumentType } from "@/lib/viesDocumentTypes";
 
 type ExcelRecord = {
   rowNumber: number;
   progressivo: string;
   nomeZip: string;
   contraente: string;
+  denominazioneCn: string;
+  /** Unified Social Credit Code (codice di credito sociale) of the Chinese company. */
+  uscc: string;
+  legaleRappresentante: string;
+  documentoLegaleRappresentante: string;
+  dataNascitaLegaleRappresentante: string;
   indirizzoContraente: string;
   rappresentanteFiscale: string;
   codiceFiscaleRappresentante: string;
@@ -84,6 +93,10 @@ type ZipDocument = {
   depth: number;
   isNestedZip: boolean;
   vatNumbers: string[];
+  usccs: string[];
+  hasText: boolean;
+  /** Recognised from the content; null = not recognised (e.g. a scan for the agent). */
+  documentType: string | null;
 };
 
 type ViesBatchMonitor = {
@@ -139,74 +152,13 @@ type WorkerSummary = {
 
 type ViesAccessStatus = "checking" | "allowed" | "denied";
 
-type DocumentRequirement = {
-  id: string;
-  label: string;
-  description: string;
-  keywords: string[];
-};
+type DocumentRequirement = ViesDocumentType;
 
-const documentRequirements: DocumentRequirement[] = [
-  {
-    id: "documento_vies_principale",
-    label: "Documento VIES principale",
-    description: "Allegato principale della pratica VIES da caricare sul portale esterno.",
-    keywords: ["vies", "pratica", "allegato", "保函"],
-  },
-  {
-    id: "beneficiario_firmato",
-    label: "Beneficiario firmato",
-    description: "Documento del beneficiario o modulo firmato collegato alla garanzia.",
-    keywords: ["beneficiario", "signed", "firmat"],
-  },
-  {
-    id: "documento_identita",
-    label: "Documento identità",
-    description: "Documento identità di titolare effettivo o rappresentante legale.",
-    keywords: ["identita", "identità", "documento", "titolare", "rappresentante legale"],
-  },
-  {
-    id: "certificato_partita_iva",
-    label: "Certificato partita IVA",
-    description: "Certificato o attestazione della partita IVA del contraente.",
-    keywords: ["partita iva", "piva", "iva"],
-  },
-  {
-    id: "ubo_financials",
-    label: "UBO e financials",
-    description: "Modulo UBO, titolarità effettiva e informazioni finanziarie.",
-    keywords: ["ubo", "financial", "financials"],
-  },
-  {
-    id: "dichiarazione_sostitutiva",
-    label: "Dichiarazione sostitutiva",
-    description: "Dichiarazione sostitutiva o modulo equivalente richiesto per la pratica.",
-    keywords: ["dichiarazione", "sostitutiva"],
-  },
-  {
-    id: "licenza_commerciale",
-    label: "Licenza commerciale",
-    description: "Documento societario estero del cliente cinese venditore Amazon.",
-    keywords: ["licenza", "commerciale", "business license"],
-  },
-  {
-    id: "mandato_rappresentanza_fiscale",
-    label: "Mandato rappresentanza fiscale",
-    description: "Mandato del rappresentante fiscale collegato al contraente.",
-    keywords: ["mandato", "rappresentanza fiscale", "rappresentante fiscale"],
-  },
-  {
-    id: "cassetto_fiscale",
-    label: "Cassetto fiscale",
-    description: "Evidenza fiscale o dettaglio Agenzia delle Entrate quando richiesto.",
-    keywords: ["cassetto", "agenzia", "entrate"],
-  },
-];
+// Required documents, recognised from their content (see viesDocumentTypes).
+const documentRequirements: DocumentRequirement[] = VIES_DOCUMENT_TYPES;
 
-const documentMatchesRequirement = (document: ZipDocument, requirement: DocumentRequirement) => {
-  const searchable = normalizeText(`${document.name} ${document.path}`);
-  return requirement.keywords.some((keyword) => searchable.includes(normalizeText(keyword)));
-};
+const documentMatchesRequirement = (document: ZipDocument, requirement: DocumentRequirement) =>
+  document.documentType === requirement.id;
 
 const normalizeText = (value: unknown) =>
   String(value ?? "")
@@ -485,6 +437,12 @@ const buildViesSpecificFields = ({
   visura: VisuraData | null;
 }) => ({
   vies_sede_contraente: record.indirizzoContraente || null,
+  vies_denominazione_cn: record.denominazioneCn || null,
+  vies_uscc: record.uscc || null,
+  vies_partita_iva: record.partitaIvaContraente || null,
+  vies_legale_rappresentante: record.legaleRappresentante || null,
+  vies_documento_legale_rappresentante: record.documentoLegaleRappresentante || null,
+  vies_data_nascita_legale_rappresentante: record.dataNascitaLegaleRappresentante || null,
   vies_email: record.email || null,
   vies_pec_fonte: record.pec ? (record.pecFromRepresentative ? "del rappresentante fiscale" : "del contraente") : null,
   vies_rappresentante_fiscale: record.rappresentanteFiscale || null,
@@ -575,7 +533,7 @@ const fiscalRepresentativeNameHeaders = [
   "nome rappresentante fiscale",
 ];
 
-const headerRowMarkers = ["contraente", "beneficiario", "partita iva", "p.iva", "p. iva", "ragione sociale"];
+const headerRowMarkers = ["contraente", "beneficiario", "partita iva", "p.iva", "p. iva", "ragione sociale", "codice credito sociale"];
 
 // Excel often declares a range far larger than the data (e.g. A1:XFD1048576 after
 // formatting whole columns). sheet_to_json materializes every cell in that range,
@@ -595,10 +553,42 @@ const getUsedRange = (worksheet: XLSX.WorkSheet): string | undefined => {
   return XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: maxRow, c: maxCol } });
 };
 
-const parseExcelFile = async (file: File): Promise<ExcelRecord[]> => {
+const SHEET_DATA_FIELDS: Array<[keyof ViesSheetData, string[]]> = [
+  ["beneficiario", ["beneficiario", "denominazione beneficiario"]],
+  ["indirizzoBeneficiario", ["indirizzo beneficiario"]],
+  ["codiceFiscaleBeneficiario", ["codice fiscale beneficiario"]],
+  ["rappresentanteFiscale", ["rappresentante fiscale", "denominazione rappresentante fiscale"]],
+  ["codiceFiscaleRappresentante", ["codice fiscale rappresentante fiscale", "p.iva rappresentante fiscale"]],
+  ["amministratoreRappresentante", ["amministratore rappresentante fiscale", "amministratore"]],
+  ["codiceFiscaleAmministratore", ["codice fiscale amministratore"]],
+  ["indirizzoRappresentanteFiscale", ["sede rappresentante fiscale", "domicilio fiscale", "indirizzo rappresentante fiscale"]],
+  ["pecRappresentante", ["pec rappresentante fiscale", "pec"]],
+];
+
+// Optional "DATI FOGLIO" sheet (Campo | Valore): the beneficiary office and the
+// fiscal representative shared by every practice of the workbook.
+const parseSheetDataSheet = (worksheet: XLSX.WorkSheet | undefined): Partial<ViesSheetData> => {
+  if (!worksheet) return {};
+  const usedRange = getUsedRange(worksheet);
+  if (!usedRange) return {};
+  const rows = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1, defval: "", range: usedRange });
+  const result: Partial<ViesSheetData> = {};
+  for (const [field, labels] of SHEET_DATA_FIELDS) {
+    const row = rows.find((candidate) => labels.includes(normalizeText(candidate[0])));
+    const value = row ? String(row[1] ?? "").trim() : "";
+    if (value) result[field] = value;
+  }
+  return result;
+};
+
+const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; sheetData: Partial<ViesSheetData> }> => {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array" });
-  const firstSheetName = workbook.SheetNames[0];
+  const sheetDataName = workbook.SheetNames.find((name) => normalizeText(name) === "dati foglio");
+  const firstSheetName =
+    workbook.SheetNames.find((name) => normalizeText(name) === "pratiche") ??
+    workbook.SheetNames.find((name) => name !== sheetDataName) ??
+    workbook.SheetNames[0];
   const worksheet = workbook.Sheets[firstSheetName];
   const usedRange = getUsedRange(worksheet);
   if (!usedRange) {
@@ -635,9 +625,35 @@ const parseExcelFile = async (file: File): Promise<ExcelRecord[]> => {
         progressivo: getCellByAliases(raw, ["numero progressivo", "progressivo", "numero"]),
         nomeZip: getCellByAliases(raw, ["nome zip", "nome archivio", "zip nominativo", "zip"]),
         contraente: getCellByAliases(raw, ["contraente", "ragione sociale", "nome ditta", "ditta"]),
+        denominazioneCn: getCellByAliases(raw, ["denominazione cn", "denominazione cinese", "nome cinese"], { exactOnly: true }),
+        uscc: normalizeUscc(
+          getCellByAliases(raw, [
+            "codice credito sociale",
+            "codice di credito sociale",
+            "codice unificato di credito sociale",
+            "unified social credit code",
+            "uscc",
+            "codice fiscale cn",
+          ], { exactOnly: true }),
+        ),
+        legaleRappresentante: getCellByAliases(raw, ["legale rappresentante", "legale rappre", "legal representative"], {
+          exactOnly: true,
+        }),
+        documentoLegaleRappresentante: getCellByAliases(
+          raw,
+          ["documento identita legale rappresentante", "documento identita", "carta identita n", "passaporto"],
+          { exactOnly: true },
+        ),
+        dataNascitaLegaleRappresentante: getCellByAliases(
+          raw,
+          ["data di nascita legale rappresentante", "data di nascita", "data nascita"],
+          { exactOnly: true },
+        ),
         indirizzoContraente: getCellByAliases(
           raw,
-          hasBeneficiaryColumn ? ["indirizzo contraente", "indirizzo ditta"] : ["indirizzo contraente", "indirizzo ditta", "indirizzo"],
+          hasBeneficiaryColumn
+            ? ["sede legale estera", "indirizzo contraente", "indirizzo ditta"]
+            : ["sede legale estera", "indirizzo contraente", "indirizzo ditta", "indirizzo"],
         ),
         rappresentanteFiscale: getCellByAliases(raw, fiscalRepresentativeNameHeaders, { exactOnly: true }),
         codiceFiscaleRappresentante: getCellByAliases(raw, [
@@ -691,7 +707,7 @@ const parseExcelFile = async (file: File): Promise<ExcelRecord[]> => {
     );
   }
 
-  return parsedRecords;
+  return { records: parsedRecords, sheetData: parseSheetDataSheet(sheetDataName ? workbook.Sheets[sheetDataName] : undefined) };
 };
 
 const readZipRecursive = async (file: File): Promise<ZipDocument[]> => {
@@ -711,9 +727,16 @@ const readZipRecursive = async (file: File): Promise<ZipDocument[]> => {
       const isZip = extension === "zip";
 
       let vatNumbers: string[] = [];
+      let usccs: string[] = [];
+      let hasText = false;
+      let documentType: string | null = null;
       if (extension === "pdf") {
         try {
-          vatNumbers = scanPdfForVatNumbers(await entry.async("uint8array")).vatNumbers;
+          const scan = await scanPdf(await entry.async("uint8array"));
+          vatNumbers = scan.vatNumbers;
+          usccs = scan.usccs;
+          hasText = scan.hasText;
+          documentType = scan.hasText ? classifyDocumentText(scan.lines) : null;
         } catch {
           vatNumbers = [];
         }
@@ -731,6 +754,9 @@ const readZipRecursive = async (file: File): Promise<ZipDocument[]> => {
         depth,
         isNestedZip: depth > 0,
         vatNumbers,
+        usccs,
+        hasText,
+        documentType,
       });
 
       if (isZip) {
@@ -749,6 +775,9 @@ const readZipRecursive = async (file: File): Promise<ZipDocument[]> => {
             depth: depth + 1,
             isNestedZip: true,
             vatNumbers: [],
+            usccs: [],
+            hasText: false,
+            documentType: null,
           });
         }
       }
@@ -861,11 +890,13 @@ const Vies = () => {
       zipFilesByKey.set(key, [...(zipFilesByKey.get(key) ?? []), file]);
     }
 
-    const vatNumbersByZipKey = new Map<string, Set<string>>();
+    // Company identifiers found in each ZIP: Chinese credit codes and Italian VAT numbers.
+    const identifiersByZipKey = new Map<string, Set<string>>();
     for (const document of documents) {
-      const vatNumbers = vatNumbersByZipKey.get(document.sourceZipKey) ?? new Set<string>();
-      document.vatNumbers.forEach((vatNumber) => vatNumbers.add(vatNumber));
-      vatNumbersByZipKey.set(document.sourceZipKey, vatNumbers);
+      const identifiers = identifiersByZipKey.get(document.sourceZipKey) ?? new Set<string>();
+      document.usccs.forEach((code) => identifiers.add(code));
+      document.vatNumbers.forEach((vatNumber) => identifiers.add(vatNumber));
+      identifiersByZipKey.set(document.sourceZipKey, identifiers);
     }
 
     return records.map((record) => {
@@ -875,10 +906,14 @@ const Vies = () => {
       let linkedByVat = false;
       const errors: string[] = [];
 
-      // No ZIP with the expected name: accept the one ZIP whose documents carry this P.IVA.
-      if (matchedZipFiles.length === 0 && record.partitaIvaContraente) {
-        const candidateKeys = [...vatNumbersByZipKey.entries()]
-          .filter(([, vatNumbers]) => vatNumbers.has(record.partitaIvaContraente))
+      const expectedIdentifiers = [record.uscc, record.partitaIvaContraente].filter(Boolean);
+      // The representative's and the beneficiary's codes appear in every ZIP: never evidence of the client.
+      const sharedIdentifiers = new Set([record.codiceFiscaleRappresentante, record.partitaIvaBeneficiario].filter(Boolean));
+
+      // No ZIP with the expected name: accept the one ZIP whose documents carry this company's codes.
+      if (matchedZipFiles.length === 0 && expectedIdentifiers.length) {
+        const candidateKeys = [...identifiersByZipKey.entries()]
+          .filter(([, identifiers]) => expectedIdentifiers.some((identifier) => identifiers.has(identifier)))
           .map(([key]) => key);
         if (candidateKeys.length === 1) {
           zipKey = candidateKeys[0];
@@ -894,15 +929,15 @@ const Vies = () => {
       const rowDocuments = zipKey && matchedZipFiles.length
         ? documents.filter((document) => document.sourceZipKey === zipKey)
         : [];
-      const zipVatNumbers = [...(vatNumbersByZipKey.get(zipKey) ?? [])];
+      const zipVatNumbers = [...(identifiersByZipKey.get(zipKey) ?? [])].filter((identifier) => !sharedIdentifiers.has(identifier));
       let vatCheck: ViesReconciliationRow["vatCheck"] = "not_applicable";
-      if (matchedZipFiles.length && record.partitaIvaContraente) {
-        if (zipVatNumbers.includes(record.partitaIvaContraente)) {
+      if (matchedZipFiles.length && expectedIdentifiers.length) {
+        if (expectedIdentifiers.some((identifier) => zipVatNumbers.includes(identifier))) {
           vatCheck = "verified";
         } else if (zipVatNumbers.length) {
           vatCheck = "mismatch";
           errors.push(
-            `La P.IVA ${record.partitaIvaContraente} non compare nei documenti dello ZIP (trovate: ${zipVatNumbers.join(", ")})`,
+            `I documenti dello ZIP sono di un'altra società: ${expectedIdentifiers.join(" / ")} non compare, trovati ${zipVatNumbers.join(", ")}`,
           );
         } else {
           vatCheck = "unverifiable";
@@ -930,6 +965,11 @@ const Vies = () => {
 
   const readyReconciliations = reconciliationRows.filter((row) => row.errors.length === 0);
 
+  const sheetSharedIdentifiers = useMemo(
+    () => new Set([normalizeTaxCode(sheetData.codiceFiscaleRappresentante), normalizeTaxCode(sheetData.codiceFiscaleBeneficiario)].filter(Boolean)),
+    [sheetData.codiceFiscaleBeneficiario, sheetData.codiceFiscaleRappresentante],
+  );
+
   const unmatchedZips = useMemo(() => {
     const linkedZipNames = new Set(reconciliationRows.flatMap((row) => (row.zipFile ? [row.zipFile.name] : [])));
     return zipFiles
@@ -937,11 +977,14 @@ const Vies = () => {
       .map((file) => {
         const key = getZipReconciliationKey(file.name);
         const vatNumbers = new Set(
-          documents.filter((document) => document.sourceZipKey === key).flatMap((document) => document.vatNumbers),
+          documents
+            .filter((document) => document.sourceZipKey === key)
+            .flatMap((document) => [...document.usccs, ...document.vatNumbers])
+            .filter((identifier) => !sheetSharedIdentifiers.has(identifier)),
         );
         return { file, vatNumbers: [...vatNumbers] };
       });
-  }, [documents, reconciliationRows, zipFiles]);
+  }, [documents, reconciliationRows, sheetSharedIdentifiers, zipFiles]);
 
   const updateSheetData = (field: keyof ViesSheetData) => (value: string) => {
     setPersistedBatchId(null);
@@ -964,7 +1007,7 @@ const Vies = () => {
     if (!file) return;
     setPersistedBatchId(null);
     try {
-      const visura = parseVisura(extractPdfTextLines(new Uint8Array(await file.arrayBuffer())));
+      const visura = parseVisura((await extractPdfText(new Uint8Array(await file.arrayBuffer()))).lines);
       if (!visura.codiceFiscale && !visura.denominazione) {
         setVisuraFile(null);
         setVisuraData(null);
@@ -1004,8 +1047,11 @@ const Vies = () => {
     setLoadingExcel(true);
 
     try {
-      const parsedRecords = await parseExcelFile(file);
+      const { records: parsedRecords, sheetData: workbookSheetData } = await parseExcelFile(file);
       setRecords(parsedRecords);
+      if (Object.keys(workbookSheetData).length) {
+        setSheetData((current) => ({ ...current, ...workbookSheetData }));
+      }
       toast({
         title: "Excel letto correttamente",
         description: `Rilevate ${parsedRecords.length} righe utili nel tracciato VIES.`,
@@ -1253,19 +1299,21 @@ const Vies = () => {
     return () => window.clearInterval(interval);
   }, [persistedBatchId, refreshBatchMonitor]);
 
-  const getRequirementMatches = (document: ZipDocument) => {
-    const searchable = normalizeText(`${document.name} ${document.path}`);
-    return documentRequirements
-      .filter((requirement) => requirement.keywords.some((keyword) => searchable.includes(normalizeText(keyword))))
-      .map((requirement) => requirement.id);
-  };
+  const getRequirementMatches = (document: ZipDocument) => (document.documentType ? [document.documentType] : []);
 
   const getRecordValidationErrors = (record: ExcelRecord) => {
     const errors: string[] = [];
 
     if (!record.contraente) errors.push("Contraente mancante");
-    if (!record.partitaIvaContraente) errors.push("Partita IVA contraente mancante");
-    else if (!isValidItalianVat(record.partitaIvaContraente)) errors.push("Partita IVA contraente non valida");
+    if (record.partitaIvaContraente && !isValidItalianVat(record.partitaIvaContraente)) {
+      errors.push("Partita IVA contraente non valida");
+    }
+    // An 18-character code is a Chinese Unified Social Credit Code and must pass its check;
+    // other foreign formats (e.g. Hong Kong BR numbers) are kept as given.
+    if (record.uscc.length === 18 && !isValidUscc(record.uscc)) errors.push("Codice di credito sociale non valido");
+    if (!record.partitaIvaContraente && !record.uscc) {
+      errors.push("Identificativo fiscale mancante (P.IVA o codice di credito sociale)");
+    }
     if (!record.beneficiario) errors.push("Beneficiario mancante");
     if (!record.indirizzoBeneficiario) errors.push("Indirizzo beneficiario mancante");
     if (!record.partitaIvaBeneficiario) errors.push("Codice fiscale beneficiario mancante");
@@ -1526,7 +1574,7 @@ const Vies = () => {
           client_email: record.pec || `vies-riga-${record.rowNumber}@placeholder.local`,
           client_phone: record.telefono || "N/D",
           beneficiary: record.beneficiario || null,
-          owner_tax_code: record.partitaIvaContraente || null,
+          owner_tax_code: record.partitaIvaContraente || record.uscc || null,
           policy_number: record.progressivo ? `VIES-${record.progressivo}` : null,
           policy_start_date: policyStartDate,
           policy_end_date: policyEndDate,
@@ -1919,6 +1967,9 @@ const Vies = () => {
                   <p className="text-sm text-muted-foreground">
                     {loadingExcel ? "Lettura in corso..." : excelFile?.name || "Nessun Excel selezionato"}
                   </p>
+                  <a href="/vies/VIES_modello.xlsx" download className="text-xs font-medium text-primary underline-offset-4 hover:underline">
+                    Scarica il modello Excel (fogli PRATICHE, DATI FOGLIO, ISTRUZIONI)
+                  </a>
                 </div>
 
                 <div className="space-y-2 rounded-lg border border-dashed p-4">
@@ -2293,7 +2344,7 @@ const Vies = () => {
             <CardHeader>
               <CardTitle>Documenti obbligatori VIES</CardTitle>
               <CardDescription>
-                Controllo iniziale basato sul pacchetto reale fornito come esempio. I nomi file vengono normalizzati anche se contengono caratteri cinesi.
+                Documenti riconosciuti dal contenuto, non dal nome del file, sommando tutti gli ZIP. Le scansioni senza testo vengono riconosciute dall'agent.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -2308,7 +2359,9 @@ const Vies = () => {
                       )}
                       <p className="font-medium">{requirement.label}</p>
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">{requirement.description}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {requirement.subject === "rappresentante" ? "Documento del rappresentante fiscale" : "Documento del cliente"}
+                    </p>
                     {requirement.matchedDocuments.length > 0 && (
                       <p className="mt-1 truncate text-xs text-muted-foreground">
                         Trovato: {requirement.matchedDocuments.map((document) => document.name).join(", ")}
@@ -2325,7 +2378,7 @@ const Vies = () => {
                 <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                   <p className="text-sm">
-                    Mancano {missingRequirements.length} tipologie documento. Potrebbero essere assenti oppure nominate in modo non riconoscibile.
+                    Mancano {missingRequirements.length} tipologie documento: assenti, oppure scansioni non ancora riconosciute dall'agent.
                   </p>
                 </div>
               )}
@@ -2402,7 +2455,7 @@ const Vies = () => {
                       <TableHead>Contraente</TableHead>
                       <TableHead>NOME ZIP</TableHead>
                       <TableHead>ZIP collegato</TableHead>
-                      <TableHead>P.IVA nei documenti</TableHead>
+                      <TableHead>Identità nei documenti</TableHead>
                       <TableHead>Documenti</TableHead>
                       <TableHead>Documenti mancanti</TableHead>
                       <TableHead>Errori</TableHead>
@@ -2425,7 +2478,7 @@ const Vies = () => {
                           {reconciliation.vatCheck === "mismatch" && <Badge variant="destructive">Non corrisponde</Badge>}
                           {reconciliation.vatCheck === "unverifiable" && (
                             <Badge variant="outline" className="border-amber-300 text-amber-900">
-                              Non verificabile (solo scansioni)
+                              Non verificabile (nessun codice leggibile)
                             </Badge>
                           )}
                           {reconciliation.vatCheck === "not_applicable" && <span className="text-muted-foreground">—</span>}
@@ -2480,8 +2533,8 @@ const Vies = () => {
                         <p key={file.name}>
                           <span className="font-mono">{file.name}</span>
                           {vatNumbers.length
-                            ? ` — contiene documenti con P.IVA ${vatNumbers.join(", ")}, assente dall'Excel.`
-                            : " — nessuna P.IVA leggibile nei documenti."}
+                            ? ` — contiene documenti della società ${vatNumbers.join(", ")}, assente dall'Excel.`
+                            : " — nessun identificativo leggibile nei documenti."}
                         </p>
                       ))}
                     </div>
