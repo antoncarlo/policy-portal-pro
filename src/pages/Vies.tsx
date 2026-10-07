@@ -89,6 +89,7 @@ type ViesReconciliationRow = {
   record: ExcelRecord;
   zipFile?: File;
   documents: ZipDocument[];
+  missingRequirements: DocumentRequirement[];
   errors: string[];
 };
 
@@ -166,6 +167,11 @@ const documentRequirements: DocumentRequirement[] = [
     keywords: ["cassetto", "agenzia", "entrate"],
   },
 ];
+
+const documentMatchesRequirement = (document: ZipDocument, requirement: DocumentRequirement) => {
+  const searchable = normalizeText(`${document.name} ${document.path}`);
+  return requirement.keywords.some((keyword) => searchable.includes(normalizeText(keyword)));
+};
 
 const normalizeText = (value: unknown) =>
   String(value ?? "")
@@ -441,12 +447,34 @@ const getCellByAliases = (row: Record<string, string>, aliases: string[]) => {
   return found?.[1] ?? "";
 };
 
+// Excel often declares a range far larger than the data (e.g. A1:XFD1048576 after
+// formatting whole columns). sheet_to_json materializes every cell in that range,
+// which freezes the tab, so we read only up to the last non-empty cell.
+const getUsedRange = (worksheet: XLSX.WorkSheet): string | undefined => {
+  let maxRow = -1;
+  let maxCol = -1;
+  for (const address of Object.keys(worksheet)) {
+    if (address.startsWith("!")) continue;
+    const value = (worksheet[address] as XLSX.CellObject | undefined)?.v;
+    if (value === undefined || value === null || String(value).trim() === "") continue;
+    const { r, c } = XLSX.utils.decode_cell(address);
+    if (r > maxRow) maxRow = r;
+    if (c > maxCol) maxCol = c;
+  }
+  if (maxRow < 0) return undefined;
+  return XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: maxRow, c: maxCol } });
+};
+
 const parseExcelFile = async (file: File): Promise<ExcelRecord[]> => {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array" });
   const firstSheetName = workbook.SheetNames[0];
   const worksheet = workbook.Sheets[firstSheetName];
-  const rows = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1, defval: "" });
+  const usedRange = getUsedRange(worksheet);
+  if (!usedRange) {
+    throw new Error("Il primo foglio dell'Excel è vuoto.");
+  }
+  const rows = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1, defval: "", range: usedRange });
 
   const headerIndex = rows.findIndex((row) => {
     const normalizedRow = row.map(normalizeText).join(" ");
@@ -565,10 +593,7 @@ const Vies = () => {
 
   const documentMatches = useMemo(() => {
     return documentRequirements.map((requirement) => {
-      const matchedDocuments = documents.filter((document) => {
-        const searchable = normalizeText(`${document.name} ${document.path}`);
-        return requirement.keywords.some((keyword) => searchable.includes(normalizeText(keyword)));
-      });
+      const matchedDocuments = documents.filter((document) => documentMatchesRequirement(document, requirement));
 
       return {
         ...requirement,
@@ -607,16 +632,26 @@ const Vies = () => {
       if (record.nomeZip && matchedZipFiles.length === 0) errors.push("ZIP mancante");
       if (matchedZipFiles.length > 1) errors.push("ZIP duplicato");
 
+      const rowDocuments = normalizedNomeZip
+        ? documents.filter((document) => document.sourceZipKey === normalizedNomeZip)
+        : [];
+      // Checked per ZIP: a document in another client's ZIP must not hide a gap in this one.
+      const missingRequirements = matchedZipFiles.length
+        ? documentRequirements.filter(
+            (requirement) => !rowDocuments.some((document) => documentMatchesRequirement(document, requirement)),
+          )
+        : [];
+
       return {
         record,
         zipFile: matchedZipFiles[0],
-        documents: normalizedNomeZip ? documents.filter((document) => document.sourceZipKey === normalizedNomeZip) : [],
+        documents: rowDocuments,
+        missingRequirements,
         errors,
       };
     });
   }, [documents, records, zipFiles]);
 
-  const reconciliationErrors = reconciliationRows.flatMap((row) => row.errors);
   const readyReconciliations = reconciliationRows.filter((row) => row.errors.length === 0);
 
   const handleExcelUpload = async (file: File | undefined) => {
@@ -1030,19 +1065,16 @@ const Vies = () => {
 
       const archivedZipCount = zipStoragePathByFileName.size;
       const reconciliationByRow = new Map(reconciliationRows.map((row) => [row.record.rowNumber, row]));
-      const globalBatchValidationErrors = [
-        ...missingRequirements.map((requirement) => `Requisito documentale mancante: ${requirement.label}`),
-        ...reconciliationErrors,
-      ];
       const jobPreparationRows = records.map((record) => {
         const validationErrors = getRecordValidationErrors(record);
         const reconciliation = reconciliationByRow.get(record.rowNumber);
-        const reconciliationValidationErrors = reconciliation?.errors ?? [];
-        const allValidationErrors = [
-          ...validationErrors,
-          ...reconciliationValidationErrors,
-          ...globalBatchValidationErrors,
+        const reconciliationValidationErrors = [
+          ...(reconciliation?.errors ?? []),
+          ...(reconciliation?.missingRequirements ?? []).map(
+            (requirement) => `Requisito documentale mancante: ${requirement.label}`,
+          ),
         ];
+        const allValidationErrors = [...validationErrors, ...reconciliationValidationErrors];
 
         return {
           record,
@@ -1081,15 +1113,14 @@ const Vies = () => {
         blocked_jobs: 0,
         matched_requirements: completedRequirements,
         missing_requirements: [
-          ...missingRequirements.map((requirement) => ({
-            id: requirement.id,
-            label: requirement.label,
-          })),
           ...reconciliationRows
-            .filter((row) => row.errors.length)
+            .filter((row) => row.errors.length || row.missingRequirements.length)
             .map((row) => ({
               id: `riga-${row.record.rowNumber}`,
-              label: `${row.record.contraente || "Riga VIES"}: ${row.errors.join(", ")}`,
+              label: `${row.record.contraente || "Riga VIES"}: ${[
+                ...row.errors,
+                ...row.missingRequirements.map((requirement) => `manca ${requirement.label}`),
+              ].join(", ")}`,
             })),
         ],
         status: "draft",
@@ -1798,7 +1829,7 @@ const Vies = () => {
           <CardHeader>
             <CardTitle>Controllore riconciliazione ZIP</CardTitle>
             <CardDescription>
-              Ogni riga Excel viene abbinata allo ZIP nominativo indicato dal campo NOME ZIP. Gli errori bloccano il batch finché non sono risolti.
+              Ogni riga Excel viene abbinata allo ZIP indicato nella colonna ZIP (es. 1 → 1.zip). Documenti mancanti ed errori bloccano solo la pratica di quella riga, non il resto del lotto.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -1816,17 +1847,33 @@ const Vies = () => {
                       <TableHead>NOME ZIP</TableHead>
                       <TableHead>ZIP collegato</TableHead>
                       <TableHead>Documenti</TableHead>
+                      <TableHead>Documenti mancanti</TableHead>
                       <TableHead>Errori</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {reconciliationRows.slice(0, 20).map((reconciliation) => (
+                    {reconciliationRows.map((reconciliation) => (
                       <TableRow key={`reconciliation-${reconciliation.record.rowNumber}`}>
                         <TableCell>{reconciliation.record.rowNumber}</TableCell>
                         <TableCell className="min-w-48 font-medium">{reconciliation.record.contraente || "Da completare"}</TableCell>
                         <TableCell>{reconciliation.record.nomeZip || "—"}</TableCell>
                         <TableCell>{reconciliation.zipFile?.name || "Non collegato"}</TableCell>
                         <TableCell>{reconciliation.documents.length}</TableCell>
+                        <TableCell className="min-w-56">
+                          {!reconciliation.zipFile ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : reconciliation.missingRequirements.length ? (
+                            <div className="flex flex-wrap gap-1">
+                              {reconciliation.missingRequirements.map((requirement) => (
+                                <Badge key={requirement.id} variant="outline" className="border-amber-300 text-amber-900">
+                                  {requirement.label}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <Badge variant="secondary">Completo</Badge>
+                          )}
+                        </TableCell>
                         <TableCell>
                           {reconciliation.errors.length ? (
                             <Badge variant="destructive">{reconciliation.errors.join(", ")}</Badge>
@@ -1838,9 +1885,6 @@ const Vies = () => {
                     ))}
                   </TableBody>
                 </Table>
-                {reconciliationRows.length > 20 && (
-                  <p className="mt-3 text-sm text-muted-foreground">Mostrate 20 riconciliazioni su {reconciliationRows.length}.</p>
-                )}
               </div>
             )}
           </CardContent>
