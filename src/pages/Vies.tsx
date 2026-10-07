@@ -775,6 +775,75 @@ const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; she
   return { records: parsedRecords, sheetData: parseSheetDataSheet(sheetDataName ? workbook.Sheets[sheetDataName] : undefined) };
 };
 
+// Files added by the operating system when zipping (macOS resource forks, Finder
+// and Explorer metadata): never documents.
+const isSystemZipEntry = (path: string) => {
+  const name = path.split("/").pop() ?? path;
+  return path.split("/").includes("__MACOSX") || name.startsWith("._") || name === ".DS_Store" || name.toLowerCase() === "thumbs.db";
+};
+
+const PRACTICE_NUMBER_PATTERN = /^([1-9]|1\d|20)$/;
+
+/**
+ * A single uploaded ZIP may contain the whole batch: the practice ZIPs 1.zip … 20.zip,
+ * or folders 1 … 20 with each practice's documents. Such a bundle is split into one
+ * File per practice ("3.zip"), so the rest of the flow sees one ZIP per practice.
+ * A ZIP named with a practice number, or without practice ZIPs/folders inside, is kept as is.
+ */
+const expandZipBundles = async (files: File[]): Promise<{ files: File[]; bundles: string[] }> => {
+  const expanded: File[] = [];
+  const bundles: string[] = [];
+
+  for (const file of files) {
+    if (PRACTICE_NUMBER_PATTERN.test(file.name.replace(/\.zip$/i, "").trim())) {
+      expanded.push(file);
+      continue;
+    }
+    const zip = await JSZip.loadAsync(await file.arrayBuffer());
+    const entries = Object.values(zip.files).filter((entry) => !entry.dir && !isSystemZipEntry(entry.name));
+    // A bundle zipped from a parent folder ("lotto/1.zip") has one common root folder.
+    const roots = new Set(entries.map((entry) => (entry.name.includes("/") ? entry.name.split("/")[0] : "")));
+    const commonRoot = roots.size === 1 && !roots.has("") ? `${[...roots][0]}/` : "";
+    const practiceZips = new Map<string, JSZip.JSZipObject>();
+    const practiceFolders = new Map<string, JSZip.JSZipObject[]>();
+
+    for (const entry of entries) {
+      const relativePath = entry.name.slice(commonRoot.length);
+      const segments = relativePath.split("/");
+      const zipNumber = segments.length === 1 ? /^(\d{1,2})\.zip$/i.exec(segments[0].trim())?.[1] : undefined;
+      if (zipNumber && PRACTICE_NUMBER_PATTERN.test(zipNumber)) {
+        practiceZips.set(zipNumber, entry);
+      } else if (segments.length > 1 && PRACTICE_NUMBER_PATTERN.test(segments[0].trim())) {
+        const folder = segments[0].trim();
+        practiceFolders.set(folder, [...(practiceFolders.get(folder) ?? []), entry]);
+      }
+    }
+
+    if (!practiceZips.size && !practiceFolders.size) {
+      expanded.push(file);
+      continue;
+    }
+
+    bundles.push(file.name);
+    for (const [number, entry] of practiceZips) {
+      expanded.push(new File([await entry.async("uint8array")], `${number}.zip`, { type: "application/zip" }));
+    }
+    for (const [number, folderEntries] of practiceFolders) {
+      if (practiceZips.has(number)) continue;
+      const practiceZip = new JSZip();
+      for (const entry of folderEntries) {
+        const innerPath = entry.name.slice(commonRoot.length).split("/").slice(1).join("/");
+        practiceZip.file(innerPath, await entry.async("uint8array"));
+      }
+      const bytes = await practiceZip.generateAsync({ type: "uint8array", compression: "STORE" });
+      expanded.push(new File([bytes], `${number}.zip`, { type: "application/zip" }));
+    }
+  }
+
+  expanded.sort((a, b) => a.name.localeCompare(b.name, "it", { numeric: true }));
+  return { files: expanded, bundles };
+};
+
 const readZipRecursive = async (file: File): Promise<{ documents: ZipDocument[]; agentCandidates: AgentCandidate[] }> => {
   const rootZip = await JSZip.loadAsync(await file.arrayBuffer());
   const documents: ZipDocument[] = [];
@@ -783,7 +852,7 @@ const readZipRecursive = async (file: File): Promise<{ documents: ZipDocument[];
   const sourceZipName = file.name;
 
   const walkZip = async (zip: JSZip, prefix = "", depth = 0) => {
-    const entries = Object.values(zip.files).filter((entry) => !entry.dir);
+    const entries = Object.values(zip.files).filter((entry) => !entry.dir && !isSystemZipEntry(entry.name));
 
     for (const entry of entries) {
       const fullPath = `${prefix}${entry.name}`;
@@ -1215,9 +1284,28 @@ const Vies = () => {
   };
 
   const handleZipUpload = async (files: FileList | File[] | null | undefined) => {
-    const selectedFiles = Array.from(files ?? []).filter((file) => file.name.toLowerCase().endsWith(".zip"));
-    if (!selectedFiles.length) return;
+    const uploadedFiles = Array.from(files ?? []).filter((file) => file.name.toLowerCase().endsWith(".zip"));
+    if (!uploadedFiles.length) return;
+
+    let selectedFiles: File[];
+    let bundles: string[];
+    setLoadingZip(true);
+    setZipProcessingStatus("Apertura degli ZIP caricati…");
+    try {
+      ({ files: selectedFiles, bundles } = await expandZipBundles(uploadedFiles));
+    } catch (error) {
+      setLoadingZip(false);
+      setZipProcessingStatus(null);
+      toast({
+        variant: "destructive",
+        title: "ZIP non leggibile",
+        description: error instanceof Error ? error.message : "Impossibile aprire lo ZIP caricato.",
+      });
+      return;
+    }
     if (selectedFiles.length > VIES_MAX_PRACTICES_PER_SHEET) {
+      setLoadingZip(false);
+      setZipProcessingStatus(null);
       toast({
         variant: "destructive",
         title: "Troppi ZIP",
@@ -1285,7 +1373,7 @@ const Vies = () => {
       setDocuments(parsedDocuments);
       toast({
         title: "ZIP nominativi indicizzati correttamente",
-        description: `Rilevati ${selectedFiles.length} ZIP (${formatBytes(selectedFiles.reduce((total, file) => total + file.size, 0))}) e ${parsedDocuments.length} elementi documentali riconciliabili per NOME ZIP.`,
+        description: `${bundles.length ? `${bundles.join(", ")} scompattato: ` : ""}${selectedFiles.length} ZIP di pratica (${formatBytes(selectedFiles.reduce((total, file) => total + file.size, 0))}) e ${parsedDocuments.length} documenti, abbinati alle righe tramite il numero ZIP.`,
       });
     } catch (error) {
       setDocuments([]);
@@ -2137,6 +2225,7 @@ const Vies = () => {
             </CardTitle>
             <CardDescription>
               Un Excel con al massimo {VIES_MAX_PRACTICES_PER_SHEET} pratiche e uno ZIP per pratica, chiamato con il numero della colonna ZIP (1.zip, 2.zip …).
+              Si può caricare anche un unico ZIP che li contiene tutti (1.zip … 20.zip, oppure cartelle 1 … 20): viene scompattato in automatico.
             </CardDescription>
           </CardHeader>
           <CardContent>
