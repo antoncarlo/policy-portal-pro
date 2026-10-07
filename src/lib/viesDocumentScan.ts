@@ -53,6 +53,17 @@ export const isValidUscc = (value: string) => {
   return USCC_CHARSET[(31 - (sum % 31)) % 31] === code[17];
 };
 
+// Resident identity card number of the People's Republic of China (ISO 7064 MOD 11-2).
+const CHINESE_ID_WEIGHTS = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2];
+
+export const isValidChineseId = (value: string) => {
+  const code = value.replace(/\s+/g, "").toUpperCase();
+  if (!/^\d{17}[\dX]$/.test(code)) return false;
+  let sum = 0;
+  for (let index = 0; index < 17; index += 1) sum += Number(code[index]) * CHINESE_ID_WEIGHTS[index];
+  return "10X98765432"[sum % 11] === code[17];
+};
+
 export const normalizeUscc = (value: unknown) => String(value ?? "").replace(/\s+/g, "").toUpperCase();
 
 // Excel stores a P.IVA typed as a number without its leading zeros.
@@ -69,14 +80,20 @@ export interface DocumentIdentifiers {
   vatNumbers: string[];
   usccs: string[];
   taxCodes: string[];
+  chineseIds: string[];
 }
 
 export const findIdentifiers = (lines: string[]): DocumentIdentifiers => {
   const text = lines.join("\n").toUpperCase();
   const unique = (values: Iterable<string>) => [...new Set(values)];
+  const chineseIds = unique([...text.matchAll(/(?<![0-9A-Z])\d{17}[\dX](?![0-9A-Z])/g)].map((m) => m[0]).filter(isValidChineseId));
   return {
     vatNumbers: unique([...text.matchAll(/(?<!\d)\d{11}(?!\d)/g)].map((m) => m[0]).filter(isValidItalianVat)),
-    usccs: unique([...text.matchAll(/(?<![0-9A-Z])[0-9A-Z]{18}(?![0-9A-Z])/g)].map((m) => m[0]).filter(isValidUscc)),
+    // A purely numeric identity card number can pass the credit-code check by chance: keep it out.
+    usccs: unique([...text.matchAll(/(?<![0-9A-Z])[0-9A-Z]{18}(?![0-9A-Z])/g)].map((m) => m[0]).filter(isValidUscc)).filter(
+      (code) => !chineseIds.includes(code),
+    ),
+    chineseIds,
     taxCodes: unique(
       [...text.matchAll(/(?<![0-9A-Z])[A-Z0-9]{16}(?![0-9A-Z])/g)]
         .map((m) => m[0])

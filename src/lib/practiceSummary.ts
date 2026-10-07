@@ -571,6 +571,7 @@ function buildViesSummary(input: PracticeSummaryInput): PracticeSummary {
     listOrNull(f.vies_documenti_mancanti) ?? (str("vies_zip_file") ? "Nessuno" : null),
   );
   pushItem(documentazione, "vies_avvisi", "Avvisi di validazione", listOrNull(f.vies_avvisi));
+  pushItem(documentazione, "vies_note_documenti", "Note dell'agent sui documenti", listOrNull(f.vies_note_documenti));
   pushItem(documentazione, "vies_riga_excel", "Riga Excel / colonna ZIP", str("vies_riga_excel"));
   pushItem(documentazione, "vies_batch_id", "Lotto VIES", str("vies_batch_id"));
   sections.push({ id: "documentazione", title: "Documentazione e controlli", items: documentazione });

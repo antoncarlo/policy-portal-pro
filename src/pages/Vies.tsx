@@ -39,6 +39,7 @@ import {
 } from "@/lib/viesPolicyPdf";
 import { extractPdfText } from "@/lib/pdfText";
 import {
+  isValidChineseId,
   isValidItalianTaxCode,
   isValidItalianVat,
   isValidUscc,
@@ -50,6 +51,12 @@ import {
   type VisuraData,
 } from "@/lib/viesDocumentScan";
 import { VIES_DOCUMENT_TYPES, classifyDocumentText, type ViesDocumentType } from "@/lib/viesDocumentTypes";
+import {
+  agentMediaType,
+  callViesDocumentAgent,
+  verifiedAgentIdentifiers,
+  type AgentCallOutcome,
+} from "@/lib/viesDocumentAgent";
 
 type ExcelRecord = {
   rowNumber: number;
@@ -94,9 +101,30 @@ type ZipDocument = {
   isNestedZip: boolean;
   vatNumbers: string[];
   usccs: string[];
+  chineseIds: string[];
   hasText: boolean;
   /** Recognised from the content; null = not recognised (e.g. a scan for the agent). */
   documentType: string | null;
+  /** How the type was recognised: from the text, or by the document agent. */
+  recognisedBy: "testo" | "agent" | null;
+  agentStatus: "ok" | "error" | "unavailable" | null;
+  agentIssues: string[];
+  /** Identity document expiry read by the agent (DD/MM/YYYY). */
+  agentExpiryDate: string;
+};
+
+type AgentCandidate = {
+  key: string;
+  name: string;
+  mediaType: string;
+  bytes: Uint8Array;
+};
+
+const documentKey = (document: Pick<ZipDocument, "sourceZipKey" | "path">) => `${document.sourceZipKey}::${document.path}`;
+
+const parseItalianDate = (value: string) => {
+  const match = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(value.trim());
+  return match ? new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1])) : null;
 };
 
 type ViesBatchMonitor = {
@@ -465,6 +493,9 @@ const buildViesSpecificFields = ({
   vies_piva_trovate: reconciliation?.zipVatNumbers ?? [],
   vies_documenti_mancanti: reconciliation?.missingRequirements.map((requirement) => requirement.label) ?? [],
   vies_avvisi: validationErrors.filter((error) => !error.startsWith("Requisito documentale mancante")),
+  vies_note_documenti: (reconciliation?.documents ?? [])
+    .filter((document) => document.agentIssues.length)
+    .map((document) => `${document.name}: ${document.agentIssues.join("; ")}`),
   vies_riga_excel: `Riga ${record.rowNumber}${record.nomeZip ? `, ZIP ${record.nomeZip}` : ""}`,
   vies_batch_id: batchId,
   vies_dati_excel: record.raw,
@@ -710,9 +741,10 @@ const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; she
   return { records: parsedRecords, sheetData: parseSheetDataSheet(sheetDataName ? workbook.Sheets[sheetDataName] : undefined) };
 };
 
-const readZipRecursive = async (file: File): Promise<ZipDocument[]> => {
+const readZipRecursive = async (file: File): Promise<{ documents: ZipDocument[]; agentCandidates: AgentCandidate[] }> => {
   const rootZip = await JSZip.loadAsync(await file.arrayBuffer());
   const documents: ZipDocument[] = [];
+  const agentCandidates: AgentCandidate[] = [];
   const sourceZipKey = getZipReconciliationKey(file.name);
   const sourceZipName = file.name;
 
@@ -728,13 +760,17 @@ const readZipRecursive = async (file: File): Promise<ZipDocument[]> => {
 
       let vatNumbers: string[] = [];
       let usccs: string[] = [];
+      let chineseIds: string[] = [];
       let hasText = false;
       let documentType: string | null = null;
+      let bytes: Uint8Array | null = null;
       if (extension === "pdf") {
         try {
-          const scan = await scanPdf(await entry.async("uint8array"));
+          bytes = await entry.async("uint8array");
+          const scan = await scanPdf(bytes);
           vatNumbers = scan.vatNumbers;
           usccs = scan.usccs;
+          chineseIds = scan.chineseIds;
           hasText = scan.hasText;
           documentType = scan.hasText ? classifyDocumentText(scan.lines) : null;
         } catch {
@@ -742,6 +778,16 @@ const readZipRecursive = async (file: File): Promise<ZipDocument[]> => {
         }
         // Let the page repaint between documents.
         await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+      // Documents the text could not classify (scans, photos) go to the agent.
+      const mediaType = agentMediaType(extension);
+      if (!documentType && mediaType) {
+        agentCandidates.push({
+          key: `${sourceZipKey}::${fullPath}`,
+          name: normalizedName,
+          mediaType,
+          bytes: bytes ?? (await entry.async("uint8array")),
+        });
       }
 
       documents.push({
@@ -755,8 +801,13 @@ const readZipRecursive = async (file: File): Promise<ZipDocument[]> => {
         isNestedZip: depth > 0,
         vatNumbers,
         usccs,
+        chineseIds,
         hasText,
         documentType,
+        recognisedBy: documentType ? "testo" : null,
+        agentStatus: null,
+        agentIssues: [],
+        agentExpiryDate: "",
       });
 
       if (isZip) {
@@ -776,8 +827,13 @@ const readZipRecursive = async (file: File): Promise<ZipDocument[]> => {
             isNestedZip: true,
             vatNumbers: [],
             usccs: [],
+            chineseIds: [],
             hasText: false,
             documentType: null,
+            recognisedBy: null,
+            agentStatus: null,
+            agentIssues: [],
+            agentExpiryDate: "",
           });
         }
       }
@@ -785,7 +841,30 @@ const readZipRecursive = async (file: File): Promise<ZipDocument[]> => {
   };
 
   await walkZip(rootZip);
-  return documents;
+  return { documents, agentCandidates };
+};
+
+const AGENT_CONCURRENCY = 3;
+
+/** Applies the agent's reading to a document; codes count only with a valid check character. */
+const applyAgentOutcome = (document: ZipDocument, outcome: AgentCallOutcome): ZipDocument => {
+  if (outcome.status !== "ok") {
+    return { ...document, agentStatus: outcome.status, agentIssues: [outcome.message] };
+  }
+  const { result } = outcome;
+  const verified = verifiedAgentIdentifiers(result);
+  const known = VIES_DOCUMENT_TYPES.some((type) => type.id === result.document_type);
+  return {
+    ...document,
+    documentType: known ? result.document_type : "altro",
+    recognisedBy: "agent",
+    agentStatus: "ok",
+    usccs: [...new Set([...document.usccs, ...verified.usccs])],
+    vatNumbers: [...new Set([...document.vatNumbers, ...verified.vatNumbers])],
+    chineseIds: [...new Set([...document.chineseIds, ...verified.chineseIds])],
+    agentIssues: [...result.issues, ...verified.issues],
+    agentExpiryDate: result.expiry_date,
+  };
 };
 
 const SheetField = ({
@@ -842,6 +921,7 @@ const Vies = () => {
     [parsedRecords, sheetData],
   );
   const [documents, setDocuments] = useState<ZipDocument[]>([]);
+  const [agentProgress, setAgentProgress] = useState<{ done: number; total: number; unavailable: string | null } | null>(null);
   const [loadingExcel, setLoadingExcel] = useState(false);
   const [loadingZip, setLoadingZip] = useState(false);
   const [zipProcessingStatus, setZipProcessingStatus] = useState<string | null>(null);
@@ -943,6 +1023,31 @@ const Vies = () => {
           vatCheck = "unverifiable";
         }
       }
+      // Documents nobody could read (agent not configured or failed) are reported as such.
+      const unreadDocuments = rowDocuments.filter(
+        (document) => !document.documentType && (document.agentStatus === "unavailable" || document.agentStatus === "error"),
+      );
+      if (unreadDocuments.length) {
+        errors.push(`${unreadDocuments.length} documenti non verificati dall'agent: ${unreadDocuments[0].agentIssues[0] ?? "errore"}`);
+      }
+      // Codes the agent read with a wrong check character: the document must be checked by hand.
+      for (const document of rowDocuments) {
+        for (const issue of document.agentIssues.filter((text) => /letto non valid/i.test(text))) {
+          errors.push(`${document.name}: ${issue}`);
+        }
+      }
+      // Legal representative: the identity card in the documents must be the one in the Excel.
+      const expectedId = record.documentoLegaleRappresentante.replace(/\s+/g, "").toUpperCase();
+      const idsInDocuments = [...new Set(rowDocuments.flatMap((document) => document.chineseIds))];
+      if (expectedId && isValidChineseId(expectedId) && idsInDocuments.length && !idsInDocuments.includes(expectedId)) {
+        errors.push(`Documento del legale rappresentante non corrispondente: nei documenti ${idsInDocuments.join(", ")}`);
+      }
+      // Expired identity document (expiry read by the agent).
+      for (const document of rowDocuments.filter((candidate) => candidate.documentType === "documento_identita")) {
+        const expiry = parseItalianDate(document.agentExpiryDate);
+        if (expiry && expiry < new Date()) errors.push(`Documento d'identità scaduto il ${document.agentExpiryDate}`);
+      }
+
       // Checked per ZIP: a document in another client's ZIP must not hide a gap in this one.
       const missingRequirements = matchedZipFiles.length
         ? documentRequirements.filter(
@@ -1086,14 +1191,17 @@ const Vies = () => {
     setZipProcessingStatus(`0/${selectedFiles.length} ZIP indicizzati`);
 
     try {
-      const parsedDocuments: ZipDocument[] = [];
+      let parsedDocuments: ZipDocument[] = [];
+      const agentCandidates: AgentCandidate[] = [];
+      setAgentProgress(null);
 
       for (const [index, file] of selectedFiles.entries()) {
         setZipProcessingStatus(`Lettura ${index + 1}/${selectedFiles.length}: ${file.name} (${formatBytes(file.size)})`);
 
         try {
-          const fileDocuments = await readZipRecursive(file);
-          parsedDocuments.push(...fileDocuments);
+          const result = await readZipRecursive(file);
+          parsedDocuments.push(...result.documents);
+          agentCandidates.push(...result.agentCandidates);
           setDocuments([...parsedDocuments]);
         } catch (error) {
           const message = error instanceof Error ? error.message : "archivio non leggibile";
@@ -1101,6 +1209,34 @@ const Vies = () => {
         }
 
         await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+      }
+
+      // Scans and photos: classified and read by the document agent (Claude).
+      if (agentCandidates.length) {
+        let done = 0;
+        let unavailable: string | null = null;
+        const outcomes = new Map<string, AgentCallOutcome>();
+        setAgentProgress({ done, total: agentCandidates.length, unavailable });
+        await runWithConcurrency(agentCandidates, AGENT_CONCURRENCY, async (candidate) => {
+          setZipProcessingStatus(`Agent documentale: ${done}/${agentCandidates.length} documenti letti`);
+          const outcome: AgentCallOutcome = unavailable
+            ? { status: "unavailable", message: unavailable }
+            : await callViesDocumentAgent(candidate.bytes, candidate.mediaType, candidate.name).catch(
+                (error: unknown): AgentCallOutcome => ({
+                  status: "error",
+                  message: error instanceof Error ? error.message : "Agent non raggiungibile.",
+                }),
+              );
+          if (outcome.status === "unavailable") unavailable = outcome.message;
+          outcomes.set(candidate.key, outcome);
+          done += 1;
+          setAgentProgress({ done, total: agentCandidates.length, unavailable });
+          return outcome;
+        });
+        parsedDocuments = parsedDocuments.map((document) => {
+          const outcome = outcomes.get(documentKey(document));
+          return outcome ? applyAgentOutcome(document, outcome) : document;
+        });
       }
 
       setDocuments(parsedDocuments);
@@ -1994,6 +2130,13 @@ const Vies = () => {
                         ? `${zipFiles.length} ZIP selezionati (${formatBytes(selectedZipTotalSize)}): ${zipFiles.map((file) => file.name).join(", ")}`
                         : "Nessuno ZIP selezionato"}
                   </p>
+                  {agentProgress && (
+                    <p className={agentProgress.unavailable ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
+                      {agentProgress.unavailable
+                        ? `Agent documentale non disponibile (${agentProgress.unavailable}). Le scansioni non verificate bloccano le pratiche.`
+                        : `Agent documentale: ${agentProgress.done}/${agentProgress.total} scansioni lette per contenuto.`}
+                    </p>
+                  )}
                 </div>
               </div>
 
