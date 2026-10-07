@@ -48,7 +48,10 @@ type ExcelRecord = {
   beneficiario: string;
   indirizzoBeneficiario: string;
   partitaIvaBeneficiario: string;
+  // Effective PEC of the practice: the contraente's own, else the fiscal representative's.
   pec: string;
+  pecRappresentante: string;
+  pecFromRepresentative: boolean;
   email: string;
   pagamento: string;
   documentiIndicati: string;
@@ -386,6 +389,7 @@ type ViesSheetData = {
   rappresentanteFiscale: string;
   codiceFiscaleRappresentante: string;
   indirizzoRappresentanteFiscale: string;
+  pecRappresentante: string;
 };
 
 const initialSheetData: ViesSheetData = {
@@ -395,6 +399,7 @@ const initialSheetData: ViesSheetData = {
   rappresentanteFiscale: "",
   codiceFiscaleRappresentante: "",
   indirizzoRappresentanteFiscale: "",
+  pecRappresentante: "",
 };
 
 const normalizeTaxCode = (value: string) => value.replace(/\s+/g, "").toUpperCase();
@@ -407,7 +412,16 @@ const applySheetData = (record: ExcelRecord, sheet: ViesSheetData): ExcelRecord 
   rappresentanteFiscale: record.rappresentanteFiscale || sheet.rappresentanteFiscale.trim(),
   codiceFiscaleRappresentante: normalizeTaxCode(record.codiceFiscaleRappresentante || sheet.codiceFiscaleRappresentante),
   indirizzoRappresentanteFiscale: record.indirizzoRappresentanteFiscale || sheet.indirizzoRappresentanteFiscale.trim(),
+  ...resolvePec(record, record.pecRappresentante || sheet.pecRappresentante.trim()),
 });
+
+const resolvePec = (record: ExcelRecord, pecRappresentante: string) => ({
+  pecRappresentante,
+  pec: record.pec || pecRappresentante,
+  pecFromRepresentative: !record.pec && Boolean(pecRappresentante),
+});
+
+const isPlausibleEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 const VIES_GUARANTEE_OBJECT = "Garanzia richiesta per iscrizione/operatività VIES ai sensi dell’art. 35, comma 7-quater, DPR 633/1972.";
 const VIES_DURATION_MONTHS = 36;
 
@@ -448,7 +462,7 @@ const buildViesPracticeNotes = ({
   `Beneficiario: ${record.beneficiario || "da completare"}.`,
   `Indirizzo beneficiario: ${record.indirizzoBeneficiario || "da completare"}.`,
   `Codice fiscale beneficiario: ${record.partitaIvaBeneficiario || "da completare"}.`,
-  `PEC: ${record.pec || "da completare"}.`,
+  `PEC: ${record.pec ? `${record.pec} (${record.pecFromRepresentative ? "del rappresentante fiscale" : "del contraente"})` : "da completare"}.`,
   `Email: ${record.email || "non indicata"}.`,
   `Dati Excel originali: ${Object.entries(record.raw)
     .filter(([, value]) => value)
@@ -606,7 +620,9 @@ const parseExcelFile = async (file: File): Promise<ExcelRecord[]> => {
           "c.f. beneficiario",
           "partita iva",
         ]),
-        pec: getCellByAliases(raw, ["pec"]),
+        pec: getCellByAliases(raw, ["pec", "pec contraente", "indirizzo pec"], { exactOnly: true }),
+        pecRappresentante: getCellByAliases(raw, ["pec rappresentante fiscale", "pec rappresentante"], { exactOnly: true }),
+        pecFromRepresentative: false,
         email: getCellByAliases(raw, ["email", "e-mail", "mail"]),
         pagamento: getCellByAliases(raw, ["pagamento"]),
         documentiIndicati: getCellByAliases(raw, ["simpli", "document", "file", "zip", "allegat"]),
@@ -1155,7 +1171,8 @@ const Vies = () => {
       errors.push("Codice fiscale rappresentante fiscale non valido");
     }
     if (!record.indirizzoRappresentanteFiscale) errors.push("Domicilio fiscale del rappresentante mancante");
-    if (!record.pec) errors.push("PEC mancante");
+    if (!record.pec) errors.push("PEC mancante (né del contraente né del rappresentante fiscale)");
+    else if (!isPlausibleEmail(record.pec)) errors.push("PEC non valida");
 
     return errors;
   };
@@ -1813,6 +1830,14 @@ const Vies = () => {
                       placeholder="Via, numero, CAP, città"
                       disabled={savingBatch}
                       onChange={updateSheetData("indirizzoRappresentanteFiscale")}
+                    />
+                    <SheetField
+                      id="vies-pec-rappresentante"
+                      label="PEC"
+                      value={sheetData.pecRappresentante}
+                      placeholder="Usata per i clienti senza PEC propria nell'Excel"
+                      disabled={savingBatch}
+                      onChange={updateSheetData("pecRappresentante")}
                     />
                   </div>
                 </div>
