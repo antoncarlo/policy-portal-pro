@@ -366,6 +366,7 @@ const uploadViesFileResumable = async ({
 };
 
 const VIES_GUARANTEED_AMOUNT = 50000;
+const VIES_DEFAULT_BENEFICIARY = "Agenzia delle Entrate";
 const VIES_GUARANTEE_OBJECT = "Garanzia richiesta per iscrizione/operatività VIES ai sensi dell’art. 35, comma 7-quater, DPR 633/1972.";
 const VIES_DURATION_MONTHS = 36;
 
@@ -532,12 +533,17 @@ const parseExcelFile = async (file: File): Promise<ExcelRecord[]> => {
         partitaIvaContraente: normalizeItalianVat(
           getCellByAliases(raw, ["partita iva ditta", "p iva ditta", "p.iva ditta", "p.iva", "p. iva", "piva"]),
         ),
-        beneficiario: getCellByAliases(raw, ["beneficiario"]),
+        beneficiario: getCellByAliases(raw, ["beneficiario"]) || (hasBeneficiaryColumn ? "" : VIES_DEFAULT_BENEFICIARY),
         indirizzoBeneficiario: getCellByAliases(
           raw,
           hasBeneficiaryColumn ? ["indirizzo beneficiario", "indirizzo"] : ["indirizzo beneficiario"],
         ),
-        partitaIvaBeneficiario: getCellByAliases(raw, ["partita iva"]),
+        partitaIvaBeneficiario: getCellByAliases(raw, [
+          "partita iva beneficiario",
+          "codice fiscale beneficiario",
+          "c.f. beneficiario",
+          "partita iva",
+        ]),
         pec: getCellByAliases(raw, ["pec"]),
         email: getCellByAliases(raw, ["email", "e-mail", "mail"]),
         pagamento: getCellByAliases(raw, ["pagamento"]),
@@ -1012,6 +1018,8 @@ const Vies = () => {
     if (!record.contraente) errors.push("Contraente mancante");
     if (!record.partitaIvaContraente) errors.push("Partita IVA contraente mancante");
     if (!record.beneficiario) errors.push("Beneficiario mancante");
+    if (!record.indirizzoBeneficiario) errors.push("Indirizzo beneficiario mancante");
+    if (!record.partitaIvaBeneficiario) errors.push("Codice fiscale beneficiario mancante");
     if (!record.pec) errors.push("PEC mancante");
 
     return errors;
@@ -1288,7 +1296,8 @@ const Vies = () => {
       for (const reconciliation of reconciliationRows) {
         const practiceId = createdPracticesByIndex.get(reconciliation.record.rowNumber);
         const zipFile = reconciliation.zipFile;
-        if (!practiceId || !zipFile) continue;
+        // A ZIP carrying another company's P.IVA must never reach this practice.
+        if (!practiceId || !zipFile || reconciliation.vatCheck === "mismatch") continue;
 
         const zipKey = getZipReconciliationKey(zipFile.name);
         const stagedZipPath = zipStoragePathsByKey.get(zipKey);
@@ -1363,7 +1372,10 @@ const Vies = () => {
           user_id: userId,
           row_number: reconciliation.record.rowNumber,
           nome_zip: reconciliation.record.nomeZip || null,
-          practice_id: createdPracticesByIndex.get(reconciliation.record.rowNumber) ?? null,
+          practice_id:
+            reconciliation.vatCheck === "mismatch"
+              ? null
+              : createdPracticesByIndex.get(reconciliation.record.rowNumber) ?? null,
           zip_file_name: zipFileName,
           file_name: document.name,
           file_path: `${zipDocumentBasePath}#${document.path}`,
