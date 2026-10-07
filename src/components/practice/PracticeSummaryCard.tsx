@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ClipboardList, PawPrint, ShieldCheck, Euro, User, FileText, Info } from "lucide-react";
+import { ClipboardList, PawPrint, ShieldCheck, Euro, User, FileText, Info, Landmark, FileArchive, Table2 } from "lucide-react";
 import {
   buildPracticeSummary,
   extractNotesSections,
@@ -20,6 +20,11 @@ const SECTION_ICONS: Record<string, typeof User> = {
   coperture: ShieldCheck,
   dati_specifici: ClipboardList,
   premio: Euro,
+  rappresentante: User,
+  beneficiario: Landmark,
+  garanzia: ShieldCheck,
+  documentazione: FileArchive,
+  dati_excel: Table2,
 };
 
 const SectionBlock = ({ section }: { section: SummarySection }) => {
@@ -64,7 +69,9 @@ export const PracticeSummaryCard = ({ practice }: PracticeSummaryCardProps) => {
             Riepilogo Pratica
           </h2>
           <p className="text-sm text-muted-foreground">
-            Tutte le informazioni inserite in fase di quotazione per la polizza {summary.practice_type_label}.
+            {summary.practice_type === "vies"
+              ? "Dati della richiesta VIES dal caricamento massivo: Excel, dati del foglio e verifica dei documenti ZIP."
+              : `Tutte le informazioni inserite in fase di quotazione per la polizza ${summary.practice_type_label}.`}
           </p>
         </div>
         {pet && pet.total_annual !== null && (

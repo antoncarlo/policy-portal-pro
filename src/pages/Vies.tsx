@@ -28,6 +28,7 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { composeNotes } from "@/lib/practiceSummary";
 import {
   isValidItalianTaxCode,
   isValidItalianVat,
@@ -53,6 +54,7 @@ type ExcelRecord = {
   pecRappresentante: string;
   pecFromRepresentative: boolean;
   email: string;
+  telefono: string;
   pagamento: string;
   documentiIndicati: string;
   raw: Record<string, string>;
@@ -422,7 +424,7 @@ const resolvePec = (record: ExcelRecord, pecRappresentante: string) => ({
 });
 
 const isPlausibleEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-const VIES_GUARANTEE_OBJECT = "Garanzia richiesta per iscrizione/operatività VIES ai sensi dell’art. 35, comma 7-quater, DPR 633/1972.";
+const VIES_GUARANTEE_OBJECT = "POLIZZA FIDEIUSSORIA AI SENSI DELL’ART. 35, COMMA 7-QUATER, DEL DPR 633/1972.";
 const VIES_DURATION_MONTHS = 36;
 
 const calculateViesPolicyEndDate = (policyStartDate: Date) => {
@@ -433,43 +435,43 @@ const calculateViesPolicyEndDate = (policyStartDate: Date) => {
 
 const formatIsoDate = (date: Date) => date.toISOString().slice(0, 10);
 
-const buildViesPracticeNotes = ({
+// The request data lives in the practice's specific fields, shown in the
+// Riepilogo Pratica; the notes stay free for the operator.
+const buildViesSpecificFields = ({
   batchId,
   record,
-  policyStartDate,
-  policyEndDate,
+  reconciliation,
   validationErrors,
 }: {
   batchId: string;
   record: ExcelRecord;
-  policyStartDate: string;
-  policyEndDate: string;
+  reconciliation?: ViesReconciliationRow;
   validationErrors: string[];
-}) => [
-  "Origine: import massivo VIES.",
-  `Batch VIES: ${batchId}.`,
-  `Riga Excel: ${record.rowNumber}${record.progressivo ? ` - Progressivo ${record.progressivo}` : ""}.`,
-  `NOME ZIP: ${record.nomeZip || "da riconciliare"}.`,
-  `Importo garantito fisso: € ${VIES_GUARANTEED_AMOUNT.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`,
-  `Oggetto garanzia: ${VIES_GUARANTEE_OBJECT}`,
-  `Durata: ${VIES_DURATION_MONTHS} mesi, decorrenza ${policyStartDate}, scadenza ${policyEndDate}.`,
-  "Pratica prodotto VIES: compilare automaticamente i dati del contraente e del beneficiario; mantenere distinta da Fidejussioni.",
-  `Contraente: ${record.contraente || "da completare"}.`,
-  `Sede contraente: ${record.indirizzoContraente || "da completare"}.`,
-  `Rappresentante fiscale: ${record.rappresentanteFiscale || "da completare"}${record.codiceFiscaleRappresentante ? ` (C.F. ${record.codiceFiscaleRappresentante})` : ""}.`,
-  `Domicilio fiscale (indirizzo rappresentante fiscale): ${record.indirizzoRappresentanteFiscale || "da completare"}.`,
-  `Partita IVA contraente: ${record.partitaIvaContraente || "da completare"}.`,
-  `Beneficiario: ${record.beneficiario || "da completare"}.`,
-  `Indirizzo beneficiario: ${record.indirizzoBeneficiario || "da completare"}.`,
-  `Codice fiscale beneficiario: ${record.partitaIvaBeneficiario || "da completare"}.`,
-  `PEC: ${record.pec ? `${record.pec} (${record.pecFromRepresentative ? "del rappresentante fiscale" : "del contraente"})` : "da completare"}.`,
-  `Email: ${record.email || "non indicata"}.`,
-  `Dati Excel originali: ${Object.entries(record.raw)
-    .filter(([, value]) => value)
-    .map(([header, value]) => `${header}: ${value}`)
-    .join(" | ")}.`,
-  validationErrors.length ? `Avvisi validazione: ${validationErrors.join("; ")}.` : "Validazione riga: dati minimi presenti.",
-].join("\n");
+}) => ({
+  vies_sede_contraente: record.indirizzoContraente || null,
+  vies_email: record.email || null,
+  vies_pec_fonte: record.pec ? (record.pecFromRepresentative ? "del rappresentante fiscale" : "del contraente") : null,
+  vies_rappresentante_fiscale: record.rappresentanteFiscale || null,
+  vies_codice_fiscale_rappresentante: record.codiceFiscaleRappresentante || null,
+  vies_domicilio_fiscale: record.indirizzoRappresentanteFiscale || null,
+  vies_pec_rappresentante: record.pecRappresentante || null,
+  vies_indirizzo_beneficiario: record.indirizzoBeneficiario || null,
+  vies_codice_fiscale_beneficiario: record.partitaIvaBeneficiario || null,
+  vies_importo_garantito: VIES_GUARANTEED_AMOUNT,
+  vies_oggetto_garanzia: VIES_GUARANTEE_OBJECT,
+  vies_durata_mesi: VIES_DURATION_MONTHS,
+  vies_sezione_garante: "Da lasciare in bianco",
+  vies_zip_file:
+    reconciliation?.zipFile && reconciliation.vatCheck !== "mismatch" ? reconciliation.zipFile.name : null,
+  vies_documenti_zip: reconciliation?.zipFile ? String(reconciliation.documents.length) : null,
+  vies_verifica_piva: reconciliation?.vatCheck ?? "not_applicable",
+  vies_piva_trovate: reconciliation?.zipVatNumbers ?? [],
+  vies_documenti_mancanti: reconciliation?.missingRequirements.map((requirement) => requirement.label) ?? [],
+  vies_avvisi: validationErrors.filter((error) => !error.startsWith("Requisito documentale mancante")),
+  vies_riga_excel: `Riga ${record.rowNumber}${record.nomeZip ? `, ZIP ${record.nomeZip}` : ""}`,
+  vies_batch_id: batchId,
+  vies_dati_excel: record.raw,
+});
 
 const terminalJobStatuses = new Set(["completed", "failed", "blocked", "cancelled"]);
 
@@ -624,6 +626,7 @@ const parseExcelFile = async (file: File): Promise<ExcelRecord[]> => {
         pecRappresentante: getCellByAliases(raw, ["pec rappresentante fiscale", "pec rappresentante"], { exactOnly: true }),
         pecFromRepresentative: false,
         email: getCellByAliases(raw, ["email", "e-mail", "mail"]),
+        telefono: getCellByAliases(raw, ["telefono", "tel", "tel.", "cellulare", "phone"], { exactOnly: true }),
         pagamento: getCellByAliases(raw, ["pagamento"]),
         documentiIndicati: getCellByAliases(raw, ["simpli", "document", "file", "zip", "allegat"]),
         raw,
@@ -1389,8 +1392,10 @@ const Vies = () => {
       batchPersisted = true;
 
       const practiceNumbersByRow = new Map<number, string>();
+      const jobPreparationByRow = new Map(jobPreparationRows.map((job) => [job.record.rowNumber, job]));
       const practiceRows = records.map((record) => {
-        const validationErrors = getRecordValidationErrors(record);
+        const validationErrors =
+          jobPreparationByRow.get(record.rowNumber)?.allValidationErrors ?? getRecordValidationErrors(record);
         const practiceNumber = `VIES-${batchCreatedAt.getFullYear()}-${String(record.rowNumber).padStart(4, "0")}-${batchId.slice(0, 8)}`;
         practiceNumbersByRow.set(record.rowNumber, practiceNumber);
 
@@ -1401,7 +1406,7 @@ const Vies = () => {
           status: "in_lavorazione" as const,
           client_name: record.contraente || `Riga VIES ${record.rowNumber}`,
           client_email: record.pec || `vies-riga-${record.rowNumber}@placeholder.local`,
-          client_phone: "N/D",
+          client_phone: record.telefono || "N/D",
           beneficiary: record.beneficiario || null,
           owner_tax_code: record.partitaIvaContraente || null,
           policy_number: record.progressivo ? `VIES-${record.progressivo}` : null,
@@ -1411,7 +1416,14 @@ const Vies = () => {
           premium_net: VIES_GUARANTEED_AMOUNT,
           premium_taxable: VIES_GUARANTEED_AMOUNT,
           premium_taxes: 0,
-          notes: buildViesPracticeNotes({ batchId, record, policyStartDate, policyEndDate, validationErrors }),
+          notes: composeNotes({
+            specificFields: buildViesSpecificFields({
+              batchId,
+              record,
+              reconciliation: reconciliationByRow.get(record.rowNumber),
+              validationErrors,
+            }),
+          }),
         };
       });
 

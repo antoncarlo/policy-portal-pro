@@ -363,6 +363,27 @@ export function parseDateFlexible(value: unknown): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+/**
+ * Durata per calendario (anni/mesi interi), non per giorni / 365: una polizza
+ * di 3 anni che attraversa un anno bisestile dura 1096 giorni, non "4 anni".
+ */
+export function formatPolicyDuration(start: string | null | undefined, end: string | null | undefined): string | null {
+  const startDate = parseDateFlexible(start);
+  const endDate = parseDateFlexible(end);
+  if (!startDate || !endDate) return null;
+  let months = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth());
+  if (endDate.getDate() < startDate.getDate()) months -= 1;
+  if (months <= 0) {
+    const days = Math.round((endDate.getTime() - startDate.getTime()) / 86_400_000);
+    return days > 0 ? `${days} giorni` : null;
+  }
+  if (months % 12 === 0) {
+    const years = months / 12;
+    return `${years} ${years === 1 ? "anno" : "anni"}`;
+  }
+  return `${months} mesi`;
+}
+
 function formatDateIt(value: string | null | undefined): string | null {
   if (!value) return null;
   const d = parseDateFlexible(value);
@@ -455,11 +476,104 @@ function pushItem(items: SummaryItem[], key: string, label: string, value: strin
   items.push({ key, label, value });
 }
 
+const VIES_VAT_CHECK_LABELS: Record<string, string> = {
+  verified: "Verificata: la P.IVA compare nei documenti dello ZIP",
+  mismatch: "Non corrisponde: lo ZIP contiene documenti di un'altra società",
+  unverifiable: "Non verificabile: documenti solo scansionati",
+  not_applicable: "Non eseguita (nessuno ZIP collegato)",
+};
+
+const listOrNull = (value: unknown): string | null => {
+  if (!Array.isArray(value)) return toStringOrNull(value);
+  const items = value.map((item) => toStringOrNull(item)).filter((item): item is string => item !== null);
+  return items.length ? items.join("\n") : null;
+};
+
+/**
+ * Riepilogo delle pratiche VIES: i dati della richiesta arrivano dall'import
+ * massivo (Excel + dati del foglio + verifica ZIP) e sono salvati nei dati
+ * specifici, cosi' le note restano libere per gli appunti dell'operatore.
+ */
+function buildViesSummary(input: PracticeSummaryInput): PracticeSummary {
+  const f = input.specific_fields ?? {};
+  const str = (key: string) => toStringOrNull(f[key]);
+  const sections: SummarySection[] = [];
+
+  const contraente: SummaryItem[] = [];
+  pushItem(contraente, "client_name", "Ragione sociale", input.client_name);
+  pushItem(contraente, "owner_tax_code", "Partita IVA", input.owner_tax_code);
+  pushItem(contraente, "vies_sede_contraente", "Sede legale", str("vies_sede_contraente"));
+  pushItem(contraente, "client_phone", "Telefono", input.client_phone && input.client_phone !== "N/D" ? input.client_phone : null);
+  pushItem(contraente, "vies_email", "Email", str("vies_email"));
+  const pecSource = str("vies_pec_fonte");
+  pushItem(
+    contraente,
+    "client_email",
+    "PEC della pratica",
+    input.client_email && !input.client_email.endsWith("@placeholder.local")
+      ? `${input.client_email}${pecSource ? ` (${pecSource})` : ""}`
+      : null,
+  );
+  sections.push({ id: "contraente", title: "Contraente", items: contraente });
+
+  const rappresentante: SummaryItem[] = [];
+  pushItem(rappresentante, "vies_rappresentante_fiscale", "Nome / denominazione", str("vies_rappresentante_fiscale"));
+  pushItem(rappresentante, "vies_codice_fiscale_rappresentante", "Codice fiscale", str("vies_codice_fiscale_rappresentante"));
+  pushItem(rappresentante, "vies_domicilio_fiscale", "Domicilio fiscale", str("vies_domicilio_fiscale"));
+  pushItem(rappresentante, "vies_pec_rappresentante", "PEC", str("vies_pec_rappresentante"));
+  if (rappresentante.length) sections.push({ id: "rappresentante", title: "Rappresentante fiscale", items: rappresentante });
+
+  const beneficiario: SummaryItem[] = [];
+  pushItem(beneficiario, "beneficiary", "Denominazione", input.beneficiary);
+  pushItem(beneficiario, "vies_indirizzo_beneficiario", "Indirizzo", str("vies_indirizzo_beneficiario"));
+  pushItem(beneficiario, "vies_codice_fiscale_beneficiario", "Codice fiscale", str("vies_codice_fiscale_beneficiario"));
+  if (beneficiario.length) sections.push({ id: "beneficiario", title: "Beneficiario", items: beneficiario });
+
+  const garanzia: SummaryItem[] = [];
+  const amount = toNumber(f.vies_importo_garantito) ?? input.premium_gross ?? null;
+  pushItem(garanzia, "vies_importo_garantito", "Importo garantito", amount !== null ? formatCurrency(amount) : null);
+  pushItem(garanzia, "vies_oggetto_garanzia", "Oggetto della garanzia", str("vies_oggetto_garanzia"));
+  pushItem(garanzia, "vies_durata", "Durata", formatPolicyDuration(input.policy_start_date, input.policy_end_date));
+  pushItem(garanzia, "policy_start_date", "Decorrenza", formatDateIt(input.policy_start_date));
+  pushItem(garanzia, "policy_end_date", "Scadenza", formatDateIt(input.policy_end_date));
+  pushItem(garanzia, "vies_sezione_garante", "Sezione compagnia/garante", str("vies_sezione_garante"));
+  sections.push({ id: "garanzia", title: "Garanzia", items: garanzia });
+
+  const documentazione: SummaryItem[] = [];
+  pushItem(documentazione, "vies_zip_file", "Pacchetto ZIP", str("vies_zip_file") ?? "Nessuno ZIP collegato");
+  pushItem(documentazione, "vies_documenti_zip", "Documenti nello ZIP", str("vies_documenti_zip"));
+  const vatCheck = str("vies_verifica_piva");
+  pushItem(documentazione, "vies_verifica_piva", "Verifica P.IVA", vatCheck ? VIES_VAT_CHECK_LABELS[vatCheck] ?? vatCheck : null);
+  pushItem(documentazione, "vies_piva_trovate", "P.IVA trovate nei documenti", listOrNull(f.vies_piva_trovate));
+  pushItem(
+    documentazione,
+    "vies_documenti_mancanti",
+    "Documenti mancanti (controllo sul nome file)",
+    listOrNull(f.vies_documenti_mancanti) ?? (str("vies_zip_file") ? "Nessuno" : null),
+  );
+  pushItem(documentazione, "vies_avvisi", "Avvisi di validazione", listOrNull(f.vies_avvisi));
+  pushItem(documentazione, "vies_riga_excel", "Riga Excel / colonna ZIP", str("vies_riga_excel"));
+  pushItem(documentazione, "vies_batch_id", "Lotto VIES", str("vies_batch_id"));
+  sections.push({ id: "documentazione", title: "Documentazione e controlli", items: documentazione });
+
+  const excel: SummaryItem[] = [];
+  const raw = f.vies_dati_excel;
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    for (const [header, value] of Object.entries(raw as Record<string, unknown>)) {
+      pushItem(excel, `vies_excel_${header}`, header, toStringOrNull(value));
+    }
+  }
+  if (excel.length) sections.push({ id: "dati_excel", title: "Dati Excel originali", items: excel });
+
+  return { practice_type: "vies", practice_type_label: PRACTICE_TYPE_LABELS.vies, sections, pet: null };
+}
+
 /**
  * Costruisce il riepilogo completo della pratica: contraente, polizza,
  * dati specifici della tipologia (con etichette leggibili), coperture e premio.
  */
 export function buildPracticeSummary(input: PracticeSummaryInput): PracticeSummary {
+  if (input.practice_type === "vies") return buildViesSummary(input);
   const practiceType = input.practice_type ?? null;
   const fields = input.specific_fields ?? {};
   const sections: SummarySection[] = [];
@@ -480,15 +594,7 @@ export function buildPracticeSummary(input: PracticeSummaryInput): PracticeSumma
   pushItem(polizza, "policy_number", "Numero Polizza", input.policy_number);
   pushItem(polizza, "policy_start_date", "Decorrenza", formatDateIt(input.policy_start_date));
   pushItem(polizza, "policy_end_date", "Scadenza", formatDateIt(input.policy_end_date));
-  if (input.policy_start_date && input.policy_end_date) {
-    const days = Math.round(
-      (new Date(input.policy_end_date).getTime() - new Date(input.policy_start_date).getTime()) / 86_400_000
-    );
-    if (Number.isFinite(days) && days > 0) {
-      const years = Math.round((days / 365) * 10) / 10;
-      pushItem(polizza, "duration", "Durata", years >= 1 ? `${years} ${years === 1 ? "anno" : "anni"}` : `${days} giorni`);
-    }
-  }
+  pushItem(polizza, "duration", "Durata", formatPolicyDuration(input.policy_start_date, input.policy_end_date));
   if (polizza.length) sections.push({ id: "polizza", title: "Polizza", items: polizza });
 
   const consumedKeys = new Set<string>(["owner_tax_code", "client_address", "address"]);

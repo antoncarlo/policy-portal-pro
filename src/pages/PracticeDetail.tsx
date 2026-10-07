@@ -4,7 +4,7 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, Phone, Mail, FileText, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Calendar, User, Phone, Mail, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { PracticeTimeline } from "@/components/practice/PracticeTimeline";
@@ -13,6 +13,7 @@ import { PetQuoteDocumentCard } from "@/components/practice/PetQuoteDocumentCard
 import { PracticeStatusForm } from "@/components/practice/PracticeStatusForm";
 import { PracticeNotes } from "@/components/practice/PracticeNotes";
 import { PracticeSummaryCard } from "@/components/practice/PracticeSummaryCard";
+import { formatPolicyDuration } from "@/lib/practiceSummary";
 
 
 type PracticeStatus = "in_lavorazione" | "in_attesa" | "approvata" | "rifiutata" | "completata";
@@ -42,17 +43,6 @@ interface Practice {
   created_at: string;
   updated_at: string;
 }
-
-const VIES_GUARANTEE_OBJECT = "POLIZZA FIDEIUSSORIA AI SENSI DELL’ART. 35, COMMA 7-QUATER, DEL DPR 633/1972.";
-const VIES_DEFAULT_GUARANTEED_AMOUNT = 50000;
-
-const formatCurrency = (value: number | null | undefined) =>
-  (value ?? VIES_DEFAULT_GUARANTEED_AMOUNT).toLocaleString("it-IT", {
-    style: "currency",
-    currency: "EUR",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
 
 const PracticeDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -281,7 +271,7 @@ const PracticeDetail = () => {
                   <div>
                     <span className="text-muted-foreground">Durata: </span>
                     <span className="text-foreground font-medium">
-                      {Math.ceil((new Date(practice.policy_end_date).getTime() - new Date(practice.policy_start_date).getTime()) / (1000 * 60 * 60 * 24 * 365))} anni
+                      {formatPolicyDuration(practice.policy_start_date, practice.policy_end_date) ?? "—"}
                     </span>
                   </div>
                 )}
@@ -290,54 +280,7 @@ const PracticeDetail = () => {
           </div>
         </Card>
 
-        {practice.practice_type !== "vies" && (
-          <PracticeSummaryCard practice={practice} />
-        )}
-
-        {practice.practice_type === "vies" && (
-          <Card className="p-6 border-blue-200 bg-blue-50/60">
-            <div className="flex items-start gap-3 mb-5">
-              <ShieldCheck className="h-5 w-5 text-blue-700 mt-1" />
-              <div>
-                <h2 className="text-xl font-semibold text-blue-950">Riepilogo VIES / rischio fideiussorio</h2>
-                <p className="text-sm text-blue-900">
-                  Dati generati dal caricamento massivo VIES e pronti per il controllo prima della compilazione Annex III.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 text-sm">
-              <div>
-                <span className="text-muted-foreground">Importo garantito</span>
-                <p className="font-semibold text-foreground">{formatCurrency(practice.premium_gross)}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Durata</span>
-                <p className="font-semibold text-foreground">36 mesi</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Sezione compagnia/garante</span>
-                <p className="font-semibold text-foreground">Da lasciare in bianco</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Contraente</span>
-                <p className="font-semibold text-foreground">{practice.client_name}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Partita IVA contraente</span>
-                <p className="font-semibold text-foreground">{practice.owner_tax_code || "Da verificare"}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Beneficiario</span>
-                <p className="font-semibold text-foreground">{practice.beneficiary || "Da verificare"}</p>
-              </div>
-              <div className="md:col-span-2 xl:col-span-3">
-                <span className="text-muted-foreground">Oggetto della garanzia</span>
-                <p className="font-semibold text-foreground">{VIES_GUARANTEE_OBJECT}</p>
-              </div>
-            </div>
-          </Card>
-        )}
+        <PracticeSummaryCard practice={practice} />
 
         <div className="grid lg:grid-cols-2 gap-6">
           <div className="space-y-6">
