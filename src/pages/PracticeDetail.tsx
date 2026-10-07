@@ -13,6 +13,7 @@ import { PetQuoteDocumentCard } from "@/components/practice/PetQuoteDocumentCard
 import { PracticeStatusForm } from "@/components/practice/PracticeStatusForm";
 import { PracticeNotes } from "@/components/practice/PracticeNotes";
 import { PracticeSummaryCard } from "@/components/practice/PracticeSummaryCard";
+import { ViesPolicyDocumentCard } from "@/components/practice/ViesPolicyDocumentCard";
 import { formatPolicyDuration } from "@/lib/practiceSummary";
 
 
@@ -302,6 +303,13 @@ const PracticeDetail = () => {
             <PracticeTimeline practiceId={practice.id} />
           </div>
         </div>
+
+        {practice.practice_type === "vies" && (
+          <ViesPolicyDocumentCard
+            practice={practice}
+            onDocumentCreated={() => setDocumentsRefreshToken((t) => t + 1)}
+          />
+        )}
 
         {practice.practice_type === "pet" && (
           <PetQuoteDocumentCard

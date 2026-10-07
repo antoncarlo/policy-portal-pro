@@ -30,6 +30,14 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { composeNotes } from "@/lib/practiceSummary";
 import {
+  VIES_POLICY_MIME_TYPE,
+  buildViesPolicyFileName,
+  generateViesPolicyPdf,
+  missingViesPolicyData,
+  viesPolicyInputFromPractice,
+  viesPolicyPdfToBytes,
+} from "@/lib/viesPolicyPdf";
+import {
   extractPdfTextLines,
   isValidItalianTaxCode,
   isValidItalianVat,
@@ -394,6 +402,7 @@ const VIES_PREMIUM_TAX_RATE = 0.125;
 const VIES_PREMIUM_TAXABLE = Math.round((VIES_PREMIUM_GROSS / (1 + VIES_PREMIUM_TAX_RATE)) * 100) / 100;
 const VIES_PREMIUM_TAXES = Math.round((VIES_PREMIUM_GROSS - VIES_PREMIUM_TAXABLE) * 100) / 100;
 const VIES_DEFAULT_BENEFICIARY = "Agenzia delle Entrate";
+const VIES_POLICY_DOCUMENTS_BUCKET = "practice-documents";
 const VIES_MAX_PRACTICES_PER_SHEET = 20;
 
 // Beneficiary office and fiscal representative are fixed for one Excel sheet:
@@ -1696,6 +1705,43 @@ const Vies = () => {
       if (finalizeBatchError) throw new Error(`Finalizzazione batch non riuscita: ${finalizeBatchError.message}`);
       batchFinalized = true;
 
+      // Policy document (front page + guarantee text) for every practice whose
+      // data is complete. Not blocking: it can be regenerated from the practice.
+      let policyDocumentsAttached = 0;
+      const policyDocumentFailures: string[] = [];
+      for (const [index, record] of records.entries()) {
+        const practiceId = createdPracticesByIndex.get(record.rowNumber);
+        if (!practiceId || jobPreparationByRow.get(record.rowNumber)?.isBlocked !== false) continue;
+        try {
+          const input = viesPolicyInputFromPractice(practiceRows[index]);
+          if (missingViesPolicyData(input).length) continue;
+          setBatchUploadStatus(`Documento di polizza ${index + 1}/${records.length}: ${record.contraente}`);
+          const blob = new Blob([viesPolicyPdfToBytes(generateViesPolicyPdf(input)) as BlobPart], {
+            type: VIES_POLICY_MIME_TYPE,
+          });
+          const fileName = buildViesPolicyFileName(input);
+          const filePath = `${practiceId}/${Date.now()}-${fileName}`;
+          const { error: uploadError } = await supabase.storage
+            .from(VIES_POLICY_DOCUMENTS_BUCKET)
+            .upload(filePath, blob, { contentType: VIES_POLICY_MIME_TYPE, upsert: false });
+          if (uploadError) throw uploadError;
+          const { error: insertError } = await supabase.from("practice_documents").insert({
+            practice_id: practiceId,
+            file_name: fileName,
+            file_path: filePath,
+            file_size: blob.size,
+            mime_type: VIES_POLICY_MIME_TYPE,
+            uploaded_by: userId,
+          });
+          if (insertError) throw insertError;
+          policyDocumentsAttached += 1;
+        } catch (error) {
+          policyDocumentFailures.push(
+            `${record.contraente || `riga ${record.rowNumber}`}: ${error instanceof Error ? error.message : "errore"}`,
+          );
+        }
+      }
+
       setBatchUploadProgress(100);
       setBatchUploadStatus(`Upload completato. Batch VIES salvato e job creati in ${formatDurationSeconds(batchStartedAt)}.`);
       setPersistedBatchId(batchId);
@@ -1703,7 +1749,7 @@ const Vies = () => {
       await refreshBatchMonitor(batchId);
       toast({
         title: zipStorageFailures.length ? "Batch VIES creato con avviso" : "Batch VIES creato",
-        description: `${records.length} job (${validJobCount} in coda, ${blockedJobCount} bloccati), ${createdPractices.length} pratiche VIES e ${documents.length} documenti indicizzati in ${formatDurationSeconds(batchStartedAt)}. Stato: ${finalBatchStatus === "queued" ? "in coda" : "bozza"}.${zipStorageFailures.length ? " Alcuni ZIP originali non sono stati archiviati: verifica il bucket VIES prima dell'orchestrazione." : ""}`,
+        description: `${records.length} job (${validJobCount} in coda, ${blockedJobCount} bloccati), ${createdPractices.length} pratiche VIES, ${policyDocumentsAttached} documenti di polizza generati e ${documents.length} documenti indicizzati in ${formatDurationSeconds(batchStartedAt)}. Stato: ${finalBatchStatus === "queued" ? "in coda" : "bozza"}.${zipStorageFailures.length ? " Alcuni ZIP originali non sono stati archiviati: verifica il bucket VIES prima dell'orchestrazione." : ""}${policyDocumentFailures.length ? ` Documento di polizza non generato per: ${policyDocumentFailures.join("; ")}.` : ""}`,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Non è stato possibile salvare il batch.";
