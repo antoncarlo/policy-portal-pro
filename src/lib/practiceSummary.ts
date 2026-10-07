@@ -502,7 +502,8 @@ function buildViesSummary(input: PracticeSummaryInput): PracticeSummary {
   const contraente: SummaryItem[] = [];
   pushItem(contraente, "client_name", "Ragione sociale", input.client_name);
   pushItem(contraente, "owner_tax_code", "Partita IVA", input.owner_tax_code);
-  pushItem(contraente, "vies_sede_contraente", "Sede legale", str("vies_sede_contraente"));
+  pushItem(contraente, "vies_domicilio_fiscale_contraente", "Domicilio fiscale in Italia", str("vies_domicilio_fiscale"));
+  pushItem(contraente, "vies_sede_contraente", "Sede legale (estero)", str("vies_sede_contraente"));
   pushItem(contraente, "client_phone", "Telefono", input.client_phone && input.client_phone !== "N/D" ? input.client_phone : null);
   pushItem(contraente, "vies_email", "Email", str("vies_email"));
   const pecSource = str("vies_pec_fonte");
@@ -517,9 +518,12 @@ function buildViesSummary(input: PracticeSummaryInput): PracticeSummary {
   sections.push({ id: "contraente", title: "Contraente", items: contraente });
 
   const rappresentante: SummaryItem[] = [];
-  pushItem(rappresentante, "vies_rappresentante_fiscale", "Nome / denominazione", str("vies_rappresentante_fiscale"));
-  pushItem(rappresentante, "vies_codice_fiscale_rappresentante", "Codice fiscale", str("vies_codice_fiscale_rappresentante"));
-  pushItem(rappresentante, "vies_domicilio_fiscale", "Domicilio fiscale", str("vies_domicilio_fiscale"));
+  pushItem(rappresentante, "vies_rappresentante_fiscale", "Società", str("vies_rappresentante_fiscale"));
+  pushItem(rappresentante, "vies_codice_fiscale_rappresentante", "Codice fiscale / P.IVA", str("vies_codice_fiscale_rappresentante"));
+  pushItem(rappresentante, "vies_domicilio_fiscale", "Sede", str("vies_domicilio_fiscale"));
+  pushItem(rappresentante, "vies_amministratore_rappresentante", "Amministratore", str("vies_amministratore_rappresentante"));
+  pushItem(rappresentante, "vies_codice_fiscale_amministratore", "Codice fiscale amministratore", str("vies_codice_fiscale_amministratore"));
+  pushItem(rappresentante, "vies_visura_rappresentante", "Fonte", str("vies_visura_rappresentante"));
   pushItem(rappresentante, "vies_pec_rappresentante", "PEC", str("vies_pec_rappresentante"));
   if (rappresentante.length) sections.push({ id: "rappresentante", title: "Rappresentante fiscale", items: rappresentante });
 

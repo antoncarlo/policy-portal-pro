@@ -30,10 +30,14 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { composeNotes } from "@/lib/practiceSummary";
 import {
+  extractPdfTextLines,
   isValidItalianTaxCode,
   isValidItalianVat,
   normalizeItalianVat,
+  parseVisura,
+  pickLegalRepresentative,
   scanPdfForVatNumbers,
+  type VisuraData,
 } from "@/lib/viesDocumentScan";
 
 type ExcelRecord = {
@@ -44,6 +48,8 @@ type ExcelRecord = {
   indirizzoContraente: string;
   rappresentanteFiscale: string;
   codiceFiscaleRappresentante: string;
+  amministratoreRappresentante: string;
+  codiceFiscaleAmministratore: string;
   indirizzoRappresentanteFiscale: string;
   partitaIvaContraente: string;
   beneficiario: string;
@@ -397,6 +403,8 @@ type ViesSheetData = {
   codiceFiscaleBeneficiario: string;
   rappresentanteFiscale: string;
   codiceFiscaleRappresentante: string;
+  amministratoreRappresentante: string;
+  codiceFiscaleAmministratore: string;
   indirizzoRappresentanteFiscale: string;
   pecRappresentante: string;
 };
@@ -407,6 +415,8 @@ const initialSheetData: ViesSheetData = {
   codiceFiscaleBeneficiario: "",
   rappresentanteFiscale: "",
   codiceFiscaleRappresentante: "",
+  amministratoreRappresentante: "",
+  codiceFiscaleAmministratore: "",
   indirizzoRappresentanteFiscale: "",
   pecRappresentante: "",
 };
@@ -420,6 +430,8 @@ const applySheetData = (record: ExcelRecord, sheet: ViesSheetData): ExcelRecord 
   partitaIvaBeneficiario: normalizeTaxCode(record.partitaIvaBeneficiario || sheet.codiceFiscaleBeneficiario),
   rappresentanteFiscale: record.rappresentanteFiscale || sheet.rappresentanteFiscale.trim(),
   codiceFiscaleRappresentante: normalizeTaxCode(record.codiceFiscaleRappresentante || sheet.codiceFiscaleRappresentante),
+  amministratoreRappresentante: record.amministratoreRappresentante || sheet.amministratoreRappresentante.trim(),
+  codiceFiscaleAmministratore: normalizeTaxCode(record.codiceFiscaleAmministratore || sheet.codiceFiscaleAmministratore),
   indirizzoRappresentanteFiscale: record.indirizzoRappresentanteFiscale || sheet.indirizzoRappresentanteFiscale.trim(),
   ...resolvePec(record, record.pecRappresentante || sheet.pecRappresentante.trim()),
 });
@@ -444,22 +456,32 @@ const formatIsoDate = (date: Date) => date.toISOString().slice(0, 10);
 
 // The request data lives in the practice's specific fields, shown in the
 // Riepilogo Pratica; the notes stay free for the operator.
+const describeVisura = (visura: VisuraData | null) =>
+  visura?.documento || visura?.dataEstrazione
+    ? `Visura${visura.documento ? ` n. ${visura.documento}` : ""}${visura.dataEstrazione ? ` estratta il ${visura.dataEstrazione}` : ""}`
+    : null;
+
 const buildViesSpecificFields = ({
   batchId,
   record,
   reconciliation,
   validationErrors,
+  visura,
 }: {
   batchId: string;
   record: ExcelRecord;
   reconciliation?: ViesReconciliationRow;
   validationErrors: string[];
+  visura: VisuraData | null;
 }) => ({
   vies_sede_contraente: record.indirizzoContraente || null,
   vies_email: record.email || null,
   vies_pec_fonte: record.pec ? (record.pecFromRepresentative ? "del rappresentante fiscale" : "del contraente") : null,
   vies_rappresentante_fiscale: record.rappresentanteFiscale || null,
   vies_codice_fiscale_rappresentante: record.codiceFiscaleRappresentante || null,
+  vies_amministratore_rappresentante: record.amministratoreRappresentante || null,
+  vies_codice_fiscale_amministratore: record.codiceFiscaleAmministratore || null,
+  vies_visura_rappresentante: describeVisura(visura),
   vies_domicilio_fiscale: record.indirizzoRappresentanteFiscale || null,
   vies_pec_rappresentante: record.pecRappresentante || null,
   vies_indirizzo_beneficiario: record.indirizzoBeneficiario || null,
@@ -614,6 +636,16 @@ const parseExcelFile = async (file: File): Promise<ExcelRecord[]> => {
           "cf rappresentante fiscale",
           "codice fiscale rappresentante",
         ]),
+        amministratoreRappresentante: getCellByAliases(
+          raw,
+          ["amministratore rappresentante fiscale", "amministratore societa di rappresentanza"],
+          { exactOnly: true },
+        ),
+        codiceFiscaleAmministratore: getCellByAliases(
+          raw,
+          ["codice fiscale amministratore", "c.f. amministratore", "cf amministratore"],
+          { exactOnly: true },
+        ),
         indirizzoRappresentanteFiscale: getCellByAliases(raw, ["indirizzo rappresentante fiscale", "domicilio fiscale"]),
         partitaIvaContraente: normalizeItalianVat(
           getCellByAliases(raw, ["partita iva ditta", "p iva ditta", "p.iva ditta", "p.iva", "p. iva", "piva"]),
@@ -763,6 +795,9 @@ const Vies = () => {
   const [zipFiles, setZipFiles] = useState<File[]>([]);
   const [parsedRecords, setRecords] = useState<ExcelRecord[]>([]);
   const [sheetData, setSheetData] = useState<ViesSheetData>(initialSheetData);
+  const [visuraFile, setVisuraFile] = useState<File | null>(null);
+  const [visuraData, setVisuraData] = useState<VisuraData | null>(null);
+  const [visuraAdminIndex, setVisuraAdminIndex] = useState(-1);
   const records = useMemo(
     () => parsedRecords.map((record) => applySheetData(record, sheetData)),
     [parsedRecords, sheetData],
@@ -901,6 +936,56 @@ const Vies = () => {
   const updateSheetData = (field: keyof ViesSheetData) => (value: string) => {
     setPersistedBatchId(null);
     setSheetData((current) => ({ ...current, [field]: value }));
+  };
+
+  const applyVisuraAdministrator = (visura: VisuraData, index: number) => {
+    const admin = visura.amministratori[index];
+    setVisuraAdminIndex(index);
+    setSheetData((current) => ({
+      ...current,
+      amministratoreRappresentante: admin?.name ?? current.amministratoreRappresentante,
+      codiceFiscaleAmministratore: admin?.taxCode ?? current.codiceFiscaleAmministratore,
+    }));
+  };
+
+  // The visura of the representation company fills the whole fiscal
+  // representative section; every value stays editable and is checked again.
+  const handleVisuraUpload = async (file: File | undefined) => {
+    if (!file) return;
+    setPersistedBatchId(null);
+    try {
+      const visura = parseVisura(extractPdfTextLines(new Uint8Array(await file.arrayBuffer())));
+      if (!visura.codiceFiscale && !visura.denominazione) {
+        setVisuraFile(null);
+        setVisuraData(null);
+        toast({
+          variant: "destructive",
+          title: "Visura non leggibile",
+          description: "Il PDF non ha testo leggibile (forse è una scansione): compilare a mano i dati del rappresentante fiscale.",
+        });
+        return;
+      }
+      setVisuraFile(file);
+      setVisuraData(visura);
+      setSheetData((current) => ({
+        ...current,
+        rappresentanteFiscale: visura.denominazione ?? current.rappresentanteFiscale,
+        codiceFiscaleRappresentante: visura.codiceFiscale ?? current.codiceFiscaleRappresentante,
+        indirizzoRappresentanteFiscale: visura.sedeLegale ?? current.indirizzoRappresentanteFiscale,
+        pecRappresentante: visura.pec ?? current.pecRappresentante,
+      }));
+      applyVisuraAdministrator(visura, pickLegalRepresentative(visura.amministratori));
+      toast({
+        title: "Visura letta",
+        description: `${visura.denominazione ?? "Società"}: ${visura.amministratori.length} amministratori trovati. Verificare i dati compilati.`,
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Errore lettura visura",
+        description: error instanceof Error ? error.message : "Il file non può essere letto.",
+      });
+    }
   };
 
   const handleExcelUpload = async (file: File | undefined) => {
@@ -1180,6 +1265,9 @@ const Vies = () => {
     else if (!isValidItalianTaxCode(record.codiceFiscaleRappresentante)) {
       errors.push("Codice fiscale rappresentante fiscale non valido");
     }
+    if (!record.amministratoreRappresentante) errors.push("Amministratore del rappresentante fiscale mancante");
+    if (!record.codiceFiscaleAmministratore) errors.push("Codice fiscale amministratore mancante");
+    else if (!isValidItalianTaxCode(record.codiceFiscaleAmministratore)) errors.push("Codice fiscale amministratore non valido");
     if (!record.indirizzoRappresentanteFiscale) errors.push("Domicilio fiscale del rappresentante mancante");
     if (!record.pec) errors.push("PEC mancante (né del contraente né del rappresentante fiscale)");
     else if (!isPlausibleEmail(record.pec)) errors.push("PEC non valida");
@@ -1243,6 +1331,19 @@ const Vies = () => {
       });
       setBatchUploadStatus(`Verifica archiviazione Excel ${excelFile.name}`);
       await verifyViesStorageObjectExists(excelStoragePath, excelFile.size);
+
+      // The representation company's visura is shared by every practice of the sheet.
+      let visuraStoragePath: string | null = null;
+      if (visuraFile) {
+        visuraStoragePath = `${storageBasePath}/visura-rappresentante/${buildSafeStorageName(visuraFile.name)}`;
+        setBatchUploadStatus(`Upload visura ${visuraFile.name} (${formatBytes(visuraFile.size)})`);
+        await uploadViesFileResumable({
+          file: visuraFile,
+          storagePath: visuraStoragePath,
+          onProgress: ({ percentage }) => setBatchUploadProgress(percentage),
+        });
+        await verifyViesStorageObjectExists(visuraStoragePath, visuraFile.size);
+      }
 
       const zipUploadPlans: ViesZipUploadPlan[] = zipFiles.map((zip, index) => {
         const zipKey = getZipReconciliationKey(zip.name);
@@ -1429,6 +1530,7 @@ const Vies = () => {
               record,
               reconciliation: reconciliationByRow.get(record.rowNumber),
               validationErrors,
+              visura: visuraData,
             }),
           }),
         };
@@ -1466,6 +1568,17 @@ const Vies = () => {
       const practiceDocumentRows = [];
       for (const reconciliation of reconciliationRows) {
         const practiceId = createdPracticesByIndex.get(reconciliation.record.rowNumber);
+        if (practiceId && visuraFile && visuraStoragePath) {
+          practiceDocumentRows.push({
+            practice_id: practiceId,
+            file_name: visuraFile.name,
+            file_path: `${VIES_PRACTICE_DOCUMENT_PATH_PREFIX}${visuraStoragePath}`,
+            file_size: visuraFile.size,
+            mime_type: visuraFile.type || "application/pdf",
+            uploaded_by: userId,
+          });
+        }
+
         const zipFile = reconciliation.zipFile;
         // A ZIP carrying another company's P.IVA must never reach this practice.
         if (!practiceId || !zipFile || reconciliation.vatCheck === "mismatch") continue;
@@ -1825,26 +1938,83 @@ const Vies = () => {
                   </div>
                   <div className="space-y-3">
                     <p className="text-sm font-semibold">Rappresentante fiscale</p>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="vies-visura">Visura della società di rappresentanza (PDF)</Label>
+                      <Input
+                        id="vies-visura"
+                        type="file"
+                        accept=".pdf,application/pdf"
+                        disabled={savingBatch}
+                        onChange={(event) => handleVisuraUpload(event.target.files?.[0])}
+                      />
+                      {visuraData ? (
+                        <p className="text-xs text-muted-foreground">
+                          {describeVisura(visuraData) ?? "Visura letta"}: compila i campi sotto, da verificare.
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          Compila denominazione, codice fiscale, sede, PEC e amministratore.
+                        </p>
+                      )}
+                    </div>
+                    {visuraData && visuraData.amministratori.length > 1 && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="vies-visura-amministratore">Amministratore che rappresenta la società</Label>
+                        <select
+                          id="vies-visura-amministratore"
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          value={visuraAdminIndex}
+                          disabled={savingBatch}
+                          onChange={(event) => {
+                            setPersistedBatchId(null);
+                            applyVisuraAdministrator(visuraData, Number(event.target.value));
+                          }}
+                        >
+                          {visuraData.amministratori.map((admin, index) => (
+                            <option key={`${admin.name}-${index}`} value={index}>
+                              {admin.name} — {admin.role}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     <SheetField
                       id="vies-rappresentante"
-                      label="Nome e cognome o denominazione"
+                      label="Denominazione società"
                       value={sheetData.rappresentanteFiscale}
-                      placeholder="Rappresentante fiscale del foglio"
+                      placeholder="Es. SE&SE AUDITORS & CHARTERED ACCOUNTANT S.P.A."
                       disabled={savingBatch}
                       onChange={updateSheetData("rappresentanteFiscale")}
                     />
                     <SheetField
                       id="vies-cf-rappresentante"
-                      label="Codice fiscale"
+                      label="Codice fiscale / P.IVA società"
                       value={sheetData.codiceFiscaleRappresentante}
-                      placeholder="16 caratteri o 11 cifre"
+                      placeholder="11 cifre"
                       isTaxCode
                       disabled={savingBatch}
                       onChange={updateSheetData("codiceFiscaleRappresentante")}
                     />
                     <SheetField
+                      id="vies-amministratore"
+                      label="Amministratore (legale rappresentante)"
+                      value={sheetData.amministratoreRappresentante}
+                      placeholder="Cognome e nome, dalla visura"
+                      disabled={savingBatch}
+                      onChange={updateSheetData("amministratoreRappresentante")}
+                    />
+                    <SheetField
+                      id="vies-cf-amministratore"
+                      label="Codice fiscale amministratore"
+                      value={sheetData.codiceFiscaleAmministratore}
+                      placeholder="16 caratteri"
+                      isTaxCode
+                      disabled={savingBatch}
+                      onChange={updateSheetData("codiceFiscaleAmministratore")}
+                    />
+                    <SheetField
                       id="vies-domicilio-rappresentante"
-                      label="Domicilio fiscale (indirizzo)"
+                      label="Sede della società (indirizzo italiano delle società clienti)"
                       value={sheetData.indirizzoRappresentanteFiscale}
                       placeholder="Via, numero, CAP, città"
                       disabled={savingBatch}

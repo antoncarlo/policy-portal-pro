@@ -62,38 +62,162 @@ const inflate = (data: Uint8Array): Uint8Array | null => {
   }
 };
 
-export type PdfTextScan = {
-  hasText: boolean;
-  vatNumbers: string[];
-};
-
-export const scanPdfForVatNumbers = (bytes: Uint8Array): PdfTextScan => {
+// Yields the decoded content of every stream that can carry text.
+function* decodedContentStreams(bytes: Uint8Array): Generator<string> {
   const raw = latin1.decode(bytes);
-  const vatNumbers = new Set<string>();
-  let textLength = 0;
-
-  STREAM_KEYWORD.lastIndex = 0;
-  for (let match = STREAM_KEYWORD.exec(raw); match; match = STREAM_KEYWORD.exec(raw)) {
+  const keyword = new RegExp(STREAM_KEYWORD.source, "g");
+  for (let match = keyword.exec(raw); match; match = keyword.exec(raw)) {
     const start = match.index + match[0].length;
     const end = raw.indexOf("endstream", start);
-    if (end < 0) break;
+    if (end < 0) return;
 
     const objectStart = raw.lastIndexOf(" obj", match.index);
     const dictionary = raw.slice(Math.max(0, objectStart, match.index - 2000), match.index);
     const hasFilter = /\/Filter/.test(dictionary);
     if (!NON_TEXT_STREAM.test(dictionary) && (!hasFilter || /\/FlateDecode/.test(dictionary))) {
       const decoded = hasFilter ? inflate(bytes.subarray(start, end)) : bytes.subarray(start, end);
-      if (decoded) {
-        const content = latin1.decode(decoded);
-        const text = (content.match(PDF_STRING_LITERAL) ?? []).map((literal) => literal.slice(1, -1)).join("");
-        textLength += text.trim().length;
-        for (const candidate of text.match(ELEVEN_DIGITS) ?? []) {
-          if (isValidItalianVat(candidate)) vatNumbers.add(candidate);
-        }
-      }
+      if (decoded) yield latin1.decode(decoded);
     }
-    STREAM_KEYWORD.lastIndex = end + "endstream".length;
+    keyword.lastIndex = end + "endstream".length;
+  }
+}
+
+const unescapePdfLiteral = (literal: string) =>
+  literal
+    .slice(1, -1)
+    .replace(/\\([0-7]{1,3})/g, (_, octal: string) => String.fromCharCode(parseInt(octal, 8)))
+    .replace(/\\(.)/g, "$1");
+
+export type PdfTextScan = {
+  hasText: boolean;
+  vatNumbers: string[];
+};
+
+export const scanPdfForVatNumbers = (bytes: Uint8Array): PdfTextScan => {
+  const vatNumbers = new Set<string>();
+  let textLength = 0;
+
+  for (const content of decodedContentStreams(bytes)) {
+    const text = (content.match(PDF_STRING_LITERAL) ?? []).map((literal) => literal.slice(1, -1)).join("");
+    textLength += text.trim().length;
+    for (const candidate of text.match(ELEVEN_DIGITS) ?? []) {
+      if (isValidItalianVat(candidate)) vatNumbers.add(candidate);
+    }
   }
 
   return { hasText: textLength > 200, vatNumbers: [...vatNumbers] };
+};
+
+// Text of a text-layer PDF, one entry per text line (split on text positioning).
+export const extractPdfTextLines = (bytes: Uint8Array): string[] => {
+  const lines: string[] = [];
+  const token = /\((?:\\.|[^\\()])*\)|\bT[dD*]\b|\bTm\b|\bET\b|\bBT\b|'/g;
+  for (const content of decodedContentStreams(bytes)) {
+    let current = "";
+    for (const match of content.matchAll(token)) {
+      if (match[0].startsWith("(")) {
+        current += unescapePdfLiteral(match[0]);
+      } else if (current) {
+        lines.push(current);
+        current = "";
+      }
+    }
+    if (current) lines.push(current);
+  }
+  return lines.map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean);
+};
+
+// ---------------------------------------------------------------------------
+// Visura camerale (Registro Imprese / InfoCamere)
+// ---------------------------------------------------------------------------
+
+export type VisuraAdministrator = {
+  role: string;
+  name: string;
+  taxCode: string | null;
+};
+
+export type VisuraData = {
+  denominazione: string | null;
+  codiceFiscale: string | null;
+  sedeLegale: string | null;
+  pec: string | null;
+  documento: string | null;
+  dataEstrazione: string | null;
+  amministratori: VisuraAdministrator[];
+};
+
+const VISURA_PAGE_HEADER = /^(Registro Imprese|Archivio ufficiale della CCIAA|Documento n|estratto dal Registro Imprese|Visura |Codice Fiscale \d{11}$|\d{1,3}$)/i;
+const VISURA_LABELS = /^(Domicilio digitale\/PEC|Numero REA|Codice fiscale e n|Partita IVA|Forma giuridica)/i;
+const LEGAL_REPRESENTATIVE_ROLES = [
+  /amministratore unico/i,
+  /presidente/i,
+  /amministratore delegato/i,
+  /legale rappresentante|rappresentante dell'impresa/i,
+];
+
+export const parseVisura = (lines: string[]): VisuraData => {
+  const headerIndex = lines.findIndex((line) => /^Codice Fiscale \d{11}$/.test(line));
+  const codiceFiscale =
+    headerIndex >= 0 ? lines[headerIndex].replace(/\D/g, "") : lines.join(" ").match(/Registro Imprese\s+(\d{11})/)?.[1] ?? null;
+  const denominazione = headerIndex > 0 && !VISURA_PAGE_HEADER.test(lines[headerIndex - 1]) ? lines[headerIndex - 1] : null;
+
+  const joined = lines.join("\n");
+  const documento = joined.match(/Documento n\s*\.\s*(T\s*\d+)/)?.[1] ?? null;
+  const dataEstrazione = joined.match(/estratto dal Registro Imprese in data (\d{2}\/\d{2}\/\d{4})/)?.[1] ?? null;
+
+  let sedeLegale: string | null = null;
+  const sedeIndex = lines.findIndex((line) => /^Indirizzo Sede legale$/i.test(line));
+  if (sedeIndex >= 0) {
+    const parts: string[] = [];
+    for (const line of lines.slice(sedeIndex + 1, sedeIndex + 6)) {
+      if (VISURA_LABELS.test(line)) break;
+      parts.push(line);
+    }
+    sedeLegale =
+      parts
+        .join(" ")
+        .replace(/\s+DAL \d{2}\/\d{2}\/\d{4}$/i, "")
+        .replace(/\s+IVI$/i, "")
+        .trim() || null;
+  }
+
+  const pecIndex = lines.findIndex((line) => /^Domicilio digitale\/PEC$/i.test(line));
+  const pecCandidate = pecIndex >= 0 ? lines[pecIndex + 1] : undefined;
+  const pec = pecCandidate && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pecCandidate) ? pecCandidate : null;
+
+  // Only the "Amministratori" section: from its numbered heading to the next one.
+  // The heading also appears in the table of contents, so take the last occurrence.
+  let sectionStart = -1;
+  lines.forEach((line, index) => {
+    if (/^\d+\s+Amministratori$/i.test(line)) sectionStart = index;
+  });
+  const sectionEnd =
+    sectionStart >= 0 ? lines.findIndex((line, index) => index > sectionStart && /^\d+\s+\S/.test(line) && !/^\d+\s*$/.test(line)) : -1;
+  const section = sectionStart >= 0 ? lines.slice(sectionStart, sectionEnd > sectionStart ? sectionEnd : undefined) : lines;
+
+  const amministratori: VisuraAdministrator[] = [];
+  section.forEach((line, index) => {
+    if (!/^Nat[oa] a /i.test(line) || index < 2) return;
+    const name = section[index - 1];
+    const role = section[index - 2];
+    if (VISURA_PAGE_HEADER.test(name) || VISURA_PAGE_HEADER.test(role)) return;
+    const taxCodeLine = section.slice(index + 1, index + 4).find((next) => /^Codice fiscale:/i.test(next));
+    const taxCode = taxCodeLine?.replace(/^Codice fiscale:\s*/i, "").replace(/\s+/g, "").toUpperCase() || null;
+    if (!amministratori.some((admin) => admin.name === name && admin.taxCode === taxCode)) {
+      amministratori.push({ role, name, taxCode });
+    }
+  });
+
+  return { denominazione, codiceFiscale, sedeLegale, pec, documento, dataEstrazione, amministratori };
+};
+
+// The administrator who represents the company: sole administrator, chairman,
+// managing director, otherwise the first one listed.
+export const pickLegalRepresentative = (amministratori: VisuraAdministrator[]) => {
+  for (const role of LEGAL_REPRESENTATIVE_ROLES) {
+    const index = amministratori.findIndex((admin) => role.test(admin.role));
+    if (index >= 0) return index;
+  }
+  return amministratori.length ? 0 : -1;
 };
