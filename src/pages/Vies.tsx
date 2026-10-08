@@ -5,13 +5,13 @@ import JSZip from "jszip";
 import * as tus from "tus-js-client";
 import {
   AlertTriangle,
-  Bot,
   CheckCircle2,
   FileArchive,
   FileSpreadsheet,
   Loader2,
   PlayCircle,
   RefreshCw,
+  Send,
   ShieldCheck,
   UploadCloud,
   XCircle,
@@ -36,6 +36,15 @@ import {
   viesPolicyPdfToBytes,
 } from "@/lib/viesPolicyPdf";
 import { extractPdfText } from "@/lib/pdfText";
+import type { ControllerReport } from "@/lib/viesController";
+import {
+  VIES_DURATION_MONTHS,
+  VIES_GUARANTEED_AMOUNT,
+  VIES_MAX_PRACTICES_PER_SHEET,
+  VIES_PREMIUM_GROSS,
+  VIES_PREMIUM_TAXABLE,
+  VIES_PREMIUM_TAXES,
+} from "@/lib/viesTerms";
 import {
   isValidChineseId,
   isValidItalianTaxCode,
@@ -157,6 +166,14 @@ type ViesJobMonitor = {
   error_code: string | null;
 };
 
+type ExistingViesPractice = {
+  id: string;
+  practice_number: string;
+  created_at: string;
+  uscc: string | null;
+  vat: string | null;
+};
+
 type ViesReconciliationRow = {
   record: ExcelRecord;
   zipFile?: File;
@@ -177,6 +194,8 @@ type WorkerSummary = {
   errors: Array<{ jobId?: string; message: string }>;
   notice?: string;
 };
+
+type ViesPortalOption = { id: string; name: string };
 
 type ViesAccessStatus = "checking" | "allowed" | "denied";
 
@@ -373,17 +392,8 @@ const uploadViesFileResumable = async ({
   });
 };
 
-// Importo garantito (massimale della fideiussione), distinto dal premio di polizza.
-const VIES_GUARANTEED_AMOUNT = 50000;
-// Premio fisso di polizza: il lordo comprende l'imposta sulle assicurazioni del
-// ramo cauzioni (12,5%). Senza accessori il premio netto coincide con l'imponibile.
-const VIES_PREMIUM_GROSS = 2000;
-const VIES_PREMIUM_TAX_RATE = 0.125;
-const VIES_PREMIUM_TAXABLE = Math.round((VIES_PREMIUM_GROSS / (1 + VIES_PREMIUM_TAX_RATE)) * 100) / 100;
-const VIES_PREMIUM_TAXES = Math.round((VIES_PREMIUM_GROSS - VIES_PREMIUM_TAXABLE) * 100) / 100;
 const VIES_DEFAULT_BENEFICIARY = "Agenzia delle Entrate";
 const VIES_POLICY_DOCUMENTS_BUCKET = "practice-documents";
-const VIES_MAX_PRACTICES_PER_SHEET = 20;
 
 // Beneficiary office and fiscal representative are fixed for one Excel sheet:
 // entered once, applied to every row unless the row has its own Excel column.
@@ -434,11 +444,10 @@ const resolvePec = (record: ExcelRecord, pecRappresentante: string) => ({
 
 const isPlausibleEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 const VIES_GUARANTEE_OBJECT = "POLIZZA FIDEIUSSORIA AI SENSI DELL’ART. 35, COMMA 7-QUATER, DEL DPR 633/1972.";
-const VIES_DURATION_MONTHS = 36;
 
 const calculateViesPolicyEndDate = (policyStartDate: Date) => {
   const policyEndDate = new Date(policyStartDate);
-  policyEndDate.setFullYear(policyEndDate.getFullYear() + 3);
+  policyEndDate.setMonth(policyEndDate.getMonth() + VIES_DURATION_MONTHS);
   return policyEndDate;
 };
 
@@ -502,6 +511,32 @@ const buildViesSpecificFields = ({
 });
 
 const terminalJobStatuses = new Set(["completed", "failed", "blocked", "cancelled"]);
+
+// Server actions of the VIES flow (api/vies-control): portals, final check, sending.
+// A refused send still returns the final-check report, so the page can show why.
+const callViesControl = async (body: Record<string, unknown>) => {
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !sessionData.session?.access_token) {
+    throw new Error("Sessione non valida. Effettua nuovamente l'accesso e riprova.");
+  }
+
+  const response = await fetch("/api/vies-control", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${sessionData.session.access_token}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || (payload?.ok === false && !payload?.report)) {
+    throw new Error(payload?.error || "Azione orchestratore non completata.");
+  }
+
+  return payload;
+};
+
 
 const formatBytes = (bytes: number) => {
   if (!bytes) return "0 B";
@@ -1025,6 +1060,10 @@ const Vies = () => {
     () => parsedRecords.map((record) => applySheetData(record, sheetData)),
     [parsedRecords, sheetData],
   );
+  const companyCodesKey = useMemo(
+    () => JSON.stringify(parsedRecords.map((record) => ({ uscc: normalizeUscc(record.uscc), vat: record.partitaIvaContraente }))),
+    [parsedRecords],
+  );
   const [documents, setDocuments] = useState<ZipDocument[]>([]);
   const [agentProgress, setAgentProgress] = useState<{ done: number; failed: number; total: number; unavailable: string | null } | null>(null);
   const [loadingExcel, setLoadingExcel] = useState(false);
@@ -1035,11 +1074,44 @@ const Vies = () => {
   const [batchUploadProgress, setBatchUploadProgress] = useState(0);
   const [persistedBatchId, setPersistedBatchId] = useState<string | null>(null);
   const [lastCreatedPracticeIds, setLastCreatedPracticeIds] = useState<string[]>([]);
+  // VIES practices already in the portal for the companies of the sheet.
+  const [existingPractices, setExistingPractices] = useState<ExistingViesPractice[]>([]);
+  const [duplicateCheck, setDuplicateCheck] = useState<"idle" | "checking" | "done" | "error">("idle");
+  const [duplicateCheckRun, setDuplicateCheckRun] = useState(0);
+
+  useEffect(() => {
+    const companies = (JSON.parse(companyCodesKey) as Array<{ uscc: string; vat: string }>).filter(
+      (company) => company.uscc || company.vat,
+    );
+    if (!companies.length) {
+      setExistingPractices([]);
+      setDuplicateCheck("idle");
+      return;
+    }
+    let cancelled = false;
+    setDuplicateCheck("checking");
+    callViesControl({ action: "check_duplicates", companies })
+      .then((payload) => {
+        if (cancelled) return;
+        setExistingPractices((payload?.existing ?? []) as ExistingViesPractice[]);
+        setDuplicateCheck("done");
+      })
+      .catch(() => {
+        if (!cancelled) setDuplicateCheck("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [companyCodesKey, duplicateCheckRun]);
   const [batchMonitor, setBatchMonitor] = useState<ViesBatchMonitor | null>(null);
   const [jobMonitor, setJobMonitor] = useState<ViesJobMonitor[]>([]);
   const [monitorLoading, setMonitorLoading] = useState(false);
   const [controlLoading, setControlLoading] = useState<string | null>(null);
   const [lastWorkerSummary, setLastWorkerSummary] = useState<WorkerSummary | null>(null);
+  const [portals, setPortals] = useState<ViesPortalOption[] | null>(null);
+  const [selectedPortalId, setSelectedPortalId] = useState("");
+  const [controllerReport, setControllerReport] = useState<ControllerReport | null>(null);
+  const [controllerLoading, setControllerLoading] = useState(false);
   const [accessStatus, setAccessStatus] = useState<ViesAccessStatus>("checking");
   const [accessMessage, setAccessMessage] = useState<string | null>(null);
 
@@ -1203,8 +1275,14 @@ const Vies = () => {
       });
   }, [documents, reconciliationRows, sheetSharedIdentifiers, zipFiles]);
 
-  const updateSheetData = (field: keyof ViesSheetData) => (value: string) => {
+  // New Excel or new ZIPs: a new batch, to be checked again for duplicates.
+  const startNewLot = () => {
     setPersistedBatchId(null);
+    setLastCreatedPracticeIds([]);
+    setDuplicateCheckRun((run) => run + 1);
+  };
+
+  const updateSheetData = (field: keyof ViesSheetData) => (value: string) => {
     setSheetData((current) => ({ ...current, [field]: value }));
   };
 
@@ -1222,7 +1300,6 @@ const Vies = () => {
   // representative section; every value stays editable and is checked again.
   const handleVisuraUpload = async (file: File | undefined) => {
     if (!file) return;
-    setPersistedBatchId(null);
     try {
       const visura = parseVisura((await extractPdfText(new Uint8Array(await file.arrayBuffer()))).lines);
       if (!visura.codiceFiscale && !visura.denominazione) {
@@ -1426,11 +1503,10 @@ const Vies = () => {
 
         const { data: jobs, error: jobsError } = await supabase
           .from("vies_jobs")
-          .select("id,row_number,progressivo,contraente,status,attempts,max_attempts,last_error,error_code")
+          .select("id,row_number,progressivo,contraente,external_reference,status,attempts,max_attempts,last_error,error_code")
           .eq("batch_id", batchId)
-          .in("status", ["failed", "blocked", "processing", "queued"])
-          .order("updated_at", { ascending: false })
-          .limit(12);
+          .eq("status", "failed")
+          .order("row_number", { ascending: true });
 
         if (jobsError) throw new Error(jobsError.message);
 
@@ -1449,51 +1525,70 @@ const Vies = () => {
     [persistedBatchId, toast],
   );
 
-  const callViesControl = async (body: Record<string, unknown>) => {
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !sessionData.session?.access_token) {
-      throw new Error("Sessione non valida. Effettua nuovamente l'accesso e riprova.");
-    }
 
-    const response = await fetch("/api/vies-control", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${sessionData.session.access_token}`,
-      },
-      body: JSON.stringify(body),
-    });
+  // Final check on the data saved in the database: what can be sent, and why the rest cannot.
+  const runFinalCheck = useCallback(
+    async (batchId: string) => {
+      setControllerLoading(true);
+      try {
+        const payload = await callViesControl({ action: "verify_batch", batchId });
+        setControllerReport(payload.report as ControllerReport);
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Controllo finale non eseguito",
+          description: error instanceof Error ? error.message : "Non è stato possibile verificare il lotto.",
+        });
+      } finally {
+        setControllerLoading(false);
+      }
+    },
+    [toast],
+  );
 
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok || payload?.ok === false) {
-      throw new Error(payload?.error || "Azione orchestratore non completata.");
-    }
-
-    return payload;
-  };
-
-  const handleBatchControl = async (action: "enqueue_batch" | "cancel_batch" | "run_worker_once") => {
-    if (!persistedBatchId && action !== "run_worker_once") return;
-
-    setControlLoading(action);
+  const handleSendBatch = async () => {
+    if (!persistedBatchId || !selectedPortalId) return;
+    const portalName = portals?.find((portal) => portal.id === selectedPortalId)?.name ?? "portale";
+    setControlLoading("send_batch");
     try {
-      const payload = await callViesControl({ action, batchId: persistedBatchId, limit: 5 });
-      if (payload?.summary) setLastWorkerSummary(payload.summary as WorkerSummary);
-      toast({
-        title: "Azione VIES completata",
-        description:
-          action === "run_worker_once"
-            ? "Eseguito un ciclo manuale del worker VIES."
-            : action === "cancel_batch"
-              ? "Batch annullato correttamente."
-              : "Batch accodato per il worker VIES.",
-      });
+      const payload = await callViesControl({ action: "send_batch", batchId: persistedBatchId, portalId: selectedPortalId });
+      if (payload.report) setControllerReport(payload.report as ControllerReport);
+      if (payload.summary) setLastWorkerSummary(payload.summary as WorkerSummary);
+      if (payload.ok === false) {
+        toast({ variant: "destructive", title: "Nessuna pratica inviata", description: payload.error });
+      } else {
+        const summary = payload.summary as WorkerSummary | undefined;
+        toast({
+          title: `Invio a ${portalName}`,
+          description: summary?.notice ?? `Inviate ${summary?.completed ?? 0}, non riuscite ${summary?.failed ?? 0}, bloccate dal controllo ${summary?.skipped ?? 0}.`,
+        });
+      }
       await refreshBatchMonitor();
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Azione VIES non riuscita",
-        description: error instanceof Error ? error.message : "Errore durante il controllo orchestratore.",
+        title: "Invio non riuscito",
+        description: error instanceof Error ? error.message : "Errore durante l'invio al portale.",
+      });
+    } finally {
+      setControlLoading(null);
+    }
+  };
+
+  const handleCancelBatch = async () => {
+    if (!persistedBatchId) return;
+    if (!window.confirm("Annullare l'invio di tutte le pratiche di questo lotto non ancora inviate?")) return;
+    setControlLoading("cancel_batch");
+    try {
+      await callViesControl({ action: "cancel_batch", batchId: persistedBatchId });
+      toast({ title: "Lotto annullato", description: "Le pratiche non ancora inviate non verranno inviate." });
+      await refreshBatchMonitor();
+      await runFinalCheck(persistedBatchId);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Annullamento non riuscito",
+        description: error instanceof Error ? error.message : "Errore durante l'annullamento del lotto.",
       });
     } finally {
       setControlLoading(null);
@@ -1504,13 +1599,13 @@ const Vies = () => {
     setControlLoading(`retry-${jobId}`);
     try {
       await callViesControl({ action: "retry_job", jobId });
-      toast({ title: "Job riaccodato", description: "Il job selezionato verrà ripreso dal prossimo ciclo worker." });
+      toast({ title: "Invio da ripetere", description: "La pratica verrà inviata di nuovo, dopo un nuovo controllo finale." });
       await refreshBatchMonitor();
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Retry non riuscito",
-        description: error instanceof Error ? error.message : "Non è stato possibile riaccodare il job.",
+        title: "Nuovo invio non possibile",
+        description: error instanceof Error ? error.message : "Non è stato possibile ripetere l'invio.",
       });
     } finally {
       setControlLoading(null);
@@ -1576,6 +1671,21 @@ const Vies = () => {
   }, [checkViesAccess]);
 
   useEffect(() => {
+    if (!persistedBatchId) {
+      setControllerReport(null);
+      return;
+    }
+    void runFinalCheck(persistedBatchId);
+    callViesControl({ action: "list_portals" })
+      .then((payload) => {
+        const list = (payload.portals ?? []) as ViesPortalOption[];
+        setPortals(list);
+        setSelectedPortalId((current) => current || (list.length === 1 ? list[0].id : ""));
+      })
+      .catch(() => setPortals([]));
+  }, [persistedBatchId, runFinalCheck]);
+
+  useEffect(() => {
     if (!persistedBatchId) return;
 
     refreshBatchMonitor(persistedBatchId);
@@ -1620,9 +1730,37 @@ const Vies = () => {
     return errors;
   };
 
+  // The practices just created by this page are not duplicates of themselves.
+  const getExistingForRecord = (record: ExcelRecord) =>
+    existingPractices.filter(
+      (existing) =>
+        !lastCreatedPracticeIds.includes(existing.id) &&
+        ((record.uscc && existing.uscc === normalizeUscc(record.uscc)) ||
+          (record.partitaIvaContraente && existing.vat === record.partitaIvaContraente)),
+    );
+
   const getRowBlockingErrors = (reconciliation: ViesReconciliationRow) => [
-    ...new Set([...reconciliation.errors, ...getRecordValidationErrors(reconciliation.record)]),
+    ...new Set([
+      ...reconciliation.errors,
+      ...getRecordValidationErrors(reconciliation.record),
+      ...getExistingForRecord(reconciliation.record).map(
+        (existing) =>
+          `Esiste già la pratica VIES ${existing.practice_number} per questa società (creata il ${new Date(existing.created_at).toLocaleDateString("it-IT")})`,
+      ),
+    ]),
   ];
+
+  const duplicateRowCount = records.filter((record) => getExistingForRecord(record).length > 0).length;
+  const sheetLocked = savingBatch || Boolean(persistedBatchId);
+  const creationBlockedReason = persistedBatchId
+    ? null
+    : duplicateCheck === "checking"
+      ? "Controllo delle pratiche già presenti in corso…"
+      : duplicateCheck === "error"
+        ? "Controllo delle pratiche già presenti non riuscito: ricarica l'Excel per riprovare."
+        : duplicateRowCount
+          ? `${duplicateRowCount === 1 ? "1 società ha" : `${duplicateRowCount} società hanno`} già una pratica VIES: toglile dall'Excel e ricaricalo. Nessuna pratica viene creata due volte.`
+          : null;
 
   const getPendingScanCount = (reconciliation: ViesReconciliationRow) =>
     reconciliation.documents.filter((document) => document.agentStatus === "pending").length;
@@ -1640,6 +1778,18 @@ const Vies = () => {
         variant: "destructive",
         title: "Accesso VIES non autorizzato",
         description: "Il tuo profilo non è abilitato al prodotto VIES tra i Prodotti Consentiti.",
+      });
+      return;
+    }
+
+    // A batch is created once: after that, a new Excel or new ZIPs start a new one.
+    if (persistedBatchId || creationBlockedReason) {
+      toast({
+        variant: "destructive",
+        title: persistedBatchId ? "Pratiche già create" : "Creazione non possibile",
+        description: persistedBatchId
+          ? "Le pratiche di questo lotto sono già state create: per un nuovo lotto carica un nuovo Excel e i suoi ZIP."
+          : creationBlockedReason,
       });
       return;
     }
@@ -2096,6 +2246,7 @@ const Vies = () => {
       setBatchUploadStatus(`Upload completato. Batch VIES salvato e job creati in ${formatDurationSeconds(batchStartedAt)}.`);
       setPersistedBatchId(batchId);
       setLastCreatedPracticeIds(createdPractices?.map((practice) => practice.id) ?? []);
+      setDuplicateCheckRun((run) => run + 1);
       await refreshBatchMonitor(batchId);
       toast({
         title: zipStorageFailures.length ? "Batch VIES creato con avviso" : "Batch VIES creato",
@@ -2261,7 +2412,7 @@ const Vies = () => {
                   type="file"
                   accept=".xlsx,.xls"
                   onChange={(event) => {
-                    setPersistedBatchId(null);
+                    startNewLot();
                     handleExcelUpload(event.target.files?.[0]);
                   }}
                   disabled={loadingExcel || savingBatch}
@@ -2284,7 +2435,7 @@ const Vies = () => {
                   accept=".zip"
                   multiple
                   onChange={(event) => {
-                    setPersistedBatchId(null);
+                    startNewLot();
                     handleZipUpload(Array.from(event.target.files ?? []));
                   }}
                   disabled={loadingZip || savingBatch}
@@ -2331,7 +2482,7 @@ const Vies = () => {
                     label="Denominazione"
                     value={sheetData.beneficiario}
                     placeholder="Agenzia delle Entrate – Direzione Provinciale …"
-                    disabled={savingBatch}
+                    disabled={sheetLocked}
                     onChange={updateSheetData("beneficiario")}
                   />
                   <SheetField
@@ -2340,7 +2491,7 @@ const Vies = () => {
                     value={sheetData.codiceFiscaleBeneficiario}
                     placeholder="11 cifre"
                     isTaxCode
-                    disabled={savingBatch}
+                    disabled={sheetLocked}
                     onChange={updateSheetData("codiceFiscaleBeneficiario")}
                   />
                 </div>
@@ -2349,7 +2500,7 @@ const Vies = () => {
                   label="Indirizzo"
                   value={sheetData.indirizzoBeneficiario}
                   placeholder="Via, numero, CAP, città"
-                  disabled={savingBatch}
+                  disabled={sheetLocked}
                   onChange={updateSheetData("indirizzoBeneficiario")}
                 />
               </section>
@@ -2363,7 +2514,7 @@ const Vies = () => {
                       id="vies-visura"
                       type="file"
                       accept=".pdf,application/pdf"
-                      disabled={savingBatch}
+                      disabled={sheetLocked}
                       onChange={(event) => handleVisuraUpload(event.target.files?.[0])}
                     />
                     {visuraData ? (
@@ -2383,11 +2534,8 @@ const Vies = () => {
                         id="vies-visura-amministratore"
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                         value={visuraAdminIndex}
-                        disabled={savingBatch}
-                        onChange={(event) => {
-                          setPersistedBatchId(null);
-                          applyVisuraAdministrator(visuraData, Number(event.target.value));
-                        }}
+                        disabled={sheetLocked}
+                        onChange={(event) => applyVisuraAdministrator(visuraData, Number(event.target.value))}
                       >
                         {visuraData.amministratori.map((admin, index) => (
                           <option key={`${admin.name}-${index}`} value={index}>
@@ -2404,7 +2552,7 @@ const Vies = () => {
                     label="Denominazione società"
                     value={sheetData.rappresentanteFiscale}
                     placeholder="Es. SE&SE AUDITORS & CHARTERED ACCOUNTANT S.P.A."
-                    disabled={savingBatch}
+                    disabled={sheetLocked}
                     onChange={updateSheetData("rappresentanteFiscale")}
                   />
                   <SheetField
@@ -2413,7 +2561,7 @@ const Vies = () => {
                     value={sheetData.codiceFiscaleRappresentante}
                     placeholder="11 cifre"
                     isTaxCode
-                    disabled={savingBatch}
+                    disabled={sheetLocked}
                     onChange={updateSheetData("codiceFiscaleRappresentante")}
                   />
                   <SheetField
@@ -2421,7 +2569,7 @@ const Vies = () => {
                     label="Amministratore (legale rappresentante)"
                     value={sheetData.amministratoreRappresentante}
                     placeholder="Cognome e nome, dalla visura"
-                    disabled={savingBatch}
+                    disabled={sheetLocked}
                     onChange={updateSheetData("amministratoreRappresentante")}
                   />
                   <SheetField
@@ -2430,7 +2578,7 @@ const Vies = () => {
                     value={sheetData.codiceFiscaleAmministratore}
                     placeholder="16 caratteri"
                     isTaxCode
-                    disabled={savingBatch}
+                    disabled={sheetLocked}
                     onChange={updateSheetData("codiceFiscaleAmministratore")}
                   />
                   <SheetField
@@ -2438,7 +2586,7 @@ const Vies = () => {
                     label="Sede della società (indirizzo italiano delle società clienti)"
                     value={sheetData.indirizzoRappresentanteFiscale}
                     placeholder="Via, numero, CAP, città"
-                    disabled={savingBatch}
+                    disabled={sheetLocked}
                     onChange={updateSheetData("indirizzoRappresentanteFiscale")}
                   />
                   <SheetField
@@ -2446,7 +2594,7 @@ const Vies = () => {
                     label="PEC"
                     value={sheetData.pecRappresentante}
                     placeholder="Usata per i clienti senza PEC propria nell'Excel"
-                    disabled={savingBatch}
+                    disabled={sheetLocked}
                     onChange={updateSheetData("pecRappresentante")}
                   />
                 </div>
@@ -2657,22 +2805,50 @@ const Vies = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <Button
-                disabled={!records.length || !documents.length || loadingExcel || loadingZip || savingBatch}
-                className="w-full md:w-auto"
-                onClick={handlePrepareBatch}
-              >
-                {loadingExcel || loadingZip || savingBatch ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <PlayCircle className="mr-2 h-4 w-4" />
-                )}
-                {savingBatch
-                  ? "Creazione pratiche in corso..."
-                  : `Crea ${records.length} pratiche VIES (${readyRowCount} pronte, ${records.length - readyRowCount} bloccate)`}
-              </Button>
+              {persistedBatchId && !savingBatch ? (
+                <div className="flex flex-col gap-3 rounded-lg border border-green-200 bg-green-50 p-4 text-green-950 md:flex-row md:items-center md:justify-between">
+                  <div className="flex gap-2">
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
+                    <div className="text-sm">
+                      <p className="font-semibold">Pratiche create: questo lotto è chiuso.</p>
+                      <p>
+                        {lastCreatedPracticeIds.length} pratiche VIES con ZIP e documento di polizza allegati. Per un nuovo lotto carica un
+                        nuovo Excel e i suoi ZIP: le stesse società non possono essere create due volte.
+                      </p>
+                    </div>
+                  </div>
+                  <Button variant="secondary" onClick={() => navigate("/practices?type=vies")}>
+                    Vai alle pratiche VIES
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Button
+                    disabled={
+                      !records.length || !documents.length || loadingExcel || loadingZip || savingBatch || Boolean(creationBlockedReason)
+                    }
+                    className="w-full md:w-auto"
+                    onClick={handlePrepareBatch}
+                  >
+                    {loadingExcel || loadingZip || savingBatch || duplicateCheck === "checking" ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <PlayCircle className="mr-2 h-4 w-4" />
+                    )}
+                    {savingBatch
+                      ? "Creazione pratiche in corso..."
+                      : `Crea ${records.length} pratiche VIES (${readyRowCount} pronte, ${records.length - readyRowCount} bloccate)`}
+                  </Button>
+                  {creationBlockedReason && (
+                    <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <p>{creationBlockedReason}</p>
+                    </div>
+                  )}
+                </>
+              )}
 
-              {(savingBatch || batchUploadStatus) && (
+              {(savingBatch || (batchUploadStatus && !persistedBatchId)) && (
                 <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
                   <div className="flex items-center justify-between gap-3">
                     <span>{batchUploadStatus ?? "Preparazione batch in corso..."}</span>
@@ -2682,141 +2858,218 @@ const Vies = () => {
                 </div>
               )}
 
-              {persistedBatchId && (
-                <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900">
-                  Lotto salvato con ID <span className="font-mono">{persistedBatchId}</span>: pratiche create e documenti allegati.
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
 
-        {lastCreatedPracticeIds.length > 0 && (
-          <Card className="border-green-200 bg-green-50">
-            <CardContent className="flex flex-col gap-3 pt-6 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="font-semibold text-green-950">Pratiche VIES create: {lastCreatedPracticeIds.length}</p>
-                <p className="text-sm text-green-900">Sono disponibili nella sezione Pratiche con tipo VIES separato da Fidejussioni per il controllo massivo.</p>
-              </div>
-              <Button variant="secondary" onClick={() => navigate("/practices?type=vies")}>
-                Vai alle pratiche VIES
-              </Button>
-            </CardContent>
-          </Card>
-        )}
 
-        {persistedBatchId && batchMonitor && (
+        {persistedBatchId && (
           <Card>
             <CardHeader>
-              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Bot className="h-5 w-5" />
-                    Monitor orchestratore VIES
-                  </CardTitle>
-                  <CardDescription>
-                    Stato operativo del batch, coda job, retry e ultimo ciclo worker rilevato su Supabase.
-                  </CardDescription>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => refreshBatchMonitor()} disabled={monitorLoading}>
-                  {monitorLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                  Aggiorna
-                </Button>
-              </div>
+              <CardTitle className="flex items-center gap-2">
+                <Send className="h-5 w-5" />
+                6. Invio al portale esterno
+              </CardTitle>
+              <CardDescription>
+                Prima dell'invio il controllo finale rilegge dal database ogni pratica creata: dati della società, ZIP allegato,
+                documenti obbligatori, documento di polizza, premio, durata e doppioni. Viene inviata solo la pratica che supera tutte le
+                verifiche; le altre restano bloccate con il motivo. Il controllo viene ripetuto anche un attimo prima di ogni invio.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="grid gap-3 md:grid-cols-4 lg:grid-cols-7">
-                {[
-                  ["Pronti", batchMonitor.ready_jobs],
-                  ["In coda", batchMonitor.queued_jobs],
-                  ["In lavoro", batchMonitor.processing_jobs],
-                  ["Completati", batchMonitor.completed_jobs],
-                  ["Falliti", batchMonitor.failed_jobs],
-                  ["Bloccati", batchMonitor.blocked_jobs],
-                  ["Annullati", batchMonitor.cancelled_jobs],
-                ].map(([label, value]) => (
-                  <div key={String(label)} className="rounded-lg bg-muted/50 p-3">
-                    <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
-                    <p className="mt-1 text-2xl font-bold">{value}</p>
+            <CardContent className="space-y-6">
+              <section className="space-y-3">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Controllo finale</h3>
+                  <Button variant="outline" size="sm" onClick={() => runFinalCheck(persistedBatchId)} disabled={controllerLoading}>
+                    {controllerLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                    Ripeti il controllo
+                  </Button>
+                </div>
+                {!controllerReport ? (
+                  <p className="text-sm text-muted-foreground">{controllerLoading ? "Controllo in corso…" : "Controllo non ancora eseguito."}</p>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap gap-2 text-sm">
+                      <Badge className="bg-emerald-600 hover:bg-emerald-600">{controllerReport.ok} pronte per l'invio</Badge>
+                      {controllerReport.errors > 0 && <Badge variant="destructive">{controllerReport.errors} con errori</Badge>}
+                      {controllerReport.notSendable > 0 && (
+                        <Badge variant="secondary">{controllerReport.notSendable} non inviabili (bloccate, inviate o annullate)</Badge>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        Verificato il {new Date(controllerReport.checkedAt).toLocaleString("it-IT")}
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto rounded-lg border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/50">
+                            <TableHead className="w-12">ZIP</TableHead>
+                            <TableHead className="min-w-48">Contraente</TableHead>
+                            <TableHead className="whitespace-nowrap">Pratica</TableHead>
+                            <TableHead className="text-right">Esito</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {controllerReport.jobs.map((result) => (
+                            <Fragment key={result.jobId}>
+                              <TableRow className={result.errors.length ? "border-b-0" : undefined}>
+                                <TableCell className="font-mono text-base font-semibold">{result.nomeZip || "—"}</TableCell>
+                                <TableCell className="min-w-48 break-words font-medium">{result.contraente || "—"}</TableCell>
+                                <TableCell className="whitespace-nowrap">
+                                  {result.practiceId ? (
+                                    <Button variant="link" className="h-auto p-0 font-mono text-xs" onClick={() => navigate(`/practices/${result.practiceId}`)}>
+                                      {result.practiceNumber}
+                                    </Button>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {result.outcome === "ok" ? (
+                                    <Badge className="bg-emerald-600 hover:bg-emerald-600">Pronta per l'invio</Badge>
+                                  ) : result.outcome === "error" ? (
+                                    <Badge variant="destructive">Errori</Badge>
+                                  ) : (
+                                    <Badge variant="secondary">Non inviabile</Badge>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                              {result.errors.length > 0 && (
+                                <TableRow className="hover:bg-transparent">
+                                  <TableCell colSpan={4} className="pt-0">
+                                    <div className="space-y-1 rounded-md bg-muted/40 p-3 text-sm">
+                                      {result.errors.map((error) => (
+                                        <div key={error} className={result.outcome === "error" ? "flex gap-2 text-destructive" : "flex gap-2 text-muted-foreground"}>
+                                          <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                                          <p className="min-w-0 break-words">{error}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                            </Fragment>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </>
+                )}
+              </section>
+
+              <section className="space-y-3">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Portale di destinazione</h3>
+                {portals === null ? (
+                  <p className="text-sm text-muted-foreground">Lettura dei portali collegati…</p>
+                ) : portals.length === 0 ? (
+                  <div className="flex gap-2 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <p>
+                      Nessun portale esterno è ancora collegato. Le pratiche restano pronte qui nel portale e non vengono inviate a nessuno;
+                      quando un collegamento sarà attivo, comparirà in questo elenco.
+                    </p>
                   </div>
-                ))}
-              </div>
+                ) : (
+                  <div className="flex flex-col gap-3 md:flex-row md:items-end">
+                    <div className="space-y-1.5 md:w-80">
+                      <Label htmlFor="vies-portal">Portale</Label>
+                      <select
+                        id="vies-portal"
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        value={selectedPortalId}
+                        onChange={(event) => setSelectedPortalId(event.target.value)}
+                        disabled={Boolean(controlLoading)}
+                      >
+                        <option value="">Scegli il portale…</option>
+                        {portals.map((portal) => (
+                          <option key={portal.id} value={portal.id}>
+                            {portal.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <Button
+                      onClick={handleSendBatch}
+                      disabled={!selectedPortalId || !controllerReport?.ok || Boolean(controlLoading) || controllerLoading}
+                    >
+                      {controlLoading === "send_batch" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                      Invia {controllerReport?.ok ?? 0} pratiche
+                    </Button>
+                  </div>
+                )}
+              </section>
 
-              <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="font-medium">Stato batch: <span className="font-mono">{batchMonitor.status}</span></p>
-                  <p className="text-sm text-muted-foreground">
-                    {batchMonitor.last_worker_message || "Nessun messaggio worker registrato."}
-                    {batchMonitor.last_worker_run_at ? ` Ultimo ciclo: ${new Date(batchMonitor.last_worker_run_at).toLocaleString("it-IT")}.` : ""}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" onClick={() => handleBatchControl("enqueue_batch")} disabled={!!controlLoading || batchMonitor.status === "cancelled"}>
-                    {controlLoading === "enqueue_batch" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Accoda
-                  </Button>
-                  <Button size="sm" variant="secondary" onClick={() => handleBatchControl("run_worker_once")} disabled={!!controlLoading}>
-                    {controlLoading === "run_worker_once" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Esegui ciclo
-                  </Button>
-                  <Button size="sm" variant="destructive" onClick={() => handleBatchControl("cancel_batch")} disabled={!!controlLoading || terminalJobStatuses.has(batchMonitor.status)}>
-                    {controlLoading === "cancel_batch" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Annulla
-                  </Button>
-                </div>
-              </div>
-
-              {lastWorkerSummary && (
-                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
-                  {lastWorkerSummary.notice ??
-                    `Worker ${lastWorkerSummary.workerId}: claim ${lastWorkerSummary.claimed}, completati ${lastWorkerSummary.completed}, falliti ${lastWorkerSummary.failed}.`}
-                </div>
-              )}
-
-              {jobMonitor.length > 0 && (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Riga</TableHead>
-                        <TableHead>Contraente</TableHead>
-                        <TableHead>Stato</TableHead>
-                        <TableHead>Tentativi</TableHead>
-                        <TableHead>Ultimo errore</TableHead>
-                        <TableHead>Pratica</TableHead>
-                        <TableHead>Azione</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {jobMonitor.map((job) => (
-                        <TableRow key={job.id}>
-                          <TableCell>{job.row_number}</TableCell>
-                          <TableCell className="min-w-48 font-medium">{job.contraente || job.progressivo || "N/D"}</TableCell>
-                          <TableCell><Badge variant={job.status === "failed" || job.status === "blocked" ? "destructive" : "secondary"}>{job.status}</Badge></TableCell>
-                          <TableCell>{job.attempts}/{job.max_attempts}</TableCell>
-                          <TableCell className="max-w-96 truncate text-muted-foreground">{job.last_error || job.error_code || "—"}</TableCell>
-                          <TableCell>
-                            {job.external_reference ? (
-                              <Button size="sm" variant="ghost" onClick={() => navigate(`/practices/${job.external_reference}`)}>
-                                Apri pratica
-                              </Button>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {(job.status === "failed" || job.status === "blocked") && (
-                              <Button size="sm" variant="outline" onClick={() => handleRetryJob(job.id)} disabled={!!controlLoading}>
-                                {controlLoading === `retry-${job.id}` && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Retry
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+              {batchMonitor && (
+                <section className="space-y-3">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Stato dell'invio</h3>
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" size="sm" onClick={() => refreshBatchMonitor()} disabled={monitorLoading}>
+                        {monitorLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                        Aggiorna
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-destructive"
+                        onClick={handleCancelBatch}
+                        disabled={Boolean(controlLoading) || terminalJobStatuses.has(batchMonitor.status)}
+                      >
+                        {controlLoading === "cancel_batch" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Annulla il lotto
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                    {[
+                      ["Da inviare", batchMonitor.ready_jobs + batchMonitor.queued_jobs],
+                      ["In invio", batchMonitor.processing_jobs],
+                      ["Inviate", batchMonitor.completed_jobs],
+                      ["Invio non riuscito", batchMonitor.failed_jobs],
+                      ["Bloccate", batchMonitor.blocked_jobs],
+                      ["Annullate", batchMonitor.cancelled_jobs],
+                    ].map(([label, value]) => (
+                      <div key={String(label)} className="rounded-lg bg-muted/50 p-3">
+                        <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
+                        <p className="mt-1 text-2xl font-bold">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {lastWorkerSummary?.notice && (
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">{lastWorkerSummary.notice}</div>
+                  )}
+                  {jobMonitor.length > 0 && (
+                    <div className="overflow-x-auto rounded-lg border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/50">
+                            <TableHead className="min-w-48">Contraente</TableHead>
+                            <TableHead>Tentativi</TableHead>
+                            <TableHead className="min-w-64">Errore del portale</TableHead>
+                            <TableHead className="text-right">Azione</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {jobMonitor.map((job) => (
+                            <TableRow key={job.id}>
+                              <TableCell className="min-w-48 break-words font-medium">{job.contraente || `Riga ${job.row_number}`}</TableCell>
+                              <TableCell>
+                                {job.attempts}/{job.max_attempts}
+                              </TableCell>
+                              <TableCell className="min-w-64 break-words text-muted-foreground">{job.last_error || job.error_code || "—"}</TableCell>
+                              <TableCell className="text-right">
+                                <Button size="sm" variant="outline" onClick={() => handleRetryJob(job.id)} disabled={Boolean(controlLoading)}>
+                                  {controlLoading === `retry-${job.id}` && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                  Riprova l'invio
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </section>
               )}
             </CardContent>
           </Card>

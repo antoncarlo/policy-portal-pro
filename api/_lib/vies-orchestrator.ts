@@ -1,5 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { ControllerReport } from '../../src/lib/viesController.js';
+import { runBatchController } from './vies-controller-data.js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -139,8 +141,9 @@ export async function processViesQueue(options: {
 
   // The portal runs standalone until an external connection is configured:
   // queued jobs stay ready and are never marked completed by simulation.
-  if (!isExternalPortalConfigured()) {
-    summary.notice = 'Collegamento esterno non attivo: le pratiche restano pronte nel portale, nessun invio eseguito.';
+  const portals = getConfiguredPortals();
+  if (!portals.length) {
+    summary.notice = 'Nessun portale esterno collegato: le pratiche restano pronte nel portale, nessun invio eseguito.';
     return summary;
   }
 
@@ -157,9 +160,48 @@ export async function processViesQueue(options: {
   const claimedJobs = (jobs ?? []) as ViesJob[];
   summary.claimed = claimedJobs.length;
 
+  // Destination chosen for each batch, and the final check, re-run right before
+  // sending: a job is sent only if it passes it on the data saved now.
+  const batchIds = [...new Set(claimedJobs.map((job) => job.batch_id))];
+  const targetByBatch = new Map<string, string | null>();
+  if (batchIds.length) {
+    const { data: batches, error: batchesError } = await supabase.from('vies_batches').select('id, target_portal').in('id', batchIds);
+    if (batchesError) throw new Error(`Lettura portale di destinazione non riuscita: ${batchesError.message}`);
+    for (const batch of batches ?? []) targetByBatch.set(batch.id, batch.target_portal ?? null);
+  }
+  const reportByBatch = new Map<string, ControllerReport>();
+
   for (const job of claimedJobs) {
     try {
-      const result = await executeViesAgent(job);
+      const portal = portals.find((candidate) => candidate.id === targetByBatch.get(job.batch_id));
+      if (!portal) {
+        const { error: portalError } = await supabase.rpc('fail_vies_job', {
+          p_job_id: job.id,
+          p_worker_id: workerId,
+          p_error_message: 'Il portale scelto per questo lotto non è collegato: sceglierne un altro e inviare di nuovo.',
+          p_error_code: 'PORTAL_NOT_AVAILABLE',
+          p_retry_delay_seconds: 3600,
+          p_agent_result: { portal: targetByBatch.get(job.batch_id) ?? null },
+        });
+        if (portalError) throw new Error(`Aggiornamento errore job fallito: ${portalError.message}`);
+        summary.failed += 1;
+        continue;
+      }
+
+      if (!reportByBatch.has(job.batch_id)) reportByBatch.set(job.batch_id, await runBatchController(supabase, job.batch_id));
+      const check = reportByBatch.get(job.batch_id)?.jobs.find((result) => result.jobId === job.id);
+      if (!check || check.outcome !== 'ok') {
+        const { error: blockError } = await supabase.rpc('block_vies_job', {
+          p_job_id: job.id,
+          p_reason: `Controllo finale non superato: ${(check?.errors ?? ['pratica non verificabile']).join('; ')}`,
+          p_error_code: 'BLOCKED_FINAL_CHECK',
+        });
+        if (blockError) throw new Error(`Blocco job non riuscito: ${blockError.message}`);
+        summary.skipped += 1;
+        continue;
+      }
+
+      const result = await executeViesAgent(job, portal);
 
       if (result.success) {
         // external_reference holds the practice id that links the job to its
@@ -168,7 +210,12 @@ export async function processViesQueue(options: {
           p_job_id: job.id,
           p_worker_id: workerId,
           p_external_reference: null,
-          p_agent_result: { ...(result.details ?? {}), portal_reference: result.externalReference ?? null },
+          p_agent_result: {
+            ...(result.details ?? {}),
+            portal_id: portal.id,
+            portal_name: portal.name,
+            portal_reference: result.externalReference ?? null,
+          },
         });
 
         if (completeError) throw new Error(`Completamento job fallito: ${completeError.message}`);
@@ -213,21 +260,54 @@ function computeRetryDelaySeconds(attempts: number): number {
   return baseSeconds * 2 ** cappedAttempt;
 }
 
-export function isExternalPortalConfigured(): boolean {
-  return Boolean(process.env.VIES_PORTAL_API_URL && process.env.VIES_PORTAL_API_KEY);
+export type ViesPortal = { id: string; name: string; url: string; apiKey: string };
+
+/**
+ * External portals the practices can be sent to, configured on the server only:
+ * - VIES_PORTALS: JSON list [{"id":"…","name":"…","url":"https://…","apiKeyEnv":"VIES_PORTAL_…_KEY"}],
+ *   each API key in its own environment variable;
+ * - or a single portal with VIES_PORTAL_API_URL, VIES_PORTAL_API_KEY and VIES_PORTAL_NAME.
+ * A portal without URL or key is not listed. URLs and keys never reach the browser.
+ */
+export function getConfiguredPortals(): ViesPortal[] {
+  const portals: ViesPortal[] = [];
+  try {
+    const configured = JSON.parse(process.env.VIES_PORTALS ?? '[]') as Array<Record<string, unknown>>;
+    for (const entry of Array.isArray(configured) ? configured : []) {
+      const id = typeof entry.id === 'string' ? entry.id.trim() : '';
+      const keyEnv = typeof entry.apiKeyEnv === 'string' ? entry.apiKeyEnv : '';
+      portals.push({
+        id,
+        name: typeof entry.name === 'string' && entry.name.trim() ? entry.name.trim() : id,
+        url: typeof entry.url === 'string' ? entry.url.trim() : '',
+        apiKey: keyEnv ? process.env[keyEnv] ?? '' : '',
+      });
+    }
+  } catch {
+    // An unreadable VIES_PORTALS lists no portal rather than a wrong one.
+  }
+  if (process.env.VIES_PORTAL_API_URL && !portals.some((portal) => portal.id === 'default')) {
+    portals.push({
+      id: 'default',
+      name: process.env.VIES_PORTAL_NAME?.trim() || 'Portale VIES',
+      url: process.env.VIES_PORTAL_API_URL,
+      apiKey: process.env.VIES_PORTAL_API_KEY ?? '',
+    });
+  }
+  return portals.filter((portal) => portal.id && portal.url && portal.apiKey);
 }
 
-// Adapter for the future external connection (VIES_PORTAL_API_URL / _KEY).
-// There is deliberately no simulation mode.
-async function executeViesAgent(job: ViesJob): Promise<ViesAgentResult> {
-  const portalApiUrl = process.env.VIES_PORTAL_API_URL as string;
-  const portalApiKey = process.env.VIES_PORTAL_API_KEY as string;
+export function isExternalPortalConfigured(): boolean {
+  return getConfiguredPortals().length > 0;
+}
 
-  const response = await fetch(portalApiUrl, {
+// Adapter for the external connection. There is deliberately no simulation mode.
+async function executeViesAgent(job: ViesJob, portal: ViesPortal): Promise<ViesAgentResult> {
+  const response = await fetch(portal.url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${portalApiKey}`,
+      Authorization: `Bearer ${portal.apiKey}`,
     },
     body: JSON.stringify({
       job_id: job.id,
@@ -253,7 +333,7 @@ async function executeViesAgent(job: ViesJob): Promise<ViesAgentResult> {
       success: false,
       retryable: response.status >= 500 || response.status === 429,
       errorCode: `PORTAL_HTTP_${response.status}`,
-      errorMessage: typeof payload?.error === 'string' ? payload.error : `Portale VIES ha risposto con HTTP ${response.status}.`,
+      errorMessage: typeof payload?.error === 'string' ? payload.error : `${portal.name} ha risposto con HTTP ${response.status}.`,
       details: { status: response.status, payload: payload ?? null },
     };
   }
