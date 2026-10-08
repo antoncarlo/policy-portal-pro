@@ -1,3 +1,6 @@
+import { getLocale, getMessages, useLocale, useMessages } from "@/i18n";
+import { commonMessages } from "@/i18n/messages/common";
+import { systemMessages } from "@/i18n/messages/system";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -54,12 +57,9 @@ function statusBadge(code: number | null) {
 }
 
 function exportCsv(logs: ApiLog[]) {
-  const headers = [
-    "Data/Ora", "Source", "IP", "Endpoint", "Metodo",
-    "Status", "Pratica ID", "API Key", "Errore", "Body Size (bytes)",
-  ];
+  const headers = getMessages(systemMessages).apiLogs.csvHeaders;
   const rows = logs.map(l => [
-    new Date(l.created_at).toLocaleString("it-IT"),
+    new Date(l.created_at).toLocaleString(getLocale()),
     l.source ?? "",
     l.ip_address ?? "",
     l.endpoint ?? "",
@@ -84,6 +84,9 @@ function exportCsv(logs: ApiLog[]) {
 
 export function ApiLogsSettings() {
   const navigate = useNavigate();
+  const m = useMessages(systemMessages).apiLogs;
+  const common = useMessages(commonMessages);
+  const locale = useLocale();
   const [logs, setLogs] = useState<ApiLog[]>([]);
   const [sources, setSources] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -169,19 +172,19 @@ export function ApiLogsSettings() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
-            <h2 className="text-xl font-semibold">Log API Webhook</h2>
+            <h2 className="text-xl font-semibold">{m.title}</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Tutte le richieste ricevute dall&apos;endpoint <code className="text-xs bg-muted px-1 py-0.5 rounded">/api/webhook-receive-policy</code>
+              {m.subtitle} <code className="text-xs bg-muted px-1 py-0.5 rounded">/api/webhook-receive-policy</code>
             </p>
           </div>
           <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
             <Button variant="outline" size="sm" onClick={() => loadLogs(page)} disabled={loading} className="h-auto min-h-9 w-full whitespace-normal sm:w-auto">
               <RefreshCw className={`mr-2 h-4 w-4 shrink-0 ${loading ? "animate-spin" : ""}`} />
-              <span>Aggiorna</span>
+              <span>{common.refresh}</span>
             </Button>
             <Button variant="outline" size="sm" onClick={handleExport} disabled={loading || total === 0} className="h-auto min-h-9 w-full whitespace-normal sm:w-auto">
               <Download className="mr-2 h-4 w-4 shrink-0" />
-              <span>Esporta CSV</span>
+              <span>{m.exportCsv}</span>
             </Button>
           </div>
         </div>
@@ -190,7 +193,7 @@ export function ApiLogsSettings() {
         <Card className="p-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1">
-              <Label htmlFor="date-from">Dal</Label>
+              <Label htmlFor="date-from">{m.from}</Label>
               <Input
                 id="date-from"
                 type="date"
@@ -199,7 +202,7 @@ export function ApiLogsSettings() {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="date-to">Al</Label>
+              <Label htmlFor="date-to">{m.to}</Label>
               <Input
                 id="date-to"
                 type="date"
@@ -208,13 +211,13 @@ export function ApiLogsSettings() {
               />
             </div>
             <div className="space-y-1">
-              <Label>Source</Label>
+              <Label>{m.source}</Label>
               <Select value={sourceFilter} onValueChange={setSourceFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Tutti" />
+                  <SelectValue placeholder={m.all} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tutti</SelectItem>
+                  <SelectItem value="all">{m.all}</SelectItem>
                   {sources.map(s => (
                     <SelectItem key={s} value={s}>{s}</SelectItem>
                   ))}
@@ -222,15 +225,15 @@ export function ApiLogsSettings() {
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Status</Label>
+              <Label>{m.status}</Label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Tutti" />
+                  <SelectValue placeholder={m.all} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tutti</SelectItem>
-                  <SelectItem value="success">Solo successi (200)</SelectItem>
-                  <SelectItem value="errors">Solo errori (≥400)</SelectItem>
+                  <SelectItem value="all">{m.all}</SelectItem>
+                  <SelectItem value="success">{m.successOnly}</SelectItem>
+                  <SelectItem value="errors">{m.errorsOnly}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -239,7 +242,7 @@ export function ApiLogsSettings() {
 
         {/* Summary */}
         <div className="text-sm text-muted-foreground">
-          {loading ? "Caricamento..." : `${total} richieste trovate`}
+          {loading ? common.loading : m.found(total)}
         </div>
 
         {/* Table */}
@@ -248,14 +251,14 @@ export function ApiLogsSettings() {
             <Table className="min-w-[1040px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="whitespace-nowrap">Data/Ora</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead>IP</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Pratica</TableHead>
-                  <TableHead>API Key</TableHead>
-                  <TableHead>Errore</TableHead>
-                  <TableHead className="text-right">Size</TableHead>
+                  <TableHead className="whitespace-nowrap">{m.dateTime}</TableHead>
+                  <TableHead>{m.source}</TableHead>
+                  <TableHead>{m.ip}</TableHead>
+                  <TableHead>{m.status}</TableHead>
+                  <TableHead>{m.practice}</TableHead>
+                  <TableHead>{m.apiKey}</TableHead>
+                  <TableHead>{m.error}</TableHead>
+                  <TableHead className="text-right">{m.size}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -268,7 +271,7 @@ export function ApiLogsSettings() {
                 ) : logs.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      Nessun log trovato
+                      {m.empty}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -336,7 +339,7 @@ export function ApiLogsSettings() {
           {totalPages > 1 && (
             <div className="flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-muted-foreground">
-                Pagina {page + 1} di {totalPages}
+                {m.page(page + 1, totalPages)}
               </span>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Button
@@ -346,7 +349,7 @@ export function ApiLogsSettings() {
                   disabled={page === 0}
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  Precedente
+                  {m.previous}
                 </Button>
                 <Button
                   variant="outline"
@@ -354,7 +357,7 @@ export function ApiLogsSettings() {
                   onClick={() => handlePageChange(page + 1)}
                   disabled={page >= totalPages - 1}
                 >
-                  Successiva
+                  {m.next}
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>

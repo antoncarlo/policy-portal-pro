@@ -1,3 +1,6 @@
+import { getMessages, useMessages } from "@/i18n";
+import { commonMessages } from "@/i18n/messages/common";
+import { systemMessages } from "@/i18n/messages/system";
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -51,13 +54,15 @@ interface MappingRow {
 }
 
 function profileLabel(p: ProfileRow): string {
-  const name = p.full_name?.trim() || 'Senza nome';
+  const name = p.full_name?.trim() || getMessages(systemMessages).apiMapping.noName;
   return `${name} (${p.email ?? '—'})`;
 }
 
 export function ApiKeyMappingSettings() {
   const { toast } = useToast();
   const [apiKeys, setApiKeys] = useState<ApiKeyRow[]>([]);
+  const m = useMessages(systemMessages).apiMapping;
+  const common = useMessages(commonMessages);
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [mappings, setMappings] = useState<MappingRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,7 +86,7 @@ export function ApiKeyMappingSettings() {
 
     const error = keysRes.error || profilesRes.error || mappingsRes.error;
     if (error) {
-      toast({ variant: 'destructive', title: 'Errore caricamento mappature', description: error.message });
+      toast({ variant: 'destructive', title: getMessages(systemMessages).apiMapping.loadErrorTitle, description: error.message });
     } else {
       setApiKeys(keysRes.data ?? []);
       setProfiles(profilesRes.data ?? []);
@@ -102,7 +107,7 @@ export function ApiKeyMappingSettings() {
   const handleSave = async (apiKeyId: string) => {
     const userId = selected[apiKeyId];
     if (!userId) {
-      toast({ variant: 'destructive', description: 'Seleziona un utente prima di salvare.' });
+      toast({ variant: 'destructive', description: getMessages(systemMessages).apiMapping.selectUserFirst });
       return;
     }
     setSavingId(apiKeyId);
@@ -111,9 +116,9 @@ export function ApiKeyMappingSettings() {
       .from('api_key_user_mapping')
       .upsert({ api_key_id: apiKeyId, user_id: userId }, { onConflict: 'api_key_id' });
     if (error) {
-      toast({ variant: 'destructive', title: 'Errore salvataggio mappatura', description: error.message });
+      toast({ variant: 'destructive', title: getMessages(systemMessages).apiMapping.saveErrorTitle, description: error.message });
     } else {
-      toast({ description: 'Mappatura salvata.' });
+      toast({ description: getMessages(systemMessages).apiMapping.saved });
       await loadAll();
     }
     setSavingId(null);
@@ -129,7 +134,7 @@ export function ApiKeyMappingSettings() {
     if (error) {
       toast({ variant: 'destructive', description: error.message });
     } else {
-      toast({ description: 'Mappatura rimossa.' });
+      toast({ description: getMessages(systemMessages).apiMapping.removed });
       await loadAll();
     }
     setRemoveId(null);
@@ -142,16 +147,15 @@ export function ApiKeyMappingSettings() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
-          <h2 className="text-xl font-semibold">Mappatura API → Utente</h2>
+          <h2 className="text-xl font-semibold">{m.title}</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Assegna a ogni chiave API l'utente del portale che diventerà proprietario delle pratiche
-            ricevute via webhook. Senza mappatura, le pratiche restano assegnate all'utente predefinito.
+            {m.subtitle}
           </p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
           <Button variant="outline" size="sm" onClick={loadAll} disabled={loading} className="h-auto min-h-9 w-full whitespace-normal sm:w-auto">
             <RefreshCw className={`mr-2 h-4 w-4 shrink-0 ${loading ? 'animate-spin' : ''}`} />
-            <span>Aggiorna</span>
+            <span>{common.refresh}</span>
           </Button>
         </div>
       </div>
@@ -161,25 +165,25 @@ export function ApiKeyMappingSettings() {
         <Table className="min-w-[920px]">
           <TableHeader>
             <TableRow>
-              <TableHead>Nome Chiave</TableHead>
-              <TableHead>Email Partner</TableHead>
-              <TableHead>Stato</TableHead>
-              <TableHead>Utente Mappato</TableHead>
-              <TableHead>Assegna Utente</TableHead>
-              <TableHead>Azioni</TableHead>
+              <TableHead>{m.keyName}</TableHead>
+              <TableHead>{m.partnerEmail}</TableHead>
+              <TableHead>{m.status}</TableHead>
+              <TableHead>{m.mappedUser}</TableHead>
+              <TableHead>{m.assignUser}</TableHead>
+              <TableHead>{m.actions}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  Caricamento...
+                  {common.loading}
                 </TableCell>
               </TableRow>
             ) : apiKeys.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  Nessuna chiave API disponibile
+                  {m.empty}
                 </TableCell>
               </TableRow>
             ) : (
@@ -194,24 +198,24 @@ export function ApiKeyMappingSettings() {
                     </TableCell>
                     <TableCell>
                       {key.is_active
-                        ? <Badge className="bg-green-600 text-white">Attiva</Badge>
-                        : <Badge variant="secondary">Disattiva</Badge>
+                        ? <Badge className="bg-green-600 text-white">{getMessages(systemMessages).apiKeys.active}</Badge>
+                        : <Badge variant="secondary">{getMessages(systemMessages).apiKeys.inactive}</Badge>
                       }
                     </TableCell>
                     <TableCell className="text-sm">
                       {mapping ? (
                         mappedProfile ? (
                           <span className="break-words">
-                            {mappedProfile.full_name?.trim() || 'Senza nome'}
+                            {mappedProfile.full_name?.trim() || m.noName}
                             <span className="block text-xs text-muted-foreground break-all">
                               {mappedProfile.email ?? '—'}
                             </span>
                           </span>
                         ) : (
-                          <span className="text-muted-foreground">Utente sconosciuto</span>
+                          <span className="text-muted-foreground">{m.unknownUser}</span>
                         )
                       ) : (
-                        <span className="text-muted-foreground">Nessuna mappatura</span>
+                        <span className="text-muted-foreground">{m.noMapping}</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -220,7 +224,7 @@ export function ApiKeyMappingSettings() {
                         onValueChange={value => setSelected(prev => ({ ...prev, [key.id]: value }))}
                       >
                         <SelectTrigger className="w-[240px]">
-                          <SelectValue placeholder="Seleziona utente" />
+                          <SelectValue placeholder={m.selectUser} />
                         </SelectTrigger>
                         <SelectContent>
                           {profiles.map(p => (
@@ -236,7 +240,7 @@ export function ApiKeyMappingSettings() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          title="Salva mappatura"
+                          title={m.save}
                           onClick={() => handleSave(key.id)}
                           disabled={savingId === key.id || !selected[key.id]}
                         >
@@ -245,7 +249,7 @@ export function ApiKeyMappingSettings() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          title="Rimuovi mappatura"
+                          title={m.remove}
                           onClick={() => setRemoveId(key.id)}
                           disabled={!mapping}
                         >
@@ -266,16 +270,15 @@ export function ApiKeyMappingSettings() {
       <AlertDialog open={!!removeId} onOpenChange={open => { if (!open) setRemoveId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Rimuovere la mappatura?</AlertDialogTitle>
+            <AlertDialogTitle>{m.removeTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              Le pratiche ricevute con questa chiave API torneranno ad essere assegnate all'utente
-              predefinito. Potrai riassegnare un utente in qualsiasi momento.
+              {m.removeText}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogCancel>{common.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleRemove} className="bg-destructive text-destructive-foreground">
-              Rimuovi
+              {m.removeAction}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,3 +1,6 @@
+import { getLanguage, getMessages, useMessages } from "@/i18n";
+import { commonMessages } from "@/i18n/messages/common";
+import { systemMessages } from "@/i18n/messages/system";
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +34,10 @@ interface ActivityLog {
   profiles?: ActivityLogProfile;
 }
 
+type LogTexts = (typeof systemMessages)["it"]["logs"];
+
+const eventLabel = (type: string, text: LogTexts) => text.events[type as keyof LogTexts["events"]] ?? type;
+
 export const ActivityLogs = () => {
   const { toast } = useToast();
   const [logs, setLogs] = useState<ActivityLog[]>([]);
@@ -39,6 +46,7 @@ export const ActivityLogs = () => {
   const [eventTypeFilter, setEventTypeFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const m = useMessages(systemMessages).logs;
 
   const loadLogs = useCallback(async () => {
     setLoading(true);
@@ -97,8 +105,8 @@ export const ActivityLogs = () => {
       console.error("Error loading logs:", error);
       toast({
         variant: "destructive",
-        title: "Errore",
-        description: "Impossibile caricare i log attività",
+        title: getMessages(commonMessages).error,
+        description: getMessages(systemMessages).logs.loadError,
       });
     } finally {
       setLoading(false);
@@ -121,46 +129,50 @@ export const ActivityLogs = () => {
   });
 
   const exportToExcel = () => {
+    const text = getMessages(systemMessages).logs;
     const exportData = filteredLogs.map((log) => ({
-      "Data/Ora": format(new Date(log.created_at), "dd/MM/yyyy HH:mm:ss"),
-      Utente: log.profiles?.full_name || "Sistema",
+      [text.dateTime]: format(new Date(log.created_at), "dd/MM/yyyy HH:mm:ss"),
+      [text.user]: log.profiles?.full_name || text.system,
       Email: log.profiles?.email || "-",
-      "Tipo Evento": log.event_type,
-      Azione: log.action,
-      "Tipo Entità": log.entity_type || "-",
-      "IP Address": log.ip_address || "-",
+      [text.eventType]: eventLabel(log.event_type, text),
+      [text.action]: log.action,
+      [text.entityType]: log.entity_type || "-",
+      [text.ipAddress]: log.ip_address || "-",
     }));
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Log Attività");
+    XLSX.utils.book_append_sheet(wb, ws, text.sheet);
     XLSX.writeFile(wb, `activity_logs_${format(new Date(), "yyyyMMdd")}.xlsx`);
 
     toast({
-      title: "Successo",
-      description: "Log esportati in Excel",
+      title: getMessages(commonMessages).success,
+      description: text.exportedExcel,
     });
   };
 
   const exportToPDF = () => {
+    // jsPDF has no CJK glyphs: the Chinese interface exports the PDF in English.
+    const language = getLanguage();
+    const text = systemMessages[language === "zh" ? "en" : language].logs;
     const doc = new jsPDF();
-    
+
     doc.setFontSize(16);
-    doc.text("Log Attività Portale", 14, 15);
+    doc.text(text.pdfTitle, 14, 15);
     doc.setFontSize(10);
-    doc.text(`Generato il ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 22);
+    doc.text(text.generatedOn(format(new Date(), "dd/MM/yyyy HH:mm")), 14, 22);
 
     const tableData = filteredLogs.map((log) => [
       format(new Date(log.created_at), "dd/MM/yyyy HH:mm"),
-      log.profiles?.full_name || "Sistema",
-      log.event_type,
+      log.profiles?.full_name || text.system,
+      eventLabel(log.event_type, text),
       log.action,
       log.entity_type || "-",
     ]);
 
     autoTable(doc, {
       startY: 28,
-      head: [["Data/Ora", "Utente", "Tipo", "Azione", "Entità"]],
+      head: [[text.dateTime, text.user, text.type, text.action, text.entity]],
       body: tableData,
       styles: { fontSize: 8 },
       headStyles: { fillColor: [66, 139, 202] },
@@ -169,8 +181,8 @@ export const ActivityLogs = () => {
     doc.save(`activity_logs_${format(new Date(), "yyyyMMdd")}.pdf`);
 
     toast({
-      title: "Successo",
-      description: "Log esportati in PDF",
+      title: getMessages(commonMessages).success,
+      description: getMessages(systemMessages).logs.exportedPdf,
     });
   };
 
@@ -186,7 +198,7 @@ export const ActivityLogs = () => {
 
     return (
       <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors[type] || "bg-gray-100 text-gray-800"}`}>
-        {type}
+        {eventLabel(type, m)}
       </span>
     );
   };
@@ -196,7 +208,7 @@ export const ActivityLogs = () => {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-2">
           <Calendar className="h-5 w-5" />
-          <h2 className="min-w-0 break-words text-xl font-semibold">Log Attività</h2>
+          <h2 className="min-w-0 break-words text-xl font-semibold">{m.title}</h2>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           <Button variant="outline" size="sm" onClick={exportToExcel} className="h-auto min-h-9 w-full whitespace-normal sm:w-auto">
@@ -213,12 +225,12 @@ export const ActivityLogs = () => {
       {/* Filters */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="space-y-2">
-          <Label htmlFor="search">Ricerca</Label>
+          <Label htmlFor="search">{m.search}</Label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               id="search"
-              placeholder="Cerca..."
+              placeholder={m.searchPlaceholder}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -227,7 +239,7 @@ export const ActivityLogs = () => {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="event_type">Tipo Evento</Label>
+          <Label htmlFor="event_type">{m.eventType}</Label>
           <select
             id="event_type"
             value={eventTypeFilter}
@@ -236,18 +248,18 @@ export const ActivityLogs = () => {
             }}
             className="w-full px-3 py-2 border rounded-md"
           >
-            <option value="all">Tutti</option>
-            <option value="login">Login</option>
-            <option value="logout">Logout</option>
-            <option value="create">Creazione</option>
-            <option value="update">Modifica</option>
-            <option value="delete">Eliminazione</option>
-            <option value="error">Errore</option>
+            <option value="all">{m.all}</option>
+            <option value="login">{m.events.login}</option>
+            <option value="logout">{m.events.logout}</option>
+            <option value="create">{m.events.create}</option>
+            <option value="update">{m.events.update}</option>
+            <option value="delete">{m.events.delete}</option>
+            <option value="error">{m.events.error}</option>
           </select>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="date_from">Da</Label>
+          <Label htmlFor="date_from">{m.from}</Label>
           <Input
             id="date_from"
             type="date"
@@ -259,7 +271,7 @@ export const ActivityLogs = () => {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="date_to">A</Label>
+          <Label htmlFor="date_to">{m.to}</Label>
           <Input
             id="date_to"
             type="date"
@@ -277,25 +289,25 @@ export const ActivityLogs = () => {
           <table className="w-full min-w-[860px]">
             <thead className="bg-muted">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Data/Ora</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Utente</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Tipo</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Azione</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Entità</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">IP</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold">{m.dateTime}</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold">{m.user}</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold">{m.type}</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold">{m.action}</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold">{m.entity}</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold">{m.ip}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {loading ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                    Caricamento...
+                    {getMessages(commonMessages).loading}
                   </td>
                 </tr>
               ) : filteredLogs.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                    Nessun log trovato
+                    {m.empty}
                   </td>
                 </tr>
               ) : (
@@ -306,7 +318,7 @@ export const ActivityLogs = () => {
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <div className="min-w-0">
-                        <div className="max-w-[220px] break-words font-medium">{log.profiles?.full_name || "Sistema"}</div>
+                        <div className="max-w-[220px] break-words font-medium">{log.profiles?.full_name || m.system}</div>
                         <div className="max-w-[260px] break-all text-xs text-muted-foreground">{log.profiles?.email || "-"}</div>
                       </div>
                     </td>
@@ -323,7 +335,7 @@ export const ActivityLogs = () => {
       </div>
 
       <div className="mt-4 text-sm text-muted-foreground">
-        Mostrati {filteredLogs.length} di {logs.length} log
+        {m.shown(filteredLogs.length, logs.length)}
       </div>
     </Card>
   );

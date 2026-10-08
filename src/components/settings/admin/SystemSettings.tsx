@@ -1,3 +1,6 @@
+import { getMessages, useMessages } from "@/i18n";
+import { commonMessages } from "@/i18n/messages/common";
+import { systemMessages } from "@/i18n/messages/system";
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -14,6 +17,7 @@ export const SystemSettings = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const m = useMessages(systemMessages).system;
   const [settings, setSettings] = useState({
     // Identity
     portal_name: "Tecno Advance MGA",
@@ -78,8 +82,8 @@ export const SystemSettings = () => {
       console.error("Error loading system settings:", error);
       toast({
         variant: "destructive",
-        title: "Errore",
-        description: "Impossibile caricare le impostazioni di sistema",
+        title: getMessages(commonMessages).error,
+        description: getMessages(systemMessages).system.loadError,
       });
     }
   };
@@ -100,13 +104,13 @@ export const SystemSettings = () => {
       if (error) throw error;
 
       toast({
-        title: "Successo",
-        description: "Impostazioni di sistema salvate correttamente",
+        title: getMessages(commonMessages).success,
+        description: getMessages(systemMessages).system.saved,
       });
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     } finally {
@@ -137,13 +141,13 @@ export const SystemSettings = () => {
       setSettings({ ...settings, portal_logo_url: publicUrl });
 
       toast({
-        title: "Successo",
-        description: "Logo caricato correttamente",
+        title: getMessages(commonMessages).success,
+        description: getMessages(systemMessages).system.logoUploaded,
       });
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     } finally {
@@ -155,24 +159,24 @@ export const SystemSettings = () => {
     <Card className="p-6">
       <div className="flex items-center gap-2 mb-6">
         <Settings2 className="h-5 w-5" />
-        <h2 className="text-xl font-semibold">Configurazioni Sistema</h2>
+        <h2 className="text-xl font-semibold">{m.title}</h2>
       </div>
 
       <Tabs defaultValue="identity" className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="identity">Identità</TabsTrigger>
-          <TabsTrigger value="email">Email</TabsTrigger>
+          <TabsTrigger value="identity">{m.tabIdentity}</TabsTrigger>
+          <TabsTrigger value="email">{m.tabEmail}</TabsTrigger>
           <TabsTrigger value="security">
             <Shield className="h-4 w-4 mr-2" />
-            Sicurezza
+            {m.tabSecurity}
           </TabsTrigger>
-          <TabsTrigger value="localization">Localizzazione</TabsTrigger>
+          <TabsTrigger value="localization">{m.tabLocalization}</TabsTrigger>
         </TabsList>
 
         {/* Identity Tab */}
         <TabsContent value="identity" className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="portal_name">Nome Portale</Label>
+            <Label htmlFor="portal_name">{m.portalName}</Label>
             <Input
               id="portal_name"
               value={settings.portal_name}
@@ -182,13 +186,13 @@ export const SystemSettings = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="portal_logo">Logo Portale</Label>
+            <Label htmlFor="portal_logo">{m.portalLogo}</Label>
             <div className="flex gap-2">
               <Input
                 id="portal_logo"
                 value={settings.portal_logo_url}
                 onChange={(e) => setSettings({ ...settings, portal_logo_url: e.target.value })}
-                placeholder="URL logo"
+                placeholder={m.logoUrl}
                 disabled={uploading}
               />
               <Button
@@ -213,7 +217,7 @@ export const SystemSettings = () => {
             {settings.portal_logo_url && (
               <img
                 src={settings.portal_logo_url}
-                alt="Logo portale"
+                alt={m.logoAlt}
                 className="mt-2 max-h-16 border rounded"
               />
             )}
@@ -223,7 +227,7 @@ export const SystemSettings = () => {
         {/* Email Tab */}
         <TabsContent value="email" className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="sender_email">Email Mittente</Label>
+            <Label htmlFor="sender_email">{m.senderEmail}</Label>
             <Input
               id="sender_email"
               type="email"
@@ -234,7 +238,7 @@ export const SystemSettings = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="sender_name">Nome Mittente</Label>
+            <Label htmlFor="sender_name">{m.senderName}</Label>
             <Input
               id="sender_name"
               value={settings.sender_name}
@@ -244,7 +248,7 @@ export const SystemSettings = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="support_email">Email Supporto</Label>
+            <Label htmlFor="support_email">{m.supportEmail}</Label>
             <Input
               id="support_email"
               type="email"
@@ -258,10 +262,10 @@ export const SystemSettings = () => {
         {/* Security Tab */}
         <TabsContent value="security" className="space-y-6">
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold">Politica Password</h3>
+            <h3 className="text-sm font-semibold">{m.passwordPolicy}</h3>
             
             <div className="space-y-2">
-              <Label>Lunghezza Minima: {settings.password_min_length} caratteri</Label>
+              <Label>{m.minLength(settings.password_min_length)}</Label>
               <Slider
                 value={[settings.password_min_length]}
                 onValueChange={([value]) => setSettings({ ...settings, password_min_length: value })}
@@ -273,7 +277,7 @@ export const SystemSettings = () => {
             </div>
 
             <div className="flex items-center justify-between">
-              <Label htmlFor="require_uppercase">Richiedi Maiuscole</Label>
+              <Label htmlFor="require_uppercase">{m.requireUppercase}</Label>
               <Switch
                 id="require_uppercase"
                 checked={settings.password_require_uppercase}
@@ -284,7 +288,7 @@ export const SystemSettings = () => {
             </div>
 
             <div className="flex items-center justify-between">
-              <Label htmlFor="require_numbers">Richiedi Numeri</Label>
+              <Label htmlFor="require_numbers">{m.requireNumbers}</Label>
               <Switch
                 id="require_numbers"
                 checked={settings.password_require_numbers}
@@ -296,10 +300,10 @@ export const SystemSettings = () => {
           </div>
 
           <div className="space-y-4 pt-4 border-t">
-            <h3 className="text-sm font-semibold">Sessioni e Accessi</h3>
+            <h3 className="text-sm font-semibold">{m.sessions}</h3>
             
             <div className="space-y-2">
-              <Label htmlFor="session_timeout">Timeout Sessione (minuti)</Label>
+              <Label htmlFor="session_timeout">{m.sessionTimeout}</Label>
               <Input
                 id="session_timeout"
                 type="number"
@@ -313,7 +317,7 @@ export const SystemSettings = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="max_attempts">Max Tentativi Login</Label>
+              <Label htmlFor="max_attempts">{m.maxAttempts}</Label>
               <Input
                 id="max_attempts"
                 type="number"
@@ -327,7 +331,7 @@ export const SystemSettings = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="lockout_duration">Durata Blocco (minuti)</Label>
+              <Label htmlFor="lockout_duration">{m.lockoutDuration}</Label>
               <Input
                 id="lockout_duration"
                 type="number"
@@ -342,10 +346,10 @@ export const SystemSettings = () => {
           </div>
 
           <div className="space-y-4 pt-4 border-t">
-            <h3 className="text-sm font-semibold">Storage</h3>
+            <h3 className="text-sm font-semibold">{m.storage}</h3>
             
             <div className="space-y-2">
-              <Label htmlFor="storage_limit">Limite Storage per Utente (GB)</Label>
+              <Label htmlFor="storage_limit">{m.storageLimit}</Label>
               <Input
                 id="storage_limit"
                 type="number"
@@ -364,7 +368,7 @@ export const SystemSettings = () => {
         {/* Localization Tab */}
         <TabsContent value="localization" className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="default_language">Lingua Predefinita</Label>
+            <Label htmlFor="default_language">{m.defaultLanguage}</Label>
             <select
               id="default_language"
               value={settings.default_language}
@@ -373,11 +377,12 @@ export const SystemSettings = () => {
             >
               <option value="it">Italiano</option>
               <option value="en">English</option>
+              <option value="zh">中文</option>
             </select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="default_timezone">Fuso Orario Predefinito</Label>
+            <Label htmlFor="default_timezone">{m.defaultTimezone}</Label>
             <select
               id="default_timezone"
               value={settings.default_timezone}
@@ -386,21 +391,22 @@ export const SystemSettings = () => {
             >
               <option value="Europe/Rome">Europe/Rome (GMT+1)</option>
               <option value="Europe/London">Europe/London (GMT+0)</option>
+              <option value="Asia/Shanghai">Asia/Shanghai (GMT+8)</option>
               <option value="America/New_York">America/New York (GMT-5)</option>
             </select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="default_date_format">Formato Data Predefinito</Label>
+            <Label htmlFor="default_date_format">{m.defaultDateFormat}</Label>
             <select
               id="default_date_format"
               value={settings.default_date_format}
               onChange={(e) => setSettings({ ...settings, default_date_format: e.target.value })}
               className="w-full px-3 py-2 border rounded-md"
             >
-              <option value="DD/MM/YYYY">GG/MM/AAAA</option>
-              <option value="MM/DD/YYYY">MM/GG/AAAA</option>
-              <option value="YYYY-MM-DD">AAAA-MM-GG</option>
+              <option value="DD/MM/YYYY">{m.dateFormats.dmy}</option>
+              <option value="MM/DD/YYYY">{m.dateFormats.mdy}</option>
+              <option value="YYYY-MM-DD">{m.dateFormats.ymd}</option>
             </select>
           </div>
         </TabsContent>
@@ -409,7 +415,7 @@ export const SystemSettings = () => {
       <div className="flex justify-end pt-6 border-t mt-6">
         <Button onClick={handleSave} disabled={loading || uploading}>
           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Salva Configurazioni
+          {m.save}
         </Button>
       </div>
     </Card>

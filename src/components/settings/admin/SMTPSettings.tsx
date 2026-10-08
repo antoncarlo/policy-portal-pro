@@ -1,3 +1,6 @@
+import { getMessages, useMessages } from "@/i18n";
+import { commonMessages } from "@/i18n/messages/common";
+import { systemMessages } from "@/i18n/messages/system";
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,6 +23,7 @@ export const SMTPSettings = () => {
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
+  const m = useMessages(systemMessages).smtp;
   const [settings, setSettings] = useState({
     smtp_enabled: false,
     smtp_host: "",
@@ -77,13 +81,13 @@ export const SMTPSettings = () => {
       if (error) throw error;
 
       toast({
-        title: "Successo",
-        description: "Configurazioni SMTP salvate",
+        title: getMessages(commonMessages).success,
+        description: getMessages(systemMessages).smtp.saved,
       });
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     } finally {
@@ -105,22 +109,22 @@ export const SMTPSettings = () => {
       if (success) {
         setTestResult("success");
         toast({
-          title: "Successo",
-          description: "Email di test inviata correttamente",
+          title: getMessages(commonMessages).success,
+          description: getMessages(systemMessages).smtp.testSent,
         });
       } else {
         setTestResult("error");
         toast({
           variant: "destructive",
-          title: "Errore",
-          description: "Impossibile inviare l'email di test. Verifica le configurazioni.",
+          title: getMessages(commonMessages).error,
+          description: getMessages(systemMessages).smtp.testFailed,
         });
       }
     } catch (error) {
       setTestResult("error");
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     } finally {
@@ -133,16 +137,16 @@ export const SMTPSettings = () => {
       <Card className="p-6">
         <div className="flex items-center gap-2 mb-6">
           <Mail className="h-5 w-5" />
-          <h2 className="text-xl font-semibold">Configurazioni SMTP</h2>
+          <h2 className="text-xl font-semibold">{m.title}</h2>
         </div>
 
         <div className="space-y-6">
           {/* Enable SMTP */}
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Abilita Server SMTP Personalizzato</Label>
+              <Label>{m.enable}</Label>
               <p className="text-sm text-muted-foreground">
-                Usa il tuo server SMTP per inviare email
+                {m.enableText}
               </p>
             </div>
             <Switch
@@ -159,7 +163,7 @@ export const SMTPSettings = () => {
               <div className="space-y-4 pl-4 border-l-2 border-muted">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="smtp_host">Host SMTP *</Label>
+                    <Label htmlFor="smtp_host">{m.host}</Label>
                     <Input
                       id="smtp_host"
                       value={settings.smtp_host}
@@ -171,7 +175,7 @@ export const SMTPSettings = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="smtp_port">Porta *</Label>
+                    <Label htmlFor="smtp_port">{m.port}</Label>
                     <Input
                       id="smtp_port"
                       value={settings.smtp_port}
@@ -184,7 +188,7 @@ export const SMTPSettings = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="smtp_encryption">Crittografia</Label>
+                  <Label htmlFor="smtp_encryption">{m.encryption}</Label>
                   <Select
                     value={settings.smtp_encryption}
                     onValueChange={(value) =>
@@ -195,7 +199,7 @@ export const SMTPSettings = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Nessuna</SelectItem>
+                      <SelectItem value="none">{m.none}</SelectItem>
                       <SelectItem value="tls">TLS</SelectItem>
                       <SelectItem value="ssl">SSL</SelectItem>
                     </SelectContent>
@@ -204,7 +208,7 @@ export const SMTPSettings = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="smtp_username">Username *</Label>
+                    <Label htmlFor="smtp_username">{m.username}</Label>
                     <Input
                       id="smtp_username"
                       value={settings.smtp_username}
@@ -216,7 +220,7 @@ export const SMTPSettings = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="smtp_password">Password *</Label>
+                    <Label htmlFor="smtp_password">{m.password}</Label>
                     <Input
                       id="smtp_password"
                       type="password"
@@ -234,10 +238,10 @@ export const SMTPSettings = () => {
 
           {/* From Settings */}
           <div className="space-y-4">
-            <h3 className="font-semibold">Mittente Email</h3>
+            <h3 className="font-semibold">{m.sender}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="smtp_from_email">Email Mittente *</Label>
+                <Label htmlFor="smtp_from_email">{m.senderEmail}</Label>
                 <Input
                   id="smtp_from_email"
                   type="email"
@@ -250,7 +254,7 @@ export const SMTPSettings = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="smtp_from_name">Nome Mittente *</Label>
+                <Label htmlFor="smtp_from_name">{m.senderName}</Label>
                 <Input
                   id="smtp_from_name"
                   value={settings.smtp_from_name}
@@ -267,7 +271,7 @@ export const SMTPSettings = () => {
           <div className="flex items-center gap-3 pt-4">
             <Button onClick={handleSave} disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Salva Configurazioni
+              {m.save}
             </Button>
 
             {settings.smtp_enabled && (
@@ -279,12 +283,12 @@ export const SMTPSettings = () => {
                 {testing ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Invio in corso...
+                    {m.sending}
                   </>
                 ) : (
                   <>
                     <Send className="mr-2 h-4 w-4" />
-                    Invia Email di Test
+                    {m.sendTest}
                   </>
                 )}
               </Button>
@@ -295,12 +299,12 @@ export const SMTPSettings = () => {
                 {testResult === "success" ? (
                   <>
                     <CheckCircle2 className="h-5 w-5 text-green-600" />
-                    <span className="text-sm text-green-600">Test riuscito</span>
+                    <span className="text-sm text-green-600">{m.testOk}</span>
                   </>
                 ) : (
                   <>
                     <XCircle className="h-5 w-5 text-destructive" />
-                    <span className="text-sm text-destructive">Test fallito</span>
+                    <span className="text-sm text-destructive">{m.testKo}</span>
                   </>
                 )}
               </div>
@@ -311,34 +315,32 @@ export const SMTPSettings = () => {
 
       {/* Email Templates Info */}
       <Card className="p-6 bg-muted">
-        <h3 className="font-semibold mb-2">Template Email Disponibili</h3>
+        <h3 className="font-semibold mb-2">{m.templates}</h3>
         <ul className="text-sm text-muted-foreground space-y-1">
-          <li>• Benvenuto nuovo utente</li>
-          <li>• Notifica nuova pratica</li>
-          <li>• Cambio stato pratica</li>
-          <li>• Nuovo documento caricato</li>
-          <li>• Reset password</li>
+          {m.templateList.map((template) => (
+            <li key={template}>• {template}</li>
+          ))}
         </ul>
         <p className="text-xs text-muted-foreground mt-3">
-          I template possono essere personalizzati nella sezione "Pratiche" delle impostazioni agente.
+          {m.templatesHint}
         </p>
       </Card>
 
       {/* SMTP Providers Info */}
       <Card className="p-6 bg-muted">
-        <h3 className="font-semibold mb-2">Provider SMTP Consigliati</h3>
+        <h3 className="font-semibold mb-2">{m.providers}</h3>
         <div className="space-y-2 text-sm text-muted-foreground">
           <div>
             <p className="font-medium text-foreground">Gmail</p>
-            <p>Host: smtp.gmail.com | Porta: 587 | TLS</p>
+            <p>{m.providerLine("smtp.gmail.com")}</p>
           </div>
           <div>
             <p className="font-medium text-foreground">Outlook/Office 365</p>
-            <p>Host: smtp.office365.com | Porta: 587 | TLS</p>
+            <p>{m.providerLine("smtp.office365.com")}</p>
           </div>
           <div>
             <p className="font-medium text-foreground">SendGrid</p>
-            <p>Host: smtp.sendgrid.net | Porta: 587 | TLS</p>
+            <p>{m.providerLine("smtp.sendgrid.net")}</p>
           </div>
         </div>
       </Card>

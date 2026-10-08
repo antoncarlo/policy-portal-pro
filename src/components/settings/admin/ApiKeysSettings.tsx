@@ -1,3 +1,6 @@
+import { getMessages, useLocale, useMessages } from "@/i18n";
+import { commonMessages } from "@/i18n/messages/common";
+import { systemMessages } from "@/i18n/messages/system";
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -61,6 +64,9 @@ export function ApiKeysSettings() {
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const m = useMessages(systemMessages).apiKeys;
+  const common = useMessages(commonMessages);
+  const locale = useLocale();
 
   // Create dialog state
   const [createOpen, setCreateOpen] = useState(false);
@@ -85,7 +91,7 @@ export function ApiKeysSettings() {
       .select('id, name, key_prefix, partner_email, is_active, expires_at, created_at, last_used_at')
       .order('created_at', { ascending: false });
     if (error) {
-      toast({ variant: 'destructive', title: 'Errore caricamento chiavi', description: error.message });
+      toast({ variant: 'destructive', title: getMessages(systemMessages).apiKeys.loadErrorTitle, description: error.message });
     } else {
       setKeys(data ?? []);
     }
@@ -99,7 +105,7 @@ export function ApiKeysSettings() {
 
   const handleCreate = async () => {
     if (!newName.trim()) {
-      toast({ variant: 'destructive', description: 'Il nome è obbligatorio.' });
+      toast({ variant: 'destructive', description: getMessages(systemMessages).apiKeys.nameRequired });
       return;
     }
     setCreating(true);
@@ -130,8 +136,8 @@ export function ApiKeysSettings() {
       setShowKeyOpen(true);
       await loadKeys();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Errore sconosciuto';
-      toast({ variant: 'destructive', title: 'Errore creazione chiave', description: msg });
+      const msg = err instanceof Error ? err.message : getMessages(systemMessages).apiKeys.unknownError;
+      toast({ variant: 'destructive', title: getMessages(systemMessages).apiKeys.createErrorTitle, description: msg });
     } finally {
       setCreating(false);
     }
@@ -146,7 +152,7 @@ export function ApiKeysSettings() {
     if (error) {
       toast({ variant: 'destructive', description: error.message });
     } else {
-      toast({ description: key.is_active ? 'Chiave disattivata.' : 'Chiave attivata.' });
+      toast({ description: key.is_active ? getMessages(systemMessages).apiKeys.deactivated : getMessages(systemMessages).apiKeys.activated });
       await loadKeys();
     }
   };
@@ -158,14 +164,14 @@ export function ApiKeysSettings() {
     if (error) {
       toast({ variant: 'destructive', description: error.message });
     } else {
-      toast({ description: 'Chiave eliminata.' });
+      toast({ description: getMessages(systemMessages).apiKeys.deleted });
       await loadKeys();
     }
     setDeleteId(null);
   };
 
   const handleRotate = async (key: ApiKey) => {
-    if (!confirm(`Ruotare la chiave "${key.name}"? La chiave attuale verrà invalidata immediatamente.`)) return;
+    if (!confirm(getMessages(systemMessages).apiKeys.confirmRotate(key.name))) return;
     try {
       const rawKey = generateRawKey();
       const hash = await hashKey(rawKey);
@@ -184,34 +190,34 @@ export function ApiKeysSettings() {
       setShowKeyOpen(true);
       await loadKeys();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Errore sconosciuto';
-      toast({ variant: 'destructive', title: 'Errore rotazione', description: msg });
+      const msg = err instanceof Error ? err.message : getMessages(systemMessages).apiKeys.unknownError;
+      toast({ variant: 'destructive', title: getMessages(systemMessages).apiKeys.rotateErrorTitle, description: msg });
     }
   };
 
   const copyKey = () => {
     navigator.clipboard.writeText(generatedKey);
     setKeyCopied(true);
-    toast({ description: 'Chiave copiata negli appunti.' });
+    toast({ description: getMessages(systemMessages).apiKeys.copied });
   };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
-          <h2 className="text-xl font-semibold">Chiavi API Partner</h2>
+          <h2 className="text-xl font-semibold">{m.title}</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Ogni partner esterno deve avere la propria chiave. Non è possibile recuperare una chiave dopo la creazione.
+            {m.subtitle}
           </p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
           <Button variant="outline" size="sm" onClick={loadKeys} disabled={loading} className="h-auto min-h-9 w-full whitespace-normal sm:w-auto">
             <RefreshCw className={`mr-2 h-4 w-4 shrink-0 ${loading ? 'animate-spin' : ''}`} />
-            <span>Aggiorna</span>
+            <span>{common.refresh}</span>
           </Button>
           <Button size="sm" onClick={() => setCreateOpen(true)} className="h-auto min-h-9 w-full whitespace-normal sm:w-auto">
             <Plus className="mr-2 h-4 w-4 shrink-0" />
-            <span>Nuova Chiave</span>
+            <span>{m.newKey}</span>
           </Button>
         </div>
       </div>
@@ -221,26 +227,26 @@ export function ApiKeysSettings() {
         <Table className="min-w-[980px]">
           <TableHeader>
             <TableRow>
-              <TableHead>Nome Partner</TableHead>
-              <TableHead>Prefisso Chiave</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Stato</TableHead>
-              <TableHead>Scadenza</TableHead>
-              <TableHead>Ultimo Utilizzo</TableHead>
-              <TableHead>Azioni</TableHead>
+              <TableHead>{m.partnerName}</TableHead>
+              <TableHead>{m.keyPrefix}</TableHead>
+              <TableHead>{m.email}</TableHead>
+              <TableHead>{m.status}</TableHead>
+              <TableHead>{m.expiry}</TableHead>
+              <TableHead>{m.lastUsed}</TableHead>
+              <TableHead>{m.actions}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  Caricamento...
+                  {common.loading}
                 </TableCell>
               </TableRow>
             ) : keys.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  Nessuna chiave API creata
+                  {m.empty}
                 </TableCell>
               </TableRow>
             ) : (
@@ -255,19 +261,19 @@ export function ApiKeysSettings() {
                   </TableCell>
                   <TableCell>
                     {key.is_active
-                      ? <Badge className="bg-green-600 text-white">Attiva</Badge>
-                      : <Badge variant="secondary">Disattiva</Badge>
+                      ? <Badge className="bg-green-600 text-white">{m.active}</Badge>
+                      : <Badge variant="secondary">{m.inactive}</Badge>
                     }
                   </TableCell>
                   <TableCell className="text-sm">
                     {key.expires_at
-                      ? new Date(key.expires_at).toLocaleDateString('it-IT')
-                      : <span className="text-muted-foreground">Mai</span>
+                      ? new Date(key.expires_at).toLocaleDateString(locale)
+                      : <span className="text-muted-foreground">{m.never}</span>
                     }
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {key.last_used_at
-                      ? new Date(key.last_used_at).toLocaleString('it-IT')
+                      ? new Date(key.last_used_at).toLocaleString(locale)
                       : '—'
                     }
                   </TableCell>
@@ -276,7 +282,7 @@ export function ApiKeysSettings() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        title={key.is_active ? 'Disattiva' : 'Attiva'}
+                        title={key.is_active ? m.deactivate : m.activate}
                         onClick={() => handleToggleActive(key)}
                       >
                         {key.is_active
@@ -287,7 +293,7 @@ export function ApiKeysSettings() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        title="Ruota chiave"
+                        title={m.rotate}
                         onClick={() => handleRotate(key)}
                       >
                         <RefreshCw className="h-4 w-4" />
@@ -295,7 +301,7 @@ export function ApiKeysSettings() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        title="Elimina"
+                        title={m.delete}
                         onClick={() => setDeleteId(key.id)}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -314,19 +320,19 @@ export function ApiKeysSettings() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
-            <DialogTitle>Crea Nuova Chiave API</DialogTitle>
+            <DialogTitle>{m.createTitle}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1">
-              <Label>Nome Partner *</Label>
+              <Label>{m.partnerNameRequired}</Label>
               <Input
-                placeholder="es. Portale Agente XYZ"
+                placeholder={m.partnerNamePlaceholder}
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
               />
             </div>
             <div className="space-y-1">
-              <Label>Email Partner</Label>
+              <Label>{m.partnerEmail}</Label>
               <Input
                 type="email"
                 placeholder="partner@example.com"
@@ -335,7 +341,7 @@ export function ApiKeysSettings() {
               />
             </div>
             <div className="space-y-1">
-              <Label>Scadenza (opzionale)</Label>
+              <Label>{m.expiryOptional}</Label>
               <Input
                 type="date"
                 value={newExpiresAt}
@@ -344,9 +350,9 @@ export function ApiKeysSettings() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>Annulla</Button>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>{common.cancel}</Button>
             <Button onClick={handleCreate} disabled={creating}>
-              {creating ? 'Creazione...' : 'Crea Chiave'}
+              {creating ? m.creating : m.create}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -356,11 +362,11 @@ export function ApiKeysSettings() {
       <Dialog open={showKeyOpen} onOpenChange={(open) => { if (!open) setShowKeyOpen(false); }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
-            <DialogTitle>Chiave API Generata</DialogTitle>
+            <DialogTitle>{m.generatedTitle}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
-              <strong>Copia questa chiave ora.</strong> Non sarà più possibile visualizzarla.
+              <strong>{m.copyNow}</strong> {m.copyNowText}
             </div>
             <div className="flex gap-2">
               <Input
@@ -373,11 +379,11 @@ export function ApiKeysSettings() {
               </Button>
             </div>
             {keyCopied && (
-              <p className="text-sm text-green-600">Copiata negli appunti</p>
+              <p className="text-sm text-green-600">{m.copiedShort}</p>
             )}
           </div>
           <DialogFooter>
-            <Button onClick={() => setShowKeyOpen(false)}>Ho salvato la chiave</Button>
+            <Button onClick={() => setShowKeyOpen(false)}>{m.saved}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -386,15 +392,15 @@ export function ApiKeysSettings() {
       <AlertDialog open={!!deleteId} onOpenChange={open => { if (!open) setDeleteId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Eliminare la chiave?</AlertDialogTitle>
+            <AlertDialogTitle>{m.deleteTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              Questa operazione è irreversibile. I partner che usano questa chiave non potranno più accedere.
+              {m.deleteText}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogCancel>{common.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
-              Elimina
+              {m.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

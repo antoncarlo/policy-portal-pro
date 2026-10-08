@@ -1,3 +1,6 @@
+import { getLocale, useLanguage, useMessages } from "@/i18n";
+import { practiceStatusLabel, practiceTypeLabel, roleLabel } from "@/i18n/messages/domain";
+import { systemMessages } from "@/i18n/messages/system";
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,10 +33,12 @@ export const PortalStatistics = () => {
     practicesTrend: [],
   });
   const [loading, setLoading] = useState(true);
+  const m = useMessages(systemMessages).statistics;
+  const language = useLanguage();
 
   useEffect(() => {
     loadStatistics();
-  }, []);
+  }, [language]);
 
   const loadStatistics = async () => {
     setLoading(true);
@@ -59,7 +64,7 @@ export const PortalStatistics = () => {
         .select("role");
 
       const rolesCounts = rolesData?.reduce((acc: Record<string, number>, curr) => {
-        const roleName = curr.role === "admin" ? "Admin" : curr.role === "agente" ? "Agenti" : "Collaboratori";
+        const roleName = roleLabel(curr.role);
         acc[roleName] = (acc[roleName] || 0) + 1;
         return acc;
       }, {});
@@ -72,19 +77,10 @@ export const PortalStatistics = () => {
       // Practices by status
       const { data: practicesData } = await supabase
         .from("practices")
-        .select("status");
+        .select("status, practice_type");
 
       const statusCounts = practicesData?.reduce((acc: Record<string, number>, curr) => {
-        const statusName =
-          curr.status === "in_lavorazione"
-            ? "In Lavorazione"
-            : curr.status === "in_attesa"
-            ? "In Attesa"
-            : curr.status === "approvata"
-            ? "Approvate"
-            : curr.status === "respinta"
-            ? "Respinte"
-            : "Completate";
+        const statusName = practiceStatusLabel(curr.status);
         acc[statusName] = (acc[statusName] || 0) + 1;
         return acc;
       }, {});
@@ -96,14 +92,7 @@ export const PortalStatistics = () => {
 
       // Practices by type
       const typeCounts = practicesData?.reduce((acc: Record<string, number>, curr) => {
-        const typeName =
-          curr.practice_type === "auto"
-            ? "Auto"
-            : curr.practice_type === "casa"
-            ? "Casa"
-            : curr.practice_type === "vita"
-            ? "Vita"
-            : "Salute";
+        const typeName = practiceTypeLabel(curr.practice_type);
         acc[typeName] = (acc[typeName] || 0) + 1;
         return acc;
       }, {});
@@ -120,7 +109,7 @@ export const PortalStatistics = () => {
         .gte("created_at", new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString());
 
       const monthCounts = trendData?.reduce((acc: Record<string, number>, curr) => {
-        const month = new Date(curr.created_at).toLocaleDateString("it-IT", {
+        const month = new Date(curr.created_at).toLocaleDateString(getLocale(), {
           month: "short",
           year: "2-digit",
         });
@@ -157,7 +146,7 @@ export const PortalStatistics = () => {
     return (
       <Card className="p-6">
         <div className="flex items-center justify-center h-64">
-          <div className="text-muted-foreground">Caricamento statistiche...</div>
+          <div className="text-muted-foreground">{m.loading}</div>
         </div>
       </Card>
     );
@@ -167,13 +156,13 @@ export const PortalStatistics = () => {
     <Card className="p-6">
       <div className="flex items-center gap-2 mb-6">
         <Activity className="h-5 w-5" />
-        <h2 className="text-xl font-semibold">Statistiche Portale</h2>
+        <h2 className="text-xl font-semibold">{m.title}</h2>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="overview">Panoramica</TabsTrigger>
-          <TabsTrigger value="charts">Grafici</TabsTrigger>
+          <TabsTrigger value="overview">{m.tabOverview}</TabsTrigger>
+          <TabsTrigger value="charts">{m.tabCharts}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -185,7 +174,7 @@ export const PortalStatistics = () => {
                   <Users className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Utenti Totali</p>
+                  <p className="text-sm text-muted-foreground">{m.totalUsers}</p>
                   <p className="text-2xl font-bold">{stats.totalUsers}</p>
                 </div>
               </div>
@@ -197,7 +186,7 @@ export const PortalStatistics = () => {
                   <FileText className="h-5 w-5 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Pratiche Totali</p>
+                  <p className="text-sm text-muted-foreground">{m.totalPractices}</p>
                   <p className="text-2xl font-bold">{stats.totalPractices}</p>
                 </div>
               </div>
@@ -209,7 +198,7 @@ export const PortalStatistics = () => {
                   <FileText className="h-5 w-5 text-yellow-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Documenti</p>
+                  <p className="text-sm text-muted-foreground">{m.documents}</p>
                   <p className="text-2xl font-bold">{stats.totalDocuments}</p>
                 </div>
               </div>
@@ -221,7 +210,7 @@ export const PortalStatistics = () => {
                   <HardDrive className="h-5 w-5 text-purple-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Storage</p>
+                  <p className="text-sm text-muted-foreground">{m.storage}</p>
                   <p className="text-2xl font-bold">{stats.storageUsed.toFixed(1)} MB</p>
                 </div>
               </div>
@@ -231,7 +220,7 @@ export const PortalStatistics = () => {
           {/* Quick Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="p-4">
-              <h3 className="text-sm font-semibold mb-4">Utenti per Ruolo</h3>
+              <h3 className="text-sm font-semibold mb-4">{m.usersByRole}</h3>
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie
@@ -254,7 +243,7 @@ export const PortalStatistics = () => {
             </Card>
 
             <Card className="p-4">
-              <h3 className="text-sm font-semibold mb-4">Pratiche per Stato</h3>
+              <h3 className="text-sm font-semibold mb-4">{m.practicesByStatus}</h3>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={stats.practicesByStatus}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -273,7 +262,7 @@ export const PortalStatistics = () => {
           <Card className="p-4">
             <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              Andamento Pratiche (Ultimi 6 Mesi)
+              {m.trend}
             </h3>
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={stats.practicesTrend}>
@@ -282,14 +271,14 @@ export const PortalStatistics = () => {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="count" stroke="#8884d8" name="Pratiche" />
+                <Line type="monotone" dataKey="count" stroke="#8884d8" name={m.practices} />
               </LineChart>
             </ResponsiveContainer>
           </Card>
 
           {/* Practices by Type */}
           <Card className="p-4">
-            <h3 className="text-sm font-semibold mb-4">Pratiche per Tipo</h3>
+            <h3 className="text-sm font-semibold mb-4">{m.practicesByType}</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={stats.practicesByType} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" />

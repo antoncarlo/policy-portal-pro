@@ -1,3 +1,6 @@
+import { formatDateTime, getMessages, useMessages } from "@/i18n";
+import { commonMessages } from "@/i18n/messages/common";
+import { systemMessages } from "@/i18n/messages/system";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +35,8 @@ export const BackupSettings = () => {
   const [autoBackup, setAutoBackup] = useState(true);
   const [backupFrequency, setBackupFrequency] = useState("daily");
   const [showRestoreDialog, setShowRestoreDialog] = useState(false);
+  const m = useMessages(systemMessages).backup;
+  const common = useMessages(commonMessages);
 
   const handleExportData = async () => {
     setLoading(true);
@@ -69,15 +74,15 @@ export const BackupSettings = () => {
       URL.revokeObjectURL(url);
 
       toast({
-        title: "Successo",
-        description: "Backup completato e scaricato",
+        title: getMessages(commonMessages).success,
+        description: getMessages(systemMessages).backup.done,
       });
     } catch (error) {
       console.error("Error exporting data:", error);
       toast({
         variant: "destructive",
-        title: "Errore",
-        description: "Impossibile creare il backup",
+        title: getMessages(commonMessages).error,
+        description: getMessages(systemMessages).backup.failed,
       });
     } finally {
       setLoading(false);
@@ -94,12 +99,12 @@ export const BackupSettings = () => {
       const importData = JSON.parse(text) as { tables?: Record<string, Json[]> };
 
       if (!importData.tables) {
-        throw new Error("Formato backup non valido");
+        throw new Error(getMessages(systemMessages).backup.invalidFormat);
       }
 
       toast({
-        title: "Attenzione",
-        description: "Il restore dei dati è una funzionalità avanzata. Contatta il supporto per assistenza.",
+        title: getMessages(systemMessages).backup.warningTitle,
+        description: getMessages(systemMessages).backup.restoreAdvanced,
       });
 
       setShowRestoreDialog(false);
@@ -107,8 +112,8 @@ export const BackupSettings = () => {
       console.error("Error importing data:", error);
       toast({
         variant: "destructive",
-        title: "Errore",
-        description: error.message || "Impossibile importare il backup",
+        title: getMessages(commonMessages).error,
+        description: error.message || getMessages(systemMessages).backup.importFailed,
       });
     } finally {
       setLoading(false);
@@ -131,13 +136,13 @@ export const BackupSettings = () => {
       if (error) throw error;
 
       toast({
-        title: "Successo",
-        description: "Impostazioni backup salvate",
+        title: getMessages(commonMessages).success,
+        description: getMessages(systemMessages).backup.saved,
       });
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     } finally {
@@ -151,7 +156,7 @@ export const BackupSettings = () => {
         <Card className="p-6">
           <div className="flex items-center gap-2 mb-6">
             <Database className="h-5 w-5" />
-            <h2 className="text-xl font-semibold">Backup e Ripristino</h2>
+            <h2 className="text-xl font-semibold">{m.title}</h2>
           </div>
 
           <div className="space-y-6">
@@ -159,9 +164,9 @@ export const BackupSettings = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Backup Automatico</Label>
+                  <Label>{m.auto}</Label>
                   <p className="text-sm text-muted-foreground">
-                    Crea automaticamente backup del database
+                    {m.autoText}
                   </p>
                 </div>
                 <Switch
@@ -172,20 +177,20 @@ export const BackupSettings = () => {
 
               {autoBackup && (
                 <div className="space-y-2 pl-4 border-l-2 border-muted">
-                  <Label>Frequenza Backup</Label>
+                  <Label>{m.frequency}</Label>
                   <Select value={backupFrequency} onValueChange={setBackupFrequency}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="hourly">Ogni Ora</SelectItem>
-                      <SelectItem value="daily">Giornaliero</SelectItem>
-                      <SelectItem value="weekly">Settimanale</SelectItem>
-                      <SelectItem value="monthly">Mensile</SelectItem>
+                      <SelectItem value="hourly">{m.hourly}</SelectItem>
+                      <SelectItem value="daily">{m.daily}</SelectItem>
+                      <SelectItem value="weekly">{m.weekly}</SelectItem>
+                      <SelectItem value="monthly">{m.monthly}</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    I backup vengono conservati per 30 giorni
+                    {m.retention}
                   </p>
                 </div>
               )}
@@ -194,7 +199,7 @@ export const BackupSettings = () => {
             <div className="flex justify-end">
               <Button onClick={handleSaveSettings} disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Salva Impostazioni
+                {m.save}
               </Button>
             </div>
           </div>
@@ -204,21 +209,21 @@ export const BackupSettings = () => {
         <Card className="p-6">
           <div className="flex items-center gap-2 mb-4">
             <Download className="h-5 w-5" />
-            <h3 className="text-lg font-semibold">Backup Manuale</h3>
+            <h3 className="text-lg font-semibold">{m.manual}</h3>
           </div>
           <p className="text-sm text-muted-foreground mb-4">
-            Scarica un backup completo di tutti i dati del portale in formato JSON.
+            {m.manualText}
           </p>
           <Button onClick={handleExportData} disabled={loading}>
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creazione backup...
+                {m.creating}
               </>
             ) : (
               <>
                 <Download className="mr-2 h-4 w-4" />
-                Scarica Backup
+                {m.download}
               </>
             )}
           </Button>
@@ -228,16 +233,15 @@ export const BackupSettings = () => {
         <Card className="p-6 border-destructive/50">
           <div className="flex items-center gap-2 mb-4">
             <Upload className="h-5 w-5 text-destructive" />
-            <h3 className="text-lg font-semibold text-destructive">Ripristino Database</h3>
+            <h3 className="text-lg font-semibold text-destructive">{m.restore}</h3>
           </div>
           <div className="space-y-4">
             <div className="flex items-start gap-2 p-3 bg-destructive/10 rounded-lg">
               <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
               <div className="text-sm">
-                <p className="font-semibold text-destructive">Attenzione!</p>
+                <p className="font-semibold text-destructive">{m.restoreWarningTitle}</p>
                 <p className="text-muted-foreground mt-1">
-                  Il ripristino di un backup sovrascriverà tutti i dati attuali. Questa operazione non può essere annullata.
-                  Si consiglia di creare un backup prima di procedere.
+                  {m.restoreWarning}
                 </p>
               </div>
             </div>
@@ -247,7 +251,7 @@ export const BackupSettings = () => {
               disabled={loading}
             >
               <Upload className="mr-2 h-4 w-4" />
-              Ripristina da Backup
+              {m.restoreButton}
             </Button>
           </div>
         </Card>
@@ -256,16 +260,16 @@ export const BackupSettings = () => {
         <Card className="p-6 bg-muted">
           <div className="flex items-center gap-2 mb-2">
             <Clock className="h-5 w-5" />
-            <h3 className="font-semibold">Ultimo Backup</h3>
+            <h3 className="font-semibold">{m.last}</h3>
           </div>
           <p className="text-sm text-muted-foreground">
-            Automatico: {format(new Date(), "dd/MM/yyyy HH:mm")}
+            {m.lastAuto(formatDateTime(new Date()))}
           </p>
           <p className="text-sm text-muted-foreground">
-            Dimensione: 2.4 MB
+            {m.size("2.4 MB")}
           </p>
           <p className="text-sm text-muted-foreground">
-            Prossimo backup: {format(new Date(Date.now() + 24 * 60 * 60 * 1000), "dd/MM/yyyy HH:mm")}
+            {m.next(formatDateTime(new Date(Date.now() + 24 * 60 * 60 * 1000)))}
           </p>
         </Card>
       </div>
@@ -273,19 +277,18 @@ export const BackupSettings = () => {
       <AlertDialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Ripristinare il database?</AlertDialogTitle>
+            <AlertDialogTitle>{m.confirmTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              Questa operazione sovrascriverà tutti i dati attuali con quelli del backup selezionato.
-              Assicurati di aver creato un backup recente prima di procedere.
+              {m.confirmText}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogCancel>{common.cancel}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => document.getElementById("backup-upload")?.click()}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Continua
+              {m.continue}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
