@@ -1,19 +1,17 @@
 /**
  * Vercel Serverless Function - Cron Job Email Sender
- * 
- * Questo endpoint viene chiamato automaticamente ogni ora da Vercel Cron
- * per inviare le email di notifica scadenze in attesa.
- * 
- * Configurazione Vercel Cron in vercel.json:
- * {
- *   "crons": [{
- *     "path": "/api/cron-send-emails",
- *     "schedule": "0 * * * *"
- *   }]
- * }
+ *
+ * Vercel Cron lo chiama ogni giorno alle 09:00 UTC (vercel.json) per inviare ai
+ * clienti i promemoria di scadenza polizza (90, 60, 30 e 7 giorni).
+ *
+ * Quali promemoria partono lo decide il database (get_pending_email_notifications,
+ * migrazione 20261009_expiry_email_functions.sql): solo quelli scaduti da non piu'
+ * di 7 giorni, su pratiche attive non VIES, un'email per pratica al giorno.
+ * Ogni invio viene registrato in email_logs.
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { PRACTICE_TYPE_LABELS } from '../src/lib/practiceSummary.js';
 
 // Configurazione
 const RESEND_API_KEY = process.env.RESEND_API_KEY || process.env.VITE_RESEND_API_KEY;
@@ -66,10 +64,29 @@ async function getPendingNotifications(): Promise<PendingNotification[]> {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch notifications: ${response.statusText}`);
+    throw new Error(`Failed to fetch notifications: ${response.status} ${await response.text()}`);
   }
 
   return await response.json();
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function practiceTypeLabel(practiceType: string): string {
+  return PRACTICE_TYPE_LABELS[practiceType] || practiceType;
+}
+
+// Il promemoria puo' partire qualche giorno dopo la sua data (cron saltato):
+// testo e oggetto riportano i giorni che mancano davvero alla scadenza.
+function daysText(days: number): string {
+  return days === 1 ? '1 giorno' : `${days} giorni`;
 }
 
 /**
@@ -88,7 +105,7 @@ function getEmailTemplate(notificationType: string): string {
         <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
           <h2 style="color: #667eea;">Promemoria Scadenza Polizza</h2>
           <p>Gentile <strong>{{client_name}}</strong>,</p>
-          <p>Ti ricordiamo che la tua polizza <strong>{{practice_type}}</strong> (N. {{practice_number}}) scadrà tra <strong>90 giorni</strong>, il <strong>{{policy_end_date}}</strong>.</p>
+          <p>Ti ricordiamo che la tua polizza <strong>{{practice_type}}</strong> (N. {{practice_number}}) scadrà tra <strong>{{days_text}}</strong>, il <strong>{{policy_end_date}}</strong>.</p>
           <p>Il tuo agente <strong>{{agent_name}}</strong> ti contatterà a breve per il rinnovo.</p>
           <p>Per qualsiasi informazione, contatta:<br>
           📧 {{agent_email}}<br>
@@ -107,7 +124,7 @@ function getEmailTemplate(notificationType: string): string {
         <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
           <h2 style="color: #f59e0b;">Promemoria Importante - Scadenza Polizza</h2>
           <p>Gentile <strong>{{client_name}}</strong>,</p>
-          <p>La tua polizza <strong>{{practice_type}}</strong> (N. {{practice_number}}) scadrà tra <strong>60 giorni</strong>, il <strong>{{policy_end_date}}</strong>.</p>
+          <p>La tua polizza <strong>{{practice_type}}</strong> (N. {{practice_number}}) scadrà tra <strong>{{days_text}}</strong>, il <strong>{{policy_end_date}}</strong>.</p>
           <p>Ti invitiamo a contattare il tuo agente <strong>{{agent_name}}</strong> per valutare il rinnovo.</p>
           <p>Contatti:<br>
           📧 {{agent_email}}<br>
@@ -126,7 +143,7 @@ function getEmailTemplate(notificationType: string): string {
         <div style="max-width: 600px; margin: 0 auto; padding: 20px; border-left: 4px solid #f97316;">
           <h2 style="color: #f97316;">⚠️ URGENTE - Scadenza Polizza Imminente</h2>
           <p>Gentile <strong>{{client_name}}</strong>,</p>
-          <p>La tua polizza <strong>{{practice_type}}</strong> (N. {{practice_number}}) scadrà tra <strong>30 giorni</strong>, il <strong>{{policy_end_date}}</strong>.</p>
+          <p>La tua polizza <strong>{{practice_type}}</strong> (N. {{practice_number}}) scadrà tra <strong>{{days_text}}</strong>, il <strong>{{policy_end_date}}</strong>.</p>
           <p><strong>È necessario agire ora</strong> per evitare interruzioni nella copertura.</p>
           <p>Contatta urgentemente il tuo agente <strong>{{agent_name}}</strong>:<br>
           📧 {{agent_email}}<br>
@@ -145,7 +162,7 @@ function getEmailTemplate(notificationType: string): string {
         <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 3px solid #ef4444; background-color: #fef2f2;">
           <h2 style="color: #ef4444;">🚨 URGENTISSIMO - Polizza in Scadenza</h2>
           <p>Gentile <strong>{{client_name}}</strong>,</p>
-          <p><strong style="color: #ef4444; font-size: 18px;">La tua polizza scade tra 7 giorni!</strong></p>
+          <p><strong style="color: #ef4444; font-size: 18px;">La tua polizza scade tra {{days_text}}!</strong></p>
           <p>Polizza: <strong>{{practice_type}}</strong> (N. {{practice_number}})<br>
           Data scadenza: <strong>{{policy_end_date}}</strong></p>
           <p><strong>AZIONE IMMEDIATA RICHIESTA</strong> - Contatta subito il tuo agente:</p>
@@ -172,35 +189,43 @@ function renderTemplate(template: string, data: PendingNotification): string {
   const policyEndDate = new Date(data.policy_end_date).toLocaleDateString('it-IT', {
     day: '2-digit',
     month: '2-digit',
-    year: 'numeric'
+    year: 'numeric',
+    timeZone: 'UTC',
   });
 
-  let rendered = template;
-  rendered = rendered.replace(/\{\{client_name\}\}/g, data.client_name || 'Cliente');
-  rendered = rendered.replace(/\{\{practice_number\}\}/g, data.practice_number || 'N/A');
-  rendered = rendered.replace(/\{\{practice_type\}\}/g, data.practice_type || 'N/A');
-  rendered = rendered.replace(/\{\{policy_end_date\}\}/g, policyEndDate);
-  rendered = rendered.replace(/\{\{days_until_expiry\}\}/g, data.days_until_expiry.toString());
-  rendered = rendered.replace(/\{\{agent_name\}\}/g, data.agent_name || 'Il tuo Agente');
-  rendered = rendered.replace(/\{\{agent_email\}\}/g, data.agent_email || '');
-  rendered = rendered.replace(/\{\{agent_phone\}\}/g, data.agent_phone || '');
-  rendered = rendered.replace(/\{\{current_year\}\}/g, currentYear);
+  // I valori arrivano dalle pratiche caricate dagli utenti: escape prima di finire nell'HTML.
+  const values: Record<string, string> = {
+    client_name: data.client_name || 'Cliente',
+    practice_number: data.practice_number || 'N/A',
+    practice_type: practiceTypeLabel(data.practice_type) || 'N/A',
+    policy_end_date: policyEndDate,
+    days_until_expiry: data.days_until_expiry.toString(),
+    days_text: daysText(data.days_until_expiry),
+    agent_name: data.agent_name || 'Il tuo Agente',
+    agent_email: data.agent_email || '',
+    agent_phone: data.agent_phone || '',
+    current_year: currentYear,
+  };
 
-  return rendered;
+  return template.replace(/\{\{(\w+)\}\}/g, (placeholder, key: string) =>
+    key in values ? escapeHtml(values[key]) : placeholder
+  );
 }
 
 /**
  * Genera subject email
  */
-function getEmailSubject(notificationType: string, practiceType: string): string {
+function getEmailSubject(notificationType: string, practiceType: string, daysUntilExpiry: number): string {
+  const label = practiceTypeLabel(practiceType);
+  const days = daysText(daysUntilExpiry);
   const subjectMap: Record<string, string> = {
-    '90_days': `Promemoria: La tua polizza ${practiceType} scade tra 90 giorni`,
-    '60_days': `Promemoria Importante: La tua polizza ${practiceType} scade tra 60 giorni`,
-    '30_days': `Urgente: La tua polizza ${practiceType} scade tra 30 giorni - Azione Richiesta`,
-    '7_days': `🚨 URGENTE: La tua polizza ${practiceType} scade tra 7 giorni - Contatta subito il tuo agente`,
+    '90_days': `Promemoria: La tua polizza ${label} scade tra ${days}`,
+    '60_days': `Promemoria Importante: La tua polizza ${label} scade tra ${days}`,
+    '30_days': `Urgente: La tua polizza ${label} scade tra ${days} - Azione Richiesta`,
+    '7_days': `🚨 URGENTE: La tua polizza ${label} scade tra ${days} - Contatta subito il tuo agente`,
   };
 
-  return subjectMap[notificationType] || `Promemoria scadenza polizza ${practiceType}`;
+  return subjectMap[notificationType] || `Promemoria scadenza polizza ${label}`;
 }
 
 /**
@@ -246,7 +271,7 @@ async function markNotificationSent(notificationId: string): Promise<void> {
     throw new Error('Supabase configuration missing');
   }
 
-  await fetch(`${SUPABASE_URL}/rest/v1/rpc/mark_email_notification_sent`, {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/mark_email_notification_sent`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -255,6 +280,11 @@ async function markNotificationSent(notificationId: string): Promise<void> {
     },
     body: JSON.stringify({ p_notification_id: notificationId }),
   });
+
+  // Se la notifica non risulta inviata il cron la rispedirebbe domani: va segnalato.
+  if (!response.ok) {
+    throw new Error(`Failed to mark notification ${notificationId}: ${response.status} ${await response.text()}`);
+  }
 }
 
 /**
@@ -265,7 +295,7 @@ async function logEmail(notification: PendingNotification, subject: string, stat
     return;
   }
 
-  await fetch(`${SUPABASE_URL}/rest/v1/rpc/log_email_sent`, {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/log_email_sent`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -282,8 +312,13 @@ async function logEmail(notification: PendingNotification, subject: string, stat
       p_notification_type: notification.notification_type,
       p_resend_email_id: emailId || null,
       p_status: status,
+      p_error_message: error || null,
     }),
   });
+
+  if (!response.ok) {
+    console.error(`Email log not saved for ${notification.notification_id}: ${response.status} ${await response.text()}`);
+  }
 }
 
 /**
@@ -326,7 +361,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Carica e renderizza template
         const template = getEmailTemplate(notification.notification_type);
         const html = renderTemplate(template, notification);
-        const subject = getEmailSubject(notification.notification_type, notification.practice_type);
+        const subject = getEmailSubject(notification.notification_type, notification.practice_type, notification.days_until_expiry);
 
         // Invia email
         const result = await sendEmail(notification.client_email, subject, html);
