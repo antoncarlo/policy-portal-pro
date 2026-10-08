@@ -7,6 +7,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { useMessages } from "@/i18n";
+import { administrationMessages } from "@/i18n/messages/administration";
 
 interface User {
   user_id: string;
@@ -27,11 +29,12 @@ export const UserFilter = ({
   onUserChange,
   currentUserRole,
 }: UserFilterProps) => {
+  const m = useMessages(administrationMessages).userFilter;
   const getRoleBadge = (role: string) => {
     const roleConfig: Record<string, { label: string; className: string }> = {
-      admin: { label: "Admin", className: "bg-red-100 text-red-800 border-red-300" },
-      agente: { label: "Agente", className: "bg-blue-100 text-blue-800 border-blue-300" },
-      collaboratore: { label: "Collab.", className: "bg-green-100 text-green-800 border-green-300" },
+      admin: { label: m.roleAdmin, className: "bg-red-100 text-red-800 border-red-300" },
+      agente: { label: m.roleAgent, className: "bg-blue-100 text-blue-800 border-blue-300" },
+      collaboratore: { label: m.roleCollaborator, className: "bg-green-100 text-green-800 border-green-300" },
     };
     
     const config = roleConfig[role] || { label: role, className: "" };
@@ -44,11 +47,11 @@ export const UserFilter = ({
 
   const getFilterLabel = () => {
     if (currentUserRole === "admin") {
-      return "Visualizza Provvigioni Di";
+      return m.admin;
     } else if (currentUserRole === "agente") {
-      return "Visualizza Provvigioni Di (Team)";
+      return m.agent;
     }
-    return "Utente";
+    return m.user;
   };
 
   // Don't show filter if user is collaboratore (can only see own data)
@@ -66,7 +69,7 @@ export const UserFilter = ({
         <SelectContent>
           <SelectItem value="all">
             <span className="font-medium">
-              {currentUserRole === "admin" ? "Tutti gli Utenti" : "Tutto il Team"}
+              {currentUserRole === "admin" ? m.allUsers : m.allTeam}
             </span>
           </SelectItem>
           {users.map((user) => (

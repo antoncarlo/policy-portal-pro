@@ -30,6 +30,8 @@ import {
 import { Eye, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { formatDate, getMessages, useMessages } from "@/i18n";
+import { clientsMessages } from "@/i18n/messages/clients";
 
 interface Client {
   id: string;
@@ -59,6 +61,7 @@ export const ClientsTable = ({
 }: ClientsTableProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const m = useMessages(clientsMessages).table;
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
 
@@ -74,15 +77,15 @@ export const ClientsTable = ({
       if (error) throw error;
 
       toast({
-        title: "Cliente eliminato",
-        description: `Il cliente ${clientToDelete.full_name} è stato eliminato con successo.`,
+        title: getMessages(clientsMessages).table.deletedTitle,
+        description: getMessages(clientsMessages).table.deletedText(clientToDelete.full_name),
       });
 
       onClientUpdated();
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore eliminazione",
+        title: getMessages(clientsMessages).table.deleteErrorTitle,
         description: error.message,
       });
     } finally {
@@ -97,26 +100,26 @@ export const ClientsTable = ({
       <Table className="min-w-[980px]">
         <TableHeader>
           <TableRow>
-            <TableHead>Nome</TableHead>
-            <TableHead>Azienda</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Telefono</TableHead>
-            <TableHead>Città</TableHead>
-            <TableHead>Data Creazione</TableHead>
-            <TableHead className="text-right">Azioni</TableHead>
+            <TableHead>{m.name}</TableHead>
+            <TableHead>{m.company}</TableHead>
+            <TableHead>{m.email}</TableHead>
+            <TableHead>{m.phone}</TableHead>
+            <TableHead>{m.city}</TableHead>
+            <TableHead>{m.createdAt}</TableHead>
+            <TableHead className="text-right">{m.actions}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {loading ? (
             <TableRow>
               <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                Caricamento clienti...
+                {m.loading}
               </TableCell>
             </TableRow>
           ) : clients.length === 0 ? (
             <TableRow>
               <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                Nessun cliente trovato
+                {m.empty}
               </TableCell>
             </TableRow>
           ) : (
@@ -136,7 +139,7 @@ export const ClientsTable = ({
                   {client.address_city || "-"}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {new Date(client.created_at).toLocaleDateString("it-IT")}
+                  {formatDate(client.created_at)}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
@@ -156,7 +159,7 @@ export const ClientsTable = ({
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => onClientEdit(client)}>
                           <Pencil className="mr-2 h-4 w-4" />
-                          Modifica
+                          {m.edit}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -167,7 +170,7 @@ export const ClientsTable = ({
                           }}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
-                          Elimina
+                          {m.delete}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -183,19 +186,18 @@ export const ClientsTable = ({
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Conferma Eliminazione</AlertDialogTitle>
+            <AlertDialogTitle>{m.confirmTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              Sei sicuro di voler eliminare il cliente {clientToDelete?.full_name}?
-              Questa azione non può essere annullata. Le pratiche associate non verranno eliminate.
+              {m.confirmText(clientToDelete?.full_name ?? "")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogCancel>{m.cancel}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteClient}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Elimina
+              {m.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

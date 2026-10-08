@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { formatDateTime, getMessages, useMessages } from "@/i18n";
+import { commonMessages } from "@/i18n/messages/common";
+import { settingsMessages } from "@/i18n/messages/settings";
 import { supabase } from "@/integrations/supabase/client";
 import { Monitor, Smartphone, Tablet, LogOut, Shield } from "lucide-react";
-import { format } from "date-fns";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +28,7 @@ interface Session {
 
 export const SessionsSettings = () => {
   const { toast } = useToast();
+  const m = useMessages(settingsMessages).sessions;
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [showLogoutAll, setShowLogoutAll] = useState(false);
@@ -47,7 +50,7 @@ export const SessionsSettings = () => {
         {
           id: "current",
           user_agent: navigator.userAgent,
-          ip_address: "Current Device",
+          ip_address: getMessages(settingsMessages).sessions.currentDevice,
           last_active: new Date().toISOString(),
           is_current: true,
         },
@@ -58,8 +61,8 @@ export const SessionsSettings = () => {
       console.error("Error loading sessions:", error);
       toast({
         variant: "destructive",
-        title: "Errore",
-        description: "Impossibile caricare le sessioni",
+        title: getMessages(commonMessages).error,
+        description: getMessages(settingsMessages).sessions.loadError,
       });
     } finally {
       setLoading(false);
@@ -82,7 +85,7 @@ export const SessionsSettings = () => {
     if (ua.includes("firefox")) return "Firefox Browser";
     if (ua.includes("safari")) return "Safari Browser";
     if (ua.includes("edge")) return "Edge Browser";
-    return "Browser Sconosciuto";
+    return m.unknownBrowser;
   };
 
   const getOS = (userAgent: string) => {
@@ -92,7 +95,7 @@ export const SessionsSettings = () => {
     if (ua.includes("linux")) return "Linux";
     if (ua.includes("android")) return "Android";
     if (ua.includes("ios") || ua.includes("iphone") || ua.includes("ipad")) return "iOS";
-    return "Sistema Sconosciuto";
+    return m.unknownSystem;
   };
 
   const handleLogoutSession = async (sessionId: string) => {
@@ -104,15 +107,15 @@ export const SessionsSettings = () => {
       } else {
         // In a real implementation, you would revoke the specific session
         toast({
-          title: "Successo",
-          description: "Sessione terminata",
+          title: getMessages(commonMessages).success,
+          description: getMessages(settingsMessages).sessions.ended,
         });
         loadSessions();
       }
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     }
@@ -125,7 +128,7 @@ export const SessionsSettings = () => {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     }
@@ -137,7 +140,7 @@ export const SessionsSettings = () => {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <Shield className="h-5 w-5" />
-            <h2 className="text-xl font-semibold">Sessioni Attive</h2>
+            <h2 className="text-xl font-semibold">{m.title}</h2>
           </div>
           {sessions.length > 1 && (
             <Button
@@ -146,23 +149,23 @@ export const SessionsSettings = () => {
               onClick={() => setShowLogoutAll(true)}
             >
               <LogOut className="h-4 w-4 mr-2" />
-              Termina Tutte
+              {m.endAll}
             </Button>
           )}
         </div>
 
         <p className="text-sm text-muted-foreground mb-6">
-          Gestisci i dispositivi che hanno effettuato l'accesso al tuo account. Per sicurezza, termina le sessioni che non riconosci.
+          {m.intro}
         </p>
 
         <div className="space-y-4">
           {loading ? (
             <div className="text-center py-8 text-muted-foreground">
-              Caricamento sessioni...
+              {m.loading}
             </div>
           ) : sessions.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              Nessuna sessione attiva
+              {m.empty}
             </div>
           ) : (
             sessions.map((session) => (
@@ -177,7 +180,7 @@ export const SessionsSettings = () => {
                         <h3 className="font-semibold">{getDeviceName(session.user_agent)}</h3>
                         {session.is_current && (
                           <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full font-medium">
-                            Sessione Corrente
+                            {m.current}
                           </span>
                         )}
                       </div>
@@ -185,7 +188,7 @@ export const SessionsSettings = () => {
                         {getOS(session.user_agent)} • {session.ip_address}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Ultimo accesso: {format(new Date(session.last_active), "dd/MM/yyyy HH:mm")}
+                        {m.lastActive(formatDateTime(session.last_active))}
                       </p>
                     </div>
                   </div>
@@ -195,7 +198,7 @@ export const SessionsSettings = () => {
                     onClick={() => handleLogoutSession(session.id)}
                   >
                     <LogOut className="h-4 w-4 mr-2" />
-                    {session.is_current ? "Esci" : "Termina"}
+                    {session.is_current ? m.logout : m.end}
                   </Button>
                 </div>
               </Card>
@@ -204,12 +207,11 @@ export const SessionsSettings = () => {
         </div>
 
         <div className="mt-6 p-4 bg-muted rounded-lg">
-          <h3 className="font-semibold mb-2">Suggerimenti per la Sicurezza</h3>
+          <h3 className="font-semibold mb-2">{m.tipsTitle}</h3>
           <ul className="text-sm text-muted-foreground space-y-1">
-            <li>• Termina le sessioni che non riconosci immediatamente</li>
-            <li>• Non condividere mai le tue credenziali di accesso</li>
-            <li>• Usa sempre una password forte e unica</li>
-            <li>• Esci sempre quando usi dispositivi condivisi</li>
+            {m.tips.map((tip) => (
+              <li key={tip}>• {tip}</li>
+            ))}
           </ul>
         </div>
       </Card>
@@ -217,15 +219,15 @@ export const SessionsSettings = () => {
       <AlertDialog open={showLogoutAll} onOpenChange={setShowLogoutAll}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Terminare tutte le sessioni?</AlertDialogTitle>
+            <AlertDialogTitle>{m.confirmTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              Questa azione terminerà tutte le sessioni attive, inclusa quella corrente. Dovrai effettuare nuovamente l'accesso.
+              {m.confirmText}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogCancel>{m.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleLogoutAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Termina Tutte
+              {m.endAll}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

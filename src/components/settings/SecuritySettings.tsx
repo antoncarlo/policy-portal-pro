@@ -4,11 +4,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { getMessages, useMessages } from "@/i18n";
+import { commonMessages } from "@/i18n/messages/common";
+import { settingsMessages } from "@/i18n/messages/settings";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Lock, Eye, EyeOff } from "lucide-react";
 
 export const SecuritySettings = () => {
   const { toast } = useToast();
+  const m = useMessages(settingsMessages).security;
   const [loading, setLoading] = useState(false);
   const [showPasswords, setShowPasswords] = useState({
     new: false,
@@ -21,13 +25,13 @@ export const SecuritySettings = () => {
 
   const validatePassword = (password: string): string | null => {
     if (password.length < 8) {
-      return "La password deve essere di almeno 8 caratteri";
+      return getMessages(settingsMessages).security.tooShort;
     }
     if (!/[A-Z]/.test(password)) {
-      return "La password deve contenere almeno una lettera maiuscola";
+      return getMessages(settingsMessages).security.needsUppercase;
     }
     if (!/[0-9]/.test(password)) {
-      return "La password deve contenere almeno un numero";
+      return getMessages(settingsMessages).security.needsNumber;
     }
     return null;
   };
@@ -37,8 +41,8 @@ export const SecuritySettings = () => {
     if (!passwords.newPassword || !passwords.confirmPassword) {
       toast({
         variant: "destructive",
-        title: "Errore",
-        description: "Compila tutti i campi",
+        title: getMessages(commonMessages).error,
+        description: getMessages(settingsMessages).security.fillAll,
       });
       return;
     }
@@ -46,8 +50,8 @@ export const SecuritySettings = () => {
     if (passwords.newPassword !== passwords.confirmPassword) {
       toast({
         variant: "destructive",
-        title: "Errore",
-        description: "Le password non coincidono",
+        title: getMessages(commonMessages).error,
+        description: getMessages(settingsMessages).security.mismatch,
       });
       return;
     }
@@ -56,7 +60,7 @@ export const SecuritySettings = () => {
     if (validationError) {
       toast({
         variant: "destructive",
-        title: "Password non valida",
+        title: getMessages(settingsMessages).security.invalidTitle,
         description: validationError,
       });
       return;
@@ -71,8 +75,8 @@ export const SecuritySettings = () => {
       if (error) throw error;
 
       toast({
-        title: "Successo",
-        description: "Password modificata correttamente",
+        title: getMessages(commonMessages).success,
+        description: getMessages(settingsMessages).security.changed,
       });
 
       // Reset form
@@ -83,7 +87,7 @@ export const SecuritySettings = () => {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     } finally {
@@ -95,15 +99,15 @@ export const SecuritySettings = () => {
     <Card className="p-6">
       <div className="flex items-center gap-2 mb-6">
         <Lock className="h-5 w-5" />
-        <h2 className="text-xl font-semibold">Sicurezza</h2>
+        <h2 className="text-xl font-semibold">{m.title}</h2>
       </div>
 
       <div className="space-y-6">
         <div>
-          <h3 className="text-lg font-medium mb-4">Cambio Password</h3>
+          <h3 className="text-lg font-medium mb-4">{m.changePassword}</h3>
           <div className="space-y-4 max-w-md">
             <div className="space-y-2">
-              <Label htmlFor="new_password">Nuova Password *</Label>
+              <Label htmlFor="new_password">{m.newPassword}</Label>
               <div className="relative">
                 <Input
                   id="new_password"
@@ -112,7 +116,7 @@ export const SecuritySettings = () => {
                   onChange={(e) =>
                     setPasswords({ ...passwords, newPassword: e.target.value })
                   }
-                  placeholder="Inserisci la nuova password"
+                  placeholder={m.newPasswordPlaceholder}
                 />
                 <Button
                   type="button"
@@ -131,12 +135,12 @@ export const SecuritySettings = () => {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Minimo 8 caratteri, 1 maiuscola, 1 numero
+                {m.rules}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirm_password">Conferma Password *</Label>
+              <Label htmlFor="confirm_password">{m.confirmPassword}</Label>
               <div className="relative">
                 <Input
                   id="confirm_password"
@@ -145,7 +149,7 @@ export const SecuritySettings = () => {
                   onChange={(e) =>
                     setPasswords({ ...passwords, confirmPassword: e.target.value })
                   }
-                  placeholder="Conferma la nuova password"
+                  placeholder={m.confirmPasswordPlaceholder}
                 />
                 <Button
                   type="button"
@@ -170,7 +174,7 @@ export const SecuritySettings = () => {
 
             <Button onClick={handleChangePassword} disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Cambia Password
+              {m.change}
             </Button>
           </div>
         </div>

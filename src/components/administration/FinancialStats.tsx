@@ -1,5 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Euro, TrendingUp, Clock, CheckCircle } from "lucide-react";
+import { formatCurrency as formatLocaleCurrency, useMessages } from "@/i18n";
+import { administrationMessages } from "@/i18n/messages/administration";
 
 interface FinancialStatsProps {
   stats: {
@@ -11,16 +13,12 @@ interface FinancialStatsProps {
 }
 
 export const FinancialStats = ({ stats }: FinancialStatsProps) => {
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("it-IT", {
-      style: "currency",
-      currency: "EUR",
-    }).format(amount);
-  };
+  const m = useMessages(administrationMessages).stats;
+  const formatCurrency = (amount: number) => formatLocaleCurrency(amount);
 
   const statsCards = [
     {
-      title: "Premi Totali",
+      title: m.totalPremiums,
       value: formatCurrency(stats.total_premium_amount),
       icon: Euro,
       color: "text-blue-600",
@@ -28,7 +26,7 @@ export const FinancialStats = ({ stats }: FinancialStatsProps) => {
       borderColor: "border-blue-200 dark:border-blue-800",
     },
     {
-      title: "Provvigioni Totali",
+      title: m.totalCommissions,
       value: formatCurrency(stats.total_commission_amount),
       icon: TrendingUp,
       color: "text-purple-600",
@@ -36,7 +34,7 @@ export const FinancialStats = ({ stats }: FinancialStatsProps) => {
       borderColor: "border-purple-200 dark:border-purple-800",
     },
     {
-      title: "Da Ricevere",
+      title: m.toReceive,
       value: formatCurrency(stats.incassate_commission),
       icon: Clock,
       color: "text-orange-600",
@@ -44,7 +42,7 @@ export const FinancialStats = ({ stats }: FinancialStatsProps) => {
       borderColor: "border-orange-200 dark:border-orange-800",
     },
     {
-      title: "Ricevute",
+      title: m.received,
       value: formatCurrency(stats.provvigioni_ricevute_amount),
       icon: CheckCircle,
       color: "text-green-600",

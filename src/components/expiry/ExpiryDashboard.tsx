@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Calendar, AlertTriangle, Clock, Mail, Phone, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { formatDate, getMessages, useMessages } from "@/i18n";
+import { clientsMessages } from "@/i18n/messages/clients";
+import { practiceTypeLabel } from "@/i18n/messages/domain";
 import { useNavigate } from "react-router-dom";
 
 interface ExpiryPractice {
@@ -26,6 +29,7 @@ interface ExpiryPractice {
 
 export const ExpiryDashboard = () => {
   const { toast } = useToast();
+  const m = useMessages(clientsMessages).expiry;
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [expiries, setExpiries] = useState<ExpiryPractice[]>([]);
@@ -55,7 +59,7 @@ export const ExpiryDashboard = () => {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore caricamento",
+        title: getMessages(clientsMessages).expiry.loadErrorTitle,
         description: error.message,
       });
     } finally {
@@ -77,10 +81,10 @@ export const ExpiryDashboard = () => {
   };
 
   const getUrgencyLabel = (days: number) => {
-    if (days <= 7) return "URGENTE";
-    if (days <= 30) return "Scade presto";
-    if (days <= 60) return "Scade tra 60gg";
-    return "Scade tra 90gg";
+    if (days <= 7) return m.urgent;
+    if (days <= 30) return m.expiresSoon;
+    if (days <= 60) return m.within60;
+    return m.within90;
   };
 
   const groupedExpiries = {
@@ -101,11 +105,11 @@ export const ExpiryDashboard = () => {
             <h4 className="font-semibold">{expiry.client_name}</h4>
             <Badge variant={getUrgencyColor(expiry.days_until_expiry)}>
               {getUrgencyIcon(expiry.days_until_expiry)}
-              <span className="ml-1">{expiry.days_until_expiry} giorni</span>
+              <span className="ml-1">{m.days(expiry.days_until_expiry)}</span>
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            {expiry.practice_number} • {expiry.practice_type}
+            {expiry.practice_number} • {practiceTypeLabel(expiry.practice_type)}
           </p>
         </div>
       </div>
@@ -113,7 +117,7 @@ export const ExpiryDashboard = () => {
       <div className="space-y-2 text-sm">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Calendar className="h-4 w-4" />
-          <span>Scadenza: {new Date(expiry.policy_end_date).toLocaleDateString("it-IT")}</span>
+          <span>{m.expiresOn(formatDate(expiry.policy_end_date))}</span>
         </div>
         <div className="flex items-center gap-2 text-muted-foreground">
           <Mail className="h-4 w-4" />
@@ -128,16 +132,16 @@ export const ExpiryDashboard = () => {
       <div className="mt-3 pt-3 border-t flex items-center justify-between">
         <div className="flex gap-1">
           <Badge variant={expiry.notification_90_sent ? "default" : "outline"} className="text-xs">
-            90gg
+            {m.reminder(90)}
           </Badge>
           <Badge variant={expiry.notification_60_sent ? "default" : "outline"} className="text-xs">
-            60gg
+            {m.reminder(60)}
           </Badge>
           <Badge variant={expiry.notification_30_sent ? "default" : "outline"} className="text-xs">
-            30gg
+            {m.reminder(30)}
           </Badge>
           <Badge variant={expiry.notification_7_sent ? "default" : "outline"} className="text-xs">
-            7gg
+            {m.reminder(7)}
           </Badge>
         </div>
         <Button
@@ -149,7 +153,7 @@ export const ExpiryDashboard = () => {
           }}
         >
           <FileText className="h-4 w-4 mr-1" />
-          Dettagli
+          {m.details}
         </Button>
       </div>
     </Card>
@@ -170,7 +174,7 @@ export const ExpiryDashboard = () => {
         <Card className="p-4 bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-red-600 dark:text-red-400 font-medium">Urgenti (≤7gg)</p>
+              <p className="text-sm text-red-600 dark:text-red-400 font-medium">{m.urgentCount}</p>
               <p className="text-3xl font-bold text-red-700 dark:text-red-300">{groupedExpiries.urgent.length}</p>
             </div>
             <AlertTriangle className="h-8 w-8 text-red-500" />
@@ -180,7 +184,7 @@ export const ExpiryDashboard = () => {
         <Card className="p-4 bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">Prossime (≤30gg)</p>
+              <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">{m.soonCount}</p>
               <p className="text-3xl font-bold text-amber-700 dark:text-amber-300">{groupedExpiries.soon.length}</p>
             </div>
             <Clock className="h-8 w-8 text-amber-500" />
@@ -190,7 +194,7 @@ export const ExpiryDashboard = () => {
         <Card className="p-4 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Future (≤90gg)</p>
+              <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">{m.futureCount}</p>
               <p className="text-3xl font-bold text-blue-700 dark:text-blue-300">{groupedExpiries.upcoming.length}</p>
             </div>
             <Calendar className="h-8 w-8 text-blue-500" />
@@ -203,7 +207,7 @@ export const ExpiryDashboard = () => {
         <div>
           <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 text-red-600 dark:text-red-400">
             <AlertTriangle className="h-5 w-5" />
-            Scadenze Urgenti (entro 7 giorni)
+            {m.urgentTitle}
           </h3>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {groupedExpiries.urgent.map(renderExpiryCard)}
@@ -216,7 +220,7 @@ export const ExpiryDashboard = () => {
         <div>
           <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 text-amber-600 dark:text-amber-400">
             <Clock className="h-5 w-5" />
-            Scadenze Prossime (8-30 giorni)
+            {m.soonTitle}
           </h3>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {groupedExpiries.soon.map(renderExpiryCard)}
@@ -229,7 +233,7 @@ export const ExpiryDashboard = () => {
         <div>
           <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            Scadenze Future (31-90 giorni)
+            {m.futureTitle}
           </h3>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {groupedExpiries.upcoming.map(renderExpiryCard)}
@@ -240,9 +244,9 @@ export const ExpiryDashboard = () => {
       {expiries.length === 0 && (
         <Card className="p-12 text-center">
           <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <h3 className="text-lg font-semibold mb-2">Nessuna scadenza imminente</h3>
+          <h3 className="text-lg font-semibold mb-2">{m.noneTitle}</h3>
           <p className="text-muted-foreground">
-            Non ci sono polizze in scadenza nei prossimi 90 giorni
+            {m.noneText}
           </p>
         </Card>
       )}

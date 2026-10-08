@@ -4,12 +4,16 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { getMessages, useMessages } from "@/i18n";
+import { commonMessages } from "@/i18n/messages/common";
+import { settingsMessages } from "@/i18n/messages/settings";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, FileText, Upload } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 export const PracticeTemplatesSettings = () => {
   const { toast } = useToast();
+  const m = useMessages(settingsMessages).templates;
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [settings, setSettings] = useState({
@@ -55,7 +59,7 @@ export const PracticeTemplatesSettings = () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Utente non autenticato");
+      if (!user) throw new Error(getMessages(commonMessages).notAuthenticated);
 
       // Upsert agent settings
       const { error } = await supabase
@@ -70,13 +74,13 @@ export const PracticeTemplatesSettings = () => {
       if (error) throw error;
 
       toast({
-        title: "Successo",
-        description: "Impostazioni pratiche salvate correttamente",
+        title: getMessages(commonMessages).success,
+        description: getMessages(settingsMessages).templates.saved,
       });
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     } finally {
@@ -94,7 +98,7 @@ export const PracticeTemplatesSettings = () => {
     setUploading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Utente non autenticato");
+      if (!user) throw new Error(getMessages(commonMessages).notAuthenticated);
 
       const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}-${field}-${Date.now()}.${fileExt}`;
@@ -113,13 +117,13 @@ export const PracticeTemplatesSettings = () => {
       setSettings({ ...settings, [field]: publicUrl });
 
       toast({
-        title: "Successo",
-        description: "File caricato correttamente",
+        title: getMessages(commonMessages).success,
+        description: getMessages(settingsMessages).templates.uploaded,
       });
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     } finally {
@@ -131,31 +135,31 @@ export const PracticeTemplatesSettings = () => {
     <Card className="p-6">
       <div className="flex items-center gap-2 mb-6">
         <FileText className="h-5 w-5" />
-        <h2 className="text-xl font-semibold">Impostazioni Pratiche</h2>
+        <h2 className="text-xl font-semibold">{m.title}</h2>
       </div>
 
       <div className="space-y-6">
         {/* Email Template */}
         <div className="space-y-2">
-          <Label htmlFor="email_template">Template Email per Clienti</Label>
+          <Label htmlFor="email_template">{m.emailTemplate}</Label>
           <Textarea
             id="email_template"
             value={settings.email_template}
             onChange={(e) =>
               setSettings({ ...settings, email_template: e.target.value })
             }
-            placeholder="Gentile Cliente,&#10;&#10;La informiamo che la sua pratica [NUMERO_PRATICA] è stata...&#10;&#10;Cordiali saluti,&#10;[NOME_AGENTE]"
+            placeholder={m.emailPlaceholder}
             rows={8}
             className="font-mono text-sm"
           />
           <p className="text-xs text-muted-foreground">
-            Variabili disponibili: [NUMERO_PRATICA], [NOME_CLIENTE], [NOME_AGENTE], [STATO_PRATICA]
+            {m.variables}
           </p>
         </div>
 
         {/* Digital Signature */}
         <div className="space-y-2">
-          <Label htmlFor="digital_signature">Firma Digitale</Label>
+          <Label htmlFor="digital_signature">{m.signature}</Label>
           <div className="flex gap-2">
             <Input
               id="digital_signature"
@@ -163,7 +167,7 @@ export const PracticeTemplatesSettings = () => {
               onChange={(e) =>
                 setSettings({ ...settings, digital_signature_url: e.target.value })
               }
-              placeholder="URL firma digitale"
+              placeholder={m.signaturePlaceholder}
               disabled={uploading}
             />
             <Button
@@ -188,7 +192,7 @@ export const PracticeTemplatesSettings = () => {
           {settings.digital_signature_url && (
             <img
               src={settings.digital_signature_url}
-              alt="Firma digitale"
+              alt={m.signature}
               className="mt-2 max-h-20 border rounded"
             />
           )}
@@ -196,7 +200,7 @@ export const PracticeTemplatesSettings = () => {
 
         {/* Company Logo */}
         <div className="space-y-2">
-          <Label htmlFor="company_logo">Logo Aziendale</Label>
+          <Label htmlFor="company_logo">{m.logo}</Label>
           <div className="flex gap-2">
             <Input
               id="company_logo"
@@ -204,7 +208,7 @@ export const PracticeTemplatesSettings = () => {
               onChange={(e) =>
                 setSettings({ ...settings, company_logo_url: e.target.value })
               }
-              placeholder="URL logo aziendale"
+              placeholder={m.logoPlaceholder}
               disabled={uploading}
             />
             <Button
@@ -229,7 +233,7 @@ export const PracticeTemplatesSettings = () => {
           {settings.company_logo_url && (
             <img
               src={settings.company_logo_url}
-              alt="Logo aziendale"
+              alt={m.logo}
               className="mt-2 max-h-20 border rounded"
             />
           )}
@@ -238,7 +242,7 @@ export const PracticeTemplatesSettings = () => {
         <div className="flex justify-end pt-4">
           <Button onClick={handleSave} disabled={loading || uploading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Salva Impostazioni
+            {m.save}
           </Button>
         </div>
       </div>

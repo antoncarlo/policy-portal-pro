@@ -9,6 +9,10 @@ import { ArrowLeft, Mail, Phone, Building2, MapPin, FileText, Pencil } from "luc
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
+import { formatDate, getMessages, useMessages } from "@/i18n";
+import { clientsMessages } from "@/i18n/messages/clients";
+import { commonMessages } from "@/i18n/messages/common";
+import { practiceStatusLabel, practiceTypeLabel } from "@/i18n/messages/domain";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ClientForm } from "@/components/clients/ClientForm";
 
@@ -16,6 +20,8 @@ const ClientDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const m = useMessages(clientsMessages).detail;
+  const common = useMessages(commonMessages);
   const [client, setClient] = useState<Tables<"clients"> | null>(null);
   const [practices, setPractices] = useState<Tables<"practices">[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +52,7 @@ const ClientDetail = () => {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
       navigate("/clients");
@@ -66,7 +72,7 @@ const ClientDetail = () => {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-64">
-          <p className="text-muted-foreground">Caricamento...</p>
+          <p className="text-muted-foreground">{common.loading}</p>
         </div>
       </DashboardLayout>
     );
@@ -89,18 +95,18 @@ const ClientDetail = () => {
           </div>
           <Button onClick={() => setEditDialogOpen(true)}>
             <Pencil className="mr-2 h-4 w-4" />
-            Modifica
+            {m.edit}
           </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Client Information */}
           <Card className="p-6 lg:col-span-2">
-            <h2 className="text-xl font-semibold mb-4">Informazioni Cliente</h2>
+            <h2 className="text-xl font-semibold mb-4">{m.info}</h2>
             <div className="space-y-4">
               {/* Contact Information */}
               <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-2">Contatti</h3>
+                <h3 className="text-sm font-medium text-muted-foreground mb-2">{m.contacts}</h3>
                 <div className="space-y-2">
                   {client.email && (
                     <div className="flex items-center gap-2">
@@ -122,7 +128,7 @@ const ClientDetail = () => {
                     <div className="flex items-center gap-2">
                       <Phone className="h-4 w-4 text-muted-foreground" />
                       <a href={`tel:${client.mobile}`} className="text-sm hover:underline">
-                        {client.mobile} (Cellulare)
+                        {client.mobile} {m.mobileSuffix}
                       </a>
                     </div>
                   )}
@@ -136,7 +142,7 @@ const ClientDetail = () => {
                 <>
                   <div>
                     <h3 className="text-sm font-medium text-muted-foreground mb-2">
-                      Informazioni Aziendali
+                      {m.company}
                     </h3>
                     <div className="space-y-2">
                       {client.company_name && (
@@ -147,12 +153,12 @@ const ClientDetail = () => {
                       )}
                       {client.vat_number && (
                         <div className="text-sm">
-                          <span className="text-muted-foreground">P.IVA:</span> {client.vat_number}
+                          <span className="text-muted-foreground">{m.vat}</span> {client.vat_number}
                         </div>
                       )}
                       {client.tax_code && (
                         <div className="text-sm">
-                          <span className="text-muted-foreground">C.F.:</span> {client.tax_code}
+                          <span className="text-muted-foreground">{m.taxCode}</span> {client.tax_code}
                         </div>
                       )}
                     </div>
@@ -165,7 +171,7 @@ const ClientDetail = () => {
               {(client.address_street || client.address_city) && (
                 <>
                   <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-2">Indirizzo</h3>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-2">{m.address}</h3>
                     <div className="flex items-start gap-2">
                       <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
                       <div className="text-sm">
@@ -187,7 +193,7 @@ const ClientDetail = () => {
               {/* Notes */}
               {client.notes && (
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Note</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">{m.notes}</h3>
                   <p className="text-sm whitespace-pre-wrap">{client.notes}</p>
                 </div>
               )}
@@ -196,21 +202,17 @@ const ClientDetail = () => {
 
           {/* Statistics */}
           <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Statistiche</h2>
+            <h2 className="text-xl font-semibold mb-4">{m.stats}</h2>
             <div className="space-y-4">
               <div>
                 <div className="text-2xl font-bold">{practices.length}</div>
-                <div className="text-sm text-muted-foreground">Pratiche Totali</div>
+                <div className="text-sm text-muted-foreground">{m.totalPractices}</div>
               </div>
               <Separator />
               <div>
-                <div className="text-sm text-muted-foreground">Cliente dal</div>
+                <div className="text-sm text-muted-foreground">{m.clientSince}</div>
                 <div className="font-medium">
-                  {new Date(client.created_at).toLocaleDateString("it-IT", {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })}
+                  {formatDate(client.created_at, { day: "numeric", month: "long", year: "numeric" })}
                 </div>
               </div>
             </div>
@@ -220,13 +222,13 @@ const ClientDetail = () => {
         {/* Associated Practices */}
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Pratiche Associate</h2>
+            <h2 className="text-xl font-semibold">{m.practices}</h2>
             <Badge variant="secondary">{practices.length}</Badge>
           </div>
           {practices.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>Nessuna pratica associata a questo cliente</p>
+              <p>{m.noPractices}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -239,13 +241,13 @@ const ClientDetail = () => {
                   <div>
                     <div className="font-medium">{practice.practice_number}</div>
                     <div className="text-sm text-muted-foreground">
-                      {practice.practice_type} - {practice.policy_number || "N/A"}
+                      {practiceTypeLabel(practice.practice_type)} - {practice.policy_number || "N/A"}
                     </div>
                   </div>
                   <div className="text-right">
-                    <Badge>{practice.status}</Badge>
+                    <Badge>{practiceStatusLabel(practice.status)}</Badge>
                     <div className="text-sm text-muted-foreground mt-1">
-                      {new Date(practice.created_at).toLocaleDateString("it-IT")}
+                      {formatDate(practice.created_at)}
                     </div>
                   </div>
                 </div>
@@ -258,7 +260,7 @@ const ClientDetail = () => {
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Modifica Cliente</DialogTitle>
+            <DialogTitle>{m.editTitle}</DialogTitle>
           </DialogHeader>
           <ClientForm
             client={client}

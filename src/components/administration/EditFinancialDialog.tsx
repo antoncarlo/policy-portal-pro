@@ -19,6 +19,9 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { TablesUpdate } from "@/integrations/supabase/types";
+import { getMessages, useMessages } from "@/i18n";
+import { administrationMessages } from "@/i18n/messages/administration";
+import { commonMessages } from "@/i18n/messages/common";
 
 interface Practice {
   id: string;
@@ -47,6 +50,7 @@ export const EditFinancialDialog = ({
 }: EditFinancialDialogProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const m = useMessages(administrationMessages).edit;
   const [premiumAmount, setPremiumAmount] = useState("");
   const [commissionPercentage, setCommissionPercentage] = useState("");
   const [financialStatus, setFinancialStatus] = useState("non_incassata");
@@ -86,8 +90,8 @@ export const EditFinancialDialog = ({
       if (error) throw error;
 
       toast({
-        title: "Successo",
-        description: "Dati finanziari aggiornati con successo",
+        title: getMessages(commonMessages).success,
+        description: getMessages(administrationMessages).edit.saved,
       });
 
       onSuccess();
@@ -95,7 +99,7 @@ export const EditFinancialDialog = ({
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     } finally {
@@ -113,7 +117,7 @@ export const EditFinancialDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Gestione Finanziaria Pratica</DialogTitle>
+          <DialogTitle>{m.title}</DialogTitle>
           <DialogDescription>
             {practice.practice_number} - {practice.client_name}
           </DialogDescription>
@@ -122,7 +126,7 @@ export const EditFinancialDialog = ({
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="premiumAmount">Premio Assicurativo (€)</Label>
+              <Label htmlFor="premiumAmount">{m.premium}</Label>
               <Input
                 id="premiumAmount"
                 type="number"
@@ -135,7 +139,7 @@ export const EditFinancialDialog = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="commissionPercentage">Provvigione (%)</Label>
+              <Label htmlFor="commissionPercentage">{m.commission}</Label>
               <Input
                 id="commissionPercentage"
                 type="number"
@@ -151,30 +155,30 @@ export const EditFinancialDialog = ({
 
           <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <p className="text-sm text-blue-800 dark:text-blue-200">
-              <strong>Provvigione Calcolata:</strong> €{calculatedCommission}
+              <strong>{m.calculated}</strong> €{calculatedCommission}
             </p>
             <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
-              La provvigione viene calcolata automaticamente: Premio × Percentuale ÷ 100
+              {m.formula}
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="financialStatus">Stato Finanziario</Label>
+            <Label htmlFor="financialStatus">{m.status}</Label>
             <Select value={financialStatus} onValueChange={setFinancialStatus}>
               <SelectTrigger id="financialStatus">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="non_incassata">Non Incassata</SelectItem>
-                <SelectItem value="incassata">Incassata (In attesa provvigioni)</SelectItem>
-                <SelectItem value="provvigioni_ricevute">Provvigioni Ricevute</SelectItem>
+                <SelectItem value="non_incassata">{m.notCollected}</SelectItem>
+                <SelectItem value="incassata">{m.collectedWaiting}</SelectItem>
+                <SelectItem value="provvigioni_ricevute">{m.commissionsReceived}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="paymentDate">Data Incasso Cliente</Label>
+              <Label htmlFor="paymentDate">{m.paymentDate}</Label>
               <Input
                 id="paymentDate"
                 type="date"
@@ -182,12 +186,12 @@ export const EditFinancialDialog = ({
                 onChange={(e) => setPaymentDate(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Quando il cliente ha pagato il premio
+                {m.paymentDateHint}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="commissionReceivedDate">Data Ricezione Provvigioni</Label>
+              <Label htmlFor="commissionReceivedDate">{m.commissionDate}</Label>
               <Input
                 id="commissionReceivedDate"
                 type="date"
@@ -195,14 +199,14 @@ export const EditFinancialDialog = ({
                 onChange={(e) => setCommissionReceivedDate(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Quando hai ricevuto le provvigioni
+                {m.commissionDateHint}
               </p>
             </div>
           </div>
 
           <div className="flex gap-4 pt-4">
             <Button type="submit" disabled={loading} className="flex-1">
-              {loading ? "Salvataggio..." : "Salva Modifiche"}
+              {loading ? m.saving : m.save}
             </Button>
             <Button
               type="button"
@@ -210,7 +214,7 @@ export const EditFinancialDialog = ({
               onClick={() => onOpenChange(false)}
               disabled={loading}
             >
-              Annulla
+              {m.cancel}
             </Button>
           </div>
         </form>

@@ -4,6 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { getMessages, useMessages } from "@/i18n";
+import { clientsMessages } from "@/i18n/messages/clients";
+import { commonMessages } from "@/i18n/messages/common";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 import { Loader2 } from "lucide-react";
@@ -16,6 +19,7 @@ interface ClientFormProps {
 
 export const ClientForm = ({ client, onSuccess, onCancel }: ClientFormProps) => {
   const { toast } = useToast();
+  const m = useMessages(clientsMessages).form;
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     first_name: client?.first_name || "",
@@ -40,7 +44,7 @@ export const ClientForm = ({ client, onSuccess, onCancel }: ClientFormProps) => 
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Non autenticato");
+      if (!user) throw new Error(getMessages(clientsMessages).form.notAuthenticated);
 
       if (client) {
         // Update existing client
@@ -52,8 +56,8 @@ export const ClientForm = ({ client, onSuccess, onCancel }: ClientFormProps) => 
         if (error) throw error;
 
         toast({
-          title: "Cliente aggiornato",
-          description: "Le informazioni del cliente sono state aggiornate con successo.",
+          title: getMessages(clientsMessages).form.updatedTitle,
+          description: getMessages(clientsMessages).form.updatedText,
         });
       } else {
         // Create new client
@@ -67,8 +71,8 @@ export const ClientForm = ({ client, onSuccess, onCancel }: ClientFormProps) => 
         if (error) throw error;
 
         toast({
-          title: "Cliente aggiunto",
-          description: "Il nuovo cliente è stato aggiunto alla rubrica.",
+          title: getMessages(clientsMessages).form.addedTitle,
+          description: getMessages(clientsMessages).form.addedText,
         });
       }
 
@@ -76,7 +80,7 @@ export const ClientForm = ({ client, onSuccess, onCancel }: ClientFormProps) => 
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     } finally {
@@ -98,7 +102,7 @@ export const ClientForm = ({ client, onSuccess, onCancel }: ClientFormProps) => 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Personal Information */}
         <div className="space-y-2">
-          <Label htmlFor="first_name">Nome *</Label>
+          <Label htmlFor="first_name">{m.firstName}</Label>
           <Input
             id="first_name"
             name="first_name"
@@ -109,7 +113,7 @@ export const ClientForm = ({ client, onSuccess, onCancel }: ClientFormProps) => 
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="last_name">Cognome *</Label>
+          <Label htmlFor="last_name">{m.lastName}</Label>
           <Input
             id="last_name"
             name="last_name"
@@ -121,7 +125,7 @@ export const ClientForm = ({ client, onSuccess, onCancel }: ClientFormProps) => 
 
         {/* Company Information */}
         <div className="space-y-2">
-          <Label htmlFor="company_name">Ragione Sociale</Label>
+          <Label htmlFor="company_name">{m.companyName}</Label>
           <Input
             id="company_name"
             name="company_name"
@@ -131,7 +135,7 @@ export const ClientForm = ({ client, onSuccess, onCancel }: ClientFormProps) => 
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="vat_number">Partita IVA</Label>
+          <Label htmlFor="vat_number">{m.vatNumber}</Label>
           <Input
             id="vat_number"
             name="vat_number"
@@ -141,7 +145,7 @@ export const ClientForm = ({ client, onSuccess, onCancel }: ClientFormProps) => 
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="tax_code">Codice Fiscale</Label>
+          <Label htmlFor="tax_code">{m.taxCode}</Label>
           <Input
             id="tax_code"
             name="tax_code"
@@ -152,7 +156,7 @@ export const ClientForm = ({ client, onSuccess, onCancel }: ClientFormProps) => 
 
         {/* Contact Information */}
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">{m.email}</Label>
           <Input
             id="email"
             name="email"
@@ -163,7 +167,7 @@ export const ClientForm = ({ client, onSuccess, onCancel }: ClientFormProps) => 
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="phone">Telefono</Label>
+          <Label htmlFor="phone">{m.phone}</Label>
           <Input
             id="phone"
             name="phone"
@@ -173,7 +177,7 @@ export const ClientForm = ({ client, onSuccess, onCancel }: ClientFormProps) => 
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="mobile">Cellulare</Label>
+          <Label htmlFor="mobile">{m.mobile}</Label>
           <Input
             id="mobile"
             name="mobile"
@@ -184,7 +188,7 @@ export const ClientForm = ({ client, onSuccess, onCancel }: ClientFormProps) => 
 
         {/* Address */}
         <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="address_street">Indirizzo</Label>
+          <Label htmlFor="address_street">{m.street}</Label>
           <Input
             id="address_street"
             name="address_street"
@@ -194,7 +198,7 @@ export const ClientForm = ({ client, onSuccess, onCancel }: ClientFormProps) => 
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="address_city">Città</Label>
+          <Label htmlFor="address_city">{m.city}</Label>
           <Input
             id="address_city"
             name="address_city"
@@ -204,7 +208,7 @@ export const ClientForm = ({ client, onSuccess, onCancel }: ClientFormProps) => 
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="address_province">Provincia</Label>
+          <Label htmlFor="address_province">{m.province}</Label>
           <Input
             id="address_province"
             name="address_province"
@@ -215,7 +219,7 @@ export const ClientForm = ({ client, onSuccess, onCancel }: ClientFormProps) => 
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="address_postal_code">CAP</Label>
+          <Label htmlFor="address_postal_code">{m.postalCode}</Label>
           <Input
             id="address_postal_code"
             name="address_postal_code"
@@ -225,7 +229,7 @@ export const ClientForm = ({ client, onSuccess, onCancel }: ClientFormProps) => 
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="address_country">Paese</Label>
+          <Label htmlFor="address_country">{m.country}</Label>
           <Input
             id="address_country"
             name="address_country"
@@ -236,7 +240,7 @@ export const ClientForm = ({ client, onSuccess, onCancel }: ClientFormProps) => 
 
         {/* Notes */}
         <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="notes">Note</Label>
+          <Label htmlFor="notes">{m.notes}</Label>
           <Textarea
             id="notes"
             name="notes"
@@ -249,11 +253,11 @@ export const ClientForm = ({ client, onSuccess, onCancel }: ClientFormProps) => 
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onCancel}>
-          Annulla
+          {m.cancel}
         </Button>
         <Button type="submit" disabled={loading}>
           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {client ? "Aggiorna" : "Aggiungi"} Cliente
+          {client ? m.update : m.create}
         </Button>
       </div>
     </form>

@@ -4,9 +4,12 @@ import { ExpiryDashboard } from "@/components/expiry/ExpiryDashboard";
 import { ExpiryCalendar } from "@/components/expiry/ExpiryCalendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, LayoutGrid } from "lucide-react";
+import { useMessages } from "@/i18n";
+import { clientsMessages } from "@/i18n/messages/clients";
 
 const Expiry = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
+  const m = useMessages(clientsMessages).expiry;
 
   return (
     <DashboardLayout>
@@ -14,10 +17,10 @@ const Expiry = () => {
         <div>
           <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
             <Calendar className="h-8 w-8" />
-            Scadenzario Polizze
+            {m.title}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Monitora e gestisci le scadenze delle polizze
+            {m.subtitle}
           </p>
         </div>
 
@@ -25,11 +28,11 @@ const Expiry = () => {
           <TabsList className="grid w-full max-w-md grid-cols-2">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <LayoutGrid className="h-4 w-4" />
-              Dashboard
+              {m.tabDashboard}
             </TabsTrigger>
             <TabsTrigger value="calendar" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              Calendario
+              {m.tabCalendar}
             </TabsTrigger>
           </TabsList>
 

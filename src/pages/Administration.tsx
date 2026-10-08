@@ -20,6 +20,10 @@ import { UserFilter } from "@/components/administration/UserFilter";
 import { ViesAdministration } from "@/components/administration/ViesAdministration";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as XLSX from "xlsx";
+import { getLanguage, getMessages, useMessages } from "@/i18n";
+import { administrationMessages } from "@/i18n/messages/administration";
+import { commonMessages } from "@/i18n/messages/common";
+import { financialStatusLabel, practiceTypeLabel } from "@/i18n/messages/domain";
 
 interface FinancialSummary {
   total_practices: number;
@@ -58,6 +62,7 @@ interface HierarchicalUser {
 
 const Administration = () => {
   const { toast } = useToast();
+  const m = useMessages(administrationMessages);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [currentUserRole, setCurrentUserRole] = useState<string>("");
@@ -97,8 +102,8 @@ const Administration = () => {
       if (!user) {
         toast({
           variant: "destructive",
-          title: "Errore",
-          description: "Utente non autenticato",
+          title: getMessages(commonMessages).error,
+          description: getMessages(commonMessages).notAuthenticated,
         });
         return;
       }
@@ -127,7 +132,7 @@ const Administration = () => {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore inizializzazione",
+        title: getMessages(administrationMessages).initErrorTitle,
         description: error.message,
       });
     }
@@ -166,7 +171,7 @@ const Administration = () => {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore caricamento",
+        title: getMessages(administrationMessages).loadErrorTitle,
         description: error.message,
       });
     } finally {
@@ -203,49 +208,52 @@ const Administration = () => {
   };
 
   const handleExport = () => {
+    const text = getMessages(administrationMessages);
+    const columns = text.exportColumns;
+    const language = getLanguage();
     const exportData = filteredPractices.map((p) => ({
-      "Numero Pratica": p.practice_number,
-      Tipo: p.practice_type,
-      Cliente: p.client_name,
-      ...(selectedUserId === "all" && { Utente: p.user_full_name }),
-      "Premio (€)": p.premium_amount || 0,
-      "Provvigione %": p.commission_percentage || 0,
-      "Provvigione (€)": p.commission_amount || 0,
-      "Stato Finanziario": p.financial_status,
-      "Data Incasso": p.payment_date || "-",
-      "Data Provvigioni": p.commission_received_date || "-",
+      [columns.number]: p.practice_number,
+      [columns.type]: practiceTypeLabel(p.practice_type, language),
+      [columns.client]: p.client_name,
+      ...(selectedUserId === "all" && { [columns.user]: p.user_full_name }),
+      [columns.premium]: p.premium_amount || 0,
+      [columns.commissionPercentage]: p.commission_percentage || 0,
+      [columns.commission]: p.commission_amount || 0,
+      [columns.status]: financialStatusLabel(p.financial_status, language),
+      [columns.paymentDate]: p.payment_date || "-",
+      [columns.commissionDate]: p.commission_received_date || "-",
     }));
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Amministrazione");
+    XLSX.utils.book_append_sheet(wb, ws, text.exportSheet);
     XLSX.writeFile(
       wb,
-      `amministrazione_${new Date().toISOString().split("T")[0]}.xlsx`
+      `${text.exportFile}_${new Date().toISOString().split("T")[0]}.xlsx`
     );
 
     toast({
-      title: "Successo",
-      description: "Dati esportati in Excel",
+      title: getMessages(commonMessages).success,
+      description: text.exportedText,
     });
   };
 
   const getPageTitle = () => {
     if (currentUserRole === "admin") {
-      return "Amministrazione - Vista Globale";
+      return m.titleAdmin;
     } else if (currentUserRole === "agente") {
-      return "Amministrazione - Il Mio Team";
+      return m.titleAgent;
     }
-    return "Amministrazione - Le Mie Provvigioni";
+    return m.titleOwn;
   };
 
   const getPageDescription = () => {
     if (currentUserRole === "admin") {
-      return "Gestisci provvigioni e incassi di tutti gli utenti";
+      return m.descriptionAdmin;
     } else if (currentUserRole === "agente") {
-      return "Gestisci provvigioni e incassi del tuo team";
+      return m.descriptionAgent;
     }
-    return "Visualizza le tue provvigioni e incassi";
+    return m.descriptionOwn;
   };
 
   const showUserColumn = selectedUserId === "all" && (currentUserRole === "admin" || currentUserRole === "agente");
@@ -268,19 +276,19 @@ const Administration = () => {
               <RefreshCw
                 className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
               />
-              Aggiorna
+              {m.refresh}
             </Button>
             <Button variant="outline" onClick={handleExport}>
               <Download className="h-4 w-4 mr-2" />
-              Esporta
+              {m.export}
             </Button>
           </div>
         </div>
 
         <Tabs defaultValue="contabilita" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="contabilita">Contabilità</TabsTrigger>
-            <TabsTrigger value="vies">VIES</TabsTrigger>
+            <TabsTrigger value="contabilita">{m.tabAccounting}</TabsTrigger>
+            <TabsTrigger value="vies">{m.tabVies}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="vies">
@@ -291,7 +299,7 @@ const Administration = () => {
         {summary && <FinancialStats stats={summary} />}
 
         <div className="bg-white dark:bg-gray-800 rounded-lg border p-6 space-y-4">
-          <h2 className="text-xl font-semibold">Filtri</h2>
+          <h2 className="text-xl font-semibold">{m.filters}</h2>
           <div className="grid md:grid-cols-3 gap-4">
             {(currentUserRole === "admin" || currentUserRole === "agente") && (
               <UserFilter
@@ -302,26 +310,26 @@ const Administration = () => {
               />
             )}
             <div className="space-y-2">
-              <Label htmlFor="search">Cerca</Label>
+              <Label htmlFor="search">{m.search}</Label>
               <Input
                 id="search"
-                placeholder="Numero pratica, cliente o utente..."
+                placeholder={m.searchPlaceholder}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="status">Stato Finanziario</Label>
+              <Label htmlFor="status">{m.financialStatus}</Label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger id="status">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tutti gli stati</SelectItem>
-                  <SelectItem value="non_incassata">Non Incassate</SelectItem>
-                  <SelectItem value="incassata">Incassate</SelectItem>
+                  <SelectItem value="all">{m.allStatuses}</SelectItem>
+                  <SelectItem value="non_incassata">{m.notCollectedPlural}</SelectItem>
+                  <SelectItem value="incassata">{m.collectedPlural}</SelectItem>
                   <SelectItem value="provvigioni_ricevute">
-                    Provvigioni Ricevute
+                    {m.commissionsReceived}
                   </SelectItem>
                 </SelectContent>
               </Select>

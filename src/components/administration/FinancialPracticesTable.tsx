@@ -11,6 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Edit, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { formatCurrency as formatLocaleCurrency, formatDate as formatLocaleDate, useMessages } from "@/i18n";
+import { administrationMessages } from "@/i18n/messages/administration";
+import { financialStatusLabel, practiceTypeLabel, roleLabel } from "@/i18n/messages/domain";
 
 interface Practice {
   id: string;
@@ -41,19 +44,11 @@ export const FinancialPracticesTable = ({
   showUserColumn = false,
 }: FinancialPracticesTableProps) => {
   const navigate = useNavigate();
+  const m = useMessages(administrationMessages).table;
 
-  const formatCurrency = (amount: number | null) => {
-    if (amount === null) return "-";
-    return new Intl.NumberFormat("it-IT", {
-      style: "currency",
-      currency: "EUR",
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number | null) => (amount === null ? "-" : formatLocaleCurrency(amount));
 
-  const formatDate = (date: string | null) => {
-    if (!date) return "-";
-    return new Date(date).toLocaleDateString("it-IT");
-  };
+  const formatDate = (date: string | null) => (date ? formatLocaleDate(date) : "-");
 
   const getFinancialStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -64,41 +59,14 @@ export const FinancialPracticesTable = ({
     return colors[status] || colors.non_incassata;
   };
 
-  const getFinancialStatusLabel = (status: string) => {
-    const labels: Record<string, string> = {
-      non_incassata: "Non Incassata",
-      incassata: "Incassata",
-      provvigioni_ricevute: "Provvigioni Ricevute",
-    };
-    return labels[status] || status;
-  };
+  const getFinancialStatusLabel = (status: string) => financialStatusLabel(status);
 
-  const getPracticeTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      fidejussioni: "Fidejussioni",
-      car: "Car",
-      postuma_decennale: "Postuma Decennale",
-      all_risk: "All Risk",
-      responsabilita_civile: "Responsabilità Civile",
-      pet: "Pet",
-      fotovoltaico: "Fotovoltaico",
-      catastrofali: "Catastrofali",
-      azienda: "Azienda",
-      casa: "Casa",
-      risparmio: "Risparmio",
-      salute: "Salute",
-      auto: "Auto",
-      vita: "Vita",
-      responsabilita: "Responsabilità",
-      altro: "Altro",
-    };
-    return labels[type] || type;
-  };
+  const getPracticeTypeLabel = (type: string) => practiceTypeLabel(type);
 
   if (practices.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
-        <p>Nessuna pratica trovata</p>
+        <p>{m.empty}</p>
       </div>
     );
   }
@@ -109,17 +77,17 @@ export const FinancialPracticesTable = ({
       <Table className="min-w-[1180px]">
         <TableHeader>
           <TableRow>
-            <TableHead>Numero Pratica</TableHead>
-            <TableHead>Tipo</TableHead>
-            <TableHead>Cliente</TableHead>
-            {showUserColumn && <TableHead>Utente</TableHead>}
-            <TableHead className="text-right">Premio</TableHead>
-            <TableHead className="text-right">Provv. %</TableHead>
-            <TableHead className="text-right">Provvigione</TableHead>
-            <TableHead>Stato Finanziario</TableHead>
-            <TableHead>Data Incasso</TableHead>
-            <TableHead>Data Provv.</TableHead>
-            <TableHead className="text-right">Azioni</TableHead>
+            <TableHead>{m.number}</TableHead>
+            <TableHead>{m.type}</TableHead>
+            <TableHead>{m.client}</TableHead>
+            {showUserColumn && <TableHead>{m.user}</TableHead>}
+            <TableHead className="text-right">{m.premium}</TableHead>
+            <TableHead className="text-right">{m.commissionPercentage}</TableHead>
+            <TableHead className="text-right">{m.commission}</TableHead>
+            <TableHead>{m.status}</TableHead>
+            <TableHead>{m.paymentDate}</TableHead>
+            <TableHead>{m.commissionDate}</TableHead>
+            <TableHead className="text-right">{m.actions}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -135,8 +103,8 @@ export const FinancialPracticesTable = ({
                   <div className="flex min-w-0 flex-col">
                     <span className="max-w-[180px] break-words font-medium">{practice.user_full_name}</span>
                     {practice.user_role && (
-                      <span className="text-xs text-muted-foreground capitalize">
-                        {practice.user_role}
+                      <span className="text-xs text-muted-foreground">
+                        {roleLabel(practice.user_role)}
                       </span>
                     )}
                   </div>

@@ -12,6 +12,10 @@ import {
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { getMessages, useLocale, useMessages } from "@/i18n";
+import { clientsMessages } from "@/i18n/messages/clients";
+import { practiceTypeLabel } from "@/i18n/messages/domain";
+import { mapPracticeTypeToEnum } from "@/utils/practiceTypeMapping";
 import { useNavigate } from "react-router-dom";
 
 interface ExpiryPractice {
@@ -25,6 +29,8 @@ interface ExpiryPractice {
 
 export const ExpiryCalendar = () => {
   const { toast } = useToast();
+  const m = useMessages(clientsMessages).expiry;
+  const locale = useLocale();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [expiries, setExpiries] = useState<ExpiryPractice[]>([]);
@@ -53,7 +59,7 @@ export const ExpiryCalendar = () => {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore caricamento",
+        title: getMessages(clientsMessages).expiry.loadErrorTitle,
         description: error.message,
       });
     } finally {
@@ -130,11 +136,11 @@ export const ExpiryCalendar = () => {
                   onClick={() => navigate(`/practices/${expiry.practice_id}`)}
                 >
                   <p className="font-medium truncate">{expiry.client_name}</p>
-                  <p className="text-muted-foreground truncate">{expiry.practice_type}</p>
+                  <p className="text-muted-foreground truncate">{practiceTypeLabel(expiry.practice_type)}</p>
                 </div>
               ))}
               {dayExpiries.length > 2 && (
-                <p className="text-xs text-muted-foreground">+{dayExpiries.length - 2} altre</p>
+                <p className="text-xs text-muted-foreground">{m.more(dayExpiries.length - 2)}</p>
               )}
             </div>
           </div>
@@ -145,22 +151,11 @@ export const ExpiryCalendar = () => {
     return days;
   };
 
-  const monthNames = [
-    "Gennaio",
-    "Febbraio",
-    "Marzo",
-    "Aprile",
-    "Maggio",
-    "Giugno",
-    "Luglio",
-    "Agosto",
-    "Settembre",
-    "Ottobre",
-    "Novembre",
-    "Dicembre",
-  ];
-
-  const dayNames = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
+  // Month and weekday names in the user's language (weeks start on Monday).
+  const monthName = currentDate.toLocaleDateString(locale, { month: "long" });
+  const dayNames = Array.from({ length: 7 }, (_, index) =>
+    new Date(2024, 0, 1 + index).toLocaleDateString(locale, { weekday: "short" }),
+  );
 
   if (loading) {
     return (
@@ -180,36 +175,32 @@ export const ExpiryCalendar = () => {
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <h2 className="min-w-0 flex-1 text-center text-lg font-semibold sm:min-w-[200px] sm:text-xl">
-              {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+              <span className="capitalize">{monthName}</span> {currentDate.getFullYear()}
             </h2>
             <Button variant="outline" size="sm" onClick={nextMonth}>
               <ChevronRight className="h-4 w-4" />
             </Button>
             <Button variant="outline" size="sm" onClick={today} className="h-auto min-h-9 whitespace-normal">
               <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-              <span>Oggi</span>
+              <span>{m.today}</span>
             </Button>
           </div>
 
           <div className="w-full lg:w-64">
             <Select value={selectedPracticeType} onValueChange={setSelectedPracticeType}>
               <SelectTrigger>
-                <SelectValue placeholder="Filtra per tipo" />
+                <SelectValue placeholder={m.filterByType} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tutte le polizze</SelectItem>
-                <SelectItem value="Fidejussioni">Fidejussioni</SelectItem>
-                <SelectItem value="Car">Car</SelectItem>
-                <SelectItem value="Postuma Decennale">Postuma Decennale</SelectItem>
-                <SelectItem value="All Risk">All Risk</SelectItem>
-                <SelectItem value="RC">RC Professionale</SelectItem>
-                <SelectItem value="Pet">Pet</SelectItem>
-                <SelectItem value="Fotovoltaico">Fotovoltaico</SelectItem>
-                <SelectItem value="Catastrofali">Catastrofali</SelectItem>
-                <SelectItem value="Azienda">Azienda</SelectItem>
-                <SelectItem value="Casa">Casa</SelectItem>
-                <SelectItem value="Risparmio">Risparmio</SelectItem>
-                <SelectItem value="Salute">Salute</SelectItem>
+                <SelectItem value="all">{m.allPolicies}</SelectItem>
+                {[
+                  "Fidejussioni", "Car", "Postuma Decennale", "All Risk", "RC", "Pet", "Fotovoltaico", "Catastrofali",
+                  "Azienda", "Casa", "Risparmio", "Salute",
+                ].map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {practiceTypeLabel(mapPracticeTypeToEnum(type))}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -237,15 +228,15 @@ export const ExpiryCalendar = () => {
         <div className="flex flex-wrap items-center gap-4 text-sm sm:gap-6">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 border-2 border-primary rounded"></div>
-            <span>Oggi</span>
+            <span>{m.today}</span>
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="destructive" className="text-xs">1</Badge>
-            <span>Numero scadenze</span>
+            <span>{m.legendCount}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-red-100 dark:bg-red-900 rounded"></div>
-            <span>Polizza in scadenza</span>
+            <span>{m.legendExpiring}</span>
           </div>
         </div>
       </Card>

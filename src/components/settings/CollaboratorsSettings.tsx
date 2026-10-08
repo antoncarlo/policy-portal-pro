@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { formatDate, getMessages, useMessages } from "@/i18n";
+import { commonMessages } from "@/i18n/messages/common";
+import { settingsMessages } from "@/i18n/messages/settings";
 import { supabase } from "@/integrations/supabase/client";
 import { Users, UserPlus, Trash2, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -48,6 +51,8 @@ interface Collaborator {
 
 export const CollaboratorsSettings = () => {
   const { toast } = useToast();
+  const m = useMessages(settingsMessages).collaborators;
+  const common = useMessages(commonMessages);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
@@ -107,7 +112,7 @@ export const CollaboratorsSettings = () => {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     } finally {
@@ -128,8 +133,8 @@ export const CollaboratorsSettings = () => {
       if (error) throw error;
 
       toast({
-        title: "Successo",
-        description: "Collaboratore rimosso dalla tua gestione",
+        title: getMessages(commonMessages).success,
+        description: getMessages(settingsMessages).collaborators.removed,
       });
 
       setDeleteDialogOpen(false);
@@ -138,7 +143,7 @@ export const CollaboratorsSettings = () => {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     }
@@ -154,24 +159,24 @@ export const CollaboratorsSettings = () => {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-2">
           <Users className="h-5 w-5" />
-          <h2 className="min-w-0 break-words text-xl font-semibold">Gestione Collaboratori</h2>
+          <h2 className="min-w-0 break-words text-xl font-semibold">{m.title}</h2>
         </div>
         <Button onClick={() => navigate("/admin/users")} size="sm" className="h-auto min-h-9 w-full whitespace-normal sm:w-auto">
           <UserPlus className="mr-2 h-4 w-4 shrink-0" />
-          <span>Aggiungi Collaboratore</span>
+          <span>{m.add}</span>
         </Button>
       </div>
 
       {loading ? (
         <div className="text-center py-8 text-muted-foreground">
-          Caricamento...
+          {common.loading}
         </div>
       ) : collaborators.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p className="text-lg font-medium">Nessun collaboratore assegnato</p>
+          <p className="text-lg font-medium">{m.emptyTitle}</p>
           <p className="text-sm mt-2">
-            I collaboratori assegnati a te appariranno qui
+            {m.emptyText}
           </p>
         </div>
       ) : (
@@ -180,12 +185,12 @@ export const CollaboratorsSettings = () => {
           <Table className="min-w-[820px]">
             <TableHeader>
               <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Telefono</TableHead>
-                <TableHead className="text-center">Pratiche</TableHead>
-                <TableHead>Assegnato il</TableHead>
-                <TableHead className="text-right">Azioni</TableHead>
+                <TableHead>{m.name}</TableHead>
+                <TableHead>{m.email}</TableHead>
+                <TableHead>{m.phone}</TableHead>
+                <TableHead className="text-center">{m.practices}</TableHead>
+                <TableHead>{m.assignedOn}</TableHead>
+                <TableHead className="text-right">{m.actions}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -202,7 +207,7 @@ export const CollaboratorsSettings = () => {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {new Date(collaborator.created_at).toLocaleDateString("it-IT")}
+                    {formatDate(collaborator.created_at)}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
@@ -210,7 +215,7 @@ export const CollaboratorsSettings = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleViewPractices(collaborator)}
-                        title="Visualizza pratiche"
+                        title={m.viewPractices}
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -221,7 +226,7 @@ export const CollaboratorsSettings = () => {
                           setSelectedCollaborator(collaborator);
                           setDeleteDialogOpen(true);
                         }}
-                        title="Rimuovi collaboratore"
+                        title={m.remove}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
@@ -238,17 +243,15 @@ export const CollaboratorsSettings = () => {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Rimuovi Collaboratore</AlertDialogTitle>
+            <AlertDialogTitle>{m.confirmTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              Sei sicuro di voler rimuovere <strong>{selectedCollaborator?.full_name}</strong> dalla
-              tua gestione? Il collaboratore non sarà eliminato, ma non sarà più assegnato a te.
-              Le sue pratiche rimarranno accessibili.
+              {m.confirmText(selectedCollaborator?.full_name ?? "")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogCancel>{m.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleRemoveCollaborator}>
-              Rimuovi
+              {m.confirm}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

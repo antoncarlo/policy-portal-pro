@@ -4,11 +4,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { formatDate, getMessages, useMessages } from "@/i18n";
+import { commonMessages } from "@/i18n/messages/common";
+import { settingsMessages } from "@/i18n/messages/settings";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, User, Upload, Camera } from "lucide-react";
 
 export const ProfileSettings = () => {
   const { toast } = useToast();
+  const m = useMessages(settingsMessages).profile;
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState({
     full_name: "",
@@ -47,7 +51,7 @@ export const ProfileSettings = () => {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     }
@@ -57,7 +61,7 @@ export const ProfileSettings = () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Utente non autenticato");
+      if (!user) throw new Error(getMessages(commonMessages).notAuthenticated);
 
       const { error } = await supabase
         .from("profiles")
@@ -71,13 +75,13 @@ export const ProfileSettings = () => {
       if (error) throw error;
 
       toast({
-        title: "Successo",
-        description: "Profilo aggiornato correttamente",
+        title: getMessages(commonMessages).success,
+        description: getMessages(settingsMessages).profile.saved,
       });
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     } finally {
@@ -93,8 +97,8 @@ export const ProfileSettings = () => {
     if (!file.type.startsWith("image/")) {
       toast({
         variant: "destructive",
-        title: "Errore",
-        description: "Il file deve essere un'immagine",
+        title: getMessages(commonMessages).error,
+        description: getMessages(settingsMessages).profile.notImage,
       });
       return;
     }
@@ -103,8 +107,8 @@ export const ProfileSettings = () => {
     if (file.size > 2 * 1024 * 1024) {
       toast({
         variant: "destructive",
-        title: "Errore",
-        description: "L'immagine deve essere massimo 2MB",
+        title: getMessages(commonMessages).error,
+        description: getMessages(settingsMessages).profile.tooLarge,
       });
       return;
     }
@@ -112,7 +116,7 @@ export const ProfileSettings = () => {
     setUploading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Utente non autenticato");
+      if (!user) throw new Error(getMessages(commonMessages).notAuthenticated);
 
       const fileExt = file.name.split(".").pop();
       const fileName = `avatar-${user.id}-${Date.now()}.${fileExt}`;
@@ -139,13 +143,13 @@ export const ProfileSettings = () => {
       if (updateError) throw updateError;
 
       toast({
-        title: "Successo",
-        description: "Avatar aggiornato correttamente",
+        title: getMessages(commonMessages).success,
+        description: getMessages(settingsMessages).profile.avatarSaved,
       });
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     } finally {
@@ -157,7 +161,7 @@ export const ProfileSettings = () => {
     <Card className="p-6">
       <div className="flex items-center gap-2 mb-6">
         <User className="h-5 w-5" />
-        <h2 className="text-xl font-semibold">Profilo Personale</h2>
+        <h2 className="text-xl font-semibold">{m.title}</h2>
       </div>
 
       <div className="space-y-6">
@@ -195,8 +199,8 @@ export const ProfileSettings = () => {
             />
           </div>
           <div>
-            <h3 className="font-semibold">Foto Profilo</h3>
-            <p className="text-sm text-muted-foreground">JPG, PNG o GIF. Max 2MB.</p>
+            <h3 className="font-semibold">{m.photo}</h3>
+            <p className="text-sm text-muted-foreground">{m.photoHint}</p>
             {profile.avatar_url && (
               <Button
                 variant="ghost"
@@ -204,24 +208,24 @@ export const ProfileSettings = () => {
                 className="mt-2 text-destructive hover:text-destructive"
                 onClick={() => setProfile({ ...profile, avatar_url: "" })}
               >
-                Rimuovi foto
+                {m.removePhoto}
               </Button>
             )}
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="full_name">Nome Completo *</Label>
+            <Label htmlFor="full_name">{m.fullName}</Label>
             <Input
               id="full_name"
               value={profile.full_name}
               onChange={(e) => setProfile({ ...profile, full_name: e.target.value })}
-              placeholder="Mario Rossi"
+              placeholder={m.fullNamePlaceholder}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">{m.email}</Label>
             <Input
               id="email"
               value={profile.email}
@@ -229,14 +233,14 @@ export const ProfileSettings = () => {
               className="bg-muted"
             />
             <p className="text-xs text-muted-foreground">
-              L'email non può essere modificata
+              {m.emailLocked}
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="phone">Telefono</Label>
+            <Label htmlFor="phone">{m.phone}</Label>
             <Input
               id="phone"
               value={profile.phone}
@@ -246,13 +250,9 @@ export const ProfileSettings = () => {
           </div>
 
           <div className="space-y-2">
-            <Label>Membro dal</Label>
+            <Label>{m.memberSince}</Label>
             <Input
-              value={new Date(profile.created_at).toLocaleDateString("it-IT", {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              })}
+              value={formatDate(profile.created_at, { day: "numeric", month: "long", year: "numeric" })}
               disabled
               className="bg-muted"
             />
@@ -262,7 +262,7 @@ export const ProfileSettings = () => {
         <div className="flex justify-end pt-4">
           <Button onClick={handleSave} disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Salva Modifiche
+            {m.save}
           </Button>
         </div>
       </div>
