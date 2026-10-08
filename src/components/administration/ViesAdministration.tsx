@@ -1,6 +1,6 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Building2, CheckCircle2, ChevronDown, ChevronRight, Download, FileSpreadsheet, FileText, Loader2, PenLine, RefreshCw, Upload } from "lucide-react";
+import { ArrowLeft, Building2, CheckCircle2, ChevronDown, ChevronRight, Download, FileSpreadsheet, FileText, Loader2, PenLine, RefreshCw, Search, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,6 +31,8 @@ const VIES_BUCKET = "vies-batch-files";
 const BUCKET_PREFIX = `${VIES_BUCKET}://`;
 const SIGNATURE_FILE = "impostazioni/firma-estratti-conto";
 const COMPANY_NAME_KEY = "vies-statement-company-name";
+const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const XLS_MIME = "application/vnd.ms-excel";
 
 type Representative = {
   id: string;
@@ -137,6 +139,8 @@ export const ViesAdministration = () => {
   const [lots, setLots] = useState<Lot[]>([]);
   const [practicesByLot, setPracticesByLot] = useState<Map<string, LotPractice[]>>(new Map());
   const [selectedRepresentativeId, setSelectedRepresentativeId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const rootRef = useRef<HTMLDivElement>(null);
   const [openLotId, setOpenLotId] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [settleLot, setSettleLot] = useState<Lot | null>(null);
@@ -193,7 +197,8 @@ export const ViesAdministration = () => {
       setRepresentatives((reps ?? []) as Representative[]);
       setLots(lotList);
       setPracticesByLot(byLot);
-      setSelectedRepresentativeId((current) => current ?? reps?.[0]?.id ?? null);
+      // The list opens first: a representative's summary only after it is chosen.
+      setSelectedRepresentativeId((current) => (current && reps?.some((rep) => rep.id === current) ? current : null));
 
       if (uid) {
         const { data: signatureBlob } = await supabase.storage.from(VIES_BUCKET).download(`${uid}/${SIGNATURE_FILE}`);
@@ -212,6 +217,19 @@ export const ViesAdministration = () => {
 
   const selected = representatives.find((representative) => representative.id === selectedRepresentativeId) ?? null;
   const selectedLots = useMemo(() => lots.filter((lot) => lot.fiscal_representative_id === selectedRepresentativeId), [lots, selectedRepresentativeId]);
+  const visibleRepresentatives = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return representatives;
+    return representatives.filter(
+      (representative) => representative.name.toLowerCase().includes(query) || representative.tax_code.toLowerCase().includes(query),
+    );
+  }, [representatives, search]);
+
+  const showRepresentative = (representativeId: string | null) => {
+    setSelectedRepresentativeId(representativeId);
+    setOpenLotId(null);
+    rootRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+  };
 
   const summaryFor = (representativeId: string) => {
     const representativeLots = lots.filter((lot) => lot.fiscal_representative_id === representativeId);
@@ -228,20 +246,34 @@ export const ViesAdministration = () => {
     return { lots: representativeLots.length, practices, toPay, paid };
   };
 
-  const openStorageFile = async (storagePath: string, fileName: string) => {
+  // The file is downloaded here and saved with an explicit name and type. A signed link
+  // carries the file name unencoded, so an "&" in the company name (e.g. "SE&SE") cut the
+  // name short and the file was saved without its .xlsx extension.
+  const downloadStorageFile = async (storagePath: string, fileName: string, mimeType: string) => {
     const path = storagePath.startsWith(BUCKET_PREFIX) ? storagePath.slice(BUCKET_PREFIX.length) : storagePath;
-    const { data, error } = await supabase.storage.from(VIES_BUCKET).createSignedUrl(path, 120, { download: fileName });
-    if (error || !data?.signedUrl) throw new Error(error?.message ?? text().fileUnavailable);
-    window.open(data.signedUrl, "_blank", "noopener");
+    const { data, error } = await supabase.storage.from(VIES_BUCKET).download(path);
+    if (error || !data) throw new Error(error?.message ?? text().fileUnavailable);
+    const url = URL.createObjectURL(new Blob([data], { type: mimeType }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
   const handleDownloadExcel = async (lot: Lot) => {
     if (!lot.excel_storage_path) return;
     setBusy(`excel-${lot.id}`);
     try {
-      const extension = /\.xls$/i.test(lot.source_excel_file_name ?? "") ? "xls" : "xlsx";
+      const legacyXls = /\.xls$/i.test(lot.source_excel_file_name ?? "");
       const owner = selected ? ` - ${safeFileName(selected.name)}` : "";
-      await openStorageFile(lot.excel_storage_path, `Excel Lotto ${lot.lot_number}${owner}.${extension}`);
+      await downloadStorageFile(
+        lot.excel_storage_path,
+        `Excel Lotto ${lot.lot_number}${owner}.${legacyXls ? "xls" : "xlsx"}`,
+        legacyXls ? XLS_MIME : XLSX_MIME,
+      );
     } catch (error) {
       toast({ variant: "destructive", title: text().excelErrorTitle, description: error instanceof Error ? error.message : text().genericError });
     } finally {
@@ -431,6 +463,7 @@ export const ViesAdministration = () => {
     );
   }
 
+  const selectedSummary = selected ? summaryFor(selected.id) : { lots: 0, practices: 0, toPay: 0, paid: 0 };
   const settlePractices = settleLot ? practicesByLot.get(settleLot.id) ?? [] : [];
   const settlePreview = settleLot
     ? computeViesLotTotals(toStatementPolicies(settlePractices), parsePercent(settleForm.commission) ?? 0, parsePercent(settleForm.withholding) ?? 0)
@@ -445,7 +478,7 @@ export const ViesAdministration = () => {
     : null;
 
   return (
-    <div className="space-y-6">
+    <div ref={rootRef} className="scroll-mt-6 space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <p className="text-sm text-muted-foreground">
           {m.intro}
@@ -460,196 +493,229 @@ export const ViesAdministration = () => {
         <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
           {m.noRepresentatives}
         </div>
+      ) : !selected ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-primary" />
+              {m.representativesTitle}
+              <Badge variant="secondary">{representatives.length}</Badge>
+            </CardTitle>
+            <CardDescription>{m.representativesHint}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={m.searchRepresentatives} className="pl-9" />
+            </div>
+            {visibleRepresentatives.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">{m.noMatches}</p>
+            ) : (
+              <div className="divide-y overflow-hidden rounded-lg border">
+                {visibleRepresentatives.map((representative) => {
+                  const summary = summaryFor(representative.id);
+                  return (
+                    <button
+                      key={representative.id}
+                      type="button"
+                      onClick={() => showRepresentative(representative.id)}
+                      className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
+                    >
+                      <Building2 className="h-5 w-5 shrink-0 text-primary" />
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words font-semibold">{representative.name}</p>
+                        <p className="font-mono text-xs text-muted-foreground">{m.taxCodeShort(representative.tax_code)}</p>
+                        <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                          <Badge variant="secondary">{m.lots(summary.lots)}</Badge>
+                          <Badge variant="secondary">{m.practices(summary.practices)}</Badge>
+                          {summary.toPay > 0 && <Badge variant="destructive">{m.toPay(formatCurrency(summary.toPay))}</Badge>}
+                          {summary.paid > 0 && <Badge className="bg-emerald-600 hover:bg-emerald-600">{m.paid(formatCurrency(summary.paid))}</Badge>}
+                        </div>
+                      </div>
+                      <span className="hidden shrink-0 text-sm font-medium text-primary sm:inline">{m.openRecap}</span>
+                      <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       ) : (
         <>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {representatives.map((representative) => {
-              const summary = summaryFor(representative.id);
-              const active = representative.id === selectedRepresentativeId;
-              return (
-                <button
-                  key={representative.id}
-                  type="button"
-                  onClick={() => setSelectedRepresentativeId(representative.id)}
-                  className={`rounded-lg border p-4 text-left transition ${active ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-muted/50"}`}
+          <Button variant="ghost" size="sm" className="-ml-2" onClick={() => showRepresentative(null)}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            {m.allRepresentatives}
+          </Button>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="break-words">{selected.name}</CardTitle>
+              <CardDescription>{m.representativeData}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <dl className="grid gap-x-8 gap-y-3 text-sm md:grid-cols-2">
+                {[
+                  [m.taxCode, selected.tax_code],
+                  [
+                    m.administrator,
+                    [selected.administrator_name, selected.administrator_tax_code && m.taxCodeShort(selected.administrator_tax_code)]
+                      .filter(Boolean)
+                      .join(" · "),
+                  ],
+                  [m.office, selected.address],
+                  [m.pec, selected.pec],
+                  [m.visura, selected.visura_reference ? translateViesText(selected.visura_reference) : null],
+                ].map(([label, value]) => (
+                  <div key={label as string}>
+                    <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
+                    <dd className="break-words font-medium">{value || "—"}</dd>
+                  </div>
+                ))}
+              </dl>
+              {selected.visura_storage_path && (
+                <Button
+                  variant="link"
+                  className="mt-3 h-auto p-0"
+                  onClick={() => downloadStorageFile(selected.visura_storage_path as string, `Visura ${selected.tax_code}.pdf`, "application/pdf").catch((error: Error) => toast({ variant: "destructive", title: m.visuraUnavailable, description: error.message }))}
                 >
-                  <div className="flex items-start gap-2">
-                    <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    <div className="min-w-0">
-                      <p className="break-words font-semibold">{representative.name}</p>
-                      <p className="font-mono text-xs text-muted-foreground">{m.taxCodeShort(representative.tax_code)}</p>
-                    </div>
+                  <Download className="mr-1 h-4 w-4" />
+                  {m.downloadVisura}
+                </Button>
+              )}
+              <div className="mt-5 grid grid-cols-2 gap-3 border-t pt-4 lg:grid-cols-4">
+                {[
+                  [m.statLots, String(selectedSummary.lots), ""],
+                  [m.statPractices, String(selectedSummary.practices), ""],
+                  [m.statToPay, formatCurrency(selectedSummary.toPay), selectedSummary.toPay > 0 ? "text-destructive" : ""],
+                  [m.statPaid, formatCurrency(selectedSummary.paid), selectedSummary.paid > 0 ? "text-emerald-700" : ""],
+                ].map(([label, value, tone]) => (
+                  <div key={label} className="rounded-lg bg-muted/50 p-3">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+                    <p className={`text-lg font-semibold ${tone}`}>{value}</p>
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                    <Badge variant="secondary">{m.lots(summary.lots)}</Badge>
-                    <Badge variant="secondary">{m.practices(summary.practices)}</Badge>
-                    {summary.toPay > 0 && <Badge variant="destructive">{m.toPay(formatCurrency(summary.toPay))}</Badge>}
-                    {summary.paid > 0 && <Badge className="bg-emerald-600 hover:bg-emerald-600">{m.paid(formatCurrency(summary.paid))}</Badge>}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
-          {selected && (
-            <>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="break-words">{selected.name}</CardTitle>
-                  <CardDescription>{m.representativeData}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <dl className="grid gap-x-8 gap-y-3 text-sm md:grid-cols-2">
-                    {[
-                      [m.taxCode, selected.tax_code],
-                      [
-                        m.administrator,
-                        [selected.administrator_name, selected.administrator_tax_code && m.taxCodeShort(selected.administrator_tax_code)]
-                          .filter(Boolean)
-                          .join(" · "),
-                      ],
-                      [m.office, selected.address],
-                      [m.pec, selected.pec],
-                      [m.visura, selected.visura_reference ? translateViesText(selected.visura_reference) : null],
-                    ].map(([label, value]) => (
-                      <div key={label as string}>
-                        <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
-                        <dd className="break-words font-medium">{value || "—"}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                  {selected.visura_storage_path && (
-                    <Button
-                      variant="link"
-                      className="mt-3 h-auto p-0"
-                      onClick={() => openStorageFile(selected.visura_storage_path as string, `Visura ${selected.tax_code}.pdf`).catch((error: Error) => toast({ variant: "destructive", title: m.visuraUnavailable, description: error.message }))}
-                    >
-                      <Download className="mr-1 h-4 w-4" />
-                      {m.downloadVisura}
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>{m.lotsTitle}</CardTitle>
-                  <CardDescription>{m.lotsDescription}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {selectedLots.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">{m.noLots}</p>
-                  ) : (
-                    <div className="overflow-x-auto rounded-lg border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-muted/50">
-                            <TableHead className="min-w-36">{m.colLot}</TableHead>
-                            <TableHead className="text-right">{m.colPractices}</TableHead>
-                            <TableHead className="text-right">{m.colTotalPremiums}</TableHead>
-                            <TableHead className="text-right">{m.colCommissions}</TableHead>
-                            <TableHead>{m.colStatus}</TableHead>
-                            <TableHead className="text-right">{m.colActions}</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {selectedLots.map((lot) => {
-                            const practices = practicesByLot.get(lot.id) ?? [];
-                            const totals = lotTotals(lot, practices);
-                            const open = openLotId === lot.id;
-                            return (
-                              <Fragment key={lot.id}>
-                                <TableRow>
-                                  <TableCell>
-                                    <button type="button" className="flex items-center gap-1 font-semibold" onClick={() => setOpenLotId(open ? null : lot.id)}>
-                                      {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                      {m.lotName(lot.lot_number)}
-                                    </button>
-                                    <p className="pl-5 text-xs text-muted-foreground">{m.createdOn(formatDate(lot.created_at))}</p>
-                                  </TableCell>
-                                  <TableCell className="text-right">{practices.length}</TableCell>
-                                  <TableCell className="whitespace-nowrap text-right font-semibold">{formatCurrency(totals.premiums)}</TableCell>
-                                  <TableCell className="whitespace-nowrap text-right">
-                                    {formatCurrency(totals.commissions)}
-                                    <p className="text-xs text-muted-foreground">{m.percentOnNet(formatNumber(lot.commission_percentage ?? 0))}</p>
-                                  </TableCell>
-                                  <TableCell>
-                                    {lot.paid_at ? (
-                                      <Badge className="bg-emerald-600 hover:bg-emerald-600">{m.paidOn(formatDate(lot.paid_at))}</Badge>
-                                    ) : (
-                                      <Badge variant="outline" className="border-amber-300 text-amber-900">{m.toSettle}</Badge>
-                                    )}
-                                    {lot.commissions_received_at && (
-                                      <p className="mt-1 text-xs text-muted-foreground">{m.commissionsReceivedOn(formatDate(lot.commissions_received_at))}</p>
-                                    )}
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex flex-wrap justify-end gap-2">
-                                      <Button size="sm" variant="outline" onClick={() => handleDownloadExcel(lot)} disabled={!lot.excel_storage_path || Boolean(busy)}>
-                                        {busy === `excel-${lot.id}` ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-1 h-4 w-4" />}
-                                        {m.excel}
-                                      </Button>
-                                      <Button size="sm" variant="outline" onClick={() => openStatement(lot)} disabled={!practices.length || Boolean(busy)}>
-                                        {busy === `statement-${lot.id}` ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <FileText className="mr-1 h-4 w-4" />}
-                                        {m.statement}
-                                      </Button>
-                                      <Button size="sm" onClick={() => openSettle(lot)} disabled={!practices.length || Boolean(busy)}>
-                                        <CheckCircle2 className="mr-1 h-4 w-4" />
-                                        {lot.paid_at ? m.editSettlement : m.settle}
-                                      </Button>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                                {open && (
-                                  <TableRow className="hover:bg-transparent">
-                                    <TableCell colSpan={6} className="bg-muted/30">
-                                      <div className="overflow-x-auto">
-                                        <Table>
-                                          <TableHeader>
-                                            <TableRow>
-                                              <TableHead>{m.colPractice}</TableHead>
-                                              <TableHead>{m.colClient}</TableHead>
-                                              <TableHead className="text-right">{m.colGross}</TableHead>
-                                              <TableHead className="text-right">{m.colNet}</TableHead>
-                                              <TableHead className="text-right">{m.colCommission}</TableHead>
-                                              <TableHead>{m.colAccounting}</TableHead>
-                                            </TableRow>
-                                          </TableHeader>
-                                          <TableBody>
-                                            {practices.map((practice) => (
-                                              <TableRow key={practice.id}>
-                                                <TableCell className="whitespace-nowrap">
-                                                  <Button variant="link" className="h-auto p-0 font-mono text-xs" onClick={() => navigate(`/practices/${practice.id}`)}>
-                                                    {practice.practice_number}
-                                                  </Button>
-                                                </TableCell>
-                                                <TableCell className="min-w-48 break-words">{practice.client_name}</TableCell>
-                                                <TableCell className="whitespace-nowrap text-right">{formatCurrency(practice.premium_gross ?? 0)}</TableCell>
-                                                <TableCell className="whitespace-nowrap text-right">{formatCurrency(practice.premium_net ?? 0)}</TableCell>
-                                                <TableCell className="whitespace-nowrap text-right">{formatCurrency(practice.commission_amount ?? 0)}</TableCell>
-                                                <TableCell className="whitespace-nowrap">
-                                                  {financialStatusLabel(practice.financial_status)}
-                                                  {practice.payment_date && <span className="text-xs text-muted-foreground"> · {formatDate(practice.payment_date)}</span>}
-                                                </TableCell>
-                                              </TableRow>
-                                            ))}
-                                          </TableBody>
-                                        </Table>
-                                      </div>
-                                    </TableCell>
-                                  </TableRow>
+          <Card>
+            <CardHeader>
+              <CardTitle>{m.lotsTitle}</CardTitle>
+              <CardDescription>{m.lotsDescription}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {selectedLots.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{m.noLots}</p>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="min-w-36">{m.colLot}</TableHead>
+                        <TableHead className="text-right">{m.colPractices}</TableHead>
+                        <TableHead className="text-right">{m.colTotalPremiums}</TableHead>
+                        <TableHead className="text-right">{m.colCommissions}</TableHead>
+                        <TableHead>{m.colStatus}</TableHead>
+                        <TableHead className="text-right">{m.colActions}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedLots.map((lot) => {
+                        const practices = practicesByLot.get(lot.id) ?? [];
+                        const totals = lotTotals(lot, practices);
+                        const open = openLotId === lot.id;
+                        return (
+                          <Fragment key={lot.id}>
+                            <TableRow>
+                              <TableCell>
+                                <button type="button" className="flex items-center gap-1 font-semibold" onClick={() => setOpenLotId(open ? null : lot.id)}>
+                                  {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                  {m.lotName(lot.lot_number)}
+                                </button>
+                                <p className="pl-5 text-xs text-muted-foreground">{m.createdOn(formatDate(lot.created_at))}</p>
+                              </TableCell>
+                              <TableCell className="text-right">{practices.length}</TableCell>
+                              <TableCell className="whitespace-nowrap text-right font-semibold">{formatCurrency(totals.premiums)}</TableCell>
+                              <TableCell className="whitespace-nowrap text-right">
+                                {formatCurrency(totals.commissions)}
+                                <p className="text-xs text-muted-foreground">{m.percentOnNet(formatNumber(lot.commission_percentage ?? 0))}</p>
+                              </TableCell>
+                              <TableCell>
+                                {lot.paid_at ? (
+                                  <Badge className="bg-emerald-600 hover:bg-emerald-600">{m.paidOn(formatDate(lot.paid_at))}</Badge>
+                                ) : (
+                                  <Badge variant="outline" className="border-amber-300 text-amber-900">{m.toSettle}</Badge>
                                 )}
-                              </Fragment>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </>
-          )}
+                                {lot.commissions_received_at && (
+                                  <p className="mt-1 text-xs text-muted-foreground">{m.commissionsReceivedOn(formatDate(lot.commissions_received_at))}</p>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-wrap justify-end gap-2">
+                                  <Button size="sm" variant="outline" onClick={() => handleDownloadExcel(lot)} disabled={!lot.excel_storage_path || Boolean(busy)}>
+                                    {busy === `excel-${lot.id}` ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-1 h-4 w-4" />}
+                                    {m.excel}
+                                  </Button>
+                                  <Button size="sm" variant="outline" onClick={() => openStatement(lot)} disabled={!practices.length || Boolean(busy)}>
+                                    {busy === `statement-${lot.id}` ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <FileText className="mr-1 h-4 w-4" />}
+                                    {m.statement}
+                                  </Button>
+                                  <Button size="sm" onClick={() => openSettle(lot)} disabled={!practices.length || Boolean(busy)}>
+                                    <CheckCircle2 className="mr-1 h-4 w-4" />
+                                    {lot.paid_at ? m.editSettlement : m.settle}
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                            {open && (
+                              <TableRow className="hover:bg-transparent">
+                                <TableCell colSpan={6} className="bg-muted/30">
+                                  <div className="overflow-x-auto">
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead>{m.colPractice}</TableHead>
+                                          <TableHead>{m.colClient}</TableHead>
+                                          <TableHead className="text-right">{m.colGross}</TableHead>
+                                          <TableHead className="text-right">{m.colNet}</TableHead>
+                                          <TableHead className="text-right">{m.colCommission}</TableHead>
+                                          <TableHead>{m.colAccounting}</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {practices.map((practice) => (
+                                          <TableRow key={practice.id}>
+                                            <TableCell className="whitespace-nowrap">
+                                              <Button variant="link" className="h-auto p-0 font-mono text-xs" onClick={() => navigate(`/practices/${practice.id}`)}>
+                                                {practice.practice_number}
+                                              </Button>
+                                            </TableCell>
+                                            <TableCell className="min-w-48 break-words">{practice.client_name}</TableCell>
+                                            <TableCell className="whitespace-nowrap text-right">{formatCurrency(practice.premium_gross ?? 0)}</TableCell>
+                                            <TableCell className="whitespace-nowrap text-right">{formatCurrency(practice.premium_net ?? 0)}</TableCell>
+                                            <TableCell className="whitespace-nowrap text-right">{formatCurrency(practice.commission_amount ?? 0)}</TableCell>
+                                            <TableCell className="whitespace-nowrap">
+                                              {financialStatusLabel(practice.financial_status)}
+                                              {practice.payment_date && <span className="text-xs text-muted-foreground"> · {formatDate(practice.payment_date)}</span>}
+                                            </TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </Fragment>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </>
       )}
 
