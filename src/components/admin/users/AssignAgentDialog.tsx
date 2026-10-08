@@ -40,15 +40,6 @@ interface Agent {
   collaborator_count: number;
 }
 
-interface AgentRoleRow {
-  user_id: string;
-  profiles: {
-    full_name: string | null;
-    email: string | null;
-    avatar_url: string | null;
-  } | null;
-}
-
 export const AssignAgentDialog = ({
   open,
   onOpenChange,
@@ -65,23 +56,21 @@ export const AssignAgentDialog = ({
 
   const loadAgents = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select(`
-          user_id,
-          profiles!user_roles_user_id_fkey (
-            full_name,
-            email,
-            avatar_url
-          )
-        `)
-        .eq("role", "agente");
-
+      const { data, error } = await supabase.from("user_roles").select("user_id").eq("role", "agente");
       if (error) throw error;
+
+      // user_roles points at auth.users, not at profiles: the names are read separately.
+      const agentIds = (data || []).map((agent) => agent.user_id);
+      const { data: profilesData, error: profilesError } = agentIds.length
+        ? await supabase.from("profiles").select("id, full_name, email, avatar_url").in("id", agentIds)
+        : { data: [], error: null };
+      if (profilesError) throw profilesError;
+      const profileById = new Map((profilesData || []).map((profile) => [profile.id, profile]));
 
       // Count collaborators for each agent
       const agentsWithCounts = await Promise.all(
-        ((data || []) as AgentRoleRow[]).map(async (agent) => {
+        (data || []).map(async (agent) => {
+          const profile = profileById.get(agent.user_id);
           const { count } = await supabase
             .from("user_roles")
             .select("*", { count: "exact", head: true })
@@ -89,9 +78,9 @@ export const AssignAgentDialog = ({
 
           return {
             user_id: agent.user_id,
-            full_name: agent.profiles?.full_name || "N/A",
-            email: agent.profiles?.email || "N/A",
-            avatar_url: agent.profiles?.avatar_url || null,
+            full_name: profile?.full_name || "N/A",
+            email: profile?.email || "N/A",
+            avatar_url: profile?.avatar_url || null,
             collaborator_count: count || 0,
           };
         })

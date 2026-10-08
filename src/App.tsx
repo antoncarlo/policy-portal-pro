@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { UpdateNotifier } from "./components/UpdateNotifier";
 import Index from "./pages/Index";
@@ -14,7 +14,6 @@ import PracticeDetail from "./pages/PracticeDetail";
 import Clients from "./pages/Clients";
 import ClientDetail from "./pages/ClientDetail";
 import Settings from "./pages/Settings";
-import AdminUsers from "./pages/AdminUsers";
 import UserManagement from "./pages/UserManagement";
 import Administration from "./pages/Administration";
 import Expiry from "./pages/Expiry";
@@ -43,7 +42,8 @@ const App = () => (
           <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
           <Route path="/clients/:id" element={<ProtectedRoute><ClientDetail /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-          <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
+          {/* Old address of user management: the page created users from the browser. */}
+          <Route path="/admin/users" element={<Navigate to="/user-management" replace />} />
           <Route path="/user-management" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
           <Route path="/administration" element={<ProtectedRoute><Administration /></ProtectedRoute>} />
           <Route path="/expiry" element={<ProtectedRoute><Expiry /></ProtectedRoute>} />

@@ -28,15 +28,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 
-interface CollaboratorRoleRow {
+interface CollaboratorProfile {
   id: string;
-  user_id: string;
-  created_at: string;
-  profiles: {
-    full_name: string | null;
-    email: string | null;
-    phone: string | null;
-  } | null;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
 }
 
 interface Collaborator {
@@ -49,7 +45,12 @@ interface Collaborator {
   practices_count: number;
 }
 
-export const CollaboratorsSettings = () => {
+interface CollaboratorsSettingsProps {
+  /** Only administrators create users (Gestione Utenti). */
+  canAddCollaborators?: boolean;
+}
+
+export const CollaboratorsSettings = ({ canAddCollaborators = false }: CollaboratorsSettingsProps) => {
   const { toast } = useToast();
   const m = useMessages(settingsMessages).collaborators;
   const common = useMessages(commonMessages);
@@ -73,24 +74,24 @@ export const CollaboratorsSettings = () => {
       // Get collaborators assigned to this agent
       const { data: collaboratorsData, error } = await supabase
         .from("user_roles")
-        .select(`
-          id,
-          user_id,
-          created_at,
-          profiles:user_id (
-            full_name,
-            email,
-            phone
-          )
-        `)
+        .select("id, user_id, created_at")
         .eq("parent_agent_id", user.id)
         .eq("role", "collaboratore");
 
       if (error) throw error;
 
+      // user_roles points at auth.users, not at profiles: the names are read separately.
+      const collaboratorIds = (collaboratorsData || []).map((collab) => collab.user_id);
+      const { data: profilesData, error: profilesError } = collaboratorIds.length
+        ? await supabase.from("profiles").select("id, full_name, email, phone").in("id", collaboratorIds)
+        : { data: [] as CollaboratorProfile[], error: null };
+      if (profilesError) throw profilesError;
+      const profileById = new Map((profilesData || []).map((profile) => [profile.id, profile as CollaboratorProfile]));
+
       // Get practice counts for each collaborator
       const collaboratorsWithCounts = await Promise.all(
-        (collaboratorsData || []).map(async (collab: CollaboratorRoleRow) => {
+        (collaboratorsData || []).map(async (collab) => {
+          const profile = profileById.get(collab.user_id);
           const { count } = await supabase
             .from("practices")
             .select("*", { count: "exact", head: true })
@@ -99,9 +100,9 @@ export const CollaboratorsSettings = () => {
           return {
             id: collab.id,
             user_id: collab.user_id,
-            full_name: collab.profiles?.full_name || "N/A",
-            email: collab.profiles?.email || "N/A",
-            phone: collab.profiles?.phone,
+            full_name: profile?.full_name || "N/A",
+            email: profile?.email || "N/A",
+            phone: profile?.phone ?? null,
             created_at: collab.created_at,
             practices_count: count || 0,
           };
@@ -161,10 +162,12 @@ export const CollaboratorsSettings = () => {
           <Users className="h-5 w-5" />
           <h2 className="min-w-0 break-words text-xl font-semibold">{m.title}</h2>
         </div>
-        <Button onClick={() => navigate("/admin/users")} size="sm" className="h-auto min-h-9 w-full whitespace-normal sm:w-auto">
-          <UserPlus className="mr-2 h-4 w-4 shrink-0" />
-          <span>{m.add}</span>
-        </Button>
+        {canAddCollaborators && (
+          <Button onClick={() => navigate("/user-management")} size="sm" className="h-auto min-h-9 w-full whitespace-normal sm:w-auto">
+            <UserPlus className="mr-2 h-4 w-4 shrink-0" />
+            <span>{m.add}</span>
+          </Button>
+        )}
       </div>
 
       {loading ? (

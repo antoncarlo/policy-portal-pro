@@ -151,7 +151,7 @@ const Settings = () => {
           {showAgentTabs && (
             <>
               <TabsContent value="collaborators" className="space-y-4">
-                <CollaboratorsSettings />
+                <CollaboratorsSettings canAddCollaborators={isAdmin} />
               </TabsContent>
 
               <TabsContent value="templates" className="space-y-4">
