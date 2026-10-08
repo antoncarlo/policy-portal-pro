@@ -4,7 +4,8 @@
 
 import { getLanguage, getLocale, type Language } from "@/i18n";
 import { practiceTypeLabel } from "@/i18n/messages/domain";
-import { translatePolicyFieldLabel, translatePolicyFieldValue } from "@/i18n/policyFieldsText";
+import { translatePetCoverage, translatePetCoverageLine, translatePetText } from "@/i18n/petText";
+import { translatePolicyFieldLabel, translatePolicyFieldValue, translatePolicyText } from "@/i18n/policyFieldsText";
 import { translateDocumentLabels, translateViesText } from "@/i18n/viesText";
 import type { PracticeSummary, SummarySection } from "@/lib/practiceSummary";
 
@@ -150,10 +151,32 @@ const localizeItalianDate = (value: string, language: Target) => {
   return date.toLocaleDateString(getLocale(language), { day: "2-digit", month: "2-digit", year: "numeric" });
 };
 
+// Amounts are written as "1.234,56 €" by the shared summary: shown in the user's format.
+const CURRENCY_KEYS = new Set([
+  "total_annual",
+  "total_monthly",
+  "premium_net",
+  "premium_taxable",
+  "premium_taxes",
+  "premium_gross",
+  "vies_importo_garantito",
+]);
+const localizeItalianCurrency = (value: string, language: Target) => {
+  const match = /^(-?[\d.]+,\d{2})\s?€$/.exec(value.replace(/\u00a0/g, " "));
+  if (!match) return value;
+  const amount = Number(match[1].replace(/\./g, "").replace(",", "."));
+  return amount.toLocaleString(getLocale(language), { style: "currency", currency: "EUR" });
+};
+
 const translateValue = (key: string, value: string, language: Target) => {
   const fixed = VALUE_TEXTS[value]?.[language];
   if (fixed) return fixed;
   if (DATE_KEYS.has(key)) return localizeItalianDate(value, language);
+  if (CURRENCY_KEYS.has(key)) return localizeItalianCurrency(value, language);
+  if (key === "pet_species" || key === "animal_type" || key === "coverage_type") return translatePetText(value, language);
+  if (key === "pet_gender") return translatePolicyText(value, language) ?? value;
+  if (key === "pet_age") return translateDuration(value, language);
+  if (key.startsWith("coverage_")) return translatePetCoverageLine(value, language);
   if (key === "duration" || key === "vies_durata") return translateDuration(value, language);
   if (key === "vies_documenti_mancanti") {
     const labels = translateDocumentLabels(value, language);
@@ -192,7 +215,9 @@ export const translateSummary = (summary: PracticeSummary, language: Language = 
           ? translatePolicyFieldLabel(summary.practice_type, item.key, item.label, language)
           : section.id === "dati_excel"
             ? item.label
-            : SECTION_ITEM_LABELS[section.id]?.[item.key]?.[language] ?? ITEM_LABELS[item.key]?.[language] ?? item.label;
+            : SECTION_ITEM_LABELS[section.id]?.[item.key]?.[language] ??
+              ITEM_LABELS[item.key]?.[language] ??
+              (item.key.startsWith("coverage_") ? translatePetText(item.label, language) : item.label);
       const value =
         section.id === "dati_specifici"
           ? translatePolicyFieldValue(summary.practice_type, item.key, item.value, language)
@@ -200,5 +225,9 @@ export const translateSummary = (summary: PracticeSummary, language: Language = 
       return { ...item, label, value };
     }),
   }));
-  return { ...summary, practice_type_label: typeLabel, sections };
+  const pet = summary.pet && {
+    ...summary.pet,
+    coverages: summary.pet.coverages.map((coverage) => translatePetCoverage(coverage, language)),
+  };
+  return { ...summary, practice_type_label: typeLabel, sections, pet };
 };
