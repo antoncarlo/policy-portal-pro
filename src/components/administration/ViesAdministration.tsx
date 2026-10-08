@@ -17,6 +17,7 @@ import {
   dateIt,
   euro,
   generateViesStatementPdf,
+  safeFileName,
   VIES_DEFAULT_WITHHOLDING_PERCENTAGE,
   viesStatementPdfToBytes,
   type ViesStatementImage,
@@ -239,7 +240,9 @@ export const ViesAdministration = () => {
     if (!lot.excel_storage_path) return;
     setBusy(`excel-${lot.id}`);
     try {
-      await openStorageFile(lot.excel_storage_path, `Excel_Lotto_${lot.lot_number}_${lot.source_excel_file_name ?? "lotto.xlsx"}`);
+      const extension = /\.xls$/i.test(lot.source_excel_file_name ?? "") ? "xls" : "xlsx";
+      const owner = selected ? ` - ${safeFileName(selected.name)}` : "";
+      await openStorageFile(lot.excel_storage_path, `Excel Lotto ${lot.lot_number}${owner}.${extension}`);
     } catch (error) {
       toast({ variant: "destructive", title: "Excel non scaricato", description: error instanceof Error ? error.message : "Errore." });
     } finally {
@@ -515,7 +518,7 @@ export const ViesAdministration = () => {
                     <Button
                       variant="link"
                       className="mt-3 h-auto p-0"
-                      onClick={() => openStorageFile(selected.visura_storage_path as string, `Visura_${selected.tax_code}.pdf`).catch((error: Error) => toast({ variant: "destructive", title: "Visura non disponibile", description: error.message }))}
+                      onClick={() => openStorageFile(selected.visura_storage_path as string, `Visura ${selected.tax_code}.pdf`).catch((error: Error) => toast({ variant: "destructive", title: "Visura non disponibile", description: error.message }))}
                     >
                       <Download className="mr-1 h-4 w-4" />
                       Scarica la visura

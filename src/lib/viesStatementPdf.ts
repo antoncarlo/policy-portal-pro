@@ -106,16 +106,21 @@ export function computeViesLotTotals(
   return { rows, premiums, commissions, withholding, remitted: round2(premiums - commissions + withholding) };
 }
 
-const slug = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^A-Za-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 60);
+// Readable file names ("Estratto conto Excel Lotto 1 - Nome.pdf"): only the characters
+// that file systems reject are removed.
+export const safeFileName = (value: string, maxLength = 90) => {
+  const clean = Array.from(value, (char) => (char.charCodeAt(0) < 32 ? " " : char))
+    .join("")
+    .replace(/[\\/:*?"<>|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (clean.length <= maxLength) return clean;
+  const cut = clean.slice(0, maxLength);
+  return (cut.lastIndexOf(" ") > maxLength / 2 ? cut.slice(0, cut.lastIndexOf(" ")) : cut).trim();
+};
 
 export const buildViesStatementFileName = (input: Pick<ViesStatementInput, "kind" | "lotNumber" | "representative">) =>
-  `${input.kind === "provvigioni" ? "Estratto_provvigioni" : "Estratto_conto"}_Excel_Lotto_${input.lotNumber}_${slug(input.representative.name)}.pdf`;
+  `${input.kind === "provvigioni" ? "Estratto provvigioni" : "Estratto conto"} Excel Lotto ${input.lotNumber} - ${safeFileName(input.representative.name)}.pdf`;
 
 const policyCell = (row: ViesStatementPolicy) =>
   pdfText(`${row.contraente.toUpperCase()}\n${row.policyNumber ? `POLIZZA N. ${row.policyNumber}` : `PRATICA N. ${row.practiceNumber}`}`);
