@@ -15,8 +15,9 @@ export const VIES_DURATION_MONTHS = 36;
 export const VIES_MAX_PRACTICES_PER_SHEET = 20;
 
 /**
- * TEMPORANEO, modalità prova: consente di creare (e inviare) più pratiche VIES per
- * la stessa società, per ripetere le prove sugli stessi file. Da riportare a false
- * prima dell'uso reale: la pagina VIES mostra un avviso finché resta attiva.
+ * Modalità prova: true consente di creare (e inviare) più pratiche VIES per la stessa
+ * società, per ripetere le prove sugli stessi file; la pagina VIES lo segnala con un avviso.
+ * In uso reale resta false: una società già presente nel portale, caricata da chiunque,
+ * blocca la riga al caricamento e al controllo finale prima dell'invio.
  */
-export const VIES_ALLOW_DUPLICATE_PRACTICES = true;
+export const VIES_ALLOW_DUPLICATE_PRACTICES = false;
