@@ -2,6 +2,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { getMessages, useMessages } from "@/i18n";
+import { requiredDocumentText, uploadMessages } from "@/i18n/messages/upload";
 import { requiredDocumentsConfig } from "@/config/requiredDocuments";
 import { mapPracticeTypeToEnum } from "@/utils/practiceTypeMapping";
 import {
@@ -44,12 +46,17 @@ export const DocumentUploadSection = ({
   onFilesChange,
 }: DocumentUploadSectionProps) => {
   const { toast } = useToast();
+  const m = useMessages(uploadMessages).docs;
 
   const normalizedPracticeType = practiceType ? mapPracticeTypeToEnum(practiceType).toLowerCase() : "";
   const typeConfig = requiredDocumentsConfig.find(
     (config) => config.practiceType.toLowerCase() === normalizedPracticeType
   );
-  const requiredDocuments = typeConfig?.requiredDocuments ?? [];
+  const requiredDocuments = (typeConfig?.requiredDocuments ?? []).map((doc) => ({
+    ...doc,
+    label: requiredDocumentText(doc.label),
+    description: requiredDocumentText(doc.description),
+  }));
   const questionnaireDocuments = requiredDocuments.filter((doc) => doc.isQuestionnaire);
   const uploadedDocIds = new Set(uploadedFiles.map((item) => item.docId));
   const missingDocuments = requiredDocuments.filter((doc) => !uploadedDocIds.has(doc.id));
@@ -69,8 +76,8 @@ export const DocumentUploadSection = ({
     if (!isAcceptedExtension || !isAcceptedMimeType) {
       toast({
         variant: "destructive",
-        title: "Tipo file non consentito",
-        description: `${file.name} non è un tipo di file consentito. Usa PDF, Word, JPG o PNG.`,
+        title: getMessages(uploadMessages).docs.typeNotAllowedTitle,
+        description: getMessages(uploadMessages).docs.typeNotAllowedText(file.name),
       });
       return;
     }
@@ -78,8 +85,8 @@ export const DocumentUploadSection = ({
     if (file.size > MAX_FILE_SIZE) {
       toast({
         variant: "destructive",
-        title: "File troppo grande",
-        description: `${file.name} supera il limite massimo di 10 MB.`,
+        title: getMessages(uploadMessages).docs.tooLargeTitle,
+        description: getMessages(uploadMessages).docs.tooLargeText(file.name),
       });
       return;
     }
@@ -100,8 +107,8 @@ export const DocumentUploadSection = ({
         <div className="flex items-start gap-3 text-sm text-muted-foreground">
           <FileText className="h-5 w-5 mt-0.5" />
           <div>
-            <p className="font-medium text-foreground">Documenti obbligatori</p>
-            <p>Seleziona prima il tipo di pratica per visualizzare i documenti richiesti.</p>
+            <p className="font-medium text-foreground">{m.title}</p>
+            <p>{m.chooseTypeFirst}</p>
           </div>
         </div>
       </Card>
@@ -114,8 +121,8 @@ export const DocumentUploadSection = ({
         <div className="flex items-start gap-3 text-sm text-muted-foreground">
           <AlertTriangle className="h-5 w-5 mt-0.5" />
           <div>
-            <p className="font-medium text-foreground">Nessuna configurazione documentale trovata</p>
-            <p>Non sono stati configurati documenti obbligatori per la tipologia selezionata.</p>
+            <p className="font-medium text-foreground">{m.noConfigTitle}</p>
+            <p>{m.noConfigText}</p>
           </div>
         </div>
       </Card>
@@ -131,10 +138,10 @@ export const DocumentUploadSection = ({
               <FileText className="h-5 w-5 text-amber-700 dark:text-amber-300 mt-0.5" />
               <div>
                 <h3 className="font-semibold text-amber-900 dark:text-amber-100">
-                  Questo tipo di pratica richiede questionari da compilare
+                  {m.questionnairesTitle}
                 </h3>
                 <p className="text-sm text-amber-800 dark:text-amber-200">
-                  Scarica il questionario, fallo compilare e firmare dal cliente, poi allegalo tra i documenti richiesti.
+                  {m.questionnairesText}
                 </p>
               </div>
             </div>
@@ -158,7 +165,7 @@ export const DocumentUploadSection = ({
                     className="h-auto min-h-9 w-full whitespace-normal text-center leading-snug md:w-auto"
                   >
                     <Download className="mr-2 h-4 w-4 shrink-0" />
-                    <span>Scarica Questionario</span>
+                    <span>{m.downloadQuestionnaire}</span>
                   </Button>
                 </div>
               ))}
@@ -169,9 +176,9 @@ export const DocumentUploadSection = ({
 
       <div className="space-y-3">
         <div>
-          <h3 className="text-base font-semibold">Documenti obbligatori</h3>
+          <h3 className="text-base font-semibold">{m.title}</h3>
           <p className="text-sm text-muted-foreground">
-            Allega un file per ogni documento richiesto. Sono accettati PDF, Word, JPG e PNG fino a 10 MB per file.
+            {m.hint}
           </p>
         </div>
 
@@ -198,7 +205,7 @@ export const DocumentUploadSection = ({
                           : "max-w-full whitespace-normal break-words"
                         }
                       >
-                        {doc.isQuestionnaire ? "OBBLIGATORIO — Questionario Firmato" : "OBBLIGATORIO"}
+                        {doc.isQuestionnaire ? m.requiredQuestionnaire : m.required}
                       </Badge>
                     </div>
                     <p className="break-words text-sm leading-relaxed text-muted-foreground">{doc.description}</p>
@@ -223,7 +230,7 @@ export const DocumentUploadSection = ({
                     className="h-auto min-h-10 w-full whitespace-normal px-3 py-2 text-center leading-snug"
                   >
                     <Upload className="mr-2 h-4 w-4 shrink-0" />
-                    <span className="min-w-0 break-words">Allega {doc.label}</span>
+                    <span className="min-w-0 break-words">{m.attach(doc.label)}</span>
                   </Button>
 
                   {uploadedFile && (
@@ -253,7 +260,7 @@ export const DocumentUploadSection = ({
       <Card className="p-4">
         <div className="space-y-3">
           <div className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
-            <span className="font-medium">{completedCount} di {requiredDocuments.length} documenti allegati</span>
+            <span className="font-medium">{m.progress(completedCount, requiredDocuments.length)}</span>
             <span className="text-muted-foreground">{completionPercentage}%</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-muted">
@@ -265,11 +272,11 @@ export const DocumentUploadSection = ({
 
           {missingDocuments.length === 0 ? (
             <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
-              <strong>Tutti i documenti obbligatori sono stati allegati.</strong> Puoi procedere con il caricamento della pratica.
+              <strong>{m.allAttached}</strong> {m.allAttachedNext}
             </div>
           ) : (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
-              <strong>Documenti ancora mancanti:</strong>{" "}
+              <strong>{m.stillMissing}</strong>{" "}
               <span className="break-words">{missingDocuments.map((doc) => doc.label).join(", ")}</span>
             </div>
           )}

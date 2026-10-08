@@ -11,6 +11,11 @@ import {
 } from "@/components/ui/select";
 import { PolicyField, policyFieldsConfig } from "@/types/policyFields";
 import { useState, useEffect, useMemo } from "react";
+import { useLanguage, useMessages } from "@/i18n";
+import { uploadMessages } from "@/i18n/messages/upload";
+import { practiceTypeLabel } from "@/i18n/messages/domain";
+import { translatePolicyText } from "@/i18n/policyFieldsText";
+import { mapPracticeTypeToEnum } from "@/utils/practiceTypeMapping";
 
 type PolicyFieldValue = string | number | boolean;
 
@@ -21,7 +26,20 @@ interface DynamicPolicyFieldsProps {
 
 export const DynamicPolicyFields = ({ policyType, onFieldsChange }: DynamicPolicyFieldsProps) => {
   const [fieldValues, setFieldValues] = useState<Record<string, PolicyFieldValue>>({});
-  const fields = useMemo(() => policyFieldsConfig[policyType] || [], [policyType]);
+  const language = useLanguage();
+  const m = useMessages(uploadMessages);
+  // Labels, options, placeholders and descriptions in the user's language; values stay the same.
+  const fields = useMemo(
+    () =>
+      (policyFieldsConfig[policyType] || []).map((field) => ({
+        ...field,
+        label: translatePolicyText(field.label, language) ?? field.label,
+        placeholder: translatePolicyText(field.placeholder, language),
+        description: translatePolicyText(field.description, language),
+        options: field.options?.map((option) => ({ ...option, label: translatePolicyText(option.label, language) ?? option.label })),
+      })),
+    [policyType, language],
+  );
 
   // Initialize default values
   useEffect(() => {
@@ -140,7 +158,7 @@ export const DynamicPolicyFields = ({ policyType, onFieldsChange }: DynamicPolic
               onValueChange={(value) => handleFieldChange(field.name, value)}
             >
               <SelectTrigger>
-                <SelectValue placeholder={field.placeholder || `Seleziona ${field.label.toLowerCase()}`} />
+                <SelectValue placeholder={field.placeholder || m.selectField(field.label)} />
               </SelectTrigger>
               <SelectContent>
                 {field.options?.map((option) => (
@@ -207,10 +225,10 @@ export const DynamicPolicyFields = ({ policyType, onFieldsChange }: DynamicPolic
     <div className="border-t pt-6">
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-primary">
-          Campi Specifici per {policyType}
+          {m.specificTitle(policyType === "RC" ? m.rcProfessional : practiceTypeLabel(mapPracticeTypeToEnum(policyType)))}
         </h3>
         <p className="text-sm text-muted-foreground">
-          Compila i campi specifici per questa tipologia di polizza
+          {m.specificSubtitle}
         </p>
       </div>
       

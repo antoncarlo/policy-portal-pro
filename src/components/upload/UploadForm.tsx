@@ -24,6 +24,10 @@ import { requiredDocumentsConfig } from "@/config/requiredDocuments";
 import { composeNotes } from "@/lib/practiceSummary";
 import { requestPetQuoteDocument } from "@/lib/petQuoteClient";
 import { Enums, TablesInsert } from "@/integrations/supabase/types";
+import { getMessages, useMessages } from "@/i18n";
+import { uploadMessages, requiredDocumentText } from "@/i18n/messages/upload";
+import { commonMessages } from "@/i18n/messages/common";
+import { practiceTypeLabel } from "@/i18n/messages/domain";
 
 type PolicyFieldValue = string | number | boolean;
 type PetQuote = {
@@ -39,6 +43,7 @@ export const UploadForm = () => {
   const [documentFiles, setDocumentFiles] = useState<{ docId: string; file: File }[]>([]);
   const [loading, setLoading] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const m = useMessages(uploadMessages);
 
   // Financial fields state
   const [premiumNet, setPremiumNet] = useState("");
@@ -201,8 +206,8 @@ export const UploadForm = () => {
     if (!practiceType || !clientName.trim() || !clientPhone.trim() || !clientEmail.trim()) {
       toast({
         variant: "destructive",
-        title: "Errore validazione",
-        description: "Compila tutti i campi obbligatori.",
+        title: getMessages(uploadMessages).validationTitle,
+        description: getMessages(uploadMessages).requiredFields,
       });
       setLoading(false);
       return;
@@ -215,8 +220,8 @@ export const UploadForm = () => {
       if (endDate < startDate) {
         toast({
           variant: "destructive",
-          title: "Errore validazione",
-          description: "La data di fine polizza non può essere precedente alla data di inizio.",
+          title: getMessages(uploadMessages).validationTitle,
+          description: getMessages(uploadMessages).endBeforeStart,
         });
         setLoading(false);
         return;
@@ -236,8 +241,8 @@ export const UploadForm = () => {
     if (missingDocs.length > 0) {
       toast({
         variant: "destructive",
-        title: "Documenti obbligatori mancanti",
-        description: `Documenti mancanti: ${missingDocs.map((doc) => doc.label).join(", ")}`,
+        title: getMessages(uploadMessages).missingDocsTitle,
+        description: getMessages(uploadMessages).missingDocsText(missingDocs.map((doc) => requiredDocumentText(doc.label)).join(", ")),
       });
       setLoading(false);
       return;
@@ -249,8 +254,8 @@ export const UploadForm = () => {
     if (!session) {
       toast({
         variant: "destructive",
-        title: "Errore",
-        description: "Devi essere autenticato per caricare una pratica.",
+        title: getMessages(commonMessages).error,
+        description: getMessages(uploadMessages).mustBeSignedIn,
       });
       setLoading(false);
       return;
@@ -384,11 +389,11 @@ export const UploadForm = () => {
 
       if (practiceError) {
         console.error("Practice insert error:", practiceError);
-        throw new Error(practiceError.message || "Errore durante l'inserimento della pratica");
+        throw new Error(practiceError.message || getMessages(uploadMessages).insertError);
       }
 
       if (!practice) {
-        throw new Error("La pratica non è stata creata correttamente");
+        throw new Error(getMessages(uploadMessages).notCreated);
       }
 
       console.log("Practice created successfully:", practice);
@@ -434,8 +439,8 @@ export const UploadForm = () => {
       const quoteAttached = Boolean(quoteResult);
 
       toast({
-        title: "Pratica caricata con successo",
-        description: `Pratica ${practice.practice_number} creata con ${documentFiles.length} documento/i obbligatorio/i allegato/i${quoteAttached ? " e Ricapitolo Richiesta (ZIP con preventivo e documentazione)" : ""}.`,
+        title: getMessages(uploadMessages).successTitle,
+        description: getMessages(uploadMessages).successText(practice.practice_number, documentFiles.length, quoteAttached),
       });
 
       // Fire-and-forget admin notification
@@ -466,8 +471,8 @@ export const UploadForm = () => {
       console.error("Upload error:", error);
       toast({
         variant: "destructive",
-        title: "Errore caricamento",
-        description: error.message || "Si è verificato un errore durante il caricamento. Verifica i permessi e riprova.",
+        title: getMessages(uploadMessages).errorTitle,
+        description: error.message || getMessages(uploadMessages).errorText,
       });
     } finally {
       setLoading(false);
@@ -480,26 +485,26 @@ export const UploadForm = () => {
         {/* Info message about automatic practice number */}
         <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
           <p className="text-sm text-blue-800 dark:text-blue-200">
-            ℹ️ <strong>Numero Pratica Automatico:</strong> Il numero della pratica verrà generato automaticamente dal sistema nel formato PR-YYYY-NNNN
+            ℹ️ <strong>{m.autoNumberTitle}</strong> {m.autoNumberText}
           </p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <Label htmlFor="practiceType">Tipo Pratica *</Label>
+            <Label htmlFor="practiceType">{m.practiceType}</Label>
             <Select name="practiceType" value={practiceType} onValueChange={setPracticeType} required>
               <SelectTrigger id="practiceType">
-                <SelectValue placeholder="Seleziona tipo" />
+                <SelectValue placeholder={m.selectType} />
               </SelectTrigger>
               <SelectContent>
                 {allowedPracticeTypes.length === 0 ? (
                   <div className="p-2 text-sm text-muted-foreground text-center">
-                    Nessun prodotto assegnato. Contatta l'amministratore.
+                    {m.noProducts}
                   </div>
                 ) : (
                   allowedPracticeTypes.map(type => (
                     <SelectItem key={type} value={type}>
-                      {type === "RC" ? "RC Professionale" : type}
+                      {type === "RC" ? m.rcProfessional : practiceTypeLabel(mapPracticeTypeToEnum(type))}
                     </SelectItem>
                   ))
                 )}
@@ -508,18 +513,18 @@ export const UploadForm = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="clientName">Nome Cliente *</Label>
+            <Label htmlFor="clientName">{m.clientName}</Label>
             <Input
               id="clientName"
               name="clientName"
-              placeholder="Mario Rossi"
+              placeholder={m.clientNamePlaceholder}
               required
               maxLength={100}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="clientPhone">Telefono Cliente *</Label>
+            <Label htmlFor="clientPhone">{m.clientPhone}</Label>
             <Input
               id="clientPhone"
               name="clientPhone"
@@ -531,23 +536,23 @@ export const UploadForm = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="clientEmail">Email Cliente *</Label>
+            <Label htmlFor="clientEmail">{m.clientEmail}</Label>
             <Input
               id="clientEmail"
               name="clientEmail"
               type="email"
-              placeholder="mario.rossi@example.com"
+              placeholder={m.clientEmailPlaceholder}
               required
               maxLength={255}
             />
           </div>
 
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="clientAddress">Indirizzo Cliente</Label>
+            <Label htmlFor="clientAddress">{m.clientAddress}</Label>
             <Input
               id="clientAddress"
               name="clientAddress"
-              placeholder="Via Roma 123, 00100 Roma"
+              placeholder={m.clientAddressPlaceholder}
               maxLength={255}
             />
           </div>
@@ -565,17 +570,17 @@ export const UploadForm = () => {
         <div className="grid md:grid-cols-2 gap-6">
 
           <div className="space-y-2">
-            <Label htmlFor="beneficiary">Beneficiario</Label>
+            <Label htmlFor="beneficiary">{m.beneficiary}</Label>
             <Input
               id="beneficiary"
               name="beneficiary"
-              placeholder="Nome del beneficiario"
+              placeholder={m.beneficiaryPlaceholder}
               maxLength={100}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="policyStartDate">Data Inizio Polizza</Label>
+            <Label htmlFor="policyStartDate">{m.policyStart}</Label>
             <Input
               id="policyStartDate"
               name="policyStartDate"
@@ -584,7 +589,7 @@ export const UploadForm = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="policyEndDate">Data Fine Polizza</Label>
+            <Label htmlFor="policyEndDate">{m.policyEnd}</Label>
             <Input
               id="policyEndDate"
               name="policyEndDate"
@@ -613,18 +618,18 @@ export const UploadForm = () => {
         <div className="border-t pt-6">
           <div className="flex items-center gap-2 mb-4">
             <Euro className="h-5 w-5 text-primary" />
-            <h3 className="text-lg font-semibold">Dati Finanziari (Opzionali)</h3>
+            <h3 className="text-lg font-semibold">{m.financialTitle}</h3>
           </div>
 
           <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4">
             <p className="text-sm text-amber-800 dark:text-amber-200">
-              💡 <strong>Nota:</strong> Le provvigioni si calcolano sul <strong>Premio Netto</strong> (ante imposte), non sul Premio Lordo
+              💡 <strong>{m.financialNoteTitle}</strong> {m.financialNote}
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="premiumNet">Premio Netto (€)</Label>
+              <Label htmlFor="premiumNet">{m.premiumNet}</Label>
               <div className="relative">
                 <Euro className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -639,7 +644,7 @@ export const UploadForm = () => {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Base imponibile (su cui si calcolano le provvigioni)
+                {m.premiumNetHint}
               </p>
             </div>
 
@@ -650,21 +655,21 @@ export const UploadForm = () => {
                 <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-green-800 dark:text-green-200">
-                      Provvigione Calcolata:
+                      {m.commissionCalculated}
                     </span>
                     <span className="text-lg font-bold text-green-600 dark:text-green-400">
                       €{commissionAmount}
                     </span>
                   </div>
                   <p className="text-xs text-green-700 dark:text-green-300 mt-1">
-                    Calcolata automaticamente con provvigione effettiva {commissionPercentage}%: €{premiumNet} × {commissionPercentage}% = €{commissionAmount}
+                    {m.commissionFormula(commissionPercentage, premiumNet, commissionAmount)}
                   </p>
                 </div>
               </div>
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="premiumTaxable">Imponibile (€)</Label>
+              <Label htmlFor="premiumTaxable">{m.premiumTaxable}</Label>
               <div className="relative">
                 <Euro className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -679,12 +684,12 @@ export const UploadForm = () => {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Premio netto + eventuali accessori
+                {m.premiumTaxableHint}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="premiumTaxes">Imposte (€)</Label>
+              <Label htmlFor="premiumTaxes">{m.premiumTaxes}</Label>
               <div className="relative">
                 <Euro className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -699,12 +704,12 @@ export const UploadForm = () => {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Tasse applicate
+                {m.premiumTaxesHint}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="premiumGross">Premio Lordo (€)</Label>
+              <Label htmlFor="premiumGross">{m.premiumGross}</Label>
               <div className="relative">
                 <Euro className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -721,8 +726,8 @@ export const UploadForm = () => {
               </div>
               <p className="text-xs text-muted-foreground">
                 {premiumTaxable && premiumTaxes
-                  ? "Calcolato automaticamente: Imponibile + Imposte"
-                  : "Totale che il cliente paga"}
+                  ? m.premiumGrossAuto
+                  : m.premiumGrossHint}
               </p>
             </div>
           </div>
@@ -730,11 +735,11 @@ export const UploadForm = () => {
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="notes">Note e Dettagli</Label>
+          <Label htmlFor="notes">{m.notes}</Label>
           <Textarea
             id="notes"
             name="notes"
-            placeholder="Inserisci eventuali note o dettagli aggiuntivi sulla pratica..."
+            placeholder={m.notesPlaceholder}
             rows={4}
             maxLength={2000}
           />
@@ -753,7 +758,7 @@ export const UploadForm = () => {
             disabled={loading}
             className="flex-1"
           >
-            {loading ? "Caricamento..." : "Carica Pratica"}
+            {loading ? m.submitting : m.submit}
           </Button>
           <Button
             type="button"
@@ -761,7 +766,7 @@ export const UploadForm = () => {
             onClick={() => navigate("/practices")}
             disabled={loading}
           >
-            Annulla
+            {m.cancel}
           </Button>
         </div>
       </Card>
