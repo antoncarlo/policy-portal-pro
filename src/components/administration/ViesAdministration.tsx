@@ -738,9 +738,16 @@ export const ViesAdministration = () => {
               )}
             </dl>
           )}
-          {statementInternal && (
-            <p className="text-xs text-muted-foreground">
-              Le percentuali indicate vengono salvate sul lotto e sulle sue pratiche, così Contabilità mostra le stesse provvigioni.
+          {statementLot && (
+            <p className="rounded-md border px-3 py-2 text-xs text-muted-foreground">
+              {statementInternal
+                ? statementLot.commissions_received_at
+                  ? `Provvigioni segnate come ricevute il ${dateIt(statementLot.commissions_received_at)}: l'estratto lo riporta.`
+                  : "Provvigioni non ancora segnate come ricevute: l'estratto non riporta alcuna data di incasso."
+                : statementLot.paid_at
+                  ? `Lotto segnato come saldato il ${dateIt(statementLot.paid_at)}: l'estratto riporta "Saldato il ${dateIt(statementLot.paid_at)}".`
+                  : 'Lotto non ancora saldato: l\'estratto riporta solo il totale da pagare. La dicitura "Saldato il" compare dopo aver segnato il saldo.'}
+              {statementInternal && " Le percentuali indicate vengono salvate sul lotto e sulle sue pratiche, così Contabilità mostra le stesse provvigioni."}
             </p>
           )}
           <DialogFooter className="gap-2">
