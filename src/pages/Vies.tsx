@@ -1159,6 +1159,10 @@ const Vies = () => {
       document.vatNumbers.forEach((vatNumber) => identifiers.add(vatNumber));
       identifiersByZipKey.set(document.sourceZipKey, identifiers);
     }
+    const codeZipCount = new Map<string, number>();
+    for (const identifiers of identifiersByZipKey.values()) {
+      for (const code of identifiers) codeZipCount.set(code, (codeZipCount.get(code) ?? 0) + 1);
+    }
 
     return records.map((record) => {
       const nameZipKey = getZipReconciliationKey(record.nomeZip);
@@ -1183,7 +1187,13 @@ const Vies = () => {
         }
       }
 
-      if (!record.nomeZip && !linkedByVat) errors.push("Nome ZIP mancante");
+      if (!record.nomeZip) {
+        errors.push(
+          linkedByVat && matchedZipFiles[0]
+            ? `Numero ZIP mancante nella colonna ZIP: i documenti della società sono in ${matchedZipFiles[0].name}`
+            : "Numero ZIP mancante nella colonna ZIP",
+        );
+      }
       if (nameZipKey && records.filter((other) => getZipReconciliationKey(other.nomeZip) === nameZipKey).length > 1) {
         errors.push(`Il numero ZIP ${record.nomeZip} è indicato su più righe`);
       }
@@ -1205,6 +1215,17 @@ const Vies = () => {
           );
         } else {
           vatCheck = "unverifiable";
+          errors.push("Nei documenti dello ZIP non compare nessun codice leggibile della società: identità non verificabile");
+        }
+      }
+      // Only this company's codes may appear: codes found in several ZIPs of the upload
+      // are common documents (e.g. the fiscal representative's), never another client.
+      if (vatCheck === "verified") {
+        const foreignCodes = zipVatNumbers.filter(
+          (code) => !expectedIdentifiers.includes(code) && (codeZipCount.get(code) ?? 0) < 2,
+        );
+        if (foreignCodes.length) {
+          errors.push(`Nello ZIP compaiono anche codici di un'altra società: ${foreignCodes.join(", ")}`);
         }
       }
       // Documents nobody could read (agent not configured or failed) are reported as such.
@@ -1750,7 +1771,6 @@ const Vies = () => {
     ]),
   ];
 
-  const duplicateRowCount = records.filter((record) => getExistingForRecord(record).length > 0).length;
   const sheetLocked = savingBatch || Boolean(persistedBatchId);
   const creationBlockedReason = persistedBatchId
     ? null
@@ -1758,19 +1778,23 @@ const Vies = () => {
       ? "Controllo delle pratiche già presenti in corso…"
       : duplicateCheck === "error"
         ? "Controllo delle pratiche già presenti non riuscito: ricarica l'Excel per riprovare."
-        : duplicateRowCount
-          ? `${duplicateRowCount === 1 ? "1 società ha" : `${duplicateRowCount} società hanno`} già una pratica VIES: toglile dall'Excel e ricaricalo. Nessuna pratica viene creata due volte.`
-          : null;
+        : null;
 
   const getPendingScanCount = (reconciliation: ViesReconciliationRow) =>
     reconciliation.documents.filter((document) => document.agentStatus === "pending").length;
 
-  const readyRowCount = reconciliationRows.filter(
-    (reconciliation) =>
-      getPendingScanCount(reconciliation) === 0 &&
-      getRowBlockingErrors(reconciliation).length === 0 &&
-      !(reconciliation.zipFile && reconciliation.missingRequirements.length),
-  ).length;
+  // The only rows that become practices: ZIP present and verified, every document
+  // found and read, no error. Everything else is left out of the batch entirely.
+  const isRowReady = (reconciliation: ViesReconciliationRow) =>
+    Boolean(reconciliation.zipFile) &&
+    reconciliation.vatCheck === "verified" &&
+    reconciliation.missingRequirements.length === 0 &&
+    getPendingScanCount(reconciliation) === 0 &&
+    getRowBlockingErrors(reconciliation).length === 0;
+
+  const readyRows = reconciliationRows.filter(isRowReady);
+  const readyRowCount = readyRows.length;
+  const excludedRows = reconciliationRows.filter((reconciliation) => !isRowReady(reconciliation));
 
   const handlePrepareBatch = async () => {
     if (accessStatus !== "allowed") {
@@ -1798,10 +1822,26 @@ const Vies = () => {
       toast({
         variant: "destructive",
         title: "Dati incompleti",
-        description: "Carica Excel e tutti gli ZIP nominativi prima di preparare il batch per l'orchestratore.",
+        description: "Carica l'Excel e gli ZIP prima di creare le pratiche.",
       });
       return;
     }
+
+    // Only complete and correct rows become practices: a row with missing or wrong
+    // documents gets no practice, no archived ZIP and no policy document.
+    const batchRows = reconciliationRows.filter(isRowReady);
+    const excludedBatchRows = reconciliationRows.filter((reconciliation) => !isRowReady(reconciliation));
+    if (!batchRows.length) {
+      toast({
+        variant: "destructive",
+        title: "Nessuna pratica da creare",
+        description: "Nessuna riga supera i controlli: correggi documenti e dati indicati al punto 3.",
+      });
+      return;
+    }
+    const batchRecords = batchRows.map((reconciliation) => reconciliation.record);
+    const batchZipFiles = batchRows.map((reconciliation) => reconciliation.zipFile as File);
+    const batchDocumentCount = batchRows.reduce((total, reconciliation) => total + reconciliation.documents.length, 0);
 
     setSavingBatch(true);
     let batchId: string | null = null;
@@ -1854,7 +1894,7 @@ const Vies = () => {
         await verifyViesStorageObjectExists(visuraStoragePath, visuraFile.size);
       }
 
-      const zipUploadPlans: ViesZipUploadPlan[] = zipFiles.map((zip, index) => {
+      const zipUploadPlans: ViesZipUploadPlan[] = batchZipFiles.map((zip, index) => {
         const zipKey = getZipReconciliationKey(zip.name);
         const stableZipStorageName = buildStableZipStorageName(zip.name);
         const zipStorageNameOccurrence = (zipStorageNameOccurrences.get(stableZipStorageName) ?? 0) + 1;
@@ -1869,7 +1909,7 @@ const Vies = () => {
         };
       });
       const zipProgressByPath = new Map<string, number>();
-      const totalZipUploadBytes = zipFiles.reduce((total, zip) => total + zip.size, 0);
+      const totalZipUploadBytes = batchZipFiles.reduce((total, zip) => total + zip.size, 0);
       let completedZipUploads = 0;
 
       setBatchUploadProgress(0);
@@ -1898,7 +1938,7 @@ const Vies = () => {
               storagePath: plan.storagePath,
               onProgress: ({ bytesUploaded }) => updateAggregateProgress(bytesUploaded),
             });
-            setBatchUploadStatus(`Verifica archiviazione ZIP ${plan.index + 1}/${zipFiles.length}: ${plan.file.name}`);
+            setBatchUploadStatus(`Verifica archiviazione ZIP ${plan.index + 1}/${batchZipFiles.length}: ${plan.file.name}`);
             await verifyViesStorageObjectExists(plan.storagePath, plan.file.size);
             completedZipUploads += 1;
             updateAggregateProgress(plan.file.size);
@@ -1942,8 +1982,8 @@ const Vies = () => {
       })}`;
 
       const archivedZipCount = zipStoragePathByFileName.size;
-      const reconciliationByRow = new Map(reconciliationRows.map((row) => [row.record.rowNumber, row]));
-      const jobPreparationRows = records.map((record) => {
+      const reconciliationByRow = new Map(batchRows.map((row) => [row.record.rowNumber, row]));
+      const jobPreparationRows = batchRecords.map((record) => {
         const validationErrors = getRecordValidationErrors(record);
         const reconciliation = reconciliationByRow.get(record.rowNumber);
         const reconciliationValidationErrors = [
@@ -1963,6 +2003,9 @@ const Vies = () => {
           isBlocked: allValidationErrors.length > 0,
         };
       });
+      if (jobPreparationRows.some((job) => job.isBlocked)) {
+        throw new Error("Una riga con errori è arrivata alla creazione: operazione interrotta, nessuna pratica creata.");
+      }
       const validJobCount = jobPreparationRows.filter((job) => !job.isBlocked).length;
       const blockedJobCount = jobPreparationRows.length - validJobCount;
       const finalBatchStatus = validJobCount > 0 ? "queued" : "draft";
@@ -1981,26 +2024,23 @@ const Vies = () => {
         user_id: userId,
         name: batchName,
         source_excel_file_name: excelFile.name,
-        source_zip_file_name: `${zipFiles.length} ZIP nominativi (${archivedZipCount} archiviati)`,
+        source_zip_file_name: `${batchZipFiles.length} ZIP nominativi (${archivedZipCount} archiviati)`,
         excel_storage_path: excelStoragePath,
         zip_storage_path: zipStorageBasePath,
-        total_rows: records.length,
-        total_documents: documents.length,
+        total_rows: batchRecords.length,
+        total_documents: batchDocumentCount,
         ready_jobs: 0,
         queued_jobs: 0,
         blocked_jobs: 0,
         matched_requirements: completedRequirements,
-        missing_requirements: [
-          ...reconciliationRows
-            .filter((row) => row.errors.length || row.missingRequirements.length)
-            .map((row) => ({
-              id: `riga-${row.record.rowNumber}`,
-              label: `${row.record.contraente || "Riga VIES"}: ${[
-                ...row.errors,
-                ...row.missingRequirements.map((requirement) => `manca ${requirement.label}`),
-              ].join(", ")}`,
-            })),
-        ],
+        // Rows left out of the batch, with the reason: they have no practice.
+        missing_requirements: excludedBatchRows.map((row) => ({
+          id: `riga-${row.record.rowNumber}`,
+          label: `Esclusa – ZIP ${row.record.nomeZip || "?"} ${row.record.contraente || "riga VIES"}: ${[
+            ...getRowBlockingErrors(row),
+            ...row.missingRequirements.map((requirement) => `manca ${requirement.label}`),
+          ].join("; ")}`,
+        })),
         status: "draft",
         queued_at: null,
         notes: "Batch VIES in preparazione: materializzazione pratiche, job e documenti in corso.",
@@ -2010,7 +2050,7 @@ const Vies = () => {
 
       const practiceNumbersByRow = new Map<number, string>();
       const jobPreparationByRow = new Map(jobPreparationRows.map((job) => [job.record.rowNumber, job]));
-      const practiceRows = records.map((record) => {
+      const practiceRows = batchRecords.map((record) => {
         const validationErrors =
           jobPreparationByRow.get(record.rowNumber)?.allValidationErrors ?? getRecordValidationErrors(record);
         const practiceNumber = `VIES-${batchCreatedAt.getFullYear()}-${String(record.rowNumber).padStart(4, "0")}-${batchId.slice(0, 8)}`;
@@ -2062,7 +2102,7 @@ const Vies = () => {
 
       const createdPracticeIdsByNumber = new Map((createdPractices ?? []).map((practice) => [practice.practice_number, practice.id]));
       const createdPracticesByIndex = new Map<number, string>();
-      records.forEach((record) => {
+      batchRecords.forEach((record) => {
         const practiceNumber = practiceNumbersByRow.get(record.rowNumber);
         const practiceId = practiceNumber ? createdPracticeIdsByNumber.get(practiceNumber) : undefined;
         if (practiceId) {
@@ -2071,12 +2111,12 @@ const Vies = () => {
         }
       });
 
-      if (createdPracticesByIndex.size !== records.length) {
+      if (createdPracticesByIndex.size !== batchRecords.length) {
         throw new Error("Creazione pratiche VIES incompleta: non è stato possibile riconciliare tutte le pratiche create con le righe Excel.");
       }
 
       const practiceDocumentRows = [];
-      for (const reconciliation of reconciliationRows) {
+      for (const reconciliation of batchRows) {
         const practiceId = createdPracticesByIndex.get(reconciliation.record.rowNumber);
         if (practiceId && visuraFile && visuraStoragePath) {
           practiceDocumentRows.push({
@@ -2120,6 +2160,40 @@ const Vies = () => {
         }
       }
 
+      // Policy document (front page + guarantee text) for every practice, before the
+      // batch is finalized: if one cannot be produced, the whole creation is undone,
+      // so no practice is ever left without its policy document.
+      let policyDocumentsAttached = 0;
+      for (const [index, record] of batchRecords.entries()) {
+        const practiceId = createdPracticesByIndex.get(record.rowNumber);
+        if (!practiceId) throw new Error(`Pratica non trovata per la riga ${record.rowNumber}.`);
+        const input = viesPolicyInputFromPractice(practiceRows[index]);
+        const missingPolicyData = missingViesPolicyData(input);
+        if (missingPolicyData.length) {
+          throw new Error(`Documento di polizza non generabile per ${record.contraente}: mancano ${missingPolicyData.join(", ")}.`);
+        }
+        setBatchUploadStatus(`Documento di polizza ${index + 1}/${batchRecords.length}: ${record.contraente}`);
+        const blob = new Blob([viesPolicyPdfToBytes(generateViesPolicyPdf(input)) as BlobPart], {
+          type: VIES_POLICY_MIME_TYPE,
+        });
+        const fileName = buildViesPolicyFileName(input);
+        const filePath = `${practiceId}/${Date.now()}-${fileName}`;
+        const { error: uploadError } = await supabase.storage
+          .from(VIES_POLICY_DOCUMENTS_BUCKET)
+          .upload(filePath, blob, { contentType: VIES_POLICY_MIME_TYPE, upsert: false });
+        if (uploadError) throw new Error(`Documento di polizza di ${record.contraente} non archiviato: ${uploadError.message}`);
+        const { error: insertError } = await supabase.from("practice_documents").insert({
+          practice_id: practiceId,
+          file_name: fileName,
+          file_path: filePath,
+          file_size: blob.size,
+          mime_type: VIES_POLICY_MIME_TYPE,
+          uploaded_by: userId,
+        });
+        if (insertError) throw new Error(`Documento di polizza di ${record.contraente} non collegato: ${insertError.message}`);
+        policyDocumentsAttached += 1;
+      }
+
       const jobRows = jobPreparationRows.map(({ record, reconciliation, reconciliationValidationErrors, allValidationErrors, isBlocked }) => {
         return {
           batch_id: batchId,
@@ -2156,7 +2230,7 @@ const Vies = () => {
         if (jobsError) throw new Error(`Creazione job non riuscita: ${jobsError.message}`);
       }
 
-      const documentRows = reconciliationRows.flatMap((reconciliation) => reconciliation.documents.map((document) => {
+      const documentRows = batchRows.flatMap((reconciliation) => reconciliation.documents.map((document) => {
         const archivedZipPath = zipStoragePathsByKey.get(document.sourceZipKey);
         const zipFileName = reconciliation.zipFile?.name ?? document.sourceZipName;
         const zipDocumentBasePath = archivedZipPath ?? `zip-unarchived://${encodeURIComponent(zipFileName || document.sourceZipKey)}`;
@@ -2205,52 +2279,19 @@ const Vies = () => {
       if (finalizeBatchError) throw new Error(`Finalizzazione batch non riuscita: ${finalizeBatchError.message}`);
       batchFinalized = true;
 
-      // Policy document (front page + guarantee text) for every practice whose
-      // data is complete. Not blocking: it can be regenerated from the practice.
-      let policyDocumentsAttached = 0;
-      const policyDocumentFailures: string[] = [];
-      for (const [index, record] of records.entries()) {
-        const practiceId = createdPracticesByIndex.get(record.rowNumber);
-        if (!practiceId || jobPreparationByRow.get(record.rowNumber)?.isBlocked !== false) continue;
-        try {
-          const input = viesPolicyInputFromPractice(practiceRows[index]);
-          if (missingViesPolicyData(input).length) continue;
-          setBatchUploadStatus(`Documento di polizza ${index + 1}/${records.length}: ${record.contraente}`);
-          const blob = new Blob([viesPolicyPdfToBytes(generateViesPolicyPdf(input)) as BlobPart], {
-            type: VIES_POLICY_MIME_TYPE,
-          });
-          const fileName = buildViesPolicyFileName(input);
-          const filePath = `${practiceId}/${Date.now()}-${fileName}`;
-          const { error: uploadError } = await supabase.storage
-            .from(VIES_POLICY_DOCUMENTS_BUCKET)
-            .upload(filePath, blob, { contentType: VIES_POLICY_MIME_TYPE, upsert: false });
-          if (uploadError) throw uploadError;
-          const { error: insertError } = await supabase.from("practice_documents").insert({
-            practice_id: practiceId,
-            file_name: fileName,
-            file_path: filePath,
-            file_size: blob.size,
-            mime_type: VIES_POLICY_MIME_TYPE,
-            uploaded_by: userId,
-          });
-          if (insertError) throw insertError;
-          policyDocumentsAttached += 1;
-        } catch (error) {
-          policyDocumentFailures.push(
-            `${record.contraente || `riga ${record.rowNumber}`}: ${error instanceof Error ? error.message : "errore"}`,
-          );
-        }
-      }
-
       setBatchUploadProgress(100);
-      setBatchUploadStatus(`Upload completato. Batch VIES salvato e job creati in ${formatDurationSeconds(batchStartedAt)}.`);
+      setBatchUploadStatus(`Pratiche create in ${formatDurationSeconds(batchStartedAt)}.`);
       setPersistedBatchId(batchId);
       setLastCreatedPracticeIds(createdPractices?.map((practice) => practice.id) ?? []);
       setDuplicateCheckRun((run) => run + 1);
       await refreshBatchMonitor(batchId);
       toast({
-        title: zipStorageFailures.length ? "Batch VIES creato con avviso" : "Batch VIES creato",
-        description: `${records.length} job (${validJobCount} in coda, ${blockedJobCount} bloccati), ${createdPractices.length} pratiche VIES, ${policyDocumentsAttached} documenti di polizza generati e ${documents.length} documenti indicizzati in ${formatDurationSeconds(batchStartedAt)}. Stato: ${finalBatchStatus === "queued" ? "in coda" : "bozza"}.${zipStorageFailures.length ? " Alcuni ZIP originali non sono stati archiviati: verifica il bucket VIES prima dell'orchestrazione." : ""}${policyDocumentFailures.length ? ` Documento di polizza non generato per: ${policyDocumentFailures.join("; ")}.` : ""}`,
+        title: "Pratiche VIES create",
+        description: `${createdPractices.length} pratiche create con ZIP e documento di polizza in ${formatDurationSeconds(batchStartedAt)}.${
+          excludedBatchRows.length
+            ? ` ${excludedBatchRows.length} righe escluse perché incomplete o errate: nessuna pratica creata per loro.`
+            : ""
+        }`,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Non è stato possibile salvare il batch.";
@@ -2607,7 +2648,8 @@ const Vies = () => {
           <CardHeader>
             <CardTitle>3. Controllo pratiche</CardTitle>
             <CardDescription>
-              Ogni riga Excel viene abbinata allo ZIP indicato nella colonna ZIP (es. 1 → 1.zip). Documenti mancanti ed errori bloccano solo la pratica di quella riga, non il resto del lotto.
+              Ogni riga Excel viene abbinata allo ZIP indicato nella colonna ZIP (es. 1 → 1.zip). Una riga bloccata non diventa una pratica:
+              va corretta e caricata in un nuovo lotto. Le altre righe del foglio procedono normalmente.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -2623,7 +2665,7 @@ const Vies = () => {
                     {readyRowCount} pronte
                   </Badge>
                   {reconciliationRows.length - readyRowCount > 0 && (
-                    <Badge variant="destructive">{reconciliationRows.length - readyRowCount} bloccate</Badge>
+                    <Badge variant="destructive">{reconciliationRows.length - readyRowCount} bloccate, non verranno create</Badge>
                   )}
                 </div>
                 <div className="overflow-x-auto rounded-lg border">
@@ -2643,7 +2685,7 @@ const Vies = () => {
                         const rowErrors = getRowBlockingErrors(reconciliation);
                         // While the agent is reading, a type may still be found: not "missing" yet.
                         const missing = reconciliation.zipFile && !pendingScans ? reconciliation.missingRequirements : [];
-                        const ready = !pendingScans && rowErrors.length === 0 && missing.length === 0;
+                        const ready = isRowReady(reconciliation);
                         return (
                           <Fragment key={`reconciliation-${reconciliation.record.rowNumber}`}>
                             <TableRow className={ready ? undefined : "border-b-0"}>
@@ -2800,7 +2842,8 @@ const Vies = () => {
               5. Crea le pratiche
             </CardTitle>
             <CardDescription>
-              Vengono create tutte le righe del foglio; quelle con errori restano bloccate e non ricevono il documento di polizza.
+              Vengono create solo le pratiche complete e corrette, ognuna con il suo ZIP e il documento di polizza. Le righe con documenti
+              mancanti o errati non vengono create.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -2812,8 +2855,9 @@ const Vies = () => {
                     <div className="text-sm">
                       <p className="font-semibold">Pratiche create: questo lotto è chiuso.</p>
                       <p>
-                        {lastCreatedPracticeIds.length} pratiche VIES con ZIP e documento di polizza allegati. Per un nuovo lotto carica un
-                        nuovo Excel e i suoi ZIP: le stesse società non possono essere create due volte.
+                        {lastCreatedPracticeIds.length} pratiche VIES con ZIP e documento di polizza allegati
+                        {excludedRows.length ? `; ${excludedRows.length} righe escluse e non create` : ""}. Per un nuovo lotto carica un nuovo
+                        Excel e i suoi ZIP: le società già create vengono riconosciute e non vengono create due volte.
                       </p>
                     </div>
                   </div>
@@ -2825,7 +2869,7 @@ const Vies = () => {
                 <>
                   <Button
                     disabled={
-                      !records.length || !documents.length || loadingExcel || loadingZip || savingBatch || Boolean(creationBlockedReason)
+                      !readyRowCount || !documents.length || loadingExcel || loadingZip || savingBatch || Boolean(creationBlockedReason)
                     }
                     className="w-full md:w-auto"
                     onClick={handlePrepareBatch}
@@ -2837,8 +2881,25 @@ const Vies = () => {
                     )}
                     {savingBatch
                       ? "Creazione pratiche in corso..."
-                      : `Crea ${records.length} pratiche VIES (${readyRowCount} pronte, ${records.length - readyRowCount} bloccate)`}
+                      : readyRowCount === 1
+                        ? "Crea 1 pratica VIES"
+                        : `Crea ${readyRowCount} pratiche VIES`}
                   </Button>
+                  {records.length > 0 && excludedRows.length > 0 && (
+                    <div className="space-y-1 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+                      <p className="font-medium">
+                        {excludedRows.length === 1 ? "1 riga non verrà creata" : `${excludedRows.length} righe non verranno create`}: correggile
+                        e caricale in un nuovo lotto (nuovo Excel con le sole righe corrette e i loro ZIP).
+                      </p>
+                      <ul className="list-inside list-disc">
+                        {excludedRows.map((reconciliation) => (
+                          <li key={reconciliation.record.rowNumber} className="break-words">
+                            ZIP {reconciliation.record.nomeZip || "—"} · {reconciliation.record.contraente || `riga ${reconciliation.record.rowNumber}`}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   {creationBlockedReason && (
                     <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
