@@ -12,6 +12,9 @@ import {
   ArcElement,
 } from 'chart.js';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
+import { useLocale, useMessages } from '@/i18n';
+import { reportsMessages } from '@/i18n/messages/reports';
+import { practiceTypeLabel } from '@/i18n/messages/domain';
 
 ChartJS.register(
   CategoryScale,
@@ -52,22 +55,24 @@ interface ProductionChartsProps {
 }
 
 export default function ProductionCharts({ stats }: ProductionChartsProps) {
+  const m = useMessages(reportsMessages).charts;
+  const locale = useLocale();
   // Trend mensile pratiche e premi
   const monthlyTrendData = {
     labels: stats.practices_by_month?.map(m => {
       const [year, month] = m.month.split('-');
-      return new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString('it-IT', { month: 'short', year: 'numeric' });
+      return new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString(locale, { month: 'short', year: 'numeric' });
     }) || [],
     datasets: [
       {
-        label: 'Pratiche',
+        label: m.practices,
         data: stats.practices_by_month?.map(m => m.count) || [],
         borderColor: 'rgb(99, 102, 241)',
         backgroundColor: 'rgba(99, 102, 241, 0.5)',
         yAxisID: 'y',
       },
       {
-        label: 'Premi (€)',
+        label: m.premiums,
         data: stats.practices_by_month?.map(m => m.premium) || [],
         borderColor: 'rgb(34, 197, 94)',
         backgroundColor: 'rgba(34, 197, 94, 0.5)',
@@ -97,7 +102,7 @@ export default function ProductionCharts({ stats }: ProductionChartsProps) {
         position: 'left' as const,
         title: {
           display: true,
-          text: 'Numero Pratiche',
+          text: m.practicesCount,
         },
       },
       y1: {
@@ -106,7 +111,7 @@ export default function ProductionCharts({ stats }: ProductionChartsProps) {
         position: 'right' as const,
         title: {
           display: true,
-          text: 'Premi (€)',
+          text: m.premiums,
         },
         grid: {
           drawOnChartArea: false,
@@ -130,10 +135,10 @@ export default function ProductionCharts({ stats }: ProductionChartsProps) {
   ];
 
   const practicesByTypeData = {
-    labels: Object.keys(stats.practices_by_type || {}),
+    labels: Object.keys(stats.practices_by_type || {}).map((type) => practiceTypeLabel(type)),
     datasets: [
       {
-        label: 'Pratiche',
+        label: m.practices,
         data: Object.values(stats.practices_by_type || {}),
         backgroundColor: typeColors,
         borderColor: typeColors.map(c => c.replace('0.8', '1')),
@@ -162,7 +167,7 @@ export default function ProductionCharts({ stats }: ProductionChartsProps) {
     }) || [],
     datasets: [
       {
-        label: 'Provvigioni (€)',
+        label: m.commissions,
         data: stats.practices_by_month?.map(m => m.commission) || [],
         backgroundColor: 'rgba(34, 197, 94, 0.8)',
         borderColor: 'rgb(34, 197, 94)',
@@ -186,7 +191,7 @@ export default function ProductionCharts({ stats }: ProductionChartsProps) {
         beginAtZero: true,
         title: {
           display: true,
-          text: 'Provvigioni (€)',
+          text: m.commissions,
         },
       },
     },
@@ -197,14 +202,14 @@ export default function ProductionCharts({ stats }: ProductionChartsProps) {
     labels: stats.top_agents?.slice(0, 5).map(a => a.agent_name) || [],
     datasets: [
       {
-        label: 'Premi (€)',
+        label: m.premiums,
         data: stats.top_agents?.slice(0, 5).map(a => a.total_premium) || [],
         backgroundColor: 'rgba(99, 102, 241, 0.8)',
         borderColor: 'rgb(99, 102, 241)',
         borderWidth: 1,
       },
       {
-        label: 'Provvigioni (€)',
+        label: m.commissions,
         data: stats.top_agents?.slice(0, 5).map(a => a.total_commission) || [],
         backgroundColor: 'rgba(34, 197, 94, 0.8)',
         borderColor: 'rgb(34, 197, 94)',
@@ -229,7 +234,7 @@ export default function ProductionCharts({ stats }: ProductionChartsProps) {
         beginAtZero: true,
         title: {
           display: true,
-          text: 'Importo (€)',
+          text: m.amount,
         },
       },
     },
@@ -240,8 +245,8 @@ export default function ProductionCharts({ stats }: ProductionChartsProps) {
       {/* Trend Mensile */}
       <Card className="lg:col-span-2">
         <CardHeader>
-          <CardTitle>Trend Mensile</CardTitle>
-          <CardDescription>Andamento pratiche e premi nel tempo</CardDescription>
+          <CardTitle>{m.monthlyTrend}</CardTitle>
+          <CardDescription>{m.monthlyTrendHint}</CardDescription>
         </CardHeader>
         <CardContent>
           <Line options={monthlyTrendOptions} data={monthlyTrendData} />
@@ -251,8 +256,8 @@ export default function ProductionCharts({ stats }: ProductionChartsProps) {
       {/* Pratiche per Tipo */}
       <Card>
         <CardHeader>
-          <CardTitle>Distribuzione per Tipo</CardTitle>
-          <CardDescription>Pratiche raggruppate per tipologia</CardDescription>
+          <CardTitle>{m.distribution}</CardTitle>
+          <CardDescription>{m.distributionHint}</CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center">
           <div className="w-full max-w-md">
@@ -264,8 +269,8 @@ export default function ProductionCharts({ stats }: ProductionChartsProps) {
       {/* Provvigioni Mensili */}
       <Card>
         <CardHeader>
-          <CardTitle>Provvigioni Mensili</CardTitle>
-          <CardDescription>Andamento provvigioni per mese</CardDescription>
+          <CardTitle>{m.monthlyCommissions}</CardTitle>
+          <CardDescription>{m.monthlyCommissionsHint}</CardDescription>
         </CardHeader>
         <CardContent>
           <Bar options={barOptions} data={commissionData} />
@@ -276,8 +281,8 @@ export default function ProductionCharts({ stats }: ProductionChartsProps) {
       {stats.top_agents && stats.top_agents.length > 0 && (
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Top 5 Agenti</CardTitle>
-            <CardDescription>Agenti con maggior produzione</CardDescription>
+            <CardTitle>{m.top5}</CardTitle>
+            <CardDescription>{m.top5Hint}</CardDescription>
           </CardHeader>
           <CardContent>
             <Bar options={horizontalBarOptions} data={topAgentsData} />

@@ -2,7 +2,7 @@
 // Il riepilogo è costruito in italiano anche per l'API dei partner: qui si traducono
 // solo titoli, etichette e i valori fissi, per chiave; i dati inseriti restano com'sono.
 
-import { getLanguage, type Language } from "@/i18n";
+import { getLanguage, getLocale, type Language } from "@/i18n";
 import { practiceTypeLabel } from "@/i18n/messages/domain";
 import { translatePolicyFieldLabel, translatePolicyFieldValue } from "@/i18n/policyFieldsText";
 import { translateDocumentLabels, translateViesText } from "@/i18n/viesText";
@@ -141,9 +141,19 @@ export const translateDuration = (value: string, language: Language = getLanguag
   return `${count} ${english}${count === 1 ? "" : "s"}`;
 };
 
+// Dates are written as dd/mm/yyyy by the shared summary: shown in the user's format.
+const DATE_KEYS = new Set(["policy_start_date", "policy_end_date", "pet_birth_date"]);
+const localizeItalianDate = (value: string, language: Target) => {
+  const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(value);
+  if (!match) return value;
+  const date = new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+  return date.toLocaleDateString(getLocale(language), { day: "2-digit", month: "2-digit", year: "numeric" });
+};
+
 const translateValue = (key: string, value: string, language: Target) => {
   const fixed = VALUE_TEXTS[value]?.[language];
   if (fixed) return fixed;
+  if (DATE_KEYS.has(key)) return localizeItalianDate(value, language);
   if (key === "duration" || key === "vies_durata") return translateDuration(value, language);
   if (key === "vies_documenti_mancanti") {
     const labels = translateDocumentLabels(value, language);

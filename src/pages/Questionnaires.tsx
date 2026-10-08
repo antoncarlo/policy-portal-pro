@@ -4,55 +4,49 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requiredDocumentsConfig } from "@/config/requiredDocuments";
 import { Download, FileText } from "lucide-react";
+import { useLanguage, useMessages } from "@/i18n";
+import { reportsMessages } from "@/i18n/messages/reports";
+import { practiceTypeLabel } from "@/i18n/messages/domain";
+import { requiredDocumentText } from "@/i18n/messages/upload";
 
-const practiceTypeLabels: Record<string, string> = {
-  car: "CAR",
-  casa: "Casa / Condomini",
-  fidejussioni: "Fidejussioni",
-  responsabilita_civile: "Responsabilità Civile",
-  pet: "Pet",
-  fotovoltaico: "Fotovoltaico",
-  catastrofali: "Rischi Catastrofali",
-  azienda: "Azienda",
-  postuma_decennale: "Postuma Decennale",
-  all_risk: "All Risk",
-  risparmio: "Risparmio",
-  salute: "Salute",
-};
+const Questionnaires = () => {
+  const language = useLanguage();
+  const m = useMessages(reportsMessages).questionnaires;
+  const typeLabel = (type: string) => m.typeLabels[type] ?? practiceTypeLabel(type, language);
 
-const questionnaireGroups = requiredDocumentsConfig
-  .map((config) => ({
-    practiceType: config.practiceType,
-    practiceTypeLabel: practiceTypeLabels[config.practiceType] ?? config.practiceType,
-    questionnaires: config.requiredDocuments.filter((doc) => doc.isQuestionnaire && doc.questionnaireFile),
-  }))
-  .filter((group) => group.questionnaires.length > 0);
+  const questionnaireGroups = requiredDocumentsConfig
+    .map((config) => ({
+      practiceType: config.practiceType,
+      practiceTypeLabel: typeLabel(config.practiceType),
+      questionnaires: config.requiredDocuments.filter((doc) => doc.isQuestionnaire && doc.questionnaireFile),
+    }))
+    .filter((group) => group.questionnaires.length > 0);
 
-const uniqueQuestionnaires = Array.from(
-  new Map(
-    questionnaireGroups
-      .flatMap((group) =>
+  const uniqueQuestionnaires = Array.from(
+    new Map(
+      questionnaireGroups.flatMap((group) =>
         group.questionnaires.map((doc) => [
           doc.questionnaireFile,
           {
             ...doc,
+            label: requiredDocumentText(doc.label, language),
+            description: requiredDocumentText(doc.description, language),
             practiceTypes: questionnaireGroups
               .filter((candidate) => candidate.questionnaires.some((q) => q.questionnaireFile === doc.questionnaireFile))
               .map((candidate) => candidate.practiceTypeLabel),
           },
-        ])
-      )
-  ).values()
-);
+        ]),
+      ),
+    ).values(),
+  );
 
-const Questionnaires = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Questionari</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{m.title}</h1>
           <p className="text-muted-foreground mt-2">
-            Libreria dei questionari da scaricare, far compilare e firmare al cliente, quindi ricaricare nella pratica tra i documenti obbligatori.
+            {m.subtitle}
           </p>
         </div>
 
@@ -60,10 +54,10 @@ const Questionnaires = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-blue-900 dark:text-blue-100">
               <FileText className="h-5 w-5" />
-              Procedura corretta
+              {m.procedureTitle}
             </CardTitle>
             <CardDescription className="text-blue-800 dark:text-blue-200">
-              Per le pratiche che prevedono questionari, il portale mostra il download direttamente nel form di caricamento e blocca il salvataggio finché il questionario compilato e firmato non viene allegato.
+              {m.procedureText}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -93,7 +87,7 @@ const Questionnaires = () => {
                 <Button asChild className="w-full">
                   <a href={questionnaire.questionnaireFile} target="_blank" rel="noreferrer">
                     <Download className="mr-2 h-4 w-4" />
-                    Scarica PDF
+                    {m.download}
                   </a>
                 </Button>
               </CardContent>

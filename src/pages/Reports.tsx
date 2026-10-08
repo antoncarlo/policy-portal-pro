@@ -8,6 +8,9 @@ import { Calendar } from '../components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { formatCurrency as formatLocaleCurrency, formatDate, getMessages, useMessages } from '@/i18n';
+import { reportsMessages } from '@/i18n/messages/reports';
+import { practiceStatusLabel, practiceTypeLabel } from '@/i18n/messages/domain';
 import { 
   CalendarIcon, 
   Download, 
@@ -65,6 +68,7 @@ interface DashboardKPIs {
 
 // Report Produzione - Dashboard Analytics e Export
 export default function Reports() {
+  const m = useMessages(reportsMessages);
   const [userId, setUserId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
 
@@ -156,7 +160,7 @@ export default function Reports() {
       });
     } catch (error) {
       console.error('Error exporting to Excel:', error);
-      alert('Errore durante l\'export Excel');
+      alert(getMessages(reportsMessages).exportExcelError);
     } finally {
       setExporting(false);
     }
@@ -183,18 +187,13 @@ export default function Reports() {
       });
     } catch (error) {
       console.error('Error exporting to PDF:', error);
-      alert('Errore durante l\'export PDF');
+      alert(getMessages(reportsMessages).exportPdfError);
     } finally {
       setExporting(false);
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('it-IT', {
-      style: 'currency',
-      currency: 'EUR'
-    }).format(value);
-  };
+  const formatCurrency = (value: number) => formatLocaleCurrency(value);
 
   const formatPercentage = (value: number) => {
     return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
@@ -214,9 +213,9 @@ export default function Reports() {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
-          <h1 className="text-3xl font-bold">Report Produzione</h1>
+          <h1 className="text-3xl font-bold">{m.title}</h1>
           <p className="text-muted-foreground">
-            Analisi e statistiche delle pratiche assicurative
+            {m.subtitle}
           </p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
@@ -227,7 +226,7 @@ export default function Reports() {
             className="h-auto min-h-10 w-full whitespace-normal sm:w-auto"
           >
             <Download className="mr-2 h-4 w-4 shrink-0" />
-            <span>Export Excel</span>
+            <span>{m.exportExcel}</span>
           </Button>
           <Button 
             onClick={handleExportPDF}
@@ -235,7 +234,7 @@ export default function Reports() {
             className="h-auto min-h-10 w-full whitespace-normal sm:w-auto"
           >
             <FileText className="mr-2 h-4 w-4 shrink-0" />
-            <span>Export PDF</span>
+            <span>{m.exportPdf}</span>
           </Button>
         </div>
       </div>
@@ -243,30 +242,30 @@ export default function Reports() {
       {/* Filtri */}
       <Card>
         <CardHeader>
-          <CardTitle>Filtri Report</CardTitle>
-          <CardDescription>Seleziona il periodo e i parametri per il report</CardDescription>
+          <CardTitle>{m.filtersTitle}</CardTitle>
+          <CardDescription>{m.filtersDescription}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Periodo predefinito */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Periodo</label>
+              <label className="text-sm font-medium">{m.period}</label>
               <Select value={period} onValueChange={(value) => setPeriod(value as "week" | "month" | "quarter" | "year" | "custom")}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="week">Settimana</SelectItem>
-                  <SelectItem value="month">Mese</SelectItem>
-                  <SelectItem value="quarter">Trimestre</SelectItem>
-                  <SelectItem value="year">Anno</SelectItem>
+                  <SelectItem value="week">{m.periods.week}</SelectItem>
+                  <SelectItem value="month">{m.periods.month}</SelectItem>
+                  <SelectItem value="quarter">{m.periods.quarter}</SelectItem>
+                  <SelectItem value="year">{m.periods.year}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Data inizio */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Data Inizio</label>
+              <label className="text-sm font-medium">{m.startDate}</label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -277,7 +276,7 @@ export default function Reports() {
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate ? format(startDate, 'PPP', { locale: it }) : 'Seleziona data'}
+                    {startDate ? formatDate(startDate, { day: 'numeric', month: 'long', year: 'numeric' }) : m.pickDate}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
@@ -293,7 +292,7 @@ export default function Reports() {
 
             {/* Data fine */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Data Fine</label>
+              <label className="text-sm font-medium">{m.endDate}</label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -304,7 +303,7 @@ export default function Reports() {
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {endDate ? format(endDate, 'PPP', { locale: it }) : 'Seleziona data'}
+                    {endDate ? formatDate(endDate, { day: 'numeric', month: 'long', year: 'numeric' }) : m.pickDate}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
@@ -327,7 +326,7 @@ export default function Reports() {
           {/* Pratiche */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pratiche</CardTitle>
+              <CardTitle className="text-sm font-medium">{m.practices}</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -341,7 +340,7 @@ export default function Reports() {
                 <span className={kpis.growth_practices >= 0 ? 'text-green-500' : 'text-red-500'}>
                   {formatPercentage(kpis.growth_practices)}
                 </span>
-                <span className="ml-1">vs periodo precedente</span>
+                <span className="ml-1">{m.vsPrevious}</span>
               </div>
             </CardContent>
           </Card>
@@ -349,7 +348,7 @@ export default function Reports() {
           {/* Premi */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Premi Totali</CardTitle>
+              <CardTitle className="text-sm font-medium">{m.totalPremiums}</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -363,7 +362,7 @@ export default function Reports() {
                 <span className={kpis.growth_premium >= 0 ? 'text-green-500' : 'text-red-500'}>
                   {formatPercentage(kpis.growth_premium)}
                 </span>
-                <span className="ml-1">vs periodo precedente</span>
+                <span className="ml-1">{m.vsPrevious}</span>
               </div>
             </CardContent>
           </Card>
@@ -371,7 +370,7 @@ export default function Reports() {
           {/* Provvigioni */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Provvigioni</CardTitle>
+              <CardTitle className="text-sm font-medium">{m.commissions}</CardTitle>
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -385,7 +384,7 @@ export default function Reports() {
                 <span className={kpis.growth_commission >= 0 ? 'text-green-500' : 'text-red-500'}>
                   {formatPercentage(kpis.growth_commission)}
                 </span>
-                <span className="ml-1">vs periodo precedente</span>
+                <span className="ml-1">{m.vsPrevious}</span>
               </div>
             </CardContent>
           </Card>
@@ -393,13 +392,13 @@ export default function Reports() {
           {/* Scadenze Imminenti */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Scadenze (30gg)</CardTitle>
+              <CardTitle className="text-sm font-medium">{m.expiring}</CardTitle>
               <AlertCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{kpis.expiring_soon}</div>
               <p className="text-xs text-muted-foreground">
-                Pratiche in scadenza nei prossimi 30 giorni
+                {m.expiringHint}
               </p>
             </CardContent>
           </Card>
@@ -417,14 +416,14 @@ export default function Reports() {
           {/* Pratiche per Tipo */}
           <Card>
             <CardHeader>
-              <CardTitle>Pratiche per Tipo</CardTitle>
-              <CardDescription>Distribuzione per tipologia di polizza</CardDescription>
+              <CardTitle>{m.byType}</CardTitle>
+              <CardDescription>{m.byTypeHint}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 {Object.entries(stats.practices_by_type || {}).map(([type, count]) => (
                   <div key={type} className="flex min-w-0 items-center justify-between gap-3">
-                    <span className="min-w-0 break-words text-sm font-medium">{type}</span>
+                    <span className="min-w-0 break-words text-sm font-medium">{practiceTypeLabel(type)}</span>
                     <span className="text-sm text-muted-foreground">{count}</span>
                   </div>
                 ))}
@@ -435,14 +434,14 @@ export default function Reports() {
           {/* Pratiche per Stato */}
           <Card>
             <CardHeader>
-              <CardTitle>Pratiche per Stato</CardTitle>
-              <CardDescription>Distribuzione per stato pratica</CardDescription>
+              <CardTitle>{m.byStatus}</CardTitle>
+              <CardDescription>{m.byStatusHint}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 {Object.entries(stats.practices_by_status || {}).map(([status, count]) => (
                   <div key={status} className="flex min-w-0 items-center justify-between gap-3">
-                    <span className="min-w-0 break-words text-sm font-medium capitalize">{status}</span>
+                    <span className="min-w-0 break-words text-sm font-medium">{practiceStatusLabel(status)}</span>
                     <span className="text-sm text-muted-foreground">{count}</span>
                   </div>
                 ))}
@@ -454,8 +453,8 @@ export default function Reports() {
           {stats.top_agents && stats.top_agents.length > 0 && (
             <Card className="md:col-span-2">
               <CardHeader>
-                <CardTitle>Top Agenti</CardTitle>
-                <CardDescription>Agenti con maggior produzione nel periodo</CardDescription>
+                <CardTitle>{m.topAgents}</CardTitle>
+                <CardDescription>{m.topAgentsHint}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -468,14 +467,14 @@ export default function Reports() {
                         <div>
                           <p className="text-sm font-medium">{agent.agent_name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {agent.practices_count} pratiche
+                            {m.agentPractices(agent.practices_count)}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-medium">{formatCurrency(agent.total_premium)}</p>
                         <p className="text-xs text-muted-foreground">
-                          {formatCurrency(agent.total_commission)} provvigioni
+                          {m.agentCommissions(formatCurrency(agent.total_commission))}
                         </p>
                       </div>
                     </div>
