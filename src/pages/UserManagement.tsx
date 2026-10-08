@@ -15,6 +15,7 @@ import { InviteUserDialog } from "@/components/admin/users/InviteUserDialog";
 import { EditUserProductsDialog } from "@/components/admin/users/EditUserProductsDialog";
 import { EditCommissionDialog } from "@/components/admin/users/EditCommissionDialog";
 import * as XLSX from "xlsx";
+import { callPortalAction } from "@/lib/portalActions";
 import { getMessages, useMessages } from "@/i18n";
 import { commonMessages } from "@/i18n/messages/common";
 import { roleLabel } from "@/i18n/messages/domain";
@@ -146,11 +147,7 @@ const UserManagement = () => {
     if (!confirm(getMessages(usersMessages).confirmDisable(user.full_name))) return;
 
     try {
-      const { error } = await supabase.auth.admin.updateUserById(user.id, {
-        ban_duration: "876000h", // 100 years
-      });
-
-      if (error) throw error;
+      await callPortalAction("disable_user", { userId: user.id });
 
       toast({
         title: getMessages(commonMessages).success,
@@ -171,9 +168,7 @@ const UserManagement = () => {
     if (!confirm(getMessages(usersMessages).confirmDelete(user.full_name))) return;
 
     try {
-      const { error } = await supabase.auth.admin.deleteUser(user.id);
-
-      if (error) throw error;
+      await callPortalAction("delete_user", { userId: user.id });
 
       toast({
         title: getMessages(commonMessages).success,

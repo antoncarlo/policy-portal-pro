@@ -13,6 +13,7 @@ import {
 import { RefreshCw, Download, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { FinancialStats } from "@/components/administration/FinancialStats";
 import { FinancialPracticesTable } from "@/components/administration/FinancialPracticesTable";
 import { EditFinancialDialog } from "@/components/administration/EditFinancialDialog";
@@ -158,16 +159,16 @@ const Administration = () => {
       }
 
       // Load practices with hierarchical support
-      const { data: practicesData, error: practicesError } = await supabase.rpc(
-        "get_hierarchical_practices",
-        {
-          requesting_user_id: currentUserId,
-          target_user_id: targetUserId,
-        }
+      // Read page by page: Supabase returns at most 1000 rows per request.
+      const practicesData = await fetchAllRows((from, to) =>
+        supabase
+          .rpc("get_hierarchical_practices", {
+            requesting_user_id: currentUserId,
+            target_user_id: targetUserId,
+          })
+          .range(from, to),
       );
-
-      if (practicesError) throw practicesError;
-      setPractices(practicesData || []);
+      setPractices(practicesData);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -344,7 +345,7 @@ const Administration = () => {
         ) : (
           <FinancialPracticesTable
             practices={filteredPractices}
-            onEditFinancial={handleEditFinancial}
+            onEditFinancial={currentUserRole === "admin" ? handleEditFinancial : undefined}
             showUserColumn={showUserColumn}
           />
         )}

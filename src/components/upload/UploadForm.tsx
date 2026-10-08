@@ -18,7 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { PetInsuranceCalculator } from "@/components/pet/PetInsuranceCalculator";
 import { DynamicPolicyFields } from "@/components/upload/DynamicPolicyFields";
 import { mapPracticeTypeToEnum } from "@/utils/practiceTypeMapping";
-import { notifyAdminNewPractice } from "@/services/emailService";
+import { notifyAdminNewPractice } from "@/lib/portalActions";
 import { DocumentUploadSection } from "@/components/upload/DocumentUploadSection";
 import { requiredDocumentsConfig } from "@/config/requiredDocuments";
 import { composeNotes } from "@/lib/practiceSummary";
@@ -444,14 +444,7 @@ export const UploadForm = () => {
       });
 
       // Fire-and-forget admin notification
-      notifyAdminNewPractice({
-        practiceNumber: practice.practice_number,
-        practiceType,
-        clientName,
-        clientEmail,
-        agentName: session.user.email ?? '',
-        agentEmail: session.user.email ?? '',
-      }).catch(err => console.error('Admin notification failed:', err));
+      notifyAdminNewPractice(practice.id).catch(err => console.error('Admin notification failed:', err));
 
       // Reset form
       if (formRef.current) {

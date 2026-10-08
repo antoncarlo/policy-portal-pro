@@ -2254,23 +2254,13 @@ const Vies = () => {
       if (representativeError || !representative) {
         throw new Error(errors.representativeFailed(representativeError?.message ?? errors.noData));
       }
-      const { data: lastLot, error: lastLotError } = await supabase
-        .from("vies_batches")
-        .select("lot_number")
-        .eq("fiscal_representative_id", representative.id)
-        .not("lot_number", "is", null)
-        .order("lot_number", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (lastLotError) throw new Error(errors.lotNumberFailed(lastLotError.message));
-      const lotNumber = (lastLot?.lot_number ?? 0) + 1;
-
-      const { error: batchError } = await supabase.from("vies_batches").insert({
+      // The database numbers the lot (assign_vies_lot_number): the next number among all
+      // the lots of this representative's tax code, whoever uploaded them.
+      const { data: createdBatch, error: batchError } = await supabase.from("vies_batches").insert({
         id: batchId,
         user_id: userId,
-        name: `Excel Lotto ${lotNumber} · ${batchName}`,
+        name: `Excel Lotto 0 · ${batchName}`,
         fiscal_representative_id: representative.id,
-        lot_number: lotNumber,
         source_excel_file_name: excelFile.name,
         source_zip_file_name: `${batchZipFiles.length} ZIP nominativi (${archivedZipCount} archiviati)`,
         excel_storage_path: excelStoragePath,
@@ -2292,9 +2282,11 @@ const Vies = () => {
         status: "draft",
         queued_at: null,
         notes: "Batch VIES in preparazione: materializzazione pratiche, job e documenti in corso.",
-      });
-      if (batchError) throw new Error(errors.batchFailed(batchError.message));
+      }).select("lot_number").single();
+      if (batchError || !createdBatch) throw new Error(errors.batchFailed(batchError?.message ?? errors.noData));
       batchPersisted = true;
+      const lotNumber = createdBatch.lot_number;
+      if (!lotNumber) throw new Error(errors.lotNumberFailed(errors.noData));
 
       const practiceNumbersByRow = new Map<number, string>();
       const jobPreparationByRow = new Map(jobPreparationRows.map((job) => [job.record.rowNumber, job]));

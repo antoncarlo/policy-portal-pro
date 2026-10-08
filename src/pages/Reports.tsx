@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '../components/dashboard/DashboardLayout';
 import { supabase } from '../integrations/supabase/client';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -114,7 +115,7 @@ export default function Reports() {
         .rpc('get_production_stats', {
           p_start_date: startDate.toISOString(),
           p_end_date: endDate.toISOString(),
-          p_agent_id: userRole === 'agent' ? userId : null
+          p_agent_id: null
         });
 
       if (statsError) throw statsError;
@@ -139,19 +140,25 @@ export default function Reports() {
     }
   };
 
+  const loadProductionDetails = () =>
+    fetchAllRows((from, to) =>
+      supabase
+        .rpc('get_production_details', {
+          p_start_date: startDate.toISOString(),
+          p_end_date: endDate.toISOString(),
+          p_agent_id: null,
+        })
+        .range(from, to),
+    );
+
   const handleExportExcel = async () => {
     try {
       setExporting(true);
 
       // Carica dettagli pratiche
-      const { data, error } = await supabase
-        .rpc('get_production_details', {
-          p_start_date: startDate.toISOString(),
-          p_end_date: endDate.toISOString(),
-          p_agent_id: userRole === 'agent' ? userId : null
-        });
-
-      if (error) throw error;
+      // The database limits the report to the user's own practices (and their collaborators');
+      // read page by page: Supabase returns at most 1000 rows per request.
+      const data = await loadProductionDetails();
 
       await exportToExcel(data, stats, {
         startDate: format(startDate, 'dd/MM/yyyy', { locale: it }),
@@ -171,14 +178,9 @@ export default function Reports() {
       setExporting(true);
 
       // Carica dettagli pratiche
-      const { data, error } = await supabase
-        .rpc('get_production_details', {
-          p_start_date: startDate.toISOString(),
-          p_end_date: endDate.toISOString(),
-          p_agent_id: userRole === 'agent' ? userId : null
-        });
-
-      if (error) throw error;
+      // The database limits the report to the user's own practices (and their collaborators');
+      // read page by page: Supabase returns at most 1000 rows per request.
+      const data = await loadProductionDetails();
 
       await exportToPDF(data, stats, kpis, {
         startDate: format(startDate, 'dd/MM/yyyy', { locale: it }),

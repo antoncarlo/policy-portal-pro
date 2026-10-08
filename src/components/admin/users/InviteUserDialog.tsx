@@ -136,13 +136,14 @@ export const InviteUserDialog = ({
       const normalizedCommissionBonusTiers = normalizeTiers(commissionBonusTiers);
 
       // Call API route to create user
-      const response = await fetch('/api/create-user', {
+      const response = await fetch('/api/portal-actions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
+          action: 'create_user',
           email: formData.email,
           password: formData.password,
           full_name: formData.full_name,

@@ -11,6 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { chunk, fetchAllRows } from "@/lib/fetchAllRows";
 import { formatCurrency, formatDate, formatNumber, getMessages, useMessages } from "@/i18n";
 import { administrationMessages } from "@/i18n/messages/administration";
 import { translateViesText } from "@/i18n/viesText";
@@ -29,7 +30,8 @@ import {
 
 const VIES_BUCKET = "vies-batch-files";
 const BUCKET_PREFIX = `${VIES_BUCKET}://`;
-const SIGNATURE_FILE = "impostazioni/firma-estratti-conto";
+// Shared by every user: the administrators upload it, everyone reads it for the client statement.
+const SIGNATURE_PATH = "00000000-0000-0000-0000-000000000000/impostazioni/firma-estratti-conto";
 const COMPANY_NAME_KEY = "vies-statement-company-name";
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const XLS_MIME = "application/vnd.ms-excel";
@@ -44,6 +46,32 @@ type Representative = {
   pec: string | null;
   visura_reference: string | null;
   visura_storage_path: string | null;
+};
+
+// The registry keeps one row per uploader and tax code: a representative used by
+// several uploaders is shown once, with all its lots.
+type RepresentativeGroup = {
+  key: string;
+  ids: Set<string>;
+  representative: Representative;
+};
+
+const groupRepresentatives = (rows: Representative[]): RepresentativeGroup[] => {
+  const groups = new Map<string, RepresentativeGroup>();
+  for (const row of rows) {
+    const key = row.tax_code.trim().toUpperCase();
+    const group = groups.get(key);
+    if (!group) {
+      groups.set(key, { key, ids: new Set([row.id]), representative: { ...row } });
+      continue;
+    }
+    group.ids.add(row.id);
+    const merged = group.representative;
+    for (const field of ["administrator_name", "administrator_tax_code", "address", "pec", "visura_reference", "visura_storage_path"] as const) {
+      if (!merged[field] && row[field]) merged[field] = row[field];
+    }
+  }
+  return [...groups.values()].sort((a, b) => a.representative.name.localeCompare(b.representative.name));
 };
 
 type Lot = {
@@ -148,14 +176,17 @@ export const ViesAdministration = () => {
   const [statementLot, setStatementLot] = useState<Lot | null>(null);
   const [statementForm, setStatementForm] = useState({ kind: "cliente" as ViesStatementKind, companyName: "", commission: "0", withholding: "" });
   const [signature, setSignature] = useState<ViesStatementImage | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
       const uid = userData.user?.id ?? null;
-      setUserId(uid);
+      if (uid) {
+        const { data: adminRole } = await supabase.from("user_roles").select("role").eq("user_id", uid).eq("role", "admin").maybeSingle();
+        setIsAdmin(Boolean(adminRole));
+      }
 
       const [{ data: reps, error: repsError }, { data: lotRows, error: lotsError }] = await Promise.all([
         supabase.from("vies_fiscal_representatives").select("id,name,tax_code,administrator_name,administrator_tax_code,address,pec,visura_reference,visura_storage_path").order("name"),
@@ -171,11 +202,14 @@ export const ViesAdministration = () => {
       const lotList = (lotRows ?? []) as Lot[];
       const byLot = new Map<string, LotPractice[]>();
       if (lotList.length) {
-        const { data: jobs, error: jobsError } = await supabase
-          .from("vies_jobs")
-          .select("batch_id, external_reference")
-          .in("batch_id", lotList.map((lot) => lot.id));
-        if (jobsError) throw jobsError;
+        const jobs: Array<{ batch_id: string; external_reference: string | null }> = [];
+        for (const lotIds of chunk(lotList.map((lot) => lot.id), 50)) {
+          jobs.push(
+            ...(await fetchAllRows((from, to) =>
+              supabase.from("vies_jobs").select("batch_id, external_reference").in("batch_id", lotIds).order("id").range(from, to),
+            )),
+          );
+        }
         const practiceIds = [...new Set((jobs ?? []).map((job) => job.external_reference).filter((id): id is string => Boolean(id)))];
         const practices: LotPractice[] = [];
         for (let index = 0; index < practiceIds.length; index += 100) {
@@ -187,7 +221,7 @@ export const ViesAdministration = () => {
           practices.push(...((data ?? []) as LotPractice[]));
         }
         const practiceById = new Map(practices.map((practice) => [practice.id, practice]));
-        for (const job of jobs ?? []) {
+        for (const job of jobs) {
           const practice = job.external_reference ? practiceById.get(job.external_reference) : undefined;
           if (practice) byLot.set(job.batch_id, [...(byLot.get(job.batch_id) ?? []), practice]);
         }
@@ -198,12 +232,12 @@ export const ViesAdministration = () => {
       setLots(lotList);
       setPracticesByLot(byLot);
       // The list opens first: a representative's summary only after it is chosen.
-      setSelectedRepresentativeId((current) => (current && reps?.some((rep) => rep.id === current) ? current : null));
+      setSelectedRepresentativeId((current) =>
+        current && reps?.some((rep) => rep.tax_code.trim().toUpperCase() === current) ? current : null,
+      );
 
-      if (uid) {
-        const { data: signatureBlob } = await supabase.storage.from(VIES_BUCKET).download(`${uid}/${SIGNATURE_FILE}`);
-        setSignature(signatureBlob ? await blobToImage(signatureBlob).catch(() => null) : null);
-      }
+      const { data: signatureBlob } = await supabase.storage.from(VIES_BUCKET).download(SIGNATURE_PATH);
+      setSignature(signatureBlob ? await blobToImage(signatureBlob).catch(() => null) : null);
     } catch (error) {
       toast({ variant: "destructive", title: text().loadErrorTitle, description: error instanceof Error ? error.message : text().readError });
     } finally {
@@ -215,15 +249,24 @@ export const ViesAdministration = () => {
     void load();
   }, [load]);
 
-  const selected = representatives.find((representative) => representative.id === selectedRepresentativeId) ?? null;
-  const selectedLots = useMemo(() => lots.filter((lot) => lot.fiscal_representative_id === selectedRepresentativeId), [lots, selectedRepresentativeId]);
-  const visibleRepresentatives = useMemo(() => {
+  const groups = useMemo(() => groupRepresentatives(representatives), [representatives]);
+  const selectedGroup = groups.find((group) => group.key === selectedRepresentativeId) ?? null;
+  const selected = selectedGroup?.representative ?? null;
+  const lotsOf = useCallback(
+    (group: RepresentativeGroup) =>
+      lots
+        .filter((lot) => lot.fiscal_representative_id && group.ids.has(lot.fiscal_representative_id))
+        .sort((a, b) => (a.lot_number ?? 0) - (b.lot_number ?? 0)),
+    [lots],
+  );
+  const selectedLots = useMemo(() => (selectedGroup ? lotsOf(selectedGroup) : []), [lotsOf, selectedGroup]);
+  const visibleGroups = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return representatives;
-    return representatives.filter(
-      (representative) => representative.name.toLowerCase().includes(query) || representative.tax_code.toLowerCase().includes(query),
+    if (!query) return groups;
+    return groups.filter(
+      ({ representative }) => representative.name.toLowerCase().includes(query) || representative.tax_code.toLowerCase().includes(query),
     );
-  }, [representatives, search]);
+  }, [groups, search]);
 
   const showRepresentative = (representativeId: string | null) => {
     setSelectedRepresentativeId(representativeId);
@@ -231,8 +274,8 @@ export const ViesAdministration = () => {
     rootRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
   };
 
-  const summaryFor = (representativeId: string) => {
-    const representativeLots = lots.filter((lot) => lot.fiscal_representative_id === representativeId);
+  const summaryFor = (group: RepresentativeGroup) => {
+    const representativeLots = lotsOf(group);
     let practices = 0;
     let toPay = 0;
     let paid = 0;
@@ -360,7 +403,7 @@ export const ViesAdministration = () => {
       setStatementLot(null);
       toast({
         title: internal ? text().internalGenerated(lot.lot_number) : text().clientGenerated(lot.lot_number),
-        description: signature ? undefined : text().noSignatureWarning,
+        description: signature || !isAdmin ? undefined : text().noSignatureWarning,
       });
       if (internal) await load();
     } catch (error) {
@@ -437,14 +480,14 @@ export const ViesAdministration = () => {
   };
 
   const handleSignatureUpload = async (file: File | undefined) => {
-    if (!file || !userId) return;
+    if (!file || !isAdmin) return;
     if (!/^image\/(png|jpe?g)$/.test(file.type)) {
       toast({ variant: "destructive", title: text().formatTitle, description: text().formatText });
       return;
     }
     setBusy("signature");
     try {
-      const { error } = await supabase.storage.from(VIES_BUCKET).upload(`${userId}/${SIGNATURE_FILE}`, file, { upsert: true, contentType: file.type });
+      const { error } = await supabase.storage.from(VIES_BUCKET).upload(SIGNATURE_PATH, file, { upsert: true, contentType: file.type });
       if (error) throw error;
       setSignature(await blobToImage(file));
       toast({ title: text().signatureSavedTitle, description: text().signatureSavedText });
@@ -463,12 +506,12 @@ export const ViesAdministration = () => {
     );
   }
 
-  const selectedSummary = selected ? summaryFor(selected.id) : { lots: 0, practices: 0, toPay: 0, paid: 0 };
+  const selectedSummary = selectedGroup ? summaryFor(selectedGroup) : { lots: 0, practices: 0, toPay: 0, paid: 0 };
   const settlePractices = settleLot ? practicesByLot.get(settleLot.id) ?? [] : [];
   const settlePreview = settleLot
     ? computeViesLotTotals(toStatementPolicies(settlePractices), parsePercent(settleForm.commission) ?? 0, parsePercent(settleForm.withholding) ?? 0)
     : null;
-  const statementInternal = statementForm.kind === "provvigioni";
+  const statementInternal = isAdmin && statementForm.kind === "provvigioni";
   const statementPreview = statementLot
     ? computeViesLotTotals(
         toStatementPolicies(practicesByLot.get(statementLot.id) ?? []),
@@ -481,7 +524,7 @@ export const ViesAdministration = () => {
     <div ref={rootRef} className="scroll-mt-6 space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <p className="text-sm text-muted-foreground">
-          {m.intro}
+          {isAdmin ? m.intro : m.introClient}
         </p>
         <Button variant="outline" size="sm" onClick={() => load()}>
           <RefreshCw className="mr-2 h-4 w-4" />
@@ -499,7 +542,7 @@ export const ViesAdministration = () => {
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5 text-primary" />
               {m.representativesTitle}
-              <Badge variant="secondary">{representatives.length}</Badge>
+              <Badge variant="secondary">{groups.length}</Badge>
             </CardTitle>
             <CardDescription>{m.representativesHint}</CardDescription>
           </CardHeader>
@@ -508,17 +551,18 @@ export const ViesAdministration = () => {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={m.searchRepresentatives} className="pl-9" />
             </div>
-            {visibleRepresentatives.length === 0 ? (
+            {visibleGroups.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">{m.noMatches}</p>
             ) : (
               <div className="divide-y overflow-hidden rounded-lg border">
-                {visibleRepresentatives.map((representative) => {
-                  const summary = summaryFor(representative.id);
+                {visibleGroups.map((group) => {
+                  const { representative } = group;
+                  const summary = summaryFor(group);
                   return (
                     <button
-                      key={representative.id}
+                      key={group.key}
                       type="button"
-                      onClick={() => showRepresentative(representative.id)}
+                      onClick={() => showRepresentative(group.key)}
                       className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
                     >
                       <Building2 className="h-5 w-5 shrink-0 text-primary" />
@@ -615,7 +659,7 @@ export const ViesAdministration = () => {
                         <TableHead className="min-w-36">{m.colLot}</TableHead>
                         <TableHead className="text-right">{m.colPractices}</TableHead>
                         <TableHead className="text-right">{m.colTotalPremiums}</TableHead>
-                        <TableHead className="text-right">{m.colCommissions}</TableHead>
+                        {isAdmin && <TableHead className="text-right">{m.colCommissions}</TableHead>}
                         <TableHead>{m.colStatus}</TableHead>
                         <TableHead className="text-right">{m.colActions}</TableHead>
                       </TableRow>
@@ -637,17 +681,19 @@ export const ViesAdministration = () => {
                               </TableCell>
                               <TableCell className="text-right">{practices.length}</TableCell>
                               <TableCell className="whitespace-nowrap text-right font-semibold">{formatCurrency(totals.premiums)}</TableCell>
-                              <TableCell className="whitespace-nowrap text-right">
-                                {formatCurrency(totals.commissions)}
-                                <p className="text-xs text-muted-foreground">{m.percentOnNet(formatNumber(lot.commission_percentage ?? 0))}</p>
-                              </TableCell>
+                              {isAdmin && (
+                                <TableCell className="whitespace-nowrap text-right">
+                                  {formatCurrency(totals.commissions)}
+                                  <p className="text-xs text-muted-foreground">{m.percentOnNet(formatNumber(lot.commission_percentage ?? 0))}</p>
+                                </TableCell>
+                              )}
                               <TableCell>
                                 {lot.paid_at ? (
                                   <Badge className="bg-emerald-600 hover:bg-emerald-600">{m.paidOn(formatDate(lot.paid_at))}</Badge>
                                 ) : (
                                   <Badge variant="outline" className="border-amber-300 text-amber-900">{m.toSettle}</Badge>
                                 )}
-                                {lot.commissions_received_at && (
+                                {isAdmin && lot.commissions_received_at && (
                                   <p className="mt-1 text-xs text-muted-foreground">{m.commissionsReceivedOn(formatDate(lot.commissions_received_at))}</p>
                                 )}
                               </TableCell>
@@ -661,16 +707,18 @@ export const ViesAdministration = () => {
                                     {busy === `statement-${lot.id}` ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <FileText className="mr-1 h-4 w-4" />}
                                     {m.statement}
                                   </Button>
-                                  <Button size="sm" onClick={() => openSettle(lot)} disabled={!practices.length || Boolean(busy)}>
-                                    <CheckCircle2 className="mr-1 h-4 w-4" />
-                                    {lot.paid_at ? m.editSettlement : m.settle}
-                                  </Button>
+                                  {isAdmin && (
+                                    <Button size="sm" onClick={() => openSettle(lot)} disabled={!practices.length || Boolean(busy)}>
+                                      <CheckCircle2 className="mr-1 h-4 w-4" />
+                                      {lot.paid_at ? m.editSettlement : m.settle}
+                                    </Button>
+                                  )}
                                 </div>
                               </TableCell>
                             </TableRow>
                             {open && (
                               <TableRow className="hover:bg-transparent">
-                                <TableCell colSpan={6} className="bg-muted/30">
+                                <TableCell colSpan={isAdmin ? 6 : 5} className="bg-muted/30">
                                   <div className="overflow-x-auto">
                                     <Table>
                                       <TableHeader>
@@ -679,7 +727,7 @@ export const ViesAdministration = () => {
                                           <TableHead>{m.colClient}</TableHead>
                                           <TableHead className="text-right">{m.colGross}</TableHead>
                                           <TableHead className="text-right">{m.colNet}</TableHead>
-                                          <TableHead className="text-right">{m.colCommission}</TableHead>
+                                          {isAdmin && <TableHead className="text-right">{m.colCommission}</TableHead>}
                                           <TableHead>{m.colAccounting}</TableHead>
                                         </TableRow>
                                       </TableHeader>
@@ -694,7 +742,9 @@ export const ViesAdministration = () => {
                                             <TableCell className="min-w-48 break-words">{practice.client_name}</TableCell>
                                             <TableCell className="whitespace-nowrap text-right">{formatCurrency(practice.premium_gross ?? 0)}</TableCell>
                                             <TableCell className="whitespace-nowrap text-right">{formatCurrency(practice.premium_net ?? 0)}</TableCell>
-                                            <TableCell className="whitespace-nowrap text-right">{formatCurrency(practice.commission_amount ?? 0)}</TableCell>
+                                            {isAdmin && (
+                                              <TableCell className="whitespace-nowrap text-right">{formatCurrency(practice.commission_amount ?? 0)}</TableCell>
+                                            )}
                                             <TableCell className="whitespace-nowrap">
                                               {financialStatusLabel(practice.financial_status)}
                                               {practice.payment_date && <span className="text-xs text-muted-foreground"> · {formatDate(practice.payment_date)}</span>}
@@ -719,29 +769,31 @@ export const ViesAdministration = () => {
         </>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <PenLine className="h-5 w-5" />
-            {m.signatureTitle}
-          </CardTitle>
-          <CardDescription>{m.signatureDescription}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4 md:flex-row md:items-center">
-          <div className="flex h-20 w-56 items-center justify-center rounded-md border bg-white">
-            {signature ? (
-              <img src={signature.dataUrl} alt={m.signatureAlt} className="max-h-16 max-w-52 object-contain" />
-            ) : (
-              <span className="text-xs text-muted-foreground">{m.noSignature}</span>
-            )}
-          </div>
-          <Label className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted">
-            {busy === "signature" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-            {signature ? m.replaceSignature : m.uploadSignature}
-            <input type="file" accept="image/png,image/jpeg" className="hidden" onChange={(event) => handleSignatureUpload(event.target.files?.[0])} />
-          </Label>
-        </CardContent>
-      </Card>
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <PenLine className="h-5 w-5" />
+              {m.signatureTitle}
+            </CardTitle>
+            <CardDescription>{m.signatureDescription}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4 md:flex-row md:items-center">
+            <div className="flex h-20 w-56 items-center justify-center rounded-md border bg-white">
+              {signature ? (
+                <img src={signature.dataUrl} alt={m.signatureAlt} className="max-h-16 max-w-52 object-contain" />
+              ) : (
+                <span className="text-xs text-muted-foreground">{m.noSignature}</span>
+              )}
+            </div>
+            <Label className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted">
+              {busy === "signature" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              {signature ? m.replaceSignature : m.uploadSignature}
+              <input type="file" accept="image/png,image/jpeg" className="hidden" onChange={(event) => handleSignatureUpload(event.target.files?.[0])} />
+            </Label>
+          </CardContent>
+        </Card>
+      )}
 
       <Dialog open={Boolean(statementLot)} onOpenChange={(open) => !open && setStatementLot(null)}>
         <DialogContent className="max-w-lg">
@@ -749,30 +801,32 @@ export const ViesAdministration = () => {
             <DialogTitle>{m.statementTitle(statementLot?.lot_number ?? null)}</DialogTitle>
             <DialogDescription>{m.statementDescription}</DialogDescription>
           </DialogHeader>
-          <RadioGroup
-            value={statementForm.kind}
-            onValueChange={(value) => setStatementForm((form) => ({ ...form, kind: value as ViesStatementKind }))}
-            className="gap-3"
-          >
-            {(
-              [
-                ["cliente", m.kindClientTitle, m.kindClientText],
-                ["provvigioni", m.kindInternalTitle, m.kindInternalText],
-              ] as const
-            ).map(([value, title, text]) => (
-              <Label
-                key={value}
-                htmlFor={`statement-${value}`}
-                className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 font-normal ${statementForm.kind === value ? "border-primary bg-primary/5" : "hover:bg-muted/50"}`}
-              >
-                <RadioGroupItem id={`statement-${value}`} value={value} className="mt-0.5" />
-                <span>
-                  <span className="block font-semibold">{title}</span>
-                  <span className="block text-xs text-muted-foreground">{text}</span>
-                </span>
-              </Label>
-            ))}
-          </RadioGroup>
+          {isAdmin && (
+            <RadioGroup
+              value={statementForm.kind}
+              onValueChange={(value) => setStatementForm((form) => ({ ...form, kind: value as ViesStatementKind }))}
+              className="gap-3"
+            >
+              {(
+                [
+                  ["cliente", m.kindClientTitle, m.kindClientText],
+                  ["provvigioni", m.kindInternalTitle, m.kindInternalText],
+                ] as const
+              ).map(([value, title, text]) => (
+                <Label
+                  key={value}
+                  htmlFor={`statement-${value}`}
+                  className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 font-normal ${statementForm.kind === value ? "border-primary bg-primary/5" : "hover:bg-muted/50"}`}
+                >
+                  <RadioGroupItem id={`statement-${value}`} value={value} className="mt-0.5" />
+                  <span>
+                    <span className="block font-semibold">{title}</span>
+                    <span className="block text-xs text-muted-foreground">{text}</span>
+                  </span>
+                </Label>
+              ))}
+            </RadioGroup>
+          )}
           {statementInternal && (
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">

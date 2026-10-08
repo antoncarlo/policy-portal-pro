@@ -15,6 +15,7 @@ import { Eye, Download, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import type { Enums } from "@/integrations/supabase/types";
 import { PracticesExport } from "./PracticesExport";
 import { PracticeFilters } from "./PracticesFilters";
@@ -116,10 +117,7 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
     const isAdmin = roleData?.role === 'admin';
     setCanChangeStatus(isAdmin);
 
-    let query = supabase
-      .from("practices")
-      .select("id, practice_number, practice_type, client_name, beneficiary, policy_number, status, created_at, user_id");
-
+    let allowedTypes: Enums<"practice_type">[] | null = null;
     // Filter by allowed practice types if not admin
     if (!isAdmin) {
       const { data: permissions } = await supabase
@@ -128,8 +126,7 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
         .eq("user_id", session.user.id);
 
       if (permissions && permissions.length > 0) {
-        const allowedTypes = permissions.map(p => p.practice_type);
-        query = query.in("practice_type", allowedTypes);
+        allowedTypes = permissions.map(p => p.practice_type);
       } else {
         // User has no permissions, return empty
         setPractices([]);
@@ -138,38 +135,47 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
       }
     }
 
-    // Apply filters
-    if (filters.practiceType !== "all") {
-      query = query.eq("practice_type", filters.practiceType as Enums<"practice_type">);
-    }
+    // One query per page: Supabase returns at most 1000 rows per request.
+    const buildQuery = () => {
+      let query = supabase
+        .from("practices")
+        .select("id, practice_number, practice_type, client_name, beneficiary, policy_number, status, created_at, user_id");
 
-    if (filters.status !== "all") {
-      query = query.eq("status", filters.status as PracticeStatus);
-    }
+      if (allowedTypes) {
+        query = query.in("practice_type", allowedTypes);
+      }
 
-    if (filters.dateFrom) {
-      query = query.gte("created_at", filters.dateFrom.toISOString());
-    }
+      // Apply filters
+      if (filters.practiceType !== "all") {
+        query = query.eq("practice_type", filters.practiceType as Enums<"practice_type">);
+      }
 
-    if (filters.dateTo) {
-      const endOfDay = new Date(filters.dateTo);
-      endOfDay.setHours(23, 59, 59, 999);
-      query = query.lte("created_at", endOfDay.toISOString());
-    }
+      if (filters.status !== "all") {
+        query = query.eq("status", filters.status as PracticeStatus);
+      }
 
-    if (filters.userId !== "all") {
-      query = query.eq("user_id", filters.userId);
-    }
+      if (filters.dateFrom) {
+        query = query.gte("created_at", filters.dateFrom.toISOString());
+      }
 
-    query = query.order("created_at", { ascending: false });
+      if (filters.dateTo) {
+        const endOfDay = new Date(filters.dateTo);
+        endOfDay.setHours(23, 59, 59, 999);
+        query = query.lte("created_at", endOfDay.toISOString());
+      }
 
-    const { data, error } = await query;
+      if (filters.userId !== "all") {
+        query = query.eq("user_id", filters.userId);
+      }
 
-    if (error) {
-      console.error("Error loading practices:", error);
-    } else {
-      setPractices(data || []);
+      return query.order("created_at", { ascending: false }).order("id");
+    };
+
+    try {
+      setPractices(await fetchAllRows((from, to) => buildQuery().range(from, to)));
       setSelectedPracticeIds(new Set());
+    } catch (error) {
+      console.error("Error loading practices:", error);
     }
 
     setLoading(false);

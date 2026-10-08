@@ -89,6 +89,7 @@ export const administrationMessages = defineMessages({
     },
     vies: {
       intro: "Rappresentanti fiscali censiti dalle visure e lotti Excel caricati, con estratto conto, saldo e provvigioni.",
+      introClient: "I tuoi rappresentanti fiscali e i lotti Excel caricati, con l'Excel di ogni lotto, l'estratto conto e lo stato del pagamento.",
       noRepresentatives: "Nessun rappresentante fiscale censito: compare qui dopo la creazione del primo lotto nella pagina VIES.",
       representativesTitle: "Rappresentanti fiscali",
       representativesHint: "Seleziona un rappresentante per aprire il riepilogo con i lotti, gli Excel, gli estratti conto e il saldo.",
@@ -290,6 +291,7 @@ export const administrationMessages = defineMessages({
     },
     vies: {
       intro: "Fiscal representatives registered from their registry extracts and uploaded Excel batches, with statement, settlement and commissions.",
+      introClient: "Your fiscal representatives and uploaded Excel batches, with each batch's Excel file, the statement and the payment status.",
       noRepresentatives: "No fiscal representative registered yet: they appear here after the first batch is created on the VIES page.",
       representativesTitle: "Fiscal representatives",
       representativesHint: "Select a representative to open the summary with batches, Excel files, statements and settlement.",
@@ -491,6 +493,7 @@ export const administrationMessages = defineMessages({
     },
     vies: {
       intro: "根据注册证明登记的税务代表及已上传的 Excel 批次，含对账单、结算和佣金。",
+      introClient: "您的税务代表及已上传的 Excel 批次，含每个批次的 Excel 文件、对账单和付款状态。",
       noRepresentatives: "尚未登记税务代表：在 VIES 页面创建第一个批次后将显示在此处。",
       representativesTitle: "税务代表",
       representativesHint: "选择一位税务代表，打开包含批次、Excel 文件、对账单和结算的汇总。",

@@ -59,9 +59,9 @@ export function getSupabaseAdmin(): SupabaseClient {
   });
 }
 
+// Vercel Cron sends "Authorization: Bearer <CRON_SECRET>"; the x-vercel-cron header
+// is not proof of anything, anyone can send it.
 export function verifyCronOrWorkerAuth(req: VercelRequest): boolean {
-  if (req.headers['x-vercel-cron']) return true;
-
   const authHeader = req.headers.authorization;
   const acceptedSecrets = [VIES_WORKER_SECRET, CRON_SECRET].filter(Boolean);
   return acceptedSecrets.some((secret) => authHeader === `Bearer ${secret}`);
@@ -100,7 +100,21 @@ export async function assertBatchAccess(
 
   if (error) throw new Error(`Errore verifica batch VIES: ${error.message}`);
   if (!batch) throw new Error('Batch VIES non trovato.');
-  if (batch.user_id !== userId) throw new Error('Accesso negato al batch VIES richiesto.');
+  if (batch.user_id !== userId && !(await isAdmin(supabase, userId))) {
+    throw new Error('Accesso negato al batch VIES richiesto.');
+  }
+}
+
+// The agency's administrators work on every lot, including those uploaded by clients.
+async function isAdmin(supabase: SupabaseClient, userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', userId)
+    .eq('role', 'admin')
+    .maybeSingle();
+  if (error) throw new Error(`Errore verifica ruolo: ${error.message}`);
+  return Boolean(data);
 }
 
 export async function assertJobAccess(
@@ -116,7 +130,9 @@ export async function assertJobAccess(
 
   if (error) throw new Error(`Errore verifica job VIES: ${error.message}`);
   if (!job) throw new Error('Job VIES non trovato.');
-  if (job.user_id !== userId) throw new Error('Accesso negato al job VIES richiesto.');
+  if (job.user_id !== userId && !(await isAdmin(supabase, userId))) {
+    throw new Error('Accesso negato al job VIES richiesto.');
+  }
   return job.batch_id as string;
 }
 

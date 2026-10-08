@@ -18,19 +18,21 @@ export const StatsCards = () => {
     loadStats();
   }, []);
 
+  // Counted by the database: reading the rows would stop at the first 1000.
   const loadStats = async () => {
-    const { data: practices } = await supabase
-      .from("practices")
-      .select("status");
-
-    if (practices) {
-      const total = practices.length;
-      const inProgress = practices.filter(p => p.status === "in_lavorazione").length;
-      const completed = practices.filter(p => p.status === "completata").length;
-      const pending = practices.filter(p => p.status === "in_attesa").length;
-
-      setStats({ total, inProgress, completed, pending });
-    }
+    const count = async (status?: "in_lavorazione" | "completata" | "in_attesa") => {
+      let query = supabase.from("practices").select("id", { count: "exact", head: true });
+      if (status) query = query.eq("status", status);
+      const { count: value } = await query;
+      return value ?? 0;
+    };
+    const [total, inProgress, completed, pending] = await Promise.all([
+      count(),
+      count("in_lavorazione"),
+      count("completata"),
+      count("in_attesa"),
+    ]);
+    setStats({ total, inProgress, completed, pending });
   };
 
   const statsConfig = [

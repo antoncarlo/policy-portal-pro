@@ -34,7 +34,8 @@ interface Practice {
 
 interface FinancialPracticesTableProps {
   practices: Practice[];
-  onEditFinancial: (practice: Practice) => void;
+  /** Accounting edits are for administrators only: without it the edit button is hidden. */
+  onEditFinancial?: (practice: Practice) => void;
   showUserColumn?: boolean;
 }
 
@@ -138,13 +139,15 @@ export const FinancialPracticesTable = ({
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onEditFinancial(practice)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                  {onEditFinancial && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onEditFinancial(practice)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </TableCell>
             </TableRow>
