@@ -18,6 +18,10 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useMessages } from "@/i18n";
+import { commonMessages } from "@/i18n/messages/common";
+import { shellMessages } from "@/i18n/messages/shell";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -27,6 +31,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const m = useMessages(shellMessages);
+  const common = useMessages(commonMessages);
   const [isAdmin, setIsAdmin] = useState(false);
   const [canAccessVies, setCanAccessVies] = useState(false);
 
@@ -69,13 +75,13 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     if (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
-        description: "Impossibile disconnettersi.",
+        title: common.error,
+        description: m.logout.errorDescription,
       });
     } else {
       toast({
-        title: "Disconnesso",
-        description: "Sei stato disconnesso con successo.",
+        title: m.logout.title,
+        description: m.logout.description,
       });
       navigate("/auth");
     }
@@ -84,22 +90,22 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const isActive = (path: string) => location.pathname === path;
 
   const navItems = [
-    { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-    { path: "/practices", icon: FileText, label: "Pratiche" },
-    { path: "/upload", icon: Upload, label: "Carica Pratica" },
-    { path: "/clients", icon: Users, label: "Clienti" },
-    { path: "/expiry", icon: Calendar, label: "Scadenzario" },
-    { path: "/reports", icon: BarChart3, label: "Report" },
-    { path: "/questionnaires", icon: ClipboardList, label: "Questionari" },
-    { path: "/vies", icon: ShieldCheck, label: "VIES" },
-    { path: "/administration", icon: Euro, label: "Amministrazione" },
-    { path: "/settings", icon: Settings, label: "Impostazioni" },
+    { path: "/dashboard", icon: LayoutDashboard, label: m.nav.dashboard },
+    { path: "/practices", icon: FileText, label: m.nav.practices },
+    { path: "/upload", icon: Upload, label: m.nav.upload },
+    { path: "/clients", icon: Users, label: m.nav.clients },
+    { path: "/expiry", icon: Calendar, label: m.nav.expiry },
+    { path: "/reports", icon: BarChart3, label: m.nav.reports },
+    { path: "/questionnaires", icon: ClipboardList, label: m.nav.questionnaires },
+    { path: "/vies", icon: ShieldCheck, label: m.nav.vies },
+    { path: "/administration", icon: Euro, label: m.nav.administration },
+    { path: "/settings", icon: Settings, label: m.nav.settings },
   ];
 
   const visibleNavItems = navItems.filter((item) => item.path !== "/vies" || canAccessVies);
 
   const adminNavItems = [
-    { path: "/user-management", icon: UserCog, label: "Gestione Utenti" },
+    { path: "/user-management", icon: UserCog, label: m.nav.userManagement },
   ];
 
   return (
@@ -112,7 +118,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </Link>
         </div>
 
-        <nav className="space-y-2 p-4 pb-24">
+        <nav className="space-y-2 p-4 pb-36">
           {visibleNavItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -132,7 +138,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             <>
               <div className="pt-4 pb-2">
                 <p className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Amministrazione
+                  {m.nav.adminSection}
                 </p>
               </div>
               {adminNavItems.map((item) => {
@@ -153,14 +159,15 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           )}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 border-t border-border bg-card p-4">
+        <div className="absolute bottom-0 left-0 right-0 space-y-2 border-t border-border bg-card p-4">
+          <LanguageSwitcher className="w-full justify-start" align="start" />
           <Button 
             variant="ghost" 
             className="h-auto min-h-10 w-full justify-start whitespace-normal text-left text-muted-foreground hover:text-foreground"
             onClick={handleLogout}
           >
             <LogOut className="mr-2 h-4 w-4 shrink-0" />
-            <span>Esci</span>
+            <span>{m.nav.logout}</span>
           </Button>
         </div>
       </aside>

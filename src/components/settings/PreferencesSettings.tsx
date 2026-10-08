@@ -7,12 +7,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Settings2 } from "lucide-react";
+import { changeLanguage } from "@/i18n/changeLanguage";
+import { LANGUAGES, getMessages, useLanguage, useMessages, type Language } from "@/i18n";
+import { commonMessages } from "@/i18n/messages/common";
+import { preferencesMessages } from "@/i18n/messages/settings";
 
 export const PreferencesSettings = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const m = useMessages(preferencesMessages);
+  const language = useLanguage();
   const [preferences, setPreferences] = useState({
-    language: "it",
     theme: "auto",
     timezone: "Europe/Rome",
     date_format: "DD/MM/YYYY",
@@ -35,7 +40,7 @@ export const PreferencesSettings = () => {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("language, theme, timezone, date_format, email_notifications")
+        .select("theme, timezone, date_format, email_notifications")
         .eq("id", user.id)
         .single();
 
@@ -43,7 +48,6 @@ export const PreferencesSettings = () => {
 
       if (data) {
         setPreferences({
-          language: data.language || "it",
           theme: data.theme || "auto",
           timezone: data.timezone || "Europe/Rome",
           date_format: data.date_format || "DD/MM/YYYY",
@@ -57,7 +61,7 @@ export const PreferencesSettings = () => {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     }
@@ -67,12 +71,12 @@ export const PreferencesSettings = () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Utente non autenticato");
+      if (!user) throw new Error(getMessages(commonMessages).notAuthenticated);
 
       const { error } = await supabase
         .from("profiles")
         .update({
-          language: preferences.language,
+          language,
           theme: preferences.theme,
           timezone: preferences.timezone,
           date_format: preferences.date_format,
@@ -83,13 +87,13 @@ export const PreferencesSettings = () => {
       if (error) throw error;
 
       toast({
-        title: "Successo",
-        description: "Preferenze aggiornate correttamente",
+        title: getMessages(commonMessages).success,
+        description: getMessages(preferencesMessages).saved,
       });
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     } finally {
@@ -101,32 +105,31 @@ export const PreferencesSettings = () => {
     <Card className="p-6">
       <div className="flex items-center gap-2 mb-6">
         <Settings2 className="h-5 w-5" />
-        <h2 className="text-xl font-semibold">Preferenze</h2>
+        <h2 className="text-xl font-semibold">{m.title}</h2>
       </div>
 
       <div className="space-y-6">
         {/* Language and Theme */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="language">Lingua</Label>
-            <Select
-              value={preferences.language}
-              onValueChange={(value) =>
-                setPreferences({ ...preferences, language: value })
-              }
-            >
+            <Label htmlFor="language">{m.language}</Label>
+            <Select value={language} onValueChange={(value) => changeLanguage(value as Language)}>
               <SelectTrigger id="language">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="it">Italiano</SelectItem>
-                <SelectItem value="en">English</SelectItem>
+                {LANGUAGES.map((entry) => (
+                  <SelectItem key={entry.code} value={entry.code}>
+                    {entry.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">{m.languageHint}</p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="theme">Tema</Label>
+            <Label htmlFor="theme">{m.theme}</Label>
             <Select
               value={preferences.theme}
               onValueChange={(value) =>
@@ -137,9 +140,9 @@ export const PreferencesSettings = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="light">Chiaro</SelectItem>
-                <SelectItem value="dark">Scuro</SelectItem>
-                <SelectItem value="auto">Automatico</SelectItem>
+                <SelectItem value="light">{m.themeLight}</SelectItem>
+                <SelectItem value="dark">{m.themeDark}</SelectItem>
+                <SelectItem value="auto">{m.themeAuto}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -148,7 +151,7 @@ export const PreferencesSettings = () => {
         {/* Date Format and Timezone */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="date_format">Formato Data</Label>
+            <Label htmlFor="date_format">{m.dateFormat}</Label>
             <Select
               value={preferences.date_format}
               onValueChange={(value) =>
@@ -159,15 +162,17 @@ export const PreferencesSettings = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="DD/MM/YYYY">GG/MM/AAAA</SelectItem>
-                <SelectItem value="MM/DD/YYYY">MM/GG/AAAA</SelectItem>
-                <SelectItem value="YYYY-MM-DD">AAAA-MM-GG</SelectItem>
+                {Object.entries(m.dateFormats).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="timezone">Fuso Orario</Label>
+            <Label htmlFor="timezone">{m.timezone}</Label>
             <Select
               value={preferences.timezone}
               onValueChange={(value) =>
@@ -178,9 +183,11 @@ export const PreferencesSettings = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Europe/Rome">Europa/Roma (GMT+1)</SelectItem>
-                <SelectItem value="Europe/London">Europa/Londra (GMT+0)</SelectItem>
-                <SelectItem value="America/New_York">America/New York (GMT-5)</SelectItem>
+                {Object.entries(m.timezones).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -188,13 +195,13 @@ export const PreferencesSettings = () => {
 
         {/* Email Notifications */}
         <div className="space-y-4">
-          <h3 className="text-lg font-medium">Notifiche Email</h3>
+          <h3 className="text-lg font-medium">{m.emailNotifications}</h3>
           
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="notify_new_practice">Nuove Pratiche</Label>
+              <Label htmlFor="notify_new_practice">{m.newPractice}</Label>
               <p className="text-sm text-muted-foreground">
-                Ricevi un'email quando viene creata una nuova pratica
+                {m.newPracticeHint}
               </p>
             </div>
             <Switch
@@ -214,9 +221,9 @@ export const PreferencesSettings = () => {
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="notify_status_change">Cambio Stato</Label>
+              <Label htmlFor="notify_status_change">{m.statusChange}</Label>
               <p className="text-sm text-muted-foreground">
-                Ricevi un'email quando lo stato di una pratica cambia
+                {m.statusChangeHint}
               </p>
             </div>
             <Switch
@@ -236,9 +243,9 @@ export const PreferencesSettings = () => {
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="notify_new_document">Nuovi Documenti</Label>
+              <Label htmlFor="notify_new_document">{m.newDocument}</Label>
               <p className="text-sm text-muted-foreground">
-                Ricevi un'email quando viene caricato un nuovo documento
+                {m.newDocumentHint}
               </p>
             </div>
             <Switch
@@ -260,7 +267,7 @@ export const PreferencesSettings = () => {
         <div className="flex justify-end pt-4">
           <Button onClick={handleSave} disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Salva Preferenze
+            {m.save}
           </Button>
         </div>
       </div>

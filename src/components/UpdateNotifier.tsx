@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { getMessages } from "@/i18n";
+import { shellMessages } from "@/i18n/messages/shell";
 
 const CHECK_INTERVAL_MS = 3 * 60 * 1000;
 const TOAST_ID = "app-update-available";
@@ -23,11 +25,12 @@ export const UpdateNotifier = () => {
         const data = (await res.json()) as { buildId?: string };
         if (data.buildId && data.buildId !== __BUILD_ID__) {
           notified.current = true;
-          toast.info("Nuova versione del portale disponibile", {
+          const m = getMessages(shellMessages).update;
+          toast.info(m.title, {
             id: TOAST_ID,
-            description: "Ricarica la pagina per usare le ultime funzionalità.",
+            description: m.description,
             duration: Infinity,
-            action: { label: "Ricarica", onClick: () => window.location.reload() },
+            action: { label: m.action, onClick: () => window.location.reload() },
           });
         }
       } catch {

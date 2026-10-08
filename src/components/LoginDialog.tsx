@@ -12,6 +12,10 @@ import { Label } from "@/components/ui/label";
 import { Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { getMessages, useMessages } from "@/i18n";
+import { shellMessages } from "@/i18n/messages/shell";
+import { commonMessages } from "@/i18n/messages/common";
 
 interface LoginDialogProps {
   open: boolean;
@@ -21,6 +25,8 @@ interface LoginDialogProps {
 export const LoginDialog = ({ open, onOpenChange }: LoginDialogProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const m = useMessages(shellMessages).login;
+  const common = useMessages(commonMessages);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -37,18 +43,19 @@ export const LoginDialog = ({ open, onOpenChange }: LoginDialogProps) => {
 
     setLoading(false);
 
+    const login = getMessages(shellMessages).login;
     if (error) {
       toast({
         variant: "destructive",
-        title: "Errore di accesso",
+        title: login.errorTitle,
         description: error.message === "Invalid login credentials"
-          ? "Email o password non corretti"
+          ? login.invalidCredentials
           : error.message,
       });
     } else {
       toast({
-        title: "Accesso effettuato!",
-        description: "Benvenuto nel portale.",
+        title: login.successTitle,
+        description: login.successDescription,
       });
       onOpenChange(false);
     }
@@ -61,27 +68,30 @@ export const LoginDialog = ({ open, onOpenChange }: LoginDialogProps) => {
           <div className="flex items-center justify-center mb-4">
             <img src="/logo.svg" alt="Tecno Advance MGA" className="h-16" />
           </div>
-          <DialogTitle className="text-center">Accedi al Portale</DialogTitle>
+          <DialogTitle className="text-center">{m.title}</DialogTitle>
           <DialogDescription className="text-center">
-            Inserisci le tue credenziali per accedere
+            {m.subtitle}
           </DialogDescription>
+          <div className="flex justify-center pt-2">
+            <LanguageSwitcher align="start" />
+          </div>
         </DialogHeader>
 
         <form onSubmit={handleSignIn} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">{common.email}</Label>
             <Input
               id="email"
               name="email"
               type="email"
-              placeholder="mario.rossi@example.com"
+              placeholder={m.emailPlaceholder}
               className="border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50"
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">{common.password}</Label>
             <Input
               id="password"
               name="password"
@@ -93,7 +103,7 @@ export const LoginDialog = ({ open, onOpenChange }: LoginDialogProps) => {
           </div>
 
           <Button type="submit" className="w-full bg-[#0F3A5C] text-white hover:bg-[#1A4D6F]" disabled={loading}>
-            {loading ? "Accesso in corso..." : "Accedi"}
+            {loading ? m.submitting : m.submit}
           </Button>
         </form>
       </DialogContent>

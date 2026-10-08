@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useMessages } from "@/i18n";
+import { commonMessages } from "@/i18n/messages/common";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -9,6 +11,7 @@ interface ProtectedRouteProps {
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const common = useMessages(commonMessages);
   const [authenticated, setAuthenticated] = useState(false);
 
   useEffect(() => {
@@ -43,7 +46,7 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Caricamento...</p>
+          <p className="mt-4 text-muted-foreground">{common.loading}</p>
         </div>
       </div>
     );

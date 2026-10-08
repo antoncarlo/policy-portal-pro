@@ -7,11 +7,17 @@ import { Label } from "@/components/ui/label";
 import { Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { getMessages, useMessages } from "@/i18n";
+import { shellMessages } from "@/i18n/messages/shell";
+import { commonMessages } from "@/i18n/messages/common";
 
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const m = useMessages(shellMessages).login;
+  const common = useMessages(commonMessages);
 
   useEffect(() => {
     // Check if user is already logged in
@@ -46,24 +52,26 @@ const Auth = () => {
 
     setLoading(false);
 
+    const login = getMessages(shellMessages).login;
     if (error) {
       toast({
         variant: "destructive",
-        title: "Errore di accesso",
+        title: login.errorTitle,
         description: error.message === "Invalid login credentials"
-          ? "Email o password non corretti"
+          ? login.invalidCredentials
           : error.message,
       });
     } else {
       toast({
-        title: "Accesso effettuato!",
-        description: "Benvenuto nel portale.",
+        title: login.successTitle,
+        description: login.successDescription,
       });
     }
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="relative min-h-screen bg-background flex items-center justify-center p-4">
+      <LanguageSwitcher className="absolute right-4 top-4" />
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center mb-8">
           <img src="/logo.svg" alt="Tecno Advance MGA" className="h-16" />
@@ -71,26 +79,26 @@ const Auth = () => {
 
         <Card className="p-6">
           <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold text-foreground">Accedi al Portale</h2>
+            <h2 className="text-2xl font-bold text-foreground">{m.title}</h2>
             <p className="text-muted-foreground mt-2">
-              Inserisci le tue credenziali per accedere
+              {m.subtitle}
             </p>
           </div>
 
           <form onSubmit={handleSignIn} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="signin-email">Email</Label>
+              <Label htmlFor="signin-email">{common.email}</Label>
               <Input
                 id="signin-email"
                 name="signin-email"
                 type="email"
-                placeholder="mario.rossi@example.com"
+                placeholder={m.emailPlaceholder}
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="signin-password">Password</Label>
+              <Label htmlFor="signin-password">{common.password}</Label>
               <Input
                 id="signin-password"
                 name="signin-password"
@@ -101,7 +109,7 @@ const Auth = () => {
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Accesso in corso..." : "Accedi"}
+              {loading ? m.submitting : m.submit}
             </Button>
           </form>
         </Card>
