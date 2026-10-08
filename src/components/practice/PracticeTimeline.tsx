@@ -2,6 +2,13 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { formatDateTime, useMessages } from "@/i18n";
+import { practiceDetailMessages } from "@/i18n/messages/practiceDetail";
+import { domainMessages, practiceStatusLabel } from "@/i18n/messages/domain";
+
+// Event descriptions are written in Italian by the database triggers.
+const italianStatusKey = (value: string) =>
+  Object.entries(domainMessages.it.practiceStatus).find(([key, label]) => key === value || label === value)?.[0] ?? null;
 
 interface Event {
   id: string;
@@ -17,6 +24,21 @@ interface PracticeTimelineProps {
 export const PracticeTimeline = ({ practiceId }: PracticeTimelineProps) => {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const m = useMessages(practiceDetailMessages).timeline;
+
+  const describe = (description: string) => {
+    if (description === "Pratica creata") return m.created;
+    if (description === "Nuovo Documento Caricato") return m.newDocument;
+    const change = /^Stato cambiato da (.+) a (.+)$/.exec(description);
+    if (change) {
+      const status = (value: string) => {
+        const key = italianStatusKey(value.trim());
+        return key ? practiceStatusLabel(key) : value;
+      };
+      return m.statusChanged(status(change[1]), status(change[2]));
+    }
+    return description;
+  };
 
   useEffect(() => {
     loadEvents();
@@ -65,7 +87,7 @@ export const PracticeTimeline = ({ practiceId }: PracticeTimelineProps) => {
     <Card className="p-6">
       <h2 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
         <Clock className="h-5 w-5" />
-        Timeline Eventi
+        {m.title}
       </h2>
 
       {loading ? (
@@ -74,7 +96,7 @@ export const PracticeTimeline = ({ practiceId }: PracticeTimelineProps) => {
         </div>
       ) : events.length === 0 ? (
         <p className="text-muted-foreground text-center py-8">
-          Nessun evento registrato
+          {m.empty}
         </p>
       ) : (
         <div className="space-y-4">
@@ -88,10 +110,10 @@ export const PracticeTimeline = ({ practiceId }: PracticeTimelineProps) => {
               </div>
               <div className="flex-1 pb-4">
                 <p className="text-sm font-medium text-foreground">
-                  {event.description}
+                  {describe(event.description)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {new Date(event.created_at).toLocaleString("it-IT")}
+                  {formatDateTime(event.created_at)}
                 </p>
               </div>
             </div>

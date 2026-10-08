@@ -4,17 +4,20 @@ import { StatsCards } from "@/components/dashboard/StatsCards";
 import { PracticesList } from "@/components/dashboard/PracticesList";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { ExpiryWidget } from "@/components/dashboard/ExpiryWidget";
+import { useMessages } from "@/i18n";
+import { dashboardMessages } from "@/i18n/messages/dashboard";
 
 const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const m = useMessages(dashboardMessages);
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+          <h1 className="text-3xl font-bold text-foreground">{m.title}</h1>
           <p className="text-muted-foreground mt-1">
-            Panoramica delle tue pratiche assicurative
+            {m.subtitle}
           </p>
         </div>
 

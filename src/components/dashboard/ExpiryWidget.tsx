@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Calendar, AlertTriangle, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { useMessages } from "@/i18n";
+import { dashboardMessages } from "@/i18n/messages/dashboard";
+import { domainMessages } from "@/i18n/messages/domain";
 
 interface ExpiryPractice {
   practice_id: string;
@@ -18,6 +21,8 @@ export const ExpiryWidget = () => {
   const navigate = useNavigate();
   const [expiries, setExpiries] = useState<ExpiryPractice[]>([]);
   const [loading, setLoading] = useState(true);
+  const m = useMessages(dashboardMessages).expiry;
+  const domain = useMessages(domainMessages);
 
   useEffect(() => {
     loadExpiries();
@@ -66,7 +71,7 @@ export const ExpiryWidget = () => {
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold flex items-center gap-2">
           <Calendar className="h-5 w-5" />
-          Scadenze Imminenti
+          {m.title}
         </h3>
         {expiries.length > 0 && (
           <Badge variant="destructive">{expiries.length}</Badge>
@@ -75,7 +80,7 @@ export const ExpiryWidget = () => {
 
       {expiries.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Nessuna scadenza nei prossimi 30 giorni
+          {m.empty}
         </p>
       ) : (
         <div className="space-y-3">
@@ -91,7 +96,7 @@ export const ExpiryWidget = () => {
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant={getUrgencyColor(expiry.days_until_expiry)} className="text-xs">
-                  {expiry.days_until_expiry === 0 ? "Oggi" : `${expiry.days_until_expiry}gg`}
+                  {expiry.days_until_expiry === 0 ? domain.today : domain.daysShort(expiry.days_until_expiry)}
                 </Badge>
                 {expiry.days_until_expiry <= 7 && (
                   <AlertTriangle className="h-4 w-4 text-red-500" />
@@ -105,7 +110,7 @@ export const ExpiryWidget = () => {
             className="w-full mt-4"
             onClick={() => navigate("/expiry")}
           >
-            Vedi tutte le scadenze
+            {m.viewAll}
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>

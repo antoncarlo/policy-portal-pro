@@ -36,7 +36,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { PRACTICE_TYPE_LABELS } from "@/lib/practiceSummary";
+import { formatDate, getMessages, useMessages } from "@/i18n";
+import { practicesMessages } from "@/i18n/messages/practices";
+import { commonMessages } from "@/i18n/messages/common";
+import { PRACTICE_STATUSES, practiceStatusLabel, practiceTypeLabel } from "@/i18n/messages/domain";
 
 interface PracticesTableProps {
   searchQuery: string;
@@ -58,7 +61,7 @@ interface Practice {
 }
 
 const getErrorMessage = (error: unknown) =>
-  error instanceof Error ? error.message : "Errore imprevisto durante l'operazione.";
+  error instanceof Error ? error.message : getMessages(practicesMessages).table.unexpectedError;
 
 const PRACTICE_DOCUMENTS_BUCKET = "practice-documents";
 const VIES_BATCH_FILES_BUCKET = "vies-batch-files";
@@ -81,6 +84,8 @@ const getDocumentStorageReference = (filePath: string) => {
 export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const m = useMessages(practicesMessages).table;
+  const common = useMessages(commonMessages);
   const [practices, setPractices] = useState<Practice[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -186,8 +191,8 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
 
       if (!documents || documents.length === 0) {
         toast({
-          title: "Nessun documento",
-          description: "Non ci sono documenti da scaricare per questa pratica.",
+          title: m.noDocumentsTitle,
+          description: m.noDocumentsText,
         });
         return;
       }
@@ -216,13 +221,13 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
       }
 
       toast({
-        title: "Download completato",
-        description: `${documents.length} documento/i scaricato/i con successo.`,
+        title: m.downloadDoneTitle,
+        description: m.downloadDoneText(documents.length),
       });
     } catch (error: unknown) {
       toast({
         variant: "destructive",
-        title: "Errore download",
+        title: m.downloadErrorTitle,
         description: getErrorMessage(error),
       });
     }
@@ -241,8 +246,8 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
       if (error) throw error;
 
       toast({
-        title: "Pratica eliminata",
-        description: `La pratica ${practiceToDelete.practice_number} è stata eliminata con successo.`,
+        title: m.deletedTitle,
+        description: m.deletedText(practiceToDelete.practice_number),
       });
 
       // Reload practices
@@ -250,7 +255,7 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
     } catch (error: unknown) {
       toast({
         variant: "destructive",
-        title: "Errore eliminazione",
+        title: m.deleteErrorTitle,
         description: getErrorMessage(error),
       });
     } finally {
@@ -269,18 +274,9 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
     return colors[status] || "bg-muted text-muted-foreground";
   };
 
-  const getStatusLabel = (status: PracticeStatus) => {
-    const labels: Record<PracticeStatus, string> = {
-      completata: "Completata",
-      in_lavorazione: "In Lavorazione",
-      in_attesa: "In Attesa",
-      approvata: "Approvata",
-      rifiutata: "Rifiutata",
-    };
-    return labels[status];
-  };
+  const getStatusLabel = (status: PracticeStatus) => practiceStatusLabel(status);
 
-  const getPracticeTypeLabel = (type: PracticeType) => PRACTICE_TYPE_LABELS[type] ?? type;
+  const getPracticeTypeLabel = (type: PracticeType) => practiceTypeLabel(type);
 
   const filteredPractices = practices.filter((practice) => {
     const query = searchQuery.toLowerCase();
@@ -325,15 +321,15 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
       if (error) throw error;
 
       toast({
-        title: "Stato aggiornato",
-        description: `${selectedPracticeIds.size} pratiche selezionate aggiornate a ${getStatusLabel(bulkStatus)}.`,
+        title: m.statusUpdatedTitle,
+        description: m.statusUpdatedText(selectedPracticeIds.size, getStatusLabel(bulkStatus)),
       });
       setSelectedPracticeIds(new Set());
       await loadPractices();
     } catch (error: unknown) {
       toast({
         variant: "destructive",
-        title: "Aggiornamento massivo non riuscito",
+        title: m.bulkErrorTitle,
         description: getErrorMessage(error),
       });
     } finally {
@@ -346,26 +342,26 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         {canChangeStatus ? (
           <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3 md:flex-row md:items-center">
-            <span className="text-sm font-medium">{selectedPractices.length} pratiche selezionate</span>
+            <span className="text-sm font-medium">{m.selected(selectedPractices.length)}</span>
             <Select value={bulkStatus} onValueChange={(value) => setBulkStatus(value as PracticeStatus)}>
               <SelectTrigger className="w-full md:w-[190px]">
-                <SelectValue placeholder="Nuovo stato" />
+                <SelectValue placeholder={m.newStatus} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="in_lavorazione">In Lavorazione</SelectItem>
-                <SelectItem value="in_attesa">In Attesa</SelectItem>
-                <SelectItem value="approvata">Approvata</SelectItem>
-                <SelectItem value="rifiutata">Rifiutata</SelectItem>
-                <SelectItem value="completata">Completata</SelectItem>
+                {PRACTICE_STATUSES.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {practiceStatusLabel(status)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Button onClick={handleBulkStatusUpdate} disabled={selectedPractices.length === 0 || bulkUpdating}>
-              Cambia stato selezionate
+              {m.changeStatus}
             </Button>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
-            Lo stato delle pratiche viene aggiornato dall'ufficio assunzione.
+            {m.statusByOffice}
           </p>
         )}
         <PracticesExport practices={filteredPractices} />
@@ -377,32 +373,32 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
           <TableRow>
             <TableHead className="w-12">
               <Checkbox
-                aria-label="Seleziona tutte le pratiche filtrate"
+                aria-label={m.selectAll}
                 checked={filteredPractices.length > 0 && filteredPractices.every((practice) => selectedPracticeIds.has(practice.id))}
                 onCheckedChange={toggleAllFilteredPractices}
               />
             </TableHead>
-            <TableHead>Numero Pratica</TableHead>
-            <TableHead>Contraente</TableHead>
-            <TableHead>Beneficiario</TableHead>
-            <TableHead>Tipo</TableHead>
-            <TableHead>Polizza</TableHead>
-            <TableHead>Data</TableHead>
-            <TableHead>Stato</TableHead>
-            <TableHead className="text-right">Azioni</TableHead>
+            <TableHead>{m.number}</TableHead>
+            <TableHead>{m.client}</TableHead>
+            <TableHead>{m.beneficiary}</TableHead>
+            <TableHead>{m.type}</TableHead>
+            <TableHead>{m.policy}</TableHead>
+            <TableHead>{m.date}</TableHead>
+            <TableHead>{m.status}</TableHead>
+            <TableHead className="text-right">{m.actions}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {loading ? (
             <TableRow>
               <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                Caricamento pratiche...
+                {m.loading}
               </TableCell>
             </TableRow>
           ) : filteredPractices.length === 0 ? (
             <TableRow>
               <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                Nessuna pratica trovata
+                {m.empty}
               </TableCell>
             </TableRow>
           ) : (
@@ -410,7 +406,7 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
               <TableRow key={practice.id}>
                 <TableCell>
                   <Checkbox
-                    aria-label={`Seleziona pratica ${practice.practice_number}`}
+                    aria-label={m.selectOne(practice.practice_number)}
                     checked={selectedPracticeIds.has(practice.id)}
                     onCheckedChange={() => togglePracticeSelection(practice.id)}
                   />
@@ -423,7 +419,7 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
                   {practice.policy_number || "-"}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {new Date(practice.created_at).toLocaleDateString("it-IT")}
+                  {formatDate(practice.created_at)}
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline" className={getStatusColor(practice.status)}>
@@ -443,7 +439,7 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
                       variant="ghost" 
                       size="sm"
                       onClick={() => handleDownloadDocuments(practice)}
-                      title="Scarica documenti"
+                      title={m.downloadDocuments}
                     >
                       <Download className="h-4 w-4" />
                     </Button>
@@ -458,7 +454,7 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
                           onClick={() => navigate(`/practices/${practice.id}`)}
                         >
                           <Pencil className="mr-2 h-4 w-4" />
-                          Modifica
+                          {m.edit}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -469,7 +465,7 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
                           }}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
-                          Elimina
+                          {m.delete}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -486,19 +482,18 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Conferma Eliminazione</AlertDialogTitle>
+            <AlertDialogTitle>{m.confirmDeleteTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              Sei sicuro di voler eliminare la pratica {practiceToDelete?.practice_number}?
-              Questa azione eliminerà anche tutti i documenti e gli eventi associati e non può essere annullata.
+              {m.confirmDeleteText(practiceToDelete?.practice_number ?? "")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogCancel>{common.cancel}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeletePractice}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Elimina
+              {m.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

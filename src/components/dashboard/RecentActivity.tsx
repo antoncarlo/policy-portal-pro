@@ -1,45 +1,48 @@
 import { Card } from "@/components/ui/card";
 import { FileText, User, CheckCircle, AlertCircle } from "lucide-react";
+import { useMessages } from "@/i18n";
+import { dashboardMessages } from "@/i18n/messages/dashboard";
 
 export const RecentActivity = () => {
+  const m = useMessages(dashboardMessages).activity;
   const activities = [
     {
       icon: FileText,
-      title: "Nuova pratica creata",
+      title: m.newPractice,
       description: "PR-2024-001 - Mario Rossi",
-      time: "2 ore fa",
+      time: m.hoursAgo(2),
       color: "text-primary",
       bgColor: "bg-primary/10",
     },
     {
       icon: CheckCircle,
-      title: "Pratica approvata",
+      title: m.approved,
       description: "PR-2024-002 - Laura Bianchi",
-      time: "4 ore fa",
+      time: m.hoursAgo(4),
       color: "text-green-600",
       bgColor: "bg-green-600/10",
     },
     {
       icon: AlertCircle,
-      title: "Azione richiesta",
+      title: m.actionRequired,
       description: "PR-2024-003 - Giuseppe Verdi",
-      time: "1 giorno fa",
+      time: m.daysAgo(1),
       color: "text-destructive",
       bgColor: "bg-destructive/10",
     },
     {
       icon: User,
-      title: "Nuovo cliente aggiunto",
+      title: m.newClient,
       description: "Anna Ferrari",
-      time: "2 giorni fa",
+      time: m.daysAgo(2),
       color: "text-chart-2",
       bgColor: "bg-chart-2/10",
     },
     {
       icon: FileText,
-      title: "Documenti caricati",
+      title: m.documentsUploaded,
       description: "PR-2024-004 - Marco Colombo",
-      time: "3 giorni fa",
+      time: m.daysAgo(3),
       color: "text-primary",
       bgColor: "bg-primary/10",
     },
@@ -48,7 +51,7 @@ export const RecentActivity = () => {
   return (
     <Card className="p-6">
       <h2 className="text-xl font-semibold text-foreground mb-6">
-        Attività Recente
+        {m.title}
       </h2>
       <div className="space-y-4">
         {activities.map((activity, index) => {

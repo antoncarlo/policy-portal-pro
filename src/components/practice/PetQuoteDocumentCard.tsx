@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Download, FileText, PawPrint } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { buildPetSummary, extractNotesSections } from "@/lib/practiceSummary";
+import { getMessages, useMessages } from "@/i18n";
+import { practiceDetailMessages } from "@/i18n/messages/practiceDetail";
+import { commonMessages } from "@/i18n/messages/common";
 import { canGeneratePetQuote, generatePetQuotePdf, petQuotePdfToBytes } from "@/lib/petQuotePdf";
 import {
   PET_QUOTE_ATTACHMENTS,
@@ -35,6 +38,9 @@ interface PetQuoteDocumentCardProps {
  */
 export const PetQuoteDocumentCard = ({ practice, onDocumentCreated }: PetQuoteDocumentCardProps) => {
   const { toast } = useToast();
+  const m = useMessages(practiceDetailMessages).petQuote;
+  const viesPolicy = useMessages(practiceDetailMessages).viesPolicy;
+  const common = useMessages(commonMessages);
   const [working, setWorking] = useState(false);
 
   const pet = useMemo(() => {
@@ -88,13 +94,14 @@ export const PetQuoteDocumentCard = ({ practice, onDocumentCreated }: PetQuoteDo
     try {
       // Generazione lato server: il browser invia solo la richiesta
       const result = await requestPetQuoteDocument(practice.id);
-      toast({ title: "Ricapitolo Richiesta allegato", description: `${result.file_name} è ora disponibile tra i documenti della pratica.` });
+      const text = getMessages(practiceDetailMessages).petQuote;
+      toast({ title: text.attachedTitle, description: text.attachedText(result.file_name) });
       onDocumentCreated?.();
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore generazione preventivo",
-        description: error instanceof Error ? error.message : "Non è stato possibile generare il pacchetto.",
+        title: getMessages(practiceDetailMessages).petQuote.errorTitle,
+        description: error instanceof Error ? error.message : getMessages(practiceDetailMessages).petQuote.errorText,
       });
     } finally {
       setWorking(false);
@@ -107,22 +114,20 @@ export const PetQuoteDocumentCard = ({ practice, onDocumentCreated }: PetQuoteDo
         <div className="space-y-1">
           <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
             <PawPrint className="h-5 w-5" />
-            Ricapitolo Richiesta {pet?.name ? `per ${pet.name}` : ""}
+            {m.title(pet?.name ?? "")}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {canGenerate
-              ? `Pacchetto ZIP con il preventivo in PDF (stesso layout e testo della mail inviata al cliente) e la documentazione contrattuale Helpet: ${PET_QUOTE_ATTACHMENTS.map((a) => a.label).join(", ")}.`
-              : "Per generare il preventivo servono le coperture selezionate o il premio annuale nei dati della pratica."}
+            {canGenerate ? m.ready(PET_QUOTE_ATTACHMENTS.map((a) => a.label).join(", ")) : m.notReady}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleDownload} disabled={!canGenerate || working}>
             <Download className="h-4 w-4 mr-2" />
-            Scarica
+            {common.download}
           </Button>
           <Button size="sm" onClick={handleAttach} disabled={!canGenerate || working}>
             <FileText className="h-4 w-4 mr-2" />
-            {working ? "Generazione..." : "Allega ai documenti"}
+            {working ? viesPolicy.generating : viesPolicy.attach}
           </Button>
         </div>
       </div>

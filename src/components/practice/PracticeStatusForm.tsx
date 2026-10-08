@@ -13,16 +13,11 @@ import { AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { getMessages, useMessages } from "@/i18n";
+import { practiceDetailMessages } from "@/i18n/messages/practiceDetail";
+import { PRACTICE_STATUSES, practiceStatusLabel } from "@/i18n/messages/domain";
 
 type PracticeStatus = "in_lavorazione" | "in_attesa" | "approvata" | "rifiutata" | "completata";
-
-const STATUS_LABELS: Record<PracticeStatus, string> = {
-  in_lavorazione: "In Lavorazione",
-  in_attesa: "In Attesa",
-  approvata: "Approvata",
-  rifiutata: "Rifiutata",
-  completata: "Completata",
-};
 
 interface PracticeStatusFormProps {
   practiceId: string;
@@ -41,14 +36,15 @@ export const PracticeStatusForm = ({
   const [status, setStatus] = useState<PracticeStatus>(currentStatus);
   const [loading, setLoading] = useState(false);
   const canEditStatus = userRole === 'admin';
+  const m = useMessages(practiceDetailMessages).status;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (status === currentStatus) {
       toast({
-        title: "Nessuna modifica",
-        description: "Lo stato selezionato è uguale a quello attuale.",
+        title: getMessages(practiceDetailMessages).status.noChangeTitle,
+        description: getMessages(practiceDetailMessages).status.noChangeText,
       });
       return;
     }
@@ -64,15 +60,15 @@ export const PracticeStatusForm = ({
       if (error) throw error;
 
       toast({
-        title: "Stato aggiornato",
-        description: "Lo stato della pratica è stato modificato con successo.",
+        title: getMessages(practiceDetailMessages).status.updatedTitle,
+        description: getMessages(practiceDetailMessages).status.updatedText,
       });
 
       onStatusUpdate();
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore aggiornamento",
+        title: getMessages(practiceDetailMessages).status.errorTitle,
         description: error.message,
       });
     } finally {
@@ -84,40 +80,39 @@ export const PracticeStatusForm = ({
     <Card className="p-6">
       <h2 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
         <AlertCircle className="h-5 w-5" />
-        Gestione Stato
+        {m.title}
       </h2>
 
       {!canEditStatus ? (
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">Stato attuale</span>
-            <Badge variant="secondary">{STATUS_LABELS[currentStatus] ?? currentStatus}</Badge>
+            <span className="text-sm text-muted-foreground">{m.current}</span>
+            <Badge variant="secondary">{practiceStatusLabel(currentStatus)}</Badge>
           </div>
           <div className="p-3 bg-muted/50 border border-muted rounded-md text-sm text-muted-foreground">
-            Lo stato della pratica viene aggiornato dall'ufficio assunzione: solo gli amministratori possono modificarlo.
-            Ogni cambio di stato compare nella cronologia della pratica.
+            {m.readOnly}
           </div>
         </div>
       ) : (
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="status">Stato Pratica</Label>
+          <Label htmlFor="status">{m.label}</Label>
           <Select value={status} onValueChange={(value) => setStatus(value as PracticeStatus)}>
             <SelectTrigger id="status">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="in_lavorazione">In Lavorazione</SelectItem>
-              <SelectItem value="in_attesa">In Attesa</SelectItem>
-              <SelectItem value="approvata">Approvata</SelectItem>
-              <SelectItem value="completata">Completata</SelectItem>
-              <SelectItem value="rifiutata">Rifiutata</SelectItem>
+              {PRACTICE_STATUSES.map((value) => (
+                <SelectItem key={value} value={value}>
+                  {practiceStatusLabel(value)}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
 
         <Button type="submit" disabled={loading || status === currentStatus}>
-          {loading ? "Aggiornamento..." : "Aggiorna Stato"}
+          {loading ? m.updating : m.update}
         </Button>
       </form>
       )}

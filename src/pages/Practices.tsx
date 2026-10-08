@@ -6,10 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useMessages } from "@/i18n";
+import { practicesMessages } from "@/i18n/messages/practices";
 
 const Practices = () => {
   const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
+  const m = useMessages(practicesMessages);
   const [filters, setFilters] = useState<PracticeFilters>({
     practiceType: searchParams.get("type") || "all",
     status: "all",
@@ -33,13 +36,13 @@ const Practices = () => {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
-            <h1 className="text-3xl font-bold text-foreground">Pratiche</h1>
+            <h1 className="text-3xl font-bold text-foreground">{m.title}</h1>
             <p className="text-muted-foreground mt-1">
-              Visualizza e gestisci tutte le pratiche per contraente, beneficiario, tipo e stato
+              {m.subtitle}
             </p>
           </div>
           <Link to="/upload" className="w-full md:w-auto">
-            <Button className="h-auto min-h-10 w-full whitespace-normal text-center md:w-auto">Carica Nuova Pratica</Button>
+            <Button className="h-auto min-h-10 w-full whitespace-normal text-center md:w-auto">{m.newPractice}</Button>
           </Link>
         </div>
 
@@ -47,7 +50,7 @@ const Practices = () => {
           <div className="relative min-w-0 flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Cerca per numero pratica, contraente, beneficiario, tipo..."
+              placeholder={m.search}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"

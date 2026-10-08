@@ -15,6 +15,10 @@ import { PracticeNotes } from "@/components/practice/PracticeNotes";
 import { PracticeSummaryCard } from "@/components/practice/PracticeSummaryCard";
 import { ViesPolicyDocumentCard } from "@/components/practice/ViesPolicyDocumentCard";
 import { formatPolicyDuration } from "@/lib/practiceSummary";
+import { formatDate, getMessages, useMessages } from "@/i18n";
+import { practiceDetailMessages } from "@/i18n/messages/practiceDetail";
+import { practiceStatusLabel, practiceTypeLabel } from "@/i18n/messages/domain";
+import { translateDuration } from "@/i18n/summaryText";
 
 
 type PracticeStatus = "in_lavorazione" | "in_attesa" | "approvata" | "rifiutata" | "completata";
@@ -53,6 +57,7 @@ const PracticeDetail = () => {
   const [documentsRefreshToken, setDocumentsRefreshToken] = useState(0);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string>('');
+  const m = useMessages(practiceDetailMessages);
 
   useEffect(() => {
     if (id) {
@@ -94,8 +99,8 @@ const PracticeDetail = () => {
     } catch (error: unknown) {
       toast({
         variant: "destructive",
-        title: "Errore caricamento pratica",
-        description: error instanceof Error ? error.message : "Errore imprevisto durante il caricamento della pratica.",
+        title: getMessages(practiceDetailMessages).loadErrorTitle,
+        description: error instanceof Error ? error.message : getMessages(practiceDetailMessages).loadErrorText,
       });
       navigate("/practices");
     } finally {
@@ -114,39 +119,9 @@ const PracticeDetail = () => {
     return colors[status] || colors.in_lavorazione;
   };
 
-  const getStatusLabel = (status: PracticeStatus) => {
-    const labels = {
-      in_lavorazione: "In Lavorazione",
-      completata: "Completata",
-      rifiutata: "Rifiutata",
-      in_attesa: "In Attesa",
-      approvata: "Approvata",
-    };
-    return labels[status] || status;
-  };
+  const getStatusLabel = (status: PracticeStatus) => practiceStatusLabel(status);
 
-  const getPracticeTypeLabel = (type: PracticeType) => {
-    const labels: Record<string, string> = {
-      fidejussioni: "Fidejussioni",
-      car: "Car",
-      postuma_decennale: "Postuma Decennale",
-      all_risk: "All Risk",
-      responsabilita_civile: "Responsabilità Civile",
-      pet: "Pet",
-      fotovoltaico: "Fotovoltaico",
-      catastrofali: "Catastrofali",
-      azienda: "Azienda",
-      casa: "Casa",
-      risparmio: "Risparmio",
-      salute: "Salute",
-      auto: "Auto",
-      vita: "Vita",
-      responsabilita: "Responsabilità Civile",
-      vies: "VIES",
-      altro: "Altro",
-    };
-    return labels[type] || type;
-  };
+  const getPracticeTypeLabel = (type: PracticeType) => practiceTypeLabel(type);
 
   const handleStatusUpdate = () => {
     loadPractice();
@@ -178,7 +153,7 @@ const PracticeDetail = () => {
             onClick={() => navigate("/practices")}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Torna alle Pratiche
+            {m.back}
           </Button>
         </div>
 
@@ -204,7 +179,7 @@ const PracticeDetail = () => {
             <div className="space-y-4">
               <h3 className="font-semibold text-foreground flex items-center gap-2">
                 <User className="h-4 w-4" />
-                Informazioni Contraente
+                {m.clientInfo}
               </h3>
               <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-2">
@@ -222,13 +197,13 @@ const PracticeDetail = () => {
                 {practice.policy_number && (
                   <div className="flex items-center gap-2">
                     <FileText className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">Polizza: {practice.policy_number}</span>
+                    <span className="text-muted-foreground">{m.policy(practice.policy_number)}</span>
                   </div>
                 )}
                 {practice.beneficiary && (
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">Beneficiario: {practice.beneficiary}</span>
+                    <span className="text-muted-foreground">{m.beneficiary(practice.beneficiary)}</span>
                   </div>
                 )}
               </div>
@@ -237,42 +212,42 @@ const PracticeDetail = () => {
             <div className="space-y-4">
               <h3 className="font-semibold text-foreground flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
-                Date
+                {m.dates}
               </h3>
               <div className="space-y-2 text-sm">
                 <div>
-                  <span className="text-muted-foreground">Creata il: </span>
+                  <span className="text-muted-foreground">{m.createdOn}</span>
                   <span className="text-foreground">
-                    {new Date(practice.created_at).toLocaleDateString("it-IT")}
+                    {formatDate(practice.created_at)}
                   </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Ultimo aggiornamento: </span>
+                  <span className="text-muted-foreground">{m.updatedOn}</span>
                   <span className="text-foreground">
-                    {new Date(practice.updated_at).toLocaleDateString("it-IT")}
+                    {formatDate(practice.updated_at)}
                   </span>
                 </div>
                 {practice.policy_start_date && (
                   <div>
-                    <span className="text-muted-foreground">Inizio Polizza: </span>
+                    <span className="text-muted-foreground">{m.policyStart}</span>
                     <span className="text-foreground">
-                      {new Date(practice.policy_start_date).toLocaleDateString("it-IT")}
+                      {formatDate(practice.policy_start_date)}
                     </span>
                   </div>
                 )}
                 {practice.policy_end_date && (
                   <div>
-                    <span className="text-muted-foreground">Fine Polizza: </span>
+                    <span className="text-muted-foreground">{m.policyEnd}</span>
                     <span className="text-foreground">
-                      {new Date(practice.policy_end_date).toLocaleDateString("it-IT")}
+                      {formatDate(practice.policy_end_date)}
                     </span>
                   </div>
                 )}
                 {practice.policy_start_date && practice.policy_end_date && (
                   <div>
-                    <span className="text-muted-foreground">Durata: </span>
+                    <span className="text-muted-foreground">{m.duration}</span>
                     <span className="text-foreground font-medium">
-                      {formatPolicyDuration(practice.policy_start_date, practice.policy_end_date) ?? "—"}
+                      {translateDuration(formatPolicyDuration(practice.policy_start_date, practice.policy_end_date) ?? "—")}
                     </span>
                   </div>
                 )}

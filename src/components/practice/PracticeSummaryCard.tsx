@@ -8,6 +8,9 @@ import {
   type PracticeSummaryInput,
   type SummarySection,
 } from "@/lib/practiceSummary";
+import { useLanguage, useLocale, useMessages } from "@/i18n";
+import { practiceDetailMessages } from "@/i18n/messages/practiceDetail";
+import { translateSummary } from "@/i18n/summaryText";
 
 interface PracticeSummaryCardProps {
   practice: Omit<PracticeSummaryInput, "specific_fields"> & { notes: string | null };
@@ -52,10 +55,13 @@ const SectionBlock = ({ section }: { section: SummarySection }) => {
  * tipologia (con etichette leggibili), coperture Pet e premio.
  */
 export const PracticeSummaryCard = ({ practice }: PracticeSummaryCardProps) => {
+  const language = useLanguage();
+  const locale = useLocale();
+  const m = useMessages(practiceDetailMessages).summary;
   const summary = useMemo(() => {
     const { specificFields } = extractNotesSections(practice.notes);
-    return buildPracticeSummary({ ...practice, specific_fields: specificFields });
-  }, [practice]);
+    return translateSummary(buildPracticeSummary({ ...practice, specific_fields: specificFields }), language);
+  }, [practice, language]);
 
   const pet = summary.pet;
   const hasSpecificData = summary.sections.some((s) => !["contraente", "polizza"].includes(s.id));
@@ -66,23 +72,22 @@ export const PracticeSummaryCard = ({ practice }: PracticeSummaryCardProps) => {
         <div>
           <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
             <ClipboardList className="h-5 w-5" />
-            Riepilogo Pratica
+            {m.title}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {summary.practice_type === "vies"
-              ? "Dati della richiesta VIES dal caricamento massivo: Excel, dati del foglio e verifica dei documenti ZIP."
-              : `Tutte le informazioni inserite in fase di quotazione per la polizza ${summary.practice_type_label}.`}
+            {summary.practice_type === "vies" ? m.viesText : m.genericText(summary.practice_type_label)}
           </p>
         </div>
         {pet && pet.total_annual !== null && (
           <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-right">
-            <p className="text-xs text-muted-foreground">Premio annuale preventivato</p>
+            <p className="text-xs text-muted-foreground">{m.annualQuote}</p>
             <p className="text-2xl font-bold text-foreground">
-              {pet.total_annual.toLocaleString("it-IT", { style: "currency", currency: "EUR" })}
+              {pet.total_annual.toLocaleString(locale, { style: "currency", currency: "EUR" })}
             </p>
             {pet.total_monthly !== null && (
               <p className="text-xs text-muted-foreground">
-                {pet.total_monthly.toLocaleString("it-IT", { style: "currency", currency: "EUR" })}/mese
+                {pet.total_monthly.toLocaleString(locale, { style: "currency", currency: "EUR" })}
+                {m.perMonth}
               </p>
             )}
           </div>
@@ -93,8 +98,7 @@ export const PracticeSummaryCard = ({ practice }: PracticeSummaryCardProps) => {
         <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
           <Info className="h-4 w-4 mt-0.5 shrink-0" />
           <span>
-            Per questa pratica non sono stati ricevuti dati specifici della polizza. Se la pratica arriva da un portale partner,
-            verificare che il campo <code className="font-mono">specific_fields</code> venga inviato nella chiamata API.
+            {m.noSpecificData} <code className="font-mono">specific_fields</code> {m.noSpecificDataEnd}
           </span>
         </div>
       )}

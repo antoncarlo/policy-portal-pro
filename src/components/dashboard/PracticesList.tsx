@@ -14,6 +14,9 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { formatDate, useMessages } from "@/i18n";
+import { dashboardMessages } from "@/i18n/messages/dashboard";
+import { practiceStatusLabel, practiceTypeLabel } from "@/i18n/messages/domain";
 
 interface PracticesListProps {
   searchQuery: string;
@@ -54,6 +57,7 @@ export const PracticesList = ({ searchQuery, onSearchChange }: PracticesListProp
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const m = useMessages(dashboardMessages).recent;
 
   useEffect(() => {
     loadPractices();
@@ -124,47 +128,13 @@ export const PracticesList = ({ searchQuery, onSearchChange }: PracticesListProp
     return colors[status] || "bg-muted text-muted-foreground";
   };
 
-  const getStatusLabel = (status: PracticeStatus) => {
-    const labels: Record<PracticeStatus, string> = {
-      completata: "Completata",
-      in_lavorazione: "In Lavorazione",
-      in_attesa: "In Attesa",
-      approvata: "Approvata",
-      rifiutata: "Rifiutata",
-    };
-    return labels[status];
-  };
-
-  const getPracticeTypeLabel = (type: PracticeType) => {
-    const labels: Record<PracticeType, string> = {
-      auto: "Auto",
-      casa: "Casa",
-      vita: "Vita",
-      salute: "Salute",
-      responsabilita: "Responsabilità",
-      fidejussioni: "Fidejussioni",
-      car: "CAR",
-      postuma_decennale: "Postuma Decennale",
-      all_risk: "All Risk",
-      responsabilita_civile: "Responsabilità Civile",
-      pet: "Pet",
-      fotovoltaico: "Fotovoltaico",
-      catastrofali: "Catastrofali",
-      azienda: "Azienda",
-      risparmio: "Risparmio",
-      vies: "VIES",
-      altro: "Altro",
-    };
-    return labels[type];
-  };
-
   return (
     <Card className="p-6">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-foreground">Pratiche Recenti</h2>
+        <h2 className="text-xl font-semibold text-foreground">{m.title}</h2>
         <Link to="/practices">
           <Button variant="ghost" size="sm">
-            Vedi Tutte
+            {m.viewAll}
           </Button>
         </Link>
       </div>
@@ -172,7 +142,7 @@ export const PracticesList = ({ searchQuery, onSearchChange }: PracticesListProp
       <div className="relative mb-4">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Cerca pratiche..."
+          placeholder={m.search}
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           className="pl-10"
@@ -182,11 +152,11 @@ export const PracticesList = ({ searchQuery, onSearchChange }: PracticesListProp
       <div className="space-y-3">
         {loading ? (
           <div className="text-center py-8 text-muted-foreground">
-            Caricamento pratiche...
+            {m.loading}
           </div>
         ) : practices.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            Nessuna pratica trovata
+            {m.empty}
           </div>
         ) : (
           practices.map((practice) => (
@@ -198,15 +168,15 @@ export const PracticesList = ({ searchQuery, onSearchChange }: PracticesListProp
                 <div className="flex items-center gap-3 mb-1">
                   <span className="font-semibold text-foreground">{practice.practice_number}</span>
                   <Badge variant="outline" className={getStatusColor(practice.status)}>
-                    {getStatusLabel(practice.status)}
+                    {practiceStatusLabel(practice.status)}
                   </Badge>
                 </div>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <span>{practice.client_name}</span>
                   <span>•</span>
-                  <span>{getPracticeTypeLabel(practice.practice_type)}</span>
+                  <span>{practiceTypeLabel(practice.practice_type)}</span>
                   <span>•</span>
-                  <span>{new Date(practice.created_at).toLocaleDateString("it-IT")}</span>
+                  <span>{formatDate(practice.created_at)}</span>
                 </div>
               </div>
               <DropdownMenu>
@@ -218,20 +188,20 @@ export const PracticesList = ({ searchQuery, onSearchChange }: PracticesListProp
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => navigate(`/practices/${practice.id}`)}>
                     <Eye className="mr-2 h-4 w-4" />
-                    Visualizza Dettaglio
+                    {m.viewDetail}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => {
                       navigator.clipboard.writeText(practice.practice_number);
-                      toast({ description: "Copiato negli appunti" });
+                      toast({ description: m.copied });
                     }}
                   >
                     <Copy className="mr-2 h-4 w-4" />
-                    Copia Numero Pratica
+                    {m.copyNumber}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate(`/practices/${practice.id}`)}>
-                    Apri Cliente
+                    {m.openClient}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

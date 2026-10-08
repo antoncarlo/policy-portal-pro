@@ -13,6 +13,8 @@ import {
   viesPolicyPdfToBytes,
   type ViesPolicyPracticeSource,
 } from "@/lib/viesPolicyPdf";
+import { getMessages, useMessages } from "@/i18n";
+import { practiceDetailMessages } from "@/i18n/messages/practiceDetail";
 
 const PRACTICE_DOCUMENTS_BUCKET = "practice-documents";
 
@@ -28,6 +30,7 @@ interface ViesPolicyDocumentCardProps {
 export const ViesPolicyDocumentCard = ({ practice, onDocumentCreated }: ViesPolicyDocumentCardProps) => {
   const { toast } = useToast();
   const [working, setWorking] = useState(false);
+  const m = useMessages(practiceDetailMessages).viesPolicy;
 
   const input = useMemo(() => viesPolicyInputFromPractice(practice), [practice]);
   const missing = missingViesPolicyData(input);
@@ -49,7 +52,7 @@ export const ViesPolicyDocumentCard = ({ practice, onDocumentCreated }: ViesPoli
     setWorking(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Sessione non valida. Effettua nuovamente l'accesso.");
+      if (!session) throw new Error(getMessages(practiceDetailMessages).viesPolicy.invalidSession);
       const blob = buildBlob();
       const filePath = `${practice.id}/${Date.now()}-${fileName}`;
       const { error: uploadError } = await supabase.storage
@@ -68,13 +71,14 @@ export const ViesPolicyDocumentCard = ({ practice, onDocumentCreated }: ViesPoli
         await supabase.storage.from(PRACTICE_DOCUMENTS_BUCKET).remove([filePath]);
         throw dbError;
       }
-      toast({ title: "Polizza allegata", description: `${fileName} è ora tra i documenti della pratica.` });
+      const text = getMessages(practiceDetailMessages).viesPolicy;
+      toast({ title: text.attachedTitle, description: text.attachedText(fileName) });
       onDocumentCreated?.();
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore generazione polizza",
-        description: error instanceof Error ? error.message : "Non è stato possibile allegare il documento.",
+        title: getMessages(practiceDetailMessages).viesPolicy.errorTitle,
+        description: error instanceof Error ? error.message : getMessages(practiceDetailMessages).viesPolicy.errorText,
       });
     } finally {
       setWorking(false);
@@ -87,22 +91,20 @@ export const ViesPolicyDocumentCard = ({ practice, onDocumentCreated }: ViesPoli
         <div className="space-y-1">
           <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
             <ShieldCheck className="h-5 w-5" />
-            Documento di polizza VIES
+            {m.title}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {missing.length
-              ? `Per generarlo mancano: ${missing.join(", ")}.`
-              : "Frontespizio con tutti i dati di polizza e testo della garanzia (Annex III) compilato. I dati della compagnia garante restano in bianco."}
+            {missing.length ? m.missing(missing.map((field) => m.missingFields[field] ?? field).join(", ")) : m.ready}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleDownload} disabled={missing.length > 0 || working}>
             <Download className="h-4 w-4 mr-2" />
-            Scarica
+            {m.download}
           </Button>
           <Button size="sm" onClick={handleAttach} disabled={missing.length > 0 || working}>
             <FileText className="h-4 w-4 mr-2" />
-            {working ? "Generazione..." : "Allega ai documenti"}
+            {working ? m.generating : m.attach}
           </Button>
         </div>
       </div>

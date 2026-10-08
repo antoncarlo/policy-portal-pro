@@ -23,9 +23,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Filter, CalendarIcon, X } from "lucide-react";
-import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { formatDate, useMessages } from "@/i18n";
+import { practicesMessages } from "@/i18n/messages/practices";
+import { PRACTICE_STATUSES, PRACTICE_TYPES, practiceStatusLabel, practiceTypeLabel } from "@/i18n/messages/domain";
 
 export interface PracticeFilters {
   practiceType: string;
@@ -55,6 +57,7 @@ export const PracticesFilters = ({
   const [users, setUsers] = useState<User[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [open, setOpen] = useState(false);
+  const m = useMessages(practicesMessages).filters;
 
   useEffect(() => {
     checkUserRole();
@@ -124,7 +127,7 @@ export const PracticesFilters = ({
       <SheetTrigger asChild>
         <Button variant="outline" className="relative">
           <Filter className="mr-2 h-4 w-4" />
-          Filtri Avanzati
+          {m.button}
           {hasActiveFilters() && (
             <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-primary" />
           )}
@@ -132,67 +135,56 @@ export const PracticesFilters = ({
       </SheetTrigger>
       <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Filtri Avanzati</SheetTitle>
+          <SheetTitle>{m.title}</SheetTitle>
           <SheetDescription>
-            Filtra le pratiche per tipo, stato, date e utente
+            {m.description}
           </SheetDescription>
         </SheetHeader>
 
         <div className="space-y-6 mt-6">
           <div className="space-y-2">
-            <Label htmlFor="practiceType">Tipo Pratica</Label>
+            <Label htmlFor="practiceType">{m.practiceType}</Label>
             <Select
               value={filters.practiceType}
               onValueChange={(value) => updateFilter("practiceType", value)}
             >
               <SelectTrigger id="practiceType">
-                <SelectValue placeholder="Tutti i tipi" />
+                <SelectValue placeholder={m.allTypes} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tutti i tipi</SelectItem>
-                <SelectItem value="pet">Pet</SelectItem>
-                <SelectItem value="car">CAR</SelectItem>
-                <SelectItem value="casa">Casa</SelectItem>
-                <SelectItem value="salute">Salute</SelectItem>
-                <SelectItem value="fidejussioni">Fidejussioni</SelectItem>
-                <SelectItem value="postuma_decennale">Postuma Decennale</SelectItem>
-                <SelectItem value="all_risk">All Risk</SelectItem>
-                <SelectItem value="responsabilita_civile">Responsabilità Civile</SelectItem>
-                <SelectItem value="fotovoltaico">Fotovoltaico</SelectItem>
-                <SelectItem value="catastrofali">Catastrofali</SelectItem>
-                <SelectItem value="azienda">Azienda</SelectItem>
-                <SelectItem value="risparmio">Risparmio</SelectItem>
-                <SelectItem value="vies">VIES</SelectItem>
-                <SelectItem value="auto">Auto</SelectItem>
-                <SelectItem value="vita">Vita</SelectItem>
-                <SelectItem value="responsabilita">Responsabilità (storico)</SelectItem>
-                <SelectItem value="altro">Altro</SelectItem>
+                <SelectItem value="all">{m.allTypes}</SelectItem>
+                {PRACTICE_TYPES.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {practiceTypeLabel(type)}
+                    {type === "responsabilita" ? m.legacySuffix : ""}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="status">Stato</Label>
+            <Label htmlFor="status">{m.status}</Label>
             <Select
               value={filters.status}
               onValueChange={(value) => updateFilter("status", value)}
             >
               <SelectTrigger id="status">
-                <SelectValue placeholder="Tutti gli stati" />
+                <SelectValue placeholder={m.allStatuses} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tutti gli stati</SelectItem>
-                <SelectItem value="in_lavorazione">In Lavorazione</SelectItem>
-                <SelectItem value="in_attesa">In Attesa</SelectItem>
-                <SelectItem value="approvata">Approvata</SelectItem>
-                <SelectItem value="completata">Completata</SelectItem>
-                <SelectItem value="rifiutata">Rifiutata</SelectItem>
+                <SelectItem value="all">{m.allStatuses}</SelectItem>
+                {PRACTICE_STATUSES.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {practiceStatusLabel(status)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label>Data Da</Label>
+            <Label>{m.dateFrom}</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -204,9 +196,9 @@ export const PracticesFilters = ({
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {filters.dateFrom ? (
-                    format(filters.dateFrom, "PPP")
+                    formatDate(filters.dateFrom, { day: "numeric", month: "long", year: "numeric" })
                   ) : (
-                    <span>Seleziona data</span>
+                    <span>{m.pickDate}</span>
                   )}
                 </Button>
               </PopoverTrigger>
@@ -223,7 +215,7 @@ export const PracticesFilters = ({
           </div>
 
           <div className="space-y-2">
-            <Label>Data A</Label>
+            <Label>{m.dateTo}</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -235,9 +227,9 @@ export const PracticesFilters = ({
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {filters.dateTo ? (
-                    format(filters.dateTo, "PPP")
+                    formatDate(filters.dateTo, { day: "numeric", month: "long", year: "numeric" })
                   ) : (
-                    <span>Seleziona data</span>
+                    <span>{m.pickDate}</span>
                   )}
                 </Button>
               </PopoverTrigger>
@@ -256,18 +248,18 @@ export const PracticesFilters = ({
           {(isAdmin || users.length > 0) && (
             <div className="space-y-2">
               <Label htmlFor="userId">
-                {isAdmin ? "Utente" : "Collaboratore"}
+                {isAdmin ? m.user : m.collaborator}
               </Label>
               <Select
                 value={filters.userId}
                 onValueChange={(value) => updateFilter("userId", value)}
               >
                 <SelectTrigger id="userId">
-                  <SelectValue placeholder="Tutti gli utenti" />
+                  <SelectValue placeholder={m.allUsers} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">
-                    {isAdmin ? "Tutti gli utenti" : "Tutti i collaboratori"}
+                    {isAdmin ? m.allUsers : m.allCollaborators}
                   </SelectItem>
                   {users.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
@@ -289,10 +281,10 @@ export const PracticesFilters = ({
               }}
             >
               <X className="mr-2 h-4 w-4" />
-              Cancella Filtri
+              {m.clear}
             </Button>
             <Button className="flex-1" onClick={() => setOpen(false)}>
-              Applica Filtri
+              {m.apply}
             </Button>
           </div>
         </div>

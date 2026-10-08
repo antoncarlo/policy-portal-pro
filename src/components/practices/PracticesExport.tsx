@@ -8,7 +8,9 @@ import {
 import { Download, FileSpreadsheet, FileText } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
-import { PRACTICE_TYPE_LABELS } from "@/lib/practiceSummary";
+import { formatDate, getLanguage, getLocale, useMessages, type Language } from "@/i18n";
+import { practicesMessages } from "@/i18n/messages/practices";
+import { practiceStatusLabel, practiceTypeLabel } from "@/i18n/messages/domain";
 import autoTable from "jspdf-autotable";
 
 type PracticeStatus = "in_lavorazione" | "in_attesa" | "approvata" | "rifiutata" | "completata";
@@ -28,34 +30,31 @@ interface PracticesExportProps {
   practices: Practice[];
 }
 
-export const PracticesExport = ({ practices }: PracticesExportProps) => {
-  const getStatusLabel = (status: PracticeStatus) => {
-    const labels = {
-      in_lavorazione: "In Lavorazione",
-      completata: "Completata",
-      rifiutata: "Rifiutata",
-      in_attesa: "In Attesa",
-      approvata: "Approvata",
-    };
-    return labels[status];
-  };
+// jsPDF's standard fonts have no Chinese glyphs: in Chinese the PDF is written in English.
+const pdfLanguage = (): Language => (getLanguage() === "zh" ? "en" : getLanguage());
 
-  const getPracticeTypeLabel = (type: PracticeType) => PRACTICE_TYPE_LABELS[type] ?? type;
+export const PracticesExport = ({ practices }: PracticesExportProps) => {
+  const m = useMessages(practicesMessages).export;
 
   const exportToExcel = () => {
-    const data = practices.map((practice) => ({
-      "Numero Pratica": practice.practice_number,
-      Contraente: practice.client_name,
-      Beneficiario: practice.beneficiary || "-",
-      Tipo: getPracticeTypeLabel(practice.practice_type),
-      Polizza: practice.policy_number || "-",
-      Stato: getStatusLabel(practice.status),
-      Data: new Date(practice.created_at).toLocaleDateString("it-IT"),
-    }));
+    const language = getLanguage();
+    const labels = practicesMessages[language].export;
+    const data = practices.map((practice) => {
+      const values = [
+        practice.practice_number,
+        practice.client_name,
+        practice.beneficiary || "-",
+        practiceTypeLabel(practice.practice_type, language),
+        practice.policy_number || "-",
+        practiceStatusLabel(practice.status, language),
+        formatDate(practice.created_at),
+      ];
+      return Object.fromEntries(labels.columns.map((column, index) => [column, values[index]]));
+    });
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Pratiche");
+    XLSX.utils.book_append_sheet(wb, ws, labels.sheet);
 
     // Set column widths
     const colWidths = [
@@ -69,38 +68,37 @@ export const PracticesExport = ({ practices }: PracticesExportProps) => {
     ];
     ws["!cols"] = colWidths;
 
-    XLSX.writeFile(wb, `pratiche_${new Date().toISOString().split("T")[0]}.xlsx`);
+    XLSX.writeFile(wb, `${labels.fileName}_${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
   const exportToPDF = () => {
+    const language = pdfLanguage();
+    const labels = practicesMessages[language].export;
+    const date = (value: string | Date) => new Date(value).toLocaleDateString(getLocale(language));
     const doc = new jsPDF();
 
     // Add title
     doc.setFontSize(18);
-    doc.text("Elenco Pratiche", 14, 20);
+    doc.text(labels.pdfTitle, 14, 20);
 
     // Add date
     doc.setFontSize(10);
-    doc.text(
-      `Generato il: ${new Date().toLocaleDateString("it-IT")}`,
-      14,
-      28
-    );
+    doc.text(labels.generatedOn(date(new Date())), 14, 28);
 
     // Prepare table data
     const tableData = practices.map((practice) => [
       practice.practice_number,
       practice.client_name,
       practice.beneficiary || "-",
-      getPracticeTypeLabel(practice.practice_type),
+      practiceTypeLabel(practice.practice_type, language),
       practice.policy_number || "-",
-      getStatusLabel(practice.status),
-      new Date(practice.created_at).toLocaleDateString("it-IT"),
+      practiceStatusLabel(practice.status, language),
+      date(practice.created_at),
     ]);
 
     // Add table
     autoTable(doc, {
-      head: [["N. Pratica", "Contraente", "Beneficiario", "Tipo", "Polizza", "Stato", "Data"]],
+      head: [labels.pdfColumns],
       body: tableData,
       startY: 35,
       styles: {
@@ -117,7 +115,7 @@ export const PracticesExport = ({ practices }: PracticesExportProps) => {
       },
     });
 
-    doc.save(`pratiche_${new Date().toISOString().split("T")[0]}.pdf`);
+    doc.save(`${labels.fileName}_${new Date().toISOString().split("T")[0]}.pdf`);
   };
 
   return (
@@ -125,17 +123,17 @@ export const PracticesExport = ({ practices }: PracticesExportProps) => {
       <DropdownMenuTrigger asChild>
         <Button variant="outline">
           <Download className="mr-2 h-4 w-4" />
-          Esporta
+          {m.button}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={exportToExcel}>
           <FileSpreadsheet className="mr-2 h-4 w-4" />
-          Esporta in Excel
+          {m.excel}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={exportToPDF}>
           <FileText className="mr-2 h-4 w-4" />
-          Esporta in PDF
+          {m.pdf}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

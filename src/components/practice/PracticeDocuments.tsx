@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Download, FileArchive, FileText, Trash2, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { formatDate, getMessages, useMessages } from "@/i18n";
+import { practiceDetailMessages } from "@/i18n/messages/practiceDetail";
 
 interface Document {
   id: string;
@@ -37,6 +39,8 @@ const getMimeType = (file: File) => {
   return "application/octet-stream";
 };
 
+const documentsText = () => getMessages(practiceDetailMessages).documents;
+
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
 
@@ -62,6 +66,7 @@ const getDocumentStorageReference = (filePath: string) => {
 
 export const PracticeDocuments = ({ practiceId, refreshToken = 0 }: PracticeDocumentsProps) => {
   const { toast } = useToast();
+  const m = useMessages(practiceDetailMessages).documents;
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -84,8 +89,8 @@ export const PracticeDocuments = ({ practiceId, refreshToken = 0 }: PracticeDocu
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore caricamento documenti",
-        description: getErrorMessage(error, "Non è stato possibile caricare l'elenco dei documenti."),
+        title: documentsText().loadErrorTitle,
+        description: getErrorMessage(error, documentsText().loadErrorText),
       });
     } finally {
       setLoading(false);
@@ -102,7 +107,7 @@ export const PracticeDocuments = ({ practiceId, refreshToken = 0 }: PracticeDocu
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Non autenticato");
+      if (!session) throw new Error(documentsText().notAuthenticated);
 
       for (const [index, file] of selectedFiles.entries()) {
         const filePath = buildDocumentStoragePath(practiceId, file, index);
@@ -135,10 +140,10 @@ export const PracticeDocuments = ({ practiceId, refreshToken = 0 }: PracticeDocu
       }
 
       toast({
-        title: selectedFiles.length === 1 ? "Documento caricato" : "Documenti caricati",
+        title: selectedFiles.length === 1 ? documentsText().uploadedOne : documentsText().uploadedMany,
         description: selectedFiles.length === 1
-          ? "Il documento è stato caricato con successo."
-          : `${selectedFiles.length} documenti sono stati caricati con successo.`,
+          ? documentsText().uploadedOneText
+          : documentsText().uploadedManyText(selectedFiles.length),
       });
 
       loadDocuments();
@@ -152,8 +157,8 @@ export const PracticeDocuments = ({ practiceId, refreshToken = 0 }: PracticeDocu
 
       toast({
         variant: "destructive",
-        title: "Errore caricamento",
-        description: getErrorMessage(error, "Non è stato possibile caricare il documento."),
+        title: documentsText().uploadErrorTitle,
+        description: getErrorMessage(error, documentsText().uploadErrorText),
       });
     } finally {
       setUploading(false);
@@ -179,14 +184,14 @@ export const PracticeDocuments = ({ practiceId, refreshToken = 0 }: PracticeDocu
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore download",
-        description: getErrorMessage(error, "Non è stato possibile scaricare il documento."),
+        title: documentsText().downloadErrorTitle,
+        description: getErrorMessage(error, documentsText().downloadErrorText),
       });
     }
   };
 
   const handleDelete = async (document: Document) => {
-    if (!confirm("Sei sicuro di voler eliminare questo documento?")) return;
+    if (!confirm(documentsText().confirmDelete)) return;
 
     try {
       const storageReference = getDocumentStorageReference(document.file_path);
@@ -206,16 +211,16 @@ export const PracticeDocuments = ({ practiceId, refreshToken = 0 }: PracticeDocu
       if (dbError) throw dbError;
 
       toast({
-        title: "Documento eliminato",
-        description: "Il documento è stato eliminato con successo.",
+        title: documentsText().deletedTitle,
+        description: documentsText().deletedText,
       });
 
       loadDocuments();
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore eliminazione",
-        description: getErrorMessage(error, "Non è stato possibile eliminare il documento."),
+        title: documentsText().deleteErrorTitle,
+        description: getErrorMessage(error, documentsText().deleteErrorText),
       });
     }
   };
@@ -225,7 +230,7 @@ export const PracticeDocuments = ({ practiceId, refreshToken = 0 }: PracticeDocu
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
           <FileText className="h-5 w-5" />
-          Documenti
+          {m.title}
         </h2>
         <div>
           <input
@@ -243,7 +248,7 @@ export const PracticeDocuments = ({ practiceId, refreshToken = 0 }: PracticeDocu
           >
             <label htmlFor="document-upload" className="cursor-pointer">
               <Upload className="h-4 w-4 mr-2" />
-              {uploading ? "Caricamento..." : "Carica"}
+              {uploading ? m.uploading : m.upload}
             </label>
           </Button>
         </div>
@@ -255,7 +260,7 @@ export const PracticeDocuments = ({ practiceId, refreshToken = 0 }: PracticeDocu
         </div>
       ) : documents.length === 0 ? (
         <p className="text-muted-foreground text-center py-8">
-          Nessun documento allegato
+          {m.empty}
         </p>
       ) : (
         <div className="space-y-2">
@@ -275,7 +280,7 @@ export const PracticeDocuments = ({ practiceId, refreshToken = 0 }: PracticeDocu
                     {doc.file_name}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {(doc.file_size / 1024).toFixed(2)} KB • {new Date(doc.created_at).toLocaleDateString("it-IT")}
+                    {(doc.file_size / 1024).toFixed(2)} KB • {formatDate(doc.created_at)}
                   </p>
                 </div>
               </div>

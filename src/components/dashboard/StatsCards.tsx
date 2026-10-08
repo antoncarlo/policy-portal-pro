@@ -2,8 +2,11 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { FileText, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useMessages } from "@/i18n";
+import { dashboardMessages } from "@/i18n/messages/dashboard";
 
 export const StatsCards = () => {
+  const m = useMessages(dashboardMessages).stats;
   const [stats, setStats] = useState({
     total: 0,
     inProgress: 0,
@@ -32,33 +35,33 @@ export const StatsCards = () => {
 
   const statsConfig = [
     {
-      title: "Pratiche Totali",
+      title: m.total,
       value: stats.total.toString(),
-      change: "Totale pratiche",
+      change: m.totalHint,
       icon: FileText,
       color: "text-primary",
       bgColor: "bg-primary/10",
     },
     {
-      title: "In Lavorazione",
+      title: m.inProgress,
       value: stats.inProgress.toString(),
-      change: "Pratiche attive",
+      change: m.inProgressHint,
       icon: Clock,
       color: "text-chart-2",
       bgColor: "bg-chart-2/10",
     },
     {
-      title: "Completate",
+      title: m.completed,
       value: stats.completed.toString(),
-      change: "Pratiche concluse",
+      change: m.completedHint,
       icon: CheckCircle,
       color: "text-green-600",
       bgColor: "bg-green-600/10",
     },
     {
-      title: "In Attesa",
+      title: m.pending,
       value: stats.pending.toString(),
-      change: "Da gestire",
+      change: m.pendingHint,
       icon: AlertCircle,
       color: "text-yellow-600",
       bgColor: "bg-yellow-600/10",
