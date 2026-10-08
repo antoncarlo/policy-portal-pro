@@ -9,6 +9,7 @@
 import { extractNotesSections } from "./practiceSummary.js";
 import { isValidItalianTaxCode, isValidItalianVat, isValidUscc } from "./viesCodes.js";
 import {
+  VIES_ALLOW_DUPLICATE_PRACTICES,
   VIES_DURATION_MONTHS,
   VIES_GUARANTEED_AMOUNT,
   VIES_PREMIUM_GROSS,
@@ -308,7 +309,8 @@ export function verifyViesBatch(input: ControllerInput): ControllerReport {
           }
         }
       }
-      for (const existing of input.existingPractices) {
+      // Test mode: practices already in the portal for the same company are allowed.
+      for (const existing of VIES_ALLOW_DUPLICATE_PRACTICES ? [] : input.existingPractices) {
         if ((uscc && existing.uscc === uscc) || (vat && existing.vat === vat)) {
           fail(`Esiste già la pratica VIES ${existing.practice_number} per questa società (creata il ${formatDate(existing.created_at)})`);
         }

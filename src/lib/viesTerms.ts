@@ -13,3 +13,10 @@ export const VIES_PREMIUM_TAXABLE = Math.round((VIES_PREMIUM_GROSS / (1 + VIES_P
 export const VIES_PREMIUM_TAXES = Math.round((VIES_PREMIUM_GROSS - VIES_PREMIUM_TAXABLE) * 100) / 100;
 export const VIES_DURATION_MONTHS = 36;
 export const VIES_MAX_PRACTICES_PER_SHEET = 20;
+
+/**
+ * TEMPORANEO, modalità prova: consente di creare (e inviare) più pratiche VIES per
+ * la stessa società, per ripetere le prove sugli stessi file. Da riportare a false
+ * prima dell'uso reale: la pagina VIES mostra un avviso finché resta attiva.
+ */
+export const VIES_ALLOW_DUPLICATE_PRACTICES = true;

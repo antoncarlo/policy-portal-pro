@@ -38,6 +38,7 @@ import {
 import { extractPdfText } from "@/lib/pdfText";
 import type { ControllerReport } from "@/lib/viesController";
 import {
+  VIES_ALLOW_DUPLICATE_PRACTICES,
   VIES_DURATION_MONTHS,
   VIES_GUARANTEED_AMOUNT,
   VIES_MAX_PRACTICES_PER_SHEET,
@@ -1919,7 +1920,7 @@ const Vies = () => {
     ...new Set([
       ...reconciliation.errors,
       ...getRecordValidationErrors(reconciliation.record),
-      ...getExistingForRecord(reconciliation.record).map(
+      ...(VIES_ALLOW_DUPLICATE_PRACTICES ? [] : getExistingForRecord(reconciliation.record)).map(
         (existing) =>
           `Esiste già la pratica VIES ${existing.practice_number} per questa società (creata il ${new Date(existing.created_at).toLocaleDateString("it-IT")})`,
       ),
@@ -2553,6 +2554,16 @@ const Vies = () => {
           </Badge>
         </div>
 
+        {VIES_ALLOW_DUPLICATE_PRACTICES && (
+          <div className="flex gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>
+              <span className="font-semibold">Modalità prova attiva:</span> si possono creare più pratiche VIES per la stessa società. Da
+              disattivare prima dell'uso reale.
+            </p>
+          </div>
+        )}
+
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
@@ -2853,6 +2864,12 @@ const Vies = () => {
                               <TableCell className="font-mono text-base font-semibold">{reconciliation.record.nomeZip || "—"}</TableCell>
                               <TableCell className="min-w-48">
                                 <p className="break-words font-medium">{reconciliation.record.contraente || "Da completare"}</p>
+                                {VIES_ALLOW_DUPLICATE_PRACTICES && getExistingForRecord(reconciliation.record).length > 0 && (
+                                  <p className="text-xs text-amber-800">
+                                    Già presente: {getExistingForRecord(reconciliation.record).map((existing) => existing.practice_number).join(", ")}
+                                    {" "}(modalità prova: verrà creata comunque)
+                                  </p>
+                                )}
                                 <div className="mt-0.5 flex flex-wrap gap-x-3 font-mono text-xs text-muted-foreground">
                                   {reconciliation.record.partitaIvaContraente && <span>P.IVA {reconciliation.record.partitaIvaContraente}</span>}
                                   {reconciliation.record.uscc && <span>USCC {reconciliation.record.uscc}</span>}
@@ -3035,7 +3052,10 @@ const Vies = () => {
                       <p>
                         {lastCreatedPracticeIds.length} pratiche VIES con ZIP e documento di polizza allegati
                         {excludedRows.length ? `; ${excludedRows.length} righe escluse e non create` : ""}. Per un nuovo lotto carica un nuovo
-                        Excel e i suoi ZIP: le società già create vengono riconosciute e non vengono create due volte.
+                        Excel e i suoi ZIP
+                        {VIES_ALLOW_DUPLICATE_PRACTICES
+                          ? " (modalità prova: le società già create possono essere create di nuovo)."
+                          : ": le società già create vengono riconosciute e non vengono create due volte."}
                       </p>
                     </div>
                   </div>
