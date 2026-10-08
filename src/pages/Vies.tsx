@@ -26,6 +26,9 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { formatDateTime, useLocale, useMessages } from "@/i18n";
+import { viesMessages } from "@/i18n/messages/vies";
+import { getDocumentTypeLabel, translateViesText, viesText } from "@/i18n/viesText";
 import { composeNotes } from "@/lib/practiceSummary";
 import {
   VIES_POLICY_MIME_TYPE,
@@ -251,11 +254,11 @@ type ViesZipUploadResult =
 const getTusUploadErrorMessage = (error: unknown) => {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
-  return "Upload resumable non riuscito.";
+  return viesText().errors.resumableFailed;
 };
 
 const getSupabaseProjectId = () => {
-  if (!SUPABASE_PROJECT_URL) throw new Error("URL Supabase non configurato.");
+  if (!SUPABASE_PROJECT_URL) throw new Error(viesText().errors.supabaseUrlMissing);
 
   try {
     const hostname = new URL(SUPABASE_PROJECT_URL).hostname;
@@ -263,7 +266,7 @@ const getSupabaseProjectId = () => {
     if (!projectId) throw new Error("Project ref assente.");
     return projectId;
   } catch {
-    throw new Error("URL Supabase non valido per l'upload resumable VIES.");
+    throw new Error(viesText().errors.supabaseUrlInvalid);
   }
 };
 
@@ -314,7 +317,7 @@ const getListedStorageObjectSize = (metadata: unknown) => {
 
 const verifyViesStorageObjectExists = async (storagePath: string, expectedSize?: number) => {
   const { folderPath, objectName } = getStoragePathParts(storagePath);
-  let lastVerificationError = `oggetto ${objectName} non trovato nel bucket ${VIES_STORAGE_BUCKET}`;
+  let lastVerificationError = viesText().errors.storageObjectMissing(objectName, VIES_STORAGE_BUCKET);
 
   for (let attempt = 1; attempt <= VIES_STORAGE_VERIFY_ATTEMPTS; attempt += 1) {
     const { data, error } = await supabase.storage
@@ -329,7 +332,7 @@ const verifyViesStorageObjectExists = async (storagePath: string, expectedSize?:
         const actualSize = getListedStorageObjectSize(storageObject.metadata);
         if (!expectedSize || actualSize === null || actualSize === expectedSize) return;
 
-        lastVerificationError = `dimensione Storage ${formatBytes(actualSize)} diversa dal file locale ${formatBytes(expectedSize)}`;
+        lastVerificationError = viesText().errors.storageSizeMismatch(formatBytes(actualSize), formatBytes(expectedSize));
       }
     }
 
@@ -338,7 +341,7 @@ const verifyViesStorageObjectExists = async (storagePath: string, expectedSize?:
     }
   }
 
-  throw new Error(`Oggetto Storage non confermato per ${objectName}: ${lastVerificationError}.`);
+  throw new Error(viesText().errors.storageNotConfirmed(objectName, lastVerificationError));
 };
 
 const uploadViesFileResumable = async ({
@@ -356,7 +359,7 @@ const uploadViesFileResumable = async ({
   } = await supabase.auth.getSession();
 
   if (sessionError || !session?.access_token) {
-    throw new Error("Sessione non valida. Effettua nuovamente l'accesso e riprova.");
+    throw new Error(viesText().errors.invalidSession);
   }
 
   const projectId = getSupabaseProjectId();
@@ -522,7 +525,7 @@ const terminalJobStatuses = new Set(["completed", "failed", "blocked", "cancelle
 const callViesControl = async (body: Record<string, unknown>) => {
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   if (sessionError || !sessionData.session?.access_token) {
-    throw new Error("Sessione non valida. Effettua nuovamente l'accesso e riprova.");
+    throw new Error(viesText().errors.invalidSession);
   }
 
   const response = await fetch("/api/vies-control", {
@@ -536,7 +539,7 @@ const callViesControl = async (body: Record<string, unknown>) => {
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || (payload?.ok === false && !payload?.report)) {
-    throw new Error(payload?.error || "Azione orchestratore non completata.");
+    throw new Error(payload?.error ? translateViesText(payload.error) : viesText().errors.controlFailed);
   }
 
   return payload;
@@ -589,27 +592,41 @@ const normalizeHeader = (value: unknown) =>
     .replace(/\s+/g, " ")
     .trim();
 
+// The template's headers carry the column name in Italian, English and Chinese, one
+// per line ("Ragione Sociale\nCompany name\n公司名称"): every line names the column.
+const headerNames = (value: unknown) => {
+  const names = String(value ?? "")
+    .split(/\r?\n/)
+    .map(normalizeHeader)
+    .filter(Boolean);
+  return names.length ? names : [normalizeHeader(value)];
+};
+
+const isKnownHeader = (value: unknown) => headerNames(value).some((name) => KNOWN_COLUMN_HEADERS.has(name));
+
 // An exact header match wins over a partial one, so "cod" or "indirizzo" never
 // resolve to a longer header such as "codice fiscale cn" by accident.
 const getCellByAliases = (row: Record<string, string>, aliases: string[], { exactOnly = false } = {}) => {
-  const entries = Object.entries(row).map(([header, value]) => [normalizeHeader(header), value] as const);
+  const entries = Object.entries(row).map(([header, value]) => [headerNames(header), value] as const);
   for (const alias of aliases) {
-    const exact = entries.find(([header]) => header === alias);
+    const exact = entries.find(([names]) => names.includes(alias));
     if (exact) return exact[1];
   }
   if (exactOnly) return "";
   for (const alias of aliases) {
-    const partial = entries.find(([header]) => header.includes(alias));
+    const partial = entries.find(([names]) => names.some((name) => name.includes(alias)));
     if (partial) return partial[1];
   }
   return "";
 };
 
-const beneficiaryNameHeaders = ["beneficiario", "denominazione beneficiario", "nome beneficiario"];
+const beneficiaryNameHeaders = ["beneficiario", "denominazione beneficiario", "nome beneficiario", "beneficiary", "受益人"];
 const fiscalRepresentativeNameHeaders = [
   "rappresentante fiscale",
   "denominazione rappresentante fiscale",
   "nome rappresentante fiscale",
+  "fiscal representative",
+  "税务代表",
 ];
 
 // Column names the parser knows. The header row is the row that contains the
@@ -621,6 +638,11 @@ const KNOWN_COLUMN_HEADERS = new Set([
   "legale rappresentante", "legale rappre", "documento identita legale rappresentante", "carta identita n",
   "data di nascita legale rappresentante", "telefono", "email", "pec", "beneficiario", "indirizzo beneficiario",
   "rappresentante fiscale", "indirizzo rappresentante fiscale", "numero progressivo", "progressivo",
+  // English and Chinese names of the template columns.
+  "zip number", "company name", "chinese name", "italian vat number", "unified social credit code",
+  "registered office abroad", "legal representative", "legal representative id number", "legal representative date of birth",
+  "phone", "zip 编号", "公司名称", "中文名称", "意大利增值税号", "统一社会信用代码", "境外注册地址", "法定代表人",
+  "法定代表人身份证号码", "法定代表人出生日期", "电话", "电子邮箱", "pec 认证邮箱",
 ]);
 const MIN_HEADER_MATCHES = 3;
 
@@ -628,7 +650,7 @@ const findHeaderRowIndex = (rows: string[][]) => {
   let bestIndex = -1;
   let bestScore = 0;
   rows.slice(0, 40).forEach((row, index) => {
-    const score = row.filter((cell) => KNOWN_COLUMN_HEADERS.has(normalizeHeader(cell))).length;
+    const score = row.filter(isKnownHeader).length;
     if (score > bestScore) {
       bestScore = score;
       bestIndex = index;
@@ -656,15 +678,21 @@ const getUsedRange = (worksheet: XLSX.WorkSheet): string | undefined => {
 };
 
 const SHEET_DATA_FIELDS: Array<[keyof ViesSheetData, string[]]> = [
-  ["beneficiario", ["beneficiario", "denominazione beneficiario"]],
-  ["indirizzoBeneficiario", ["indirizzo beneficiario"]],
-  ["codiceFiscaleBeneficiario", ["codice fiscale beneficiario"]],
-  ["rappresentanteFiscale", ["rappresentante fiscale", "denominazione rappresentante fiscale"]],
-  ["codiceFiscaleRappresentante", ["codice fiscale rappresentante fiscale", "p.iva rappresentante fiscale"]],
-  ["amministratoreRappresentante", ["amministratore rappresentante fiscale", "amministratore"]],
-  ["codiceFiscaleAmministratore", ["codice fiscale amministratore"]],
-  ["indirizzoRappresentanteFiscale", ["sede rappresentante fiscale", "domicilio fiscale", "indirizzo rappresentante fiscale"]],
-  ["pecRappresentante", ["pec rappresentante fiscale", "pec"]],
+  ["beneficiario", ["beneficiario", "denominazione beneficiario", "beneficiary", "受益人"]],
+  ["indirizzoBeneficiario", ["indirizzo beneficiario", "beneficiary address", "受益人地址"]],
+  ["codiceFiscaleBeneficiario", ["codice fiscale beneficiario", "beneficiary tax code", "受益人税号"]],
+  ["rappresentanteFiscale", ["rappresentante fiscale", "denominazione rappresentante fiscale", "fiscal representative", "税务代表"]],
+  [
+    "codiceFiscaleRappresentante",
+    ["codice fiscale rappresentante fiscale", "p.iva rappresentante fiscale", "fiscal representative tax code", "税务代表税号"],
+  ],
+  ["amministratoreRappresentante", ["amministratore rappresentante fiscale", "amministratore", "fiscal representative director", "税务代表董事"]],
+  ["codiceFiscaleAmministratore", ["codice fiscale amministratore", "director tax code", "董事税号"]],
+  [
+    "indirizzoRappresentanteFiscale",
+    ["sede rappresentante fiscale", "domicilio fiscale", "indirizzo rappresentante fiscale", "fiscal representative office", "税务代表地址"],
+  ],
+  ["pecRappresentante", ["pec rappresentante fiscale", "pec", "fiscal representative pec", "税务代表 pec"]],
 ];
 
 // Optional "DATI FOGLIO" sheet (Campo | Valore): the beneficiary office and the
@@ -676,7 +704,11 @@ const parseSheetDataSheet = (worksheet: XLSX.WorkSheet | undefined): Partial<Vie
   const rows = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1, defval: "", range: usedRange });
   const result: Partial<ViesSheetData> = {};
   for (const [field, labels] of SHEET_DATA_FIELDS) {
-    const row = rows.find((candidate) => labels.includes(normalizeText(candidate[0])));
+    const row = rows.find((candidate) =>
+      String(candidate[0] ?? "")
+        .split(/\r?\n/)
+        .some((line) => labels.includes(normalizeText(line))),
+    );
     const value = row ? String(row[1] ?? "").trim() : "";
     if (value) result[field] = value;
   }
@@ -686,30 +718,29 @@ const parseSheetDataSheet = (worksheet: XLSX.WorkSheet | undefined): Partial<Vie
 const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; sheetData: Partial<ViesSheetData> }> => {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array" });
-  const sheetDataName = workbook.SheetNames.find((name) => normalizeText(name) === "dati foglio");
+  // Sheet names may carry translations after the Italian one ("PRATICHE · APPLICATIONS · 申请").
+  const sheetDataName = workbook.SheetNames.find((name) => normalizeText(name).startsWith("dati foglio"));
   const firstSheetName =
-    workbook.SheetNames.find((name) => normalizeText(name) === "pratiche") ??
+    workbook.SheetNames.find((name) => normalizeText(name).startsWith("pratiche")) ??
     workbook.SheetNames.find((name) => name !== sheetDataName) ??
     workbook.SheetNames[0];
   const worksheet = workbook.Sheets[firstSheetName];
   const usedRange = getUsedRange(worksheet);
   if (!usedRange) {
-    throw new Error("Il primo foglio dell'Excel è vuoto.");
+    throw new Error(viesText().errors.emptySheet);
   }
   const rows = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1, defval: "", range: usedRange });
 
   const headerIndex = findHeaderRowIndex(rows);
 
   if (headerIndex === -1) {
-    throw new Error(
-      "Non ho trovato la riga di intestazione nell'Excel: servono almeno 3 colonne del modello (es. ZIP, Ragione Sociale, Codice credito sociale, P.IVA).",
-    );
+    throw new Error(viesText().errors.noHeaderRow);
   }
 
   const headers = rows[headerIndex].map((cell, index) => String(cell || `Colonna ${index + 1}`).trim());
   // In the original VIES template "Indirizzo" is the beneficiary's address; in the
   // client database (no beneficiary column) it is the contraente's registered office.
-  const hasBeneficiaryColumn = headers.some((header) => beneficiaryNameHeaders.includes(normalizeHeader(header)));
+  const hasBeneficiaryColumn = headers.some((header) => headerNames(header).some((name) => beneficiaryNameHeaders.includes(name)));
 
   const parsedRecords = rows
     .slice(headerIndex + 1)
@@ -722,9 +753,13 @@ const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; she
       const record: ExcelRecord = {
         rowNumber: headerIndex + index + 2,
         progressivo: getCellByAliases(raw, ["numero progressivo", "progressivo", "numero"]),
-        nomeZip: getCellByAliases(raw, ["nome zip", "zip", "n. zip", "n zip", "numero zip", "file zip", "nome archivio", "zip nominativo"]),
-        contraente: getCellByAliases(raw, ["contraente", "ragione sociale", "nome ditta", "ditta"]),
-        denominazioneCn: getCellByAliases(raw, ["denominazione cn", "denominazione cinese", "nome cinese"], { exactOnly: true }),
+        nomeZip: getCellByAliases(raw, [
+          "nome zip", "zip", "n. zip", "n zip", "numero zip", "file zip", "nome archivio", "zip nominativo", "zip number", "zip 编号",
+        ]),
+        contraente: getCellByAliases(raw, ["contraente", "ragione sociale", "nome ditta", "ditta", "company name", "公司名称"]),
+        denominazioneCn: getCellByAliases(raw, ["denominazione cn", "denominazione cinese", "nome cinese", "chinese name", "中文名称"], {
+          exactOnly: true,
+        }),
         uscc: normalizeUscc(
           getCellByAliases(raw, [
             "codice credito sociale",
@@ -733,26 +768,30 @@ const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; she
             "unified social credit code",
             "uscc",
             "codice fiscale cn",
+            "统一社会信用代码",
           ], { exactOnly: true }),
         ),
-        legaleRappresentante: getCellByAliases(raw, ["legale rappresentante", "legale rappre", "legal representative"], {
+        legaleRappresentante: getCellByAliases(raw, ["legale rappresentante", "legale rappre", "legal representative", "法定代表人"], {
           exactOnly: true,
         }),
         documentoLegaleRappresentante: getCellByAliases(
           raw,
-          ["documento identita legale rappresentante", "documento identita", "carta identita n", "passaporto"],
+          [
+            "documento identita legale rappresentante", "documento identita", "carta identita n", "passaporto",
+            "legal representative id number", "法定代表人身份证号码",
+          ],
           { exactOnly: true },
         ),
         dataNascitaLegaleRappresentante: getCellByAliases(
           raw,
-          ["data di nascita legale rappresentante", "data di nascita", "data nascita"],
+          ["data di nascita legale rappresentante", "data di nascita", "data nascita", "legal representative date of birth", "法定代表人出生日期"],
           { exactOnly: true },
         ),
         indirizzoContraente: getCellByAliases(
           raw,
           hasBeneficiaryColumn
-            ? ["sede legale estera", "indirizzo contraente", "indirizzo ditta"]
-            : ["sede legale estera", "indirizzo contraente", "indirizzo ditta", "indirizzo"],
+            ? ["sede legale estera", "indirizzo contraente", "indirizzo ditta", "registered office abroad", "境外注册地址"]
+            : ["sede legale estera", "indirizzo contraente", "indirizzo ditta", "registered office abroad", "境外注册地址", "indirizzo"],
         ),
         rappresentanteFiscale: getCellByAliases(raw, fiscalRepresentativeNameHeaders, { exactOnly: true }),
         codiceFiscaleRappresentante: getCellByAliases(raw, [
@@ -773,7 +812,7 @@ const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; she
         ),
         indirizzoRappresentanteFiscale: getCellByAliases(raw, ["indirizzo rappresentante fiscale", "domicilio fiscale"]),
         partitaIvaContraente: normalizeItalianVat(
-          getCellByAliases(raw, ["partita iva ditta", "p iva ditta", "p.iva ditta", "p.iva", "p. iva", "piva"]),
+          getCellByAliases(raw, ["partita iva ditta", "p iva ditta", "p.iva ditta", "p.iva", "p. iva", "piva", "italian vat number", "意大利增值税号"]),
         ),
         beneficiario: getCellByAliases(raw, beneficiaryNameHeaders, { exactOnly: true }),
         indirizzoBeneficiario: getCellByAliases(
@@ -786,11 +825,11 @@ const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; she
           "c.f. beneficiario",
           "partita iva",
         ]),
-        pec: getCellByAliases(raw, ["pec", "pec contraente", "indirizzo pec"], { exactOnly: true }),
+        pec: getCellByAliases(raw, ["pec", "pec contraente", "indirizzo pec", "pec 认证邮箱"], { exactOnly: true }),
         pecRappresentante: getCellByAliases(raw, ["pec rappresentante fiscale", "pec rappresentante"], { exactOnly: true }),
         pecFromRepresentative: false,
-        email: getCellByAliases(raw, ["email", "e-mail", "mail"]),
-        telefono: getCellByAliases(raw, ["telefono", "tel", "tel.", "cellulare", "phone"], { exactOnly: true }),
+        email: getCellByAliases(raw, ["email", "e-mail", "电子邮箱", "mail"]),
+        telefono: getCellByAliases(raw, ["telefono", "tel", "tel.", "cellulare", "phone", "电话"], { exactOnly: true }),
         pagamento: getCellByAliases(raw, ["pagamento"]),
         documentiIndicati: getCellByAliases(raw, ["simpli", "document", "file", "zip", "allegat"]),
         raw,
@@ -803,15 +842,13 @@ const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; she
     // repeated header row or a note under the table are not practices.
     .filter((record) => {
       const values = Object.values(record.raw).map(normalizeHeader).filter(Boolean);
-      const looksLikeHeader = values.filter((value) => KNOWN_COLUMN_HEADERS.has(value)).length >= MIN_HEADER_MATCHES;
+      const looksLikeHeader = Object.values(record.raw).filter(isKnownHeader).length >= MIN_HEADER_MATCHES;
       const hasDataBesidesZip = values.length > (record.nomeZip ? 1 : 0);
       return !looksLikeHeader && (Boolean(record.contraente || record.uscc || record.partitaIvaContraente) || hasDataBesidesZip);
     });
 
   if (parsedRecords.length > VIES_MAX_PRACTICES_PER_SHEET) {
-    throw new Error(
-      `L'Excel contiene ${parsedRecords.length} righe: il limite è ${VIES_MAX_PRACTICES_PER_SHEET} pratiche per foglio. Dividere il lotto in più file.`,
-    );
+    throw new Error(viesText().errors.tooManyRows(parsedRecords.length, VIES_MAX_PRACTICES_PER_SHEET));
   }
 
   return { records: parsedRecords, sheetData: parseSheetDataSheet(sheetDataName ? workbook.Sheets[sheetDataName] : undefined) };
@@ -1037,46 +1074,53 @@ const SECOND_LOOK_FAILED = "Verifica approfondita dell'agent non riuscita";
 
 // What the user has to do for each reason a row is blocked: nothing is created
 // for that row until the missing document or data is provided.
-const FIX_INSTRUCTIONS: Array<[RegExp, string | ((match: RegExpMatchArray) => string)]> = [
-  [/^ZIP (.+)\.zip non caricato/, (match) => `Caricare il file ${match[1]}.zip insieme agli altri ZIP.`],
-  [/^Numero ZIP mancante/, () => "Scrivere nell'Excel, colonna ZIP, il numero dello ZIP di questa società."],
-  [/^Numero ZIP non valido/, () => `Correggere nell'Excel il numero nella colonna ZIP (da 1 a ${VIES_MAX_PRACTICES_PER_SHEET}).`],
-  [/è indicato su più righe/, () => "Correggere nell'Excel: ogni riga deve avere un numero ZIP diverso."],
-  [/^ZIP duplicato/, () => "Caricare un solo ZIP con questo numero."],
-  [/sono di un'altra società/, () => "Sostituire lo ZIP con quello che contiene i documenti di questa società."],
-  [/compaiono anche codici di un'altra società/, () => "Togliere dallo ZIP i documenti dell'altra società e ricaricarlo."],
-  [/nessun codice leggibile/, () => "Chiedere al cliente documenti in cui si leggano il codice di credito sociale o la P.IVA (scansioni nitide)."],
-  [/non verificati dall'agent/, () => "Ricaricare gli ZIP per ripetere la lettura; se si ripete, chiedere al cliente copie più leggibili."],
-  [new RegExp(`^${SECOND_LOOK_FAILED}`), () => "Ricaricare gli ZIP per ripetere la verifica dell'agent."],
-  [/letto non valid/, () => "Controllare a vista il documento: il codice stampato non si legge con certezza; se serve, chiedere una copia più nitida."],
-  [/legale rappresentante non corrispondente/, () => "Correggere nell'Excel il numero del documento del legale rappresentante, oppure chiedere al cliente il documento giusto."],
-  [/Documento d'identità scaduto/, () => "Chiedere al cliente un documento d'identità in corso di validità."],
-  [/^Esiste già la pratica VIES/, () => "Nessuna nuova pratica: la società ne ha già una. Toglierla dall'Excel."],
-  [/beneficiario/i, () => "Completare i dati del beneficiario nel foglio DATI FOGLIO o al punto 2."],
-  [/rappresentante fiscale|amministratore|Domicilio fiscale/i, () => "Completare i dati del rappresentante fiscale al punto 2 (o dalla visura)."],
-  [/^PEC/, () => "Inserire nell'Excel la PEC del cliente, o la PEC del rappresentante fiscale al punto 2."],
-  [/mancante|non valid/i, () => "Correggere il dato nell'Excel e ricaricarlo."],
+// The errors are matched in Italian (the form they are generated and stored in); the
+// instruction is given in the operator's language.
+type FixMessages = ReturnType<typeof viesText>["fix"];
+const FIX_INSTRUCTIONS: Array<[RegExp, (fix: FixMessages, match: RegExpMatchArray) => string]> = [
+  [/^ZIP (.+)\.zip non caricato/, (fix, match) => fix.uploadZip(match[1])],
+  [/^Numero ZIP mancante/, (fix) => fix.writeZipNumber],
+  [/^Numero ZIP non valido/, (fix) => fix.fixZipNumber(VIES_MAX_PRACTICES_PER_SHEET)],
+  [/è indicato su più righe/, (fix) => fix.uniqueZipNumber],
+  [/^ZIP duplicato/, (fix) => fix.singleZip],
+  [/sono di un'altra società/, (fix) => fix.replaceZip],
+  [/compaiono anche codici di un'altra società/, (fix) => fix.removeForeign],
+  [/nessun codice leggibile/, (fix) => fix.readableCodes],
+  [/non verificati dall'agent/, (fix) => fix.reloadZips],
+  [new RegExp(`^${SECOND_LOOK_FAILED}`), (fix) => fix.reloadForAgent],
+  [/letto non valid/, (fix) => fix.checkCode],
+  [/legale rappresentante non corrispondente/, (fix) => fix.fixIdDocument],
+  [/Documento d'identità scaduto/, (fix) => fix.validId],
+  [/^Esiste già la pratica VIES/, (fix) => fix.alreadyExists],
+  [/beneficiario/i, (fix) => fix.beneficiary],
+  [/rappresentante fiscale|amministratore|Domicilio fiscale/i, (fix) => fix.representative],
+  [/^PEC/, (fix) => fix.pec],
+  [/mancante|non valid/i, (fix) => fix.fixData],
 ];
 
 const describeFix = (error: string) => {
+  const fix = viesText().fix;
   for (const [pattern, instruction] of FIX_INSTRUCTIONS) {
     const match = error.match(pattern);
-    if (match) return typeof instruction === "string" ? instruction : instruction(match);
+    if (match) return instruction(fix, match);
   }
-  return "Verificare il dato indicato e ricaricare la riga in un nuovo lotto.";
+  return fix.generic;
 };
 
 const describeMissingDocumentsFix = (requirements: DocumentRequirement[], zipName: string) => {
-  const client = requirements.filter((requirement) => requirement.subject !== "rappresentante").map((requirement) => requirement.label);
-  const representative = requirements.filter((requirement) => requirement.subject === "rappresentante").map((requirement) => requirement.label);
-  return [
-    client.length ? `chiedere al cliente ${client.join(", ")}` : null,
-    representative.length ? `aggiungere ${representative.join(", ")} del rappresentante fiscale` : null,
-  ]
+  const fix = viesText().fix;
+  const labels = (representative: boolean) =>
+    requirements
+      .filter((requirement) => (requirement.subject === "rappresentante") === representative)
+      .map((requirement) => getDocumentTypeLabel(requirement.id))
+      .join(fix.listSeparator);
+  const client = labels(false);
+  const representative = labels(true);
+  return [client ? fix.askClient(client) : null, representative ? fix.addRepresentative(representative) : null]
     .filter(Boolean)
-    .join("; ")
+    .join(fix.partsSeparator)
     .replace(/^./, (first) => first.toUpperCase())
-    .concat(` e inserirli in ${zipName}.`);
+    .concat(fix.insertInto(zipName));
 };
 
 const applyAgentOutcome = (document: ZipDocument, outcome: AgentCallOutcome): ZipDocument => {
@@ -1127,6 +1171,7 @@ const SheetField = ({
   onChange: (value: string) => void;
 }) => {
   const taxCodeValid = isTaxCode && value.trim() ? isValidItalianTaxCode(value) : null;
+  const messages = useMessages(viesMessages).step2;
 
   return (
     <div className="space-y-1.5">
@@ -1141,7 +1186,7 @@ const SheetField = ({
       />
       {taxCodeValid !== null && (
         <p className={taxCodeValid ? "text-xs text-emerald-700" : "text-xs text-destructive"}>
-          {taxCodeValid ? "Codice valido" : "Codice non valido: controllare lettere e cifre"}
+          {taxCodeValid ? messages.codeValid : messages.codeInvalid}
         </p>
       )}
     </div>
@@ -1151,6 +1196,8 @@ const SheetField = ({
 const Vies = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const m = useMessages(viesMessages);
+  const locale = useLocale();
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [zipFiles, setZipFiles] = useState<File[]>([]);
   const [parsedRecords, setRecords] = useState<ExcelRecord[]>([]);
@@ -1451,8 +1498,8 @@ const Vies = () => {
         setVisuraData(null);
         toast({
           variant: "destructive",
-          title: "Visura non leggibile",
-          description: "Il PDF non ha testo leggibile (forse è una scansione): compilare a mano i dati del rappresentante fiscale.",
+          title: viesText().toast.visuraUnreadableTitle,
+          description: viesText().toast.visuraUnreadableText,
         });
         return;
       }
@@ -1467,14 +1514,14 @@ const Vies = () => {
       }));
       applyVisuraAdministrator(visura, pickLegalRepresentative(visura.amministratori));
       toast({
-        title: "Visura letta",
-        description: `${visura.denominazione ?? "Società"}: ${visura.amministratori.length} amministratori trovati. Verificare i dati compilati.`,
+        title: viesText().toast.visuraReadTitle,
+        description: viesText().toast.visuraReadText(visura.denominazione ?? viesText().toast.company, visura.amministratori.length),
       });
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore lettura visura",
-        description: error instanceof Error ? error.message : "Il file non può essere letto.",
+        title: viesText().toast.visuraErrorTitle,
+        description: error instanceof Error ? error.message : viesText().toast.fileUnreadable,
       });
     }
   };
@@ -1491,15 +1538,15 @@ const Vies = () => {
         setSheetData((current) => ({ ...current, ...workbookSheetData }));
       }
       toast({
-        title: "Excel letto correttamente",
-        description: `Rilevate ${parsedRecords.length} righe utili nel tracciato VIES.`,
+        title: viesText().toast.excelReadTitle,
+        description: viesText().toast.excelReadText(parsedRecords.length),
       });
     } catch (error) {
       setRecords([]);
       toast({
         variant: "destructive",
-        title: "Errore lettura Excel",
-        description: error instanceof Error ? error.message : "Il file non può essere letto.",
+        title: viesText().toast.excelErrorTitle,
+        description: error instanceof Error ? error.message : viesText().toast.fileUnreadable,
       });
     } finally {
       setLoadingExcel(false);
@@ -1513,7 +1560,7 @@ const Vies = () => {
     let selectedFiles: File[];
     let bundles: string[];
     setLoadingZip(true);
-    setZipProcessingStatus("Apertura degli ZIP caricati…");
+    setZipProcessingStatus(viesText().status.openingZips);
     try {
       ({ files: selectedFiles, bundles } = await expandZipBundles(uploadedFiles));
     } catch (error) {
@@ -1521,8 +1568,8 @@ const Vies = () => {
       setZipProcessingStatus(null);
       toast({
         variant: "destructive",
-        title: "ZIP non leggibile",
-        description: error instanceof Error ? error.message : "Impossibile aprire lo ZIP caricato.",
+        title: viesText().toast.zipUnreadableTitle,
+        description: error instanceof Error ? error.message : viesText().toast.zipUnreadableText,
       });
       return;
     }
@@ -1531,8 +1578,8 @@ const Vies = () => {
       setZipProcessingStatus(null);
       toast({
         variant: "destructive",
-        title: "Troppi ZIP",
-        description: `Selezionati ${selectedFiles.length} ZIP: il limite è ${VIES_MAX_PRACTICES_PER_SHEET}, uno per pratica del foglio Excel.`,
+        title: viesText().toast.tooManyZipsTitle,
+        description: viesText().toast.tooManyZipsText(selectedFiles.length, VIES_MAX_PRACTICES_PER_SHEET),
       });
       return;
     }
@@ -1540,7 +1587,7 @@ const Vies = () => {
     setZipFiles(selectedFiles);
     setDocuments([]);
     setLoadingZip(true);
-    setZipProcessingStatus(`0/${selectedFiles.length} ZIP indicizzati`);
+    setZipProcessingStatus(viesText().status.zipsIndexed(selectedFiles.length));
 
     try {
       let parsedDocuments: ZipDocument[] = [];
@@ -1548,7 +1595,7 @@ const Vies = () => {
       setAgentProgress(null);
 
       for (const [index, file] of selectedFiles.entries()) {
-        setZipProcessingStatus(`Lettura ${index + 1}/${selectedFiles.length}: ${file.name} (${formatBytes(file.size)})`);
+        setZipProcessingStatus(viesText().status.readingZip(index + 1, selectedFiles.length, file.name, formatBytes(file.size)));
 
         try {
           const result = await readZipRecursive(file);
@@ -1556,8 +1603,8 @@ const Vies = () => {
           agentCandidates.push(...result.agentCandidates);
           setDocuments([...parsedDocuments]);
         } catch (error) {
-          const message = error instanceof Error ? error.message : "archivio non leggibile";
-          throw new Error(`Errore lettura ZIP ${file.name}: ${message}`);
+          const message = error instanceof Error ? error.message : viesText().errors.archiveUnreadable;
+          throw new Error(viesText().errors.zipRead(file.name, message));
         }
 
         await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
@@ -1567,7 +1614,7 @@ const Vies = () => {
       let agentUnavailable: string | null | undefined;
       const ensureAgentChecked = async () => {
         if (agentUnavailable !== undefined) return;
-        setZipProcessingStatus("Verifica disponibilità dell'agent documentale…");
+        setZipProcessingStatus(viesText().status.agentCheck);
         const probe = await probeViesDocumentAgent().catch(
           (error: unknown): AgentCallOutcome => ({
             status: "error",
@@ -1583,7 +1630,7 @@ const Vies = () => {
         let failed = 0;
         setAgentProgress({ done, failed, total: candidates.length, unavailable: agentUnavailable ?? null });
         await runWithConcurrency(candidates, AGENT_CONCURRENCY, async (candidate) => {
-          setZipProcessingStatus(`${label}: ${done}/${candidates.length} documenti`);
+          setZipProcessingStatus(viesText().status.agentPass(label, done, candidates.length));
           const outcome: AgentCallOutcome = agentUnavailable
             ? { status: "unavailable", message: agentUnavailable }
             : await callViesDocumentAgent(candidate.bytes, candidate.mediaType, candidate.name).catch(
@@ -1609,7 +1656,7 @@ const Vies = () => {
       // 1. Scans and photos: classified and read by the agent.
       if (agentCandidates.length) {
         markPending(new Set(agentCandidates.map((candidate) => candidate.key)));
-        const outcomes = await runAgentPass(agentCandidates, "Agent documentale, lettura delle scansioni");
+        const outcomes = await runAgentPass(agentCandidates, viesText().status.agentScans);
         parsedDocuments = parsedDocuments.map((document) => {
           const outcome = outcomes.get(documentKey(document));
           return outcome ? applyAgentOutcome(document, outcome) : document;
@@ -1631,7 +1678,7 @@ const Vies = () => {
           }
           if (candidates.length) {
             markPending(new Set(candidates.map((candidate) => candidate.key)));
-            const outcomes = await runAgentPass(candidates, "Agent documentale, verifica approfondita dei documenti mancanti");
+            const outcomes = await runAgentPass(candidates, viesText().status.agentSecondLook);
             parsedDocuments = parsedDocuments.map((document) => {
               const outcome = outcomes.get(documentKey(document));
               if (!outcome) return document;
@@ -1645,15 +1692,20 @@ const Vies = () => {
 
       setDocuments(parsedDocuments);
       toast({
-        title: "ZIP nominativi indicizzati correttamente",
-        description: `${bundles.length ? `${bundles.join(", ")} scompattato: ` : ""}${selectedFiles.length} ZIP di pratica (${formatBytes(selectedFiles.reduce((total, file) => total + file.size, 0))}) e ${parsedDocuments.length} documenti, abbinati alle righe tramite il numero ZIP.`,
+        title: viesText().toast.zipIndexedTitle,
+        description: viesText().toast.zipIndexedText(
+          bundles.join(", "),
+          selectedFiles.length,
+          formatBytes(selectedFiles.reduce((total, file) => total + file.size, 0)),
+          parsedDocuments.length,
+        ),
       });
     } catch (error) {
       setDocuments([]);
       toast({
         variant: "destructive",
-        title: "Errore lettura ZIP",
-        description: error instanceof Error ? error.message : "Uno degli archivi non può essere letto.",
+        title: viesText().toast.zipErrorTitle,
+        description: error instanceof Error ? error.message : viesText().toast.zipErrorText,
       });
     } finally {
       setLoadingZip(false);
@@ -1694,8 +1746,8 @@ const Vies = () => {
       } catch (error) {
         toast({
           variant: "destructive",
-          title: "Monitoraggio VIES non aggiornato",
-          description: error instanceof Error ? error.message : "Non è stato possibile leggere lo stato del batch.",
+          title: viesText().toast.monitorErrorTitle,
+          description: error instanceof Error ? error.message : viesText().toast.monitorErrorText,
         });
       } finally {
         setMonitorLoading(false);
@@ -1715,8 +1767,8 @@ const Vies = () => {
       } catch (error) {
         toast({
           variant: "destructive",
-          title: "Controllo finale non eseguito",
-          description: error instanceof Error ? error.message : "Non è stato possibile verificare il lotto.",
+          title: viesText().toast.finalCheckErrorTitle,
+          description: error instanceof Error ? error.message : viesText().toast.finalCheckErrorText,
         });
       } finally {
         setControllerLoading(false);
@@ -1727,27 +1779,29 @@ const Vies = () => {
 
   const handleSendBatch = async () => {
     if (!persistedBatchId || !selectedPortalId) return;
-    const portalName = portals?.find((portal) => portal.id === selectedPortalId)?.name ?? "portale";
+    const portalName = portals?.find((portal) => portal.id === selectedPortalId)?.name ?? viesText().step6.defaultPortal;
     setControlLoading("send_batch");
     try {
       const payload = await callViesControl({ action: "send_batch", batchId: persistedBatchId, portalId: selectedPortalId });
       if (payload.report) setControllerReport(payload.report as ControllerReport);
       if (payload.summary) setLastWorkerSummary(payload.summary as WorkerSummary);
       if (payload.ok === false) {
-        toast({ variant: "destructive", title: "Nessuna pratica inviata", description: payload.error });
+        toast({ variant: "destructive", title: viesText().toast.nothingSentTitle, description: translateViesText(String(payload.error ?? "")) });
       } else {
         const summary = payload.summary as WorkerSummary | undefined;
         toast({
-          title: `Invio a ${portalName}`,
-          description: summary?.notice ?? `Inviate ${summary?.completed ?? 0}, non riuscite ${summary?.failed ?? 0}, bloccate dal controllo ${summary?.skipped ?? 0}.`,
+          title: viesText().toast.sentTitle(portalName),
+          description: summary?.notice
+            ? translateViesText(summary.notice)
+            : viesText().toast.sentText(summary?.completed ?? 0, summary?.failed ?? 0, summary?.skipped ?? 0),
         });
       }
       await refreshBatchMonitor();
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Invio non riuscito",
-        description: error instanceof Error ? error.message : "Errore durante l'invio al portale.",
+        title: viesText().toast.sendErrorTitle,
+        description: error instanceof Error ? error.message : viesText().toast.sendErrorText,
       });
     } finally {
       setControlLoading(null);
@@ -1756,18 +1810,18 @@ const Vies = () => {
 
   const handleCancelBatch = async () => {
     if (!persistedBatchId) return;
-    if (!window.confirm("Annullare l'invio di tutte le pratiche di questo lotto non ancora inviate?")) return;
+    if (!window.confirm(viesText().step6.cancelConfirm)) return;
     setControlLoading("cancel_batch");
     try {
       await callViesControl({ action: "cancel_batch", batchId: persistedBatchId });
-      toast({ title: "Lotto annullato", description: "Le pratiche non ancora inviate non verranno inviate." });
+      toast({ title: viesText().toast.cancelledTitle, description: viesText().toast.cancelledText });
       await refreshBatchMonitor();
       await runFinalCheck(persistedBatchId);
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Annullamento non riuscito",
-        description: error instanceof Error ? error.message : "Errore durante l'annullamento del lotto.",
+        title: viesText().toast.cancelErrorTitle,
+        description: error instanceof Error ? error.message : viesText().toast.cancelErrorText,
       });
     } finally {
       setControlLoading(null);
@@ -1778,13 +1832,13 @@ const Vies = () => {
     setControlLoading(`retry-${jobId}`);
     try {
       await callViesControl({ action: "retry_job", jobId });
-      toast({ title: "Invio da ripetere", description: "La pratica verrà inviata di nuovo, dopo un nuovo controllo finale." });
+      toast({ title: viesText().toast.retryTitle, description: viesText().toast.retryText });
       await refreshBatchMonitor();
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Nuovo invio non possibile",
-        description: error instanceof Error ? error.message : "Non è stato possibile ripetere l'invio.",
+        title: viesText().toast.retryErrorTitle,
+        description: error instanceof Error ? error.message : viesText().toast.retryErrorText,
       });
     } finally {
       setControlLoading(null);
@@ -1797,7 +1851,7 @@ const Vies = () => {
     try {
       const { data: userData, error: userError } = await supabase.auth.getUser();
       if (userError || !userData.user) {
-        throw new Error("Sessione non valida. Effettua nuovamente l'accesso e riprova.");
+        throw new Error(viesText().errors.invalidSession);
       }
 
       const userId = userData.user.id;
@@ -1827,9 +1881,7 @@ const Vies = () => {
 
       if (!viesPermission) {
         setAccessStatus("denied");
-        setAccessMessage(
-          "Il tuo profilo non ha VIES tra i Prodotti Consentiti. Chiedi a un amministratore di abilitare il prodotto VIES sulla tua utenza.",
-        );
+        setAccessMessage(viesText().access.noPermission);
         return;
       }
 
@@ -1837,11 +1889,7 @@ const Vies = () => {
       setAccessMessage(null);
     } catch (error) {
       setAccessStatus("denied");
-      setAccessMessage(
-        error instanceof Error
-          ? error.message
-          : "Non è stato possibile verificare i permessi prodotto per il caricamento VIES.",
-      );
+      setAccessMessage(error instanceof Error ? error.message : viesText().access.checkFailed);
     }
   }, []);
 
@@ -1931,9 +1979,9 @@ const Vies = () => {
   const creationBlockedReason = persistedBatchId
     ? null
     : duplicateCheck === "checking"
-      ? "Controllo delle pratiche già presenti in corso…"
+      ? m.step5.duplicateChecking
       : duplicateCheck === "error"
-        ? "Controllo delle pratiche già presenti non riuscito: ricarica l'Excel per riprovare."
+        ? m.step5.duplicateFailed
         : null;
 
   const getPendingScanCount = (reconciliation: ViesReconciliationRow) =>
@@ -1956,8 +2004,8 @@ const Vies = () => {
     if (accessStatus !== "allowed") {
       toast({
         variant: "destructive",
-        title: "Accesso VIES non autorizzato",
-        description: "Il tuo profilo non è abilitato al prodotto VIES tra i Prodotti Consentiti.",
+        title: viesText().toast.accessDeniedTitle,
+        description: viesText().access.notEnabled,
       });
       return;
     }
@@ -1966,10 +2014,8 @@ const Vies = () => {
     if (persistedBatchId || creationBlockedReason) {
       toast({
         variant: "destructive",
-        title: persistedBatchId ? "Pratiche già create" : "Creazione non possibile",
-        description: persistedBatchId
-          ? "Le pratiche di questo lotto sono già state create: per un nuovo lotto carica un nuovo Excel e i suoi ZIP."
-          : creationBlockedReason,
+        title: persistedBatchId ? viesText().toast.alreadyCreatedTitle : viesText().toast.creationImpossibleTitle,
+        description: persistedBatchId ? viesText().toast.alreadyCreatedText : creationBlockedReason,
       });
       return;
     }
@@ -1977,8 +2023,8 @@ const Vies = () => {
     if (!excelFile || !zipFiles.length || !records.length || !documents.length) {
       toast({
         variant: "destructive",
-        title: "Dati incompleti",
-        description: "Carica l'Excel e gli ZIP prima di creare le pratiche.",
+        title: viesText().toast.incompleteTitle,
+        description: viesText().toast.incompleteText,
       });
       return;
     }
@@ -1990,8 +2036,8 @@ const Vies = () => {
     if (!batchRows.length) {
       toast({
         variant: "destructive",
-        title: "Nessuna pratica da creare",
-        description: "Nessuna riga supera i controlli: correggi documenti e dati indicati al punto 3.",
+        title: viesText().toast.nothingToCreateTitle,
+        description: viesText().toast.nothingToCreateText,
       });
       return;
     }
@@ -2008,7 +2054,7 @@ const Vies = () => {
     try {
       const { data: userData, error: userError } = await supabase.auth.getUser();
       if (userError || !userData.user) {
-        throw new Error("Sessione non valida. Effettua nuovamente l'accesso e riprova.");
+        throw new Error(viesText().errors.invalidSession);
       }
 
       const userId = userData.user.id;
@@ -2023,25 +2069,25 @@ const Vies = () => {
 
       const batchStartedAt = performance.now();
       setBatchUploadProgress(0);
-      setBatchUploadStatus(`Upload Excel ${excelFile.name} (${formatBytes(excelFile.size)})`);
+      const status = viesText().status;
+      const errors = viesText().errors;
+      setBatchUploadStatus(status.uploadExcel(excelFile.name, formatBytes(excelFile.size)));
       await uploadViesFileResumable({
         file: excelFile,
         storagePath: excelStoragePath,
         onProgress: ({ percentage, bytesUploaded, bytesTotal }) => {
           setBatchUploadProgress(percentage);
-          setBatchUploadStatus(
-            `Upload Excel ${excelFile.name}: ${formatBytes(bytesUploaded)} / ${formatBytes(bytesTotal)} (${percentage}%)`,
-          );
+          setBatchUploadStatus(status.uploadExcelProgress(excelFile.name, formatBytes(bytesUploaded), formatBytes(bytesTotal), percentage));
         },
       });
-      setBatchUploadStatus(`Verifica archiviazione Excel ${excelFile.name}`);
+      setBatchUploadStatus(status.verifyExcel(excelFile.name));
       await verifyViesStorageObjectExists(excelStoragePath, excelFile.size);
 
       // The representation company's visura is shared by every practice of the sheet.
       let visuraStoragePath: string | null = null;
       if (visuraFile) {
         visuraStoragePath = `${storageBasePath}/visura-rappresentante/${buildSafeStorageName(visuraFile.name)}`;
-        setBatchUploadStatus(`Upload visura ${visuraFile.name} (${formatBytes(visuraFile.size)})`);
+        setBatchUploadStatus(status.uploadVisura(visuraFile.name, formatBytes(visuraFile.size)));
         await uploadViesFileResumable({
           file: visuraFile,
           storagePath: visuraStoragePath,
@@ -2069,9 +2115,7 @@ const Vies = () => {
       let completedZipUploads = 0;
 
       setBatchUploadProgress(0);
-      setBatchUploadStatus(
-        `Upload ZIP parallelo controllato: 0/${zipUploadPlans.length} completati, massimo ${VIES_ZIP_UPLOAD_CONCURRENCY} alla volta`,
-      );
+      setBatchUploadStatus(status.uploadZipStart(zipUploadPlans.length, VIES_ZIP_UPLOAD_CONCURRENCY));
 
       const zipUploadResults = await runWithConcurrency(
         zipUploadPlans,
@@ -2083,7 +2127,13 @@ const Vies = () => {
             const percentage = totalZipUploadBytes ? Math.round((uploadedBytes / totalZipUploadBytes) * 100) : 0;
             setBatchUploadProgress(Math.min(100, percentage));
             setBatchUploadStatus(
-              `Upload ZIP parallelo: ${completedZipUploads}/${zipUploadPlans.length} completati, ${formatBytes(uploadedBytes)} / ${formatBytes(totalZipUploadBytes)} (${Math.min(100, percentage)}%)`,
+              status.uploadZipProgress(
+                completedZipUploads,
+                zipUploadPlans.length,
+                formatBytes(uploadedBytes),
+                formatBytes(totalZipUploadBytes),
+                Math.min(100, percentage),
+              ),
             );
           };
 
@@ -2094,7 +2144,7 @@ const Vies = () => {
               storagePath: plan.storagePath,
               onProgress: ({ bytesUploaded }) => updateAggregateProgress(bytesUploaded),
             });
-            setBatchUploadStatus(`Verifica archiviazione ZIP ${plan.index + 1}/${batchZipFiles.length}: ${plan.file.name}`);
+            setBatchUploadStatus(status.verifyZip(plan.index + 1, batchZipFiles.length, plan.file.name));
             await verifyViesStorageObjectExists(plan.storagePath, plan.file.size);
             completedZipUploads += 1;
             updateAggregateProgress(plan.file.size);
@@ -2121,9 +2171,7 @@ const Vies = () => {
       }
 
       if (zipStorageFailures.length) {
-        throw new Error(
-          `Upload ZIP incompleto: ${zipStorageFailures.join(" | ")}. Nessuna pratica VIES è stata creata; riprova dopo aver verificato connessione e dimensione dei file.`,
-        );
+        throw new Error(errors.zipUploadIncomplete(zipStorageFailures.join(" | ")));
       }
 
       const batchCreatedAt = new Date();
@@ -2160,7 +2208,7 @@ const Vies = () => {
         };
       });
       if (jobPreparationRows.some((job) => job.isBlocked)) {
-        throw new Error("Una riga con errori è arrivata alla creazione: operazione interrotta, nessuna pratica creata.");
+        throw new Error(errors.rowWithErrors);
       }
       const validJobCount = jobPreparationRows.filter((job) => !job.isBlocked).length;
       const blockedJobCount = jobPreparationRows.length - validJobCount;
@@ -2180,7 +2228,7 @@ const Vies = () => {
       const representativeSource = batchRecords[0];
       const representativeTaxCode = normalizeTaxCode(representativeSource.codiceFiscaleRappresentante);
       if (!representativeTaxCode || !representativeSource.rappresentanteFiscale) {
-        throw new Error("Rappresentante fiscale senza denominazione o codice fiscale: il lotto non può essere registrato.");
+        throw new Error(errors.representativeMissing);
       }
       // Empty fields never erase what the registry already holds for the representative.
       const administratorTaxCode = normalizeTaxCode(representativeSource.codiceFiscaleAmministratore);
@@ -2204,7 +2252,7 @@ const Vies = () => {
         .select("id")
         .single();
       if (representativeError || !representative) {
-        throw new Error(`Registrazione del rappresentante fiscale non riuscita: ${representativeError?.message ?? "nessun dato"}`);
+        throw new Error(errors.representativeFailed(representativeError?.message ?? errors.noData));
       }
       const { data: lastLot, error: lastLotError } = await supabase
         .from("vies_batches")
@@ -2214,7 +2262,7 @@ const Vies = () => {
         .order("lot_number", { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (lastLotError) throw new Error(`Numerazione del lotto non riuscita: ${lastLotError.message}`);
+      if (lastLotError) throw new Error(errors.lotNumberFailed(lastLotError.message));
       const lotNumber = (lastLot?.lot_number ?? 0) + 1;
 
       const { error: batchError } = await supabase.from("vies_batches").insert({
@@ -2245,7 +2293,7 @@ const Vies = () => {
         queued_at: null,
         notes: "Batch VIES in preparazione: materializzazione pratiche, job e documenti in corso.",
       });
-      if (batchError) throw new Error(`Creazione batch non riuscita: ${batchError.message}`);
+      if (batchError) throw new Error(errors.batchFailed(batchError.message));
       batchPersisted = true;
 
       const practiceNumbersByRow = new Map<number, string>();
@@ -2290,13 +2338,13 @@ const Vies = () => {
       for (let start = 0; start < practiceRows.length; start += VIES_DB_INSERT_CHUNK_SIZE) {
         const chunk = practiceRows.slice(start, start + VIES_DB_INSERT_CHUNK_SIZE);
         setBatchUploadStatus(
-          `Creazione pratiche VIES ${Math.min(start + chunk.length, practiceRows.length)}/${practiceRows.length} (${formatDurationSeconds(batchStartedAt)})`,
+          status.creatingPractices(Math.min(start + chunk.length, practiceRows.length), practiceRows.length, formatDurationSeconds(batchStartedAt)),
         );
         const { data: createdPracticeChunk, error: practicesError } = await supabase
           .from("practices")
           .insert(chunk)
           .select("id, practice_number");
-        if (practicesError) throw new Error(`Creazione pratiche VIES non riuscita: ${practicesError.message}`);
+        if (practicesError) throw new Error(errors.practicesFailed(practicesError.message));
         createdPractices.push(...((createdPracticeChunk ?? []) as Array<{ id: string; practice_number: string }>));
       }
 
@@ -2312,7 +2360,7 @@ const Vies = () => {
       });
 
       if (createdPracticesByIndex.size !== batchRecords.length) {
-        throw new Error("Creazione pratiche VIES incompleta: non è stato possibile riconciliare tutte le pratiche create con le righe Excel.");
+        throw new Error(errors.practicesIncomplete);
       }
 
       const practiceDocumentRows = [];
@@ -2336,7 +2384,7 @@ const Vies = () => {
         const zipKey = getZipReconciliationKey(zipFile.name);
         const stagedZipPath = zipStoragePathsByKey.get(zipKey);
         if (!stagedZipPath) {
-          throw new Error(`ZIP pratica ${zipFile.name} non archiviato nel bucket VIES: impossibile collegarlo alla pratica.`);
+          throw new Error(errors.zipNotArchived(zipFile.name));
         }
 
         practiceDocumentRows.push({
@@ -2353,10 +2401,14 @@ const Vies = () => {
         for (let start = 0; start < practiceDocumentRows.length; start += VIES_DB_INSERT_CHUNK_SIZE) {
           const chunk = practiceDocumentRows.slice(start, start + VIES_DB_INSERT_CHUNK_SIZE);
           setBatchUploadStatus(
-            `Collegamento documenti pratica ${Math.min(start + chunk.length, practiceDocumentRows.length)}/${practiceDocumentRows.length} (${formatDurationSeconds(batchStartedAt)})`,
+            status.linkingDocuments(
+              Math.min(start + chunk.length, practiceDocumentRows.length),
+              practiceDocumentRows.length,
+              formatDurationSeconds(batchStartedAt),
+            ),
           );
           const { error: practiceDocumentsError } = await supabase.from("practice_documents").insert(chunk);
-          if (practiceDocumentsError) throw new Error(`Collegamento documenti pratica non riuscito: ${practiceDocumentsError.message}`);
+          if (practiceDocumentsError) throw new Error(errors.linkFailed(practiceDocumentsError.message));
         }
       }
 
@@ -2366,13 +2418,13 @@ const Vies = () => {
       let policyDocumentsAttached = 0;
       for (const [index, record] of batchRecords.entries()) {
         const practiceId = createdPracticesByIndex.get(record.rowNumber);
-        if (!practiceId) throw new Error(`Pratica non trovata per la riga ${record.rowNumber}.`);
+        if (!practiceId) throw new Error(errors.practiceNotFound(record.rowNumber));
         const input = viesPolicyInputFromPractice(practiceRows[index]);
         const missingPolicyData = missingViesPolicyData(input);
         if (missingPolicyData.length) {
-          throw new Error(`Documento di polizza non generabile per ${record.contraente}: mancano ${missingPolicyData.join(", ")}.`);
+          throw new Error(errors.policyNotGenerable(record.contraente, missingPolicyData.join(", ")));
         }
-        setBatchUploadStatus(`Documento di polizza ${index + 1}/${batchRecords.length}: ${record.contraente}`);
+        setBatchUploadStatus(status.policyDocument(index + 1, batchRecords.length, record.contraente));
         const blob = new Blob([viesPolicyPdfToBytes(generateViesPolicyPdf(input)) as BlobPart], {
           type: VIES_POLICY_MIME_TYPE,
         });
@@ -2387,7 +2439,7 @@ const Vies = () => {
             .upload(filePath, blob, { contentType: VIES_POLICY_MIME_TYPE, upsert: true }));
           if (!uploadError) break;
         }
-        if (uploadError) throw new Error(`Documento di polizza di ${record.contraente} non archiviato dopo 3 tentativi: ${uploadError.message}`);
+        if (uploadError) throw new Error(errors.policyNotArchived(record.contraente, uploadError.message));
         const { error: insertError } = await supabase.from("practice_documents").insert({
           practice_id: practiceId,
           file_name: fileName,
@@ -2396,7 +2448,7 @@ const Vies = () => {
           mime_type: VIES_POLICY_MIME_TYPE,
           uploaded_by: userId,
         });
-        if (insertError) throw new Error(`Documento di polizza di ${record.contraente} non collegato: ${insertError.message}`);
+        if (insertError) throw new Error(errors.policyNotLinked(record.contraente, insertError.message));
         policyDocumentsAttached += 1;
       }
 
@@ -2430,10 +2482,10 @@ const Vies = () => {
       for (let start = 0; start < jobRows.length; start += VIES_DB_INSERT_CHUNK_SIZE) {
         const chunk = jobRows.slice(start, start + VIES_DB_INSERT_CHUNK_SIZE);
         setBatchUploadStatus(
-          `Creazione job VIES ${Math.min(start + chunk.length, jobRows.length)}/${jobRows.length} (${formatDurationSeconds(batchStartedAt)})`,
+          status.creatingJobs(Math.min(start + chunk.length, jobRows.length), jobRows.length, formatDurationSeconds(batchStartedAt)),
         );
         const { error: jobsError } = await supabase.from("vies_jobs").insert(chunk);
-        if (jobsError) throw new Error(`Creazione job non riuscita: ${jobsError.message}`);
+        if (jobsError) throw new Error(errors.jobsFailed(jobsError.message));
       }
 
       const documentRows = batchRows.flatMap((reconciliation) => reconciliation.documents.map((document) => {
@@ -2465,10 +2517,10 @@ const Vies = () => {
       for (let start = 0; start < documentRows.length; start += VIES_DB_INSERT_CHUNK_SIZE) {
         const chunk = documentRows.slice(start, start + VIES_DB_INSERT_CHUNK_SIZE);
         setBatchUploadStatus(
-          `Indicizzazione documenti VIES ${Math.min(start + chunk.length, documentRows.length)}/${documentRows.length} (${formatDurationSeconds(batchStartedAt)})`,
+          status.indexingDocuments(Math.min(start + chunk.length, documentRows.length), documentRows.length, formatDurationSeconds(batchStartedAt)),
         );
         const { error: documentsError } = await supabase.from("vies_batch_documents").insert(chunk);
-        if (documentsError) throw new Error(`Indicizzazione documenti non riuscita: ${documentsError.message}`);
+        if (documentsError) throw new Error(errors.indexingFailed(documentsError.message));
       }
 
       const { error: finalizeBatchError } = await supabase
@@ -2482,25 +2534,26 @@ const Vies = () => {
           notes: `${baseBatchNotes}${storageWarningNotes}`,
         })
         .eq("id", batchId);
-      if (finalizeBatchError) throw new Error(`Finalizzazione batch non riuscita: ${finalizeBatchError.message}`);
+      if (finalizeBatchError) throw new Error(errors.finalizeFailed(finalizeBatchError.message));
       batchFinalized = true;
 
       setBatchUploadProgress(100);
-      setBatchUploadStatus(`Pratiche create in ${formatDurationSeconds(batchStartedAt)}.`);
+      setBatchUploadStatus(status.created(formatDurationSeconds(batchStartedAt)));
       setPersistedBatchId(batchId);
       setLastCreatedPracticeIds(createdPractices?.map((practice) => practice.id) ?? []);
       setDuplicateCheckRun((run) => run + 1);
       await refreshBatchMonitor(batchId);
       toast({
-        title: `Excel Lotto ${lotNumber} creato`,
-        description: `${representativeSource.rappresentanteFiscale}: ${createdPractices.length} pratiche create con ZIP e documento di polizza in ${formatDurationSeconds(batchStartedAt)}. Il lotto è in Amministrazione › VIES.${
-          excludedBatchRows.length
-            ? ` ${excludedBatchRows.length} righe escluse perché incomplete o errate: nessuna pratica creata per loro.`
-            : ""
-        }`,
+        title: viesText().toast.lotCreatedTitle(lotNumber),
+        description: viesText().toast.lotCreatedText(
+          representativeSource.rappresentanteFiscale,
+          createdPractices.length,
+          formatDurationSeconds(batchStartedAt),
+          excludedBatchRows.length,
+        ),
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Non è stato possibile salvare il batch.";
+      const message = error instanceof Error ? error.message : viesText().toast.batchErrorText;
       if (!batchFinalized && createdPracticeIdsForRollback.length) {
         await supabase.from("practices").delete().in("id", createdPracticeIdsForRollback);
       }
@@ -2516,7 +2569,7 @@ const Vies = () => {
 
       toast({
         variant: "destructive",
-        title: "Errore creazione batch VIES",
+        title: viesText().toast.batchErrorTitle,
         description: message,
       });
     } finally {
@@ -2535,10 +2588,10 @@ const Vies = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Loader2 className="h-5 w-5 animate-spin" />
-                Verifica permessi VIES
+                {m.access.checkingTitle}
               </CardTitle>
               <CardDescription>
-                Controllo se la tua utenza ha VIES tra i Prodotti Consentiti prima di abilitare il caricamento.
+                {m.access.checkingText}
               </CardDescription>
             </CardHeader>
           </Card>
@@ -2555,19 +2608,18 @@ const Vies = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-destructive">
                 <AlertTriangle className="h-5 w-5" />
-                Accesso VIES non autorizzato
+                {m.access.deniedTitle}
               </CardTitle>
               <CardDescription>
-                {accessMessage ??
-                  "Il tuo profilo non è abilitato al prodotto VIES. Chiedi a un amministratore di aggiungere VIES nei Prodotti Consentiti."}
+                {accessMessage ?? m.access.deniedText}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 sm:flex-row">
               <Button variant="secondary" onClick={() => navigate("/dashboard")}>
-                Torna alla dashboard
+                {m.access.backToDashboard}
               </Button>
               <Button variant="outline" onClick={() => void checkViesAccess()}>
-                Ricontrolla permessi
+                {m.access.recheck}
               </Button>
             </CardContent>
           </Card>
@@ -2588,13 +2640,16 @@ const Vies = () => {
               <div>
                 <h1 className="text-3xl font-bold text-foreground">VIES</h1>
                 <p className="text-muted-foreground mt-1">
-                  Fideiussioni VIES a lotti: un Excel fino a {VIES_MAX_PRACTICES_PER_SHEET} pratiche, uno ZIP per pratica, controllo dei documenti per contenuto e creazione automatica.
+                  {m.header.subtitle(VIES_MAX_PRACTICES_PER_SHEET)}
                 </p>
               </div>
             </div>
           </div>
           <Badge variant="secondary" className="w-fit shrink-0 text-sm">
-            {VIES_GUARANTEED_AMOUNT.toLocaleString("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 })} garantiti · {VIES_DURATION_MONTHS / 12} anni
+            {m.header.guaranteed(
+              VIES_GUARANTEED_AMOUNT.toLocaleString(locale, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }),
+              VIES_DURATION_MONTHS / 12,
+            )}
           </Badge>
         </div>
 
@@ -2602,8 +2657,7 @@ const Vies = () => {
           <div className="flex gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
-              <span className="font-semibold">Modalità prova attiva:</span> si possono creare più pratiche VIES per la stessa società. Da
-              disattivare prima dell'uso reale.
+              <span className="font-semibold">{m.header.testModeTitle}</span> {m.header.testModeText}
             </p>
           </div>
         )}
@@ -2611,34 +2665,34 @@ const Vies = () => {
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Righe Excel</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{m.stats.rows}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{records.length}</div>
-              <p className="text-xs text-muted-foreground">{rowsWithCoreData} con dati principali</p>
+              <p className="text-xs text-muted-foreground">{m.stats.rowsHint(rowsWithCoreData)}</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Documenti PDF</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{m.stats.pdfs}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{pdfCount}</div>
-              <p className="text-xs text-muted-foreground">rilevati negli ZIP</p>
+              <p className="text-xs text-muted-foreground">{m.stats.pdfsHint}</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">ZIP annidati</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{m.stats.nested}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{nestedZipCount}</div>
-              <p className="text-xs text-muted-foreground">letti ricorsivamente</p>
+              <p className="text-xs text-muted-foreground">{m.stats.nestedHint}</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Validazione</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{m.stats.validation}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{validationProgress}%</div>
@@ -2651,11 +2705,10 @@ const Vies = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <UploadCloud className="h-5 w-5" />
-              1. File del lotto
+              {m.step1.title}
             </CardTitle>
             <CardDescription>
-              Un Excel con al massimo {VIES_MAX_PRACTICES_PER_SHEET} pratiche e uno ZIP per pratica, chiamato con il numero della colonna ZIP (1.zip, 2.zip …).
-              Si può caricare anche un unico ZIP che li contiene tutti (1.zip … 20.zip, oppure cartelle 1 … 20): viene scompattato in automatico.
+              {m.step1.description(VIES_MAX_PRACTICES_PER_SHEET)}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -2663,7 +2716,7 @@ const Vies = () => {
               <div className="space-y-2 rounded-lg border border-dashed p-4">
                 <div className="flex items-center gap-2 font-medium">
                   <FileSpreadsheet className="h-5 w-5 text-primary" />
-                  File Excel
+                  {m.step1.excel}
                 </div>
                 <Input
                   type="file"
@@ -2675,17 +2728,17 @@ const Vies = () => {
                   disabled={loadingExcel || savingBatch}
                 />
                 <p className="text-sm text-muted-foreground">
-                  {loadingExcel ? "Lettura in corso..." : excelFile?.name || "Nessun Excel selezionato"}
+                  {loadingExcel ? m.step1.reading : excelFile?.name || m.step1.noExcel}
                 </p>
                 <a href="/vies/VIES_modello.xlsx" download className="text-xs font-medium text-primary underline-offset-4 hover:underline">
-                  Scarica il modello Excel (fogli PRATICHE, DATI FOGLIO, ISTRUZIONI)
+                  {m.step1.template}
                 </a>
               </div>
 
               <div className="space-y-2 rounded-lg border border-dashed p-4">
                 <div className="flex items-center gap-2 font-medium">
                   <FileArchive className="h-5 w-5 text-primary" />
-                  ZIP nominativi
+                  {m.step1.zips}
                 </div>
                 <Input
                   type="file"
@@ -2699,18 +2752,18 @@ const Vies = () => {
                 />
                 <p className="break-words text-sm text-muted-foreground">
                   {loadingZip
-                    ? zipProcessingStatus ?? "Indicizzazione in corso..."
+                    ? zipProcessingStatus ?? m.step1.indexing
                     : zipFiles.length
-                      ? `${zipFiles.length} ZIP selezionati (${formatBytes(selectedZipTotalSize)}): ${zipFiles.map((file) => file.name).join(", ")}`
-                      : "Nessuno ZIP selezionato"}
+                      ? m.step1.zipsSelected(zipFiles.length, formatBytes(selectedZipTotalSize), zipFiles.map((file) => file.name).join(", "))
+                      : m.step1.noZip}
                 </p>
                 {agentProgress && (
                   <p className={agentProgress.unavailable ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
                     {agentProgress.unavailable
-                      ? `Agent documentale non disponibile (${agentProgress.unavailable}). Le scansioni non verificate bloccano le pratiche.`
+                      ? m.step1.agentUnavailable(translateViesText(agentProgress.unavailable))
                       : agentProgress.failed
-                        ? `Agent documentale: ${agentProgress.done - agentProgress.failed}/${agentProgress.total} scansioni lette, ${agentProgress.failed} non leggibili (bloccano la pratica).`
-                        : `Agent documentale: ${agentProgress.done}/${agentProgress.total} scansioni lette per contenuto.`}
+                        ? m.step1.agentFailed(agentProgress.done - agentProgress.failed, agentProgress.total, agentProgress.failed)
+                        : m.step1.agentDone(agentProgress.done, agentProgress.total)}
                   </p>
                 )}
               </div>
@@ -2722,31 +2775,30 @@ const Vies = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileSpreadsheet className="h-5 w-5" />
-              2. Dati del foglio
+              {m.step2.title}
             </CardTitle>
             <CardDescription>
-              Beneficiario e rappresentante fiscale valgono per tutte le pratiche del foglio. Si compilano dal foglio DATI FOGLIO dell'Excel o
-              dalla visura; se l'Excel ha una colonna con lo stesso dato, per quella riga prevale l'Excel.
+              {m.step2.description}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
               <section className="space-y-4">
-                <h3 className="border-b pb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Beneficiario</h3>
+                <h3 className="border-b pb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{m.step2.beneficiary}</h3>
                 <div className="grid gap-4 md:grid-cols-2">
                   <SheetField
                     id="vies-beneficiario"
-                    label="Denominazione"
+                    label={m.step2.name}
                     value={sheetData.beneficiario}
-                    placeholder="Agenzia delle Entrate – Direzione Provinciale …"
+                    placeholder={m.step2.beneficiaryPlaceholder}
                     disabled={sheetLocked}
                     onChange={updateSheetData("beneficiario")}
                   />
                   <SheetField
                     id="vies-cf-beneficiario"
-                    label="Codice fiscale"
+                    label={m.step2.taxCode}
                     value={sheetData.codiceFiscaleBeneficiario}
-                    placeholder="11 cifre"
+                    placeholder={m.step2.digits11}
                     isTaxCode
                     disabled={sheetLocked}
                     onChange={updateSheetData("codiceFiscaleBeneficiario")}
@@ -2754,19 +2806,19 @@ const Vies = () => {
                 </div>
                 <SheetField
                   id="vies-indirizzo-beneficiario"
-                  label="Indirizzo"
+                  label={m.step2.address}
                   value={sheetData.indirizzoBeneficiario}
-                  placeholder="Via, numero, CAP, città"
+                  placeholder={m.step2.addressPlaceholder}
                   disabled={sheetLocked}
                   onChange={updateSheetData("indirizzoBeneficiario")}
                 />
               </section>
 
               <section className="space-y-4">
-                <h3 className="border-b pb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Rappresentante fiscale</h3>
+                <h3 className="border-b pb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{m.step2.representative}</h3>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label htmlFor="vies-visura">Visura della società di rappresentanza (PDF)</Label>
+                    <Label htmlFor="vies-visura">{m.step2.visura}</Label>
                     <Input
                       id="vies-visura"
                       type="file"
@@ -2776,17 +2828,17 @@ const Vies = () => {
                     />
                     {visuraData ? (
                       <p className="text-xs text-muted-foreground">
-                        {describeVisura(visuraData) ?? "Visura letta"}: compila i campi sotto, da verificare.
+                        {m.step2.visuraFills(translateViesText(describeVisura(visuraData) ?? "") || m.step2.visuraRead)}
                       </p>
                     ) : (
                       <p className="text-xs text-muted-foreground">
-                        Compila denominazione, codice fiscale, sede, PEC e amministratore.
+                        {m.step2.visuraHint}
                       </p>
                     )}
                   </div>
                   {visuraData && visuraData.amministratori.length > 1 && (
                     <div className="space-y-1.5">
-                      <Label htmlFor="vies-visura-amministratore">Amministratore che rappresenta la società</Label>
+                      <Label htmlFor="vies-visura-amministratore">{m.step2.visuraAdmin}</Label>
                       <select
                         id="vies-visura-amministratore"
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -2806,51 +2858,51 @@ const Vies = () => {
                 <div className="grid gap-4 md:grid-cols-2">
                   <SheetField
                     id="vies-rappresentante"
-                    label="Denominazione società"
+                    label={m.step2.companyName}
                     value={sheetData.rappresentanteFiscale}
-                    placeholder="Es. SE&SE AUDITORS & CHARTERED ACCOUNTANT S.P.A."
+                    placeholder={m.step2.companyNamePlaceholder}
                     disabled={sheetLocked}
                     onChange={updateSheetData("rappresentanteFiscale")}
                   />
                   <SheetField
                     id="vies-cf-rappresentante"
-                    label="Codice fiscale / P.IVA società"
+                    label={m.step2.companyTaxCode}
                     value={sheetData.codiceFiscaleRappresentante}
-                    placeholder="11 cifre"
+                    placeholder={m.step2.digits11}
                     isTaxCode
                     disabled={sheetLocked}
                     onChange={updateSheetData("codiceFiscaleRappresentante")}
                   />
                   <SheetField
                     id="vies-amministratore"
-                    label="Amministratore (legale rappresentante)"
+                    label={m.step2.administrator}
                     value={sheetData.amministratoreRappresentante}
-                    placeholder="Cognome e nome, dalla visura"
+                    placeholder={m.step2.administratorPlaceholder}
                     disabled={sheetLocked}
                     onChange={updateSheetData("amministratoreRappresentante")}
                   />
                   <SheetField
                     id="vies-cf-amministratore"
-                    label="Codice fiscale amministratore"
+                    label={m.step2.administratorTaxCode}
                     value={sheetData.codiceFiscaleAmministratore}
-                    placeholder="16 caratteri"
+                    placeholder={m.step2.chars16}
                     isTaxCode
                     disabled={sheetLocked}
                     onChange={updateSheetData("codiceFiscaleAmministratore")}
                   />
                   <SheetField
                     id="vies-domicilio-rappresentante"
-                    label="Sede della società (indirizzo italiano delle società clienti)"
+                    label={m.step2.seat}
                     value={sheetData.indirizzoRappresentanteFiscale}
-                    placeholder="Via, numero, CAP, città"
+                    placeholder={m.step2.addressPlaceholder}
                     disabled={sheetLocked}
                     onChange={updateSheetData("indirizzoRappresentanteFiscale")}
                   />
                   <SheetField
                     id="vies-pec-rappresentante"
-                    label="PEC"
+                    label={m.step2.pec}
                     value={sheetData.pecRappresentante}
-                    placeholder="Usata per i clienti senza PEC propria nell'Excel"
+                    placeholder={m.step2.pecPlaceholder}
                     disabled={sheetLocked}
                     onChange={updateSheetData("pecRappresentante")}
                   />
@@ -2862,37 +2914,36 @@ const Vies = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>3. Controllo pratiche</CardTitle>
+            <CardTitle>{m.step3.title}</CardTitle>
             <CardDescription>
-              Ogni riga Excel viene abbinata allo ZIP indicato nella colonna ZIP (es. 1 → 1.zip). Una riga bloccata non diventa una pratica:
-              va corretta e caricata in un nuovo lotto. Le altre righe del foglio procedono normalmente.
+              {m.step3.description}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {records.length === 0 ? (
               <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-                Carica l'Excel per vedere il controllo di riconciliazione.
+                {m.step3.empty}
               </div>
             ) : (
               <div className="space-y-4">
                 <div className="flex flex-wrap gap-2 text-sm">
-                  <Badge variant="secondary">{reconciliationRows.length} pratiche nel foglio</Badge>
+                  <Badge variant="secondary">{m.step3.inSheet(reconciliationRows.length)}</Badge>
                   <Badge variant="secondary" className="bg-emerald-100 text-emerald-900 hover:bg-emerald-100">
-                    {readyRowCount} pronte
+                    {m.step3.ready(readyRowCount)}
                   </Badge>
                   {reconciliationRows.length - readyRowCount > 0 && (
-                    <Badge variant="destructive">{reconciliationRows.length - readyRowCount} bloccate, non verranno create</Badge>
+                    <Badge variant="destructive">{m.step3.blocked(reconciliationRows.length - readyRowCount)}</Badge>
                   )}
                 </div>
                 <div className="overflow-x-auto rounded-lg border">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/50">
-                        <TableHead className="w-12">ZIP</TableHead>
-                        <TableHead className="min-w-48">Contraente</TableHead>
-                        <TableHead className="whitespace-nowrap">Documenti</TableHead>
-                        <TableHead className="whitespace-nowrap">Identità</TableHead>
-                        <TableHead className="text-right">Stato</TableHead>
+                        <TableHead className="w-12">{m.step3.colZip}</TableHead>
+                        <TableHead className="min-w-48">{m.step3.colClient}</TableHead>
+                        <TableHead className="whitespace-nowrap">{m.step3.colDocuments}</TableHead>
+                        <TableHead className="whitespace-nowrap">{m.step3.colIdentity}</TableHead>
+                        <TableHead className="text-right">{m.step3.colStatus}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -2907,11 +2958,10 @@ const Vies = () => {
                             <TableRow className={ready ? undefined : "border-b-0"}>
                               <TableCell className="font-mono text-base font-semibold">{reconciliation.record.nomeZip || "—"}</TableCell>
                               <TableCell className="min-w-48">
-                                <p className="break-words font-medium">{reconciliation.record.contraente || "Da completare"}</p>
+                                <p className="break-words font-medium">{reconciliation.record.contraente || m.step3.toComplete}</p>
                                 {VIES_ALLOW_DUPLICATE_PRACTICES && getExistingForRecord(reconciliation.record).length > 0 && (
                                   <p className="text-xs text-amber-800">
-                                    Già presente: {getExistingForRecord(reconciliation.record).map((existing) => existing.practice_number).join(", ")}
-                                    {" "}(modalità prova: verrà creata comunque)
+                                    {m.step3.alreadyPresent(getExistingForRecord(reconciliation.record).map((existing) => existing.practice_number).join(", "))}
                                   </p>
                                 )}
                                 <div className="mt-0.5 flex flex-wrap gap-x-3 font-mono text-xs text-muted-foreground">
@@ -2920,19 +2970,19 @@ const Vies = () => {
                                 </div>
                               </TableCell>
                               <TableCell className="whitespace-nowrap">
-                                <p>{reconciliation.zipFile?.name ?? "ZIP non caricato"}</p>
+                                <p>{reconciliation.zipFile?.name ?? m.step3.zipNotUploaded}</p>
                                 <p className="text-xs text-muted-foreground">
                                   {reconciliation.zipFile
-                                    ? `${reconciliation.documents.length} documenti${reconciliation.linkedByVat ? " · collegato tramite P.IVA" : ""}`
+                                    ? `${m.step3.documentsCount(reconciliation.documents.length)}${reconciliation.linkedByVat ? m.step3.linkedByVat : ""}`
                                     : "—"}
                                 </p>
                               </TableCell>
                               <TableCell className="whitespace-nowrap">
-                                {reconciliation.vatCheck === "verified" && <Badge variant="secondary">Verificata</Badge>}
-                                {reconciliation.vatCheck === "mismatch" && <Badge variant="destructive">Non corrisponde</Badge>}
+                                {reconciliation.vatCheck === "verified" && <Badge variant="secondary">{m.step3.verified}</Badge>}
+                                {reconciliation.vatCheck === "mismatch" && <Badge variant="destructive">{m.step3.mismatch}</Badge>}
                                 {reconciliation.vatCheck === "unverifiable" && (
                                   <Badge variant="outline" className="border-amber-300 text-amber-900">
-                                    Nessun codice leggibile
+                                    {m.step3.unverifiable}
                                   </Badge>
                                 )}
                                 {reconciliation.vatCheck === "not_applicable" && <span className="text-muted-foreground">—</span>}
@@ -2941,12 +2991,12 @@ const Vies = () => {
                                 {pendingScans ? (
                                   <Badge variant="outline" className="border-amber-300 text-amber-900">
                                     <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                    In verifica
+                                    {m.step3.checking}
                                   </Badge>
                                 ) : ready ? (
-                                  <Badge className="bg-emerald-600 hover:bg-emerald-600">Pronta</Badge>
+                                  <Badge className="bg-emerald-600 hover:bg-emerald-600">{m.step3.readyBadge}</Badge>
                                 ) : (
-                                  <Badge variant="destructive">Bloccata</Badge>
+                                  <Badge variant="destructive">{m.step3.blockedBadge}</Badge>
                                 )}
                               </TableCell>
                             </TableRow>
@@ -2958,8 +3008,7 @@ const Vies = () => {
                                       <div className="flex gap-2 text-amber-900">
                                         <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
                                         <p className="min-w-0 break-words">
-                                          {pendingScans === 1 ? "1 scansione in lettura" : `${pendingScans} scansioni in lettura`} dall'agent
-                                          documentale: l'esito della pratica arriva al termine.
+                                          {m.step3.scansReading(pendingScans)}
                                         </p>
                                       </div>
                                     )}
@@ -2968,11 +3017,11 @@ const Vies = () => {
                                         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                                         <div className="min-w-0 break-words">
                                           <p>
-                                            <span className="font-medium">Documenti mancanti: </span>
-                                            {missing.map((requirement) => requirement.label).join(", ")}
+                                            <span className="font-medium">{m.step3.missingDocuments}</span>
+                                            {missing.map((requirement) => getDocumentTypeLabel(requirement.id)).join(m.fix.listSeparator)}
                                           </p>
                                           <p className="text-xs text-foreground">
-                                            <span className="font-medium">Cosa fare: </span>
+                                            <span className="font-medium">{m.step3.whatToDo}</span>
                                             {describeMissingDocumentsFix(missing, reconciliation.zipFile?.name ?? `${reconciliation.record.nomeZip}.zip`)}
                                           </p>
                                         </div>
@@ -2982,9 +3031,9 @@ const Vies = () => {
                                       <div key={error} className="flex gap-2 text-destructive">
                                         <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
                                         <div className="min-w-0 break-words">
-                                          <p>{error}</p>
+                                          <p>{translateViesText(error)}</p>
                                           <p className="text-xs text-foreground">
-                                            <span className="font-medium">Cosa fare: </span>
+                                            <span className="font-medium">{m.step3.whatToDo}</span>
                                             {describeFix(error)}
                                           </p>
                                         </div>
@@ -2992,7 +3041,7 @@ const Vies = () => {
                                     ))}
                                     {!pendingScans && (
                                       <p className="text-xs text-muted-foreground">
-                                        Questa riga non verrà creata. Dopo la correzione, caricala in un nuovo lotto.
+                                        {m.step3.rowNotCreated}
                                       </p>
                                     )}
                                   </div>
@@ -3010,14 +3059,14 @@ const Vies = () => {
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                     <div className="space-y-1 text-sm">
                       <p className="font-medium">
-                        {unmatchedZips.length} ZIP non abbinati a nessuna riga dell'Excel:
+                        {m.step3.unmatchedZips(unmatchedZips.length)}
                       </p>
                       {unmatchedZips.map(({ file, vatNumbers }) => (
                         <p key={file.name}>
                           <span className="font-mono">{file.name}</span>
                           {vatNumbers.length
-                            ? ` — contiene documenti della società ${vatNumbers.join(", ")}, assente dall'Excel.`
-                            : " — nessun identificativo leggibile nei documenti."}
+                            ? m.step3.unmatchedWithCodes(vatNumbers.join(", "))
+                            : m.step3.unmatchedNoCodes}
                         </p>
                       ))}
                     </div>
@@ -3030,9 +3079,9 @@ const Vies = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>4. Documenti obbligatori VIES</CardTitle>
+            <CardTitle>{m.step4.title}</CardTitle>
             <CardDescription>
-              Documenti riconosciuti dal contenuto, non dal nome del file, e verificati ZIP per ZIP. Le scansioni senza testo vengono lette dall'agent.
+              {m.step4.description}
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-2">
@@ -3045,20 +3094,20 @@ const Vies = () => {
                     ) : (
                       <XCircle className="h-4 w-4 text-destructive" />
                     )}
-                    <p className="font-medium">{requirement.label}</p>
+                    <p className="font-medium">{getDocumentTypeLabel(requirement.id)}</p>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {requirement.subject === "rappresentante" ? "Documento del rappresentante fiscale" : "Documento del cliente"}
+                    {requirement.subject === "rappresentante" ? m.step4.representativeDocument : m.step4.clientDocument}
                   </p>
                   {zipFiles.length > 0 && (
                     <p className="mt-1 break-words text-xs text-muted-foreground">
-                      Presente in {requirement.coveredZipCount} ZIP su {zipFiles.length}
-                      {requirement.zipsMissing.length > 0 && ` · manca in ${requirement.zipsMissing.join(", ")}`}
+                      {m.step4.presentIn(requirement.coveredZipCount, zipFiles.length)}
+                      {requirement.zipsMissing.length > 0 && m.step4.missingIn(requirement.zipsMissing.join(", "))}
                     </p>
                   )}
                 </div>
                 <Badge variant={requirement.completed ? "secondary" : "destructive"} className="shrink-0">
-                  {requirement.completed ? "OK" : "Manca"}
+                  {requirement.completed ? m.step4.ok : m.step4.missing}
                 </Badge>
               </div>
             ))}
@@ -3067,7 +3116,7 @@ const Vies = () => {
               <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900 md:col-span-2">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 <p className="text-sm">
-                  {missingRequirements.length} tipologie documento mancano in almeno uno ZIP (assenti o scansioni non riconosciute): il dettaglio per pratica è nel punto 3.
+                  {m.step4.missingTypes(missingRequirements.length)}
                 </p>
               </div>
             )}
@@ -3078,11 +3127,10 @@ const Vies = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <PlayCircle className="h-5 w-5" />
-              5. Crea le pratiche
+              {m.step5.title}
             </CardTitle>
             <CardDescription>
-              Vengono create solo le pratiche complete e corrette, ognuna con il suo ZIP e il documento di polizza. Le righe con documenti
-              mancanti o errati non vengono create.
+              {m.step5.description}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -3092,19 +3140,12 @@ const Vies = () => {
                   <div className="flex gap-2">
                     <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
                     <div className="text-sm">
-                      <p className="font-semibold">Pratiche create: questo lotto è chiuso.</p>
-                      <p>
-                        {lastCreatedPracticeIds.length} pratiche VIES con ZIP e documento di polizza allegati
-                        {excludedRows.length ? `; ${excludedRows.length} righe escluse e non create` : ""}. Per un nuovo lotto carica un nuovo
-                        Excel e i suoi ZIP
-                        {VIES_ALLOW_DUPLICATE_PRACTICES
-                          ? " (modalità prova: le società già create possono essere create di nuovo)."
-                          : ": le società già create vengono riconosciute e non vengono create due volte."}
-                      </p>
+                      <p className="font-semibold">{m.step5.closedTitle}</p>
+                      <p>{m.step5.closedText(lastCreatedPracticeIds.length, excludedRows.length, VIES_ALLOW_DUPLICATE_PRACTICES)}</p>
                     </div>
                   </div>
                   <Button variant="secondary" onClick={() => navigate("/practices?type=vies")}>
-                    Vai alle pratiche VIES
+                    {m.step5.goToPractices}
                   </Button>
                 </div>
               ) : (
@@ -3121,22 +3162,17 @@ const Vies = () => {
                     ) : (
                       <PlayCircle className="mr-2 h-4 w-4" />
                     )}
-                    {savingBatch
-                      ? "Creazione pratiche in corso..."
-                      : readyRowCount === 1
-                        ? "Crea 1 pratica VIES"
-                        : `Crea ${readyRowCount} pratiche VIES`}
+                    {savingBatch ? m.step5.creating : m.step5.create(readyRowCount)}
                   </Button>
                   {records.length > 0 && excludedRows.length > 0 && (
                     <div className="space-y-1 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
                       <p className="font-medium">
-                        {excludedRows.length === 1 ? "1 riga non verrà creata" : `${excludedRows.length} righe non verranno create`}: correggile
-                        e caricale in un nuovo lotto (nuovo Excel con le sole righe corrette e i loro ZIP).
+                        {m.step5.excluded(excludedRows.length)}
                       </p>
                       <ul className="list-inside list-disc">
                         {excludedRows.map((reconciliation) => (
                           <li key={reconciliation.record.rowNumber} className="break-words">
-                            ZIP {reconciliation.record.nomeZip || "—"} · {reconciliation.record.contraente || `riga ${reconciliation.record.rowNumber}`}
+                            {m.step5.excludedRow(reconciliation.record.nomeZip || "—", reconciliation.record.contraente || m.step5.row(reconciliation.record.rowNumber))}
                           </li>
                         ))}
                       </ul>
@@ -3154,7 +3190,7 @@ const Vies = () => {
               {(savingBatch || (batchUploadStatus && !persistedBatchId)) && (
                 <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
                   <div className="flex items-center justify-between gap-3">
-                    <span>{batchUploadStatus ?? "Preparazione batch in corso..."}</span>
+                    <span>{batchUploadStatus ?? m.step5.preparing}</span>
                     <span className="font-mono">{batchUploadProgress}%</span>
                   </div>
                   <Progress value={batchUploadProgress} />
@@ -3171,45 +3207,43 @@ const Vies = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Send className="h-5 w-5" />
-                6. Invio al portale esterno
+                {m.step6.title}
               </CardTitle>
               <CardDescription>
-                Prima dell'invio il controllo finale rilegge dal database ogni pratica creata: dati della società, ZIP allegato,
-                documenti obbligatori, documento di polizza, premio, durata e doppioni. Viene inviata solo la pratica che supera tutte le
-                verifiche; le altre restano bloccate con il motivo. Il controllo viene ripetuto anche un attimo prima di ogni invio.
+                {m.step6.description}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <section className="space-y-3">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Controllo finale</h3>
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{m.step6.finalCheck}</h3>
                   <Button variant="outline" size="sm" onClick={() => runFinalCheck(persistedBatchId)} disabled={controllerLoading}>
                     {controllerLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                    Ripeti il controllo
+                    {m.step6.repeat}
                   </Button>
                 </div>
                 {!controllerReport ? (
-                  <p className="text-sm text-muted-foreground">{controllerLoading ? "Controllo in corso…" : "Controllo non ancora eseguito."}</p>
+                  <p className="text-sm text-muted-foreground">{controllerLoading ? m.step6.checking : m.step6.notRun}</p>
                 ) : (
                   <>
                     <div className="flex flex-wrap gap-2 text-sm">
-                      <Badge className="bg-emerald-600 hover:bg-emerald-600">{controllerReport.ok} pronte per l'invio</Badge>
-                      {controllerReport.errors > 0 && <Badge variant="destructive">{controllerReport.errors} con errori</Badge>}
+                      <Badge className="bg-emerald-600 hover:bg-emerald-600">{m.step6.readyToSend(controllerReport.ok)}</Badge>
+                      {controllerReport.errors > 0 && <Badge variant="destructive">{m.step6.withErrors(controllerReport.errors)}</Badge>}
                       {controllerReport.notSendable > 0 && (
-                        <Badge variant="secondary">{controllerReport.notSendable} non inviabili (bloccate, inviate o annullate)</Badge>
+                        <Badge variant="secondary">{m.step6.notSendable(controllerReport.notSendable)}</Badge>
                       )}
                       <span className="text-xs text-muted-foreground">
-                        Verificato il {new Date(controllerReport.checkedAt).toLocaleString("it-IT")}
+                        {m.step6.checkedAt(formatDateTime(controllerReport.checkedAt))}
                       </span>
                     </div>
                     <div className="overflow-x-auto rounded-lg border">
                       <Table>
                         <TableHeader>
                           <TableRow className="bg-muted/50">
-                            <TableHead className="w-12">ZIP</TableHead>
-                            <TableHead className="min-w-48">Contraente</TableHead>
-                            <TableHead className="whitespace-nowrap">Pratica</TableHead>
-                            <TableHead className="text-right">Esito</TableHead>
+                            <TableHead className="w-12">{m.step3.colZip}</TableHead>
+                            <TableHead className="min-w-48">{m.step3.colClient}</TableHead>
+                            <TableHead className="whitespace-nowrap">{m.step6.colPractice}</TableHead>
+                            <TableHead className="text-right">{m.step6.colOutcome}</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -3229,11 +3263,11 @@ const Vies = () => {
                                 </TableCell>
                                 <TableCell className="text-right">
                                   {result.outcome === "ok" ? (
-                                    <Badge className="bg-emerald-600 hover:bg-emerald-600">Pronta per l'invio</Badge>
+                                    <Badge className="bg-emerald-600 hover:bg-emerald-600">{m.step6.outcomeReady}</Badge>
                                   ) : result.outcome === "error" ? (
-                                    <Badge variant="destructive">Errori</Badge>
+                                    <Badge variant="destructive">{m.step6.outcomeErrors}</Badge>
                                   ) : (
-                                    <Badge variant="secondary">Non inviabile</Badge>
+                                    <Badge variant="secondary">{m.step6.outcomeNotSendable}</Badge>
                                   )}
                                 </TableCell>
                               </TableRow>
@@ -3244,7 +3278,7 @@ const Vies = () => {
                                       {result.errors.map((error) => (
                                         <div key={error} className={result.outcome === "error" ? "flex gap-2 text-destructive" : "flex gap-2 text-muted-foreground"}>
                                           <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                                          <p className="min-w-0 break-words">{error}</p>
+                                          <p className="min-w-0 break-words">{translateViesText(error)}</p>
                                         </div>
                                       ))}
                                     </div>
@@ -3261,21 +3295,18 @@ const Vies = () => {
               </section>
 
               <section className="space-y-3">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Portale di destinazione</h3>
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{m.step6.destination}</h3>
                 {portals === null ? (
-                  <p className="text-sm text-muted-foreground">Lettura dei portali collegati…</p>
+                  <p className="text-sm text-muted-foreground">{m.step6.readingPortals}</p>
                 ) : portals.length === 0 ? (
                   <div className="flex gap-2 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                    <p>
-                      Nessun portale esterno è ancora collegato. Le pratiche restano pronte qui nel portale e non vengono inviate a nessuno;
-                      quando un collegamento sarà attivo, comparirà in questo elenco.
-                    </p>
+                    <p>{m.step6.noPortals}</p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-3 md:flex-row md:items-end">
                     <div className="space-y-1.5 md:w-80">
-                      <Label htmlFor="vies-portal">Portale</Label>
+                      <Label htmlFor="vies-portal">{m.step6.portal}</Label>
                       <select
                         id="vies-portal"
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -3283,7 +3314,7 @@ const Vies = () => {
                         onChange={(event) => setSelectedPortalId(event.target.value)}
                         disabled={Boolean(controlLoading)}
                       >
-                        <option value="">Scegli il portale…</option>
+                        <option value="">{m.step6.choosePortal}</option>
                         {portals.map((portal) => (
                           <option key={portal.id} value={portal.id}>
                             {portal.name}
@@ -3296,7 +3327,7 @@ const Vies = () => {
                       disabled={!selectedPortalId || !controllerReport?.ok || Boolean(controlLoading) || controllerLoading}
                     >
                       {controlLoading === "send_batch" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                      Invia {controllerReport?.ok ?? 0} pratiche
+                      {m.step6.send(controllerReport?.ok ?? 0)}
                     </Button>
                   </div>
                 )}
@@ -3305,11 +3336,11 @@ const Vies = () => {
               {batchMonitor && (
                 <section className="space-y-3">
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Stato dell'invio</h3>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{m.step6.sendStatus}</h3>
                     <div className="flex flex-wrap gap-2">
                       <Button variant="outline" size="sm" onClick={() => refreshBatchMonitor()} disabled={monitorLoading}>
                         {monitorLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                        Aggiorna
+                        {m.step6.refresh}
                       </Button>
                       <Button
                         variant="outline"
@@ -3319,18 +3350,18 @@ const Vies = () => {
                         disabled={Boolean(controlLoading) || terminalJobStatuses.has(batchMonitor.status)}
                       >
                         {controlLoading === "cancel_batch" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Annulla il lotto
+                        {m.step6.cancelBatch}
                       </Button>
                     </div>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
                     {[
-                      ["Da inviare", batchMonitor.ready_jobs + batchMonitor.queued_jobs],
-                      ["In invio", batchMonitor.processing_jobs],
-                      ["Inviate", batchMonitor.completed_jobs],
-                      ["Invio non riuscito", batchMonitor.failed_jobs],
-                      ["Bloccate", batchMonitor.blocked_jobs],
-                      ["Annullate", batchMonitor.cancelled_jobs],
+                      [m.step6.counters.toSend, batchMonitor.ready_jobs + batchMonitor.queued_jobs],
+                      [m.step6.counters.sending, batchMonitor.processing_jobs],
+                      [m.step6.counters.sent, batchMonitor.completed_jobs],
+                      [m.step6.counters.failed, batchMonitor.failed_jobs],
+                      [m.step6.counters.blocked, batchMonitor.blocked_jobs],
+                      [m.step6.counters.cancelled, batchMonitor.cancelled_jobs],
                     ].map(([label, value]) => (
                       <div key={String(label)} className="rounded-lg bg-muted/50 p-3">
                         <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
@@ -3339,31 +3370,31 @@ const Vies = () => {
                     ))}
                   </div>
                   {lastWorkerSummary?.notice && (
-                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">{lastWorkerSummary.notice}</div>
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">{translateViesText(lastWorkerSummary.notice)}</div>
                   )}
                   {jobMonitor.length > 0 && (
                     <div className="overflow-x-auto rounded-lg border">
                       <Table>
                         <TableHeader>
                           <TableRow className="bg-muted/50">
-                            <TableHead className="min-w-48">Contraente</TableHead>
-                            <TableHead>Tentativi</TableHead>
-                            <TableHead className="min-w-64">Errore del portale</TableHead>
-                            <TableHead className="text-right">Azione</TableHead>
+                            <TableHead className="min-w-48">{m.step3.colClient}</TableHead>
+                            <TableHead>{m.step6.colAttempts}</TableHead>
+                            <TableHead className="min-w-64">{m.step6.colPortalError}</TableHead>
+                            <TableHead className="text-right">{m.step6.colAction}</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {jobMonitor.map((job) => (
                             <TableRow key={job.id}>
-                              <TableCell className="min-w-48 break-words font-medium">{job.contraente || `Riga ${job.row_number}`}</TableCell>
+                              <TableCell className="min-w-48 break-words font-medium">{job.contraente || m.step6.rowLabel(job.row_number)}</TableCell>
                               <TableCell>
                                 {job.attempts}/{job.max_attempts}
                               </TableCell>
-                              <TableCell className="min-w-64 break-words text-muted-foreground">{job.last_error || job.error_code || "—"}</TableCell>
+                              <TableCell className="min-w-64 break-words text-muted-foreground">{job.last_error ? translateViesText(job.last_error) : job.error_code || "—"}</TableCell>
                               <TableCell className="text-right">
                                 <Button size="sm" variant="outline" onClick={() => handleRetryJob(job.id)} disabled={Boolean(controlLoading)}>
                                   {controlLoading === `retry-${job.id}` && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                  Riprova l'invio
+                                  {m.step6.retry}
                                 </Button>
                               </TableCell>
                             </TableRow>
@@ -3380,25 +3411,25 @@ const Vies = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Documenti rilevati negli ZIP</CardTitle>
+            <CardTitle>{m.documentsMap.title}</CardTitle>
             <CardDescription>
-              File letti negli ZIP (anche dentro ZIP annidati) e tipologia riconosciuta dal contenuto.
+              {m.documentsMap.description}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {documents.length === 0 ? (
               <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-                Carica gli ZIP nominativi per visualizzare la mappa documentale.
+                {m.documentsMap.empty}
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-16">ZIP</TableHead>
-                      <TableHead className="min-w-48">Documento</TableHead>
-                      <TableHead>Riconosciuto come</TableHead>
-                      <TableHead className="whitespace-nowrap text-right">Dimensione</TableHead>
+                      <TableHead className="w-16">{m.step3.colZip}</TableHead>
+                      <TableHead className="min-w-48">{m.documentsMap.colDocument}</TableHead>
+                      <TableHead>{m.documentsMap.colRecognised}</TableHead>
+                      <TableHead className="whitespace-nowrap text-right">{m.documentsMap.colSize}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -3414,13 +3445,13 @@ const Vies = () => {
                         <TableCell>
                           {document.documentType ? (
                             <>
-                              <p>{documentRequirements.find((requirement) => requirement.id === document.documentType)?.label ?? document.documentType}</p>
+                              <p>{getDocumentTypeLabel(document.documentType)}</p>
                               <p className="text-xs text-muted-foreground">
-                                {document.recognisedBy === "agent" ? "letto dall'agent" : "dal testo del documento"}
+                                {document.recognisedBy === "agent" ? m.documentsMap.byAgent : m.documentsMap.byText}
                               </p>
                             </>
                           ) : (
-                            <span className="text-muted-foreground">{document.isNestedZip ? "ZIP annidato" : "Non riconosciuto"}</span>
+                            <span className="text-muted-foreground">{document.isNestedZip ? m.documentsMap.nestedZip : m.documentsMap.notRecognised}</span>
                           )}
                         </TableCell>
                         <TableCell className="whitespace-nowrap text-right">{formatBytes(document.size)}</TableCell>
@@ -3429,7 +3460,7 @@ const Vies = () => {
                   </TableBody>
                 </Table>
                 {documents.length > 20 && (
-                  <p className="mt-3 text-sm text-muted-foreground">Mostrati 20 documenti su {documents.length}.</p>
+                  <p className="mt-3 text-sm text-muted-foreground">{m.documentsMap.shown(20, documents.length)}</p>
                 )}
               </div>
             )}
