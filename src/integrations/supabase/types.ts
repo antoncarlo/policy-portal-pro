@@ -373,6 +373,51 @@ export type Database = {
           },
         ]
       }
+      vies_fiscal_representatives: {
+        Row: {
+          address: string | null
+          administrator_name: string | null
+          administrator_tax_code: string | null
+          created_at: string
+          id: string
+          name: string
+          pec: string | null
+          tax_code: string
+          updated_at: string
+          user_id: string
+          visura_reference: string | null
+          visura_storage_path: string | null
+        }
+        Insert: {
+          address?: string | null
+          administrator_name?: string | null
+          administrator_tax_code?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          pec?: string | null
+          tax_code: string
+          updated_at?: string
+          user_id?: string
+          visura_reference?: string | null
+          visura_storage_path?: string | null
+        }
+        Update: {
+          address?: string | null
+          administrator_name?: string | null
+          administrator_tax_code?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          pec?: string | null
+          tax_code?: string
+          updated_at?: string
+          user_id?: string
+          visura_reference?: string | null
+          visura_storage_path?: string | null
+        }
+        Relationships: []
+      }
       vies_batches: {
         Row: {
           blocked_jobs: number
@@ -402,6 +447,14 @@ export type Database = {
           updated_at: string
           user_id: string
           zip_storage_path: string | null
+          fiscal_representative_id: string | null
+          lot_number: number | null
+          paid_at: string | null
+          commission_percentage: number | null
+          withholding_percentage: number | null
+          commissions_received_at: string | null
+          statement_generated_at: string | null
+          target_portal: string | null
         }
         Insert: {
           blocked_jobs?: number
@@ -431,6 +484,14 @@ export type Database = {
           updated_at?: string
           user_id: string
           zip_storage_path?: string | null
+          fiscal_representative_id?: string | null
+          lot_number?: number | null
+          paid_at?: string | null
+          commission_percentage?: number | null
+          withholding_percentage?: number | null
+          commissions_received_at?: string | null
+          statement_generated_at?: string | null
+          target_portal?: string | null
         }
         Update: {
           blocked_jobs?: number
@@ -460,6 +521,14 @@ export type Database = {
           updated_at?: string
           user_id?: string
           zip_storage_path?: string | null
+          fiscal_representative_id?: string | null
+          lot_number?: number | null
+          paid_at?: string | null
+          commission_percentage?: number | null
+          withholding_percentage?: number | null
+          commissions_received_at?: string | null
+          statement_generated_at?: string | null
+          target_portal?: string | null
         }
         Relationships: []
       }

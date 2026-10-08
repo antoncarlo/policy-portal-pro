@@ -17,6 +17,8 @@ import { FinancialStats } from "@/components/administration/FinancialStats";
 import { FinancialPracticesTable } from "@/components/administration/FinancialPracticesTable";
 import { EditFinancialDialog } from "@/components/administration/EditFinancialDialog";
 import { UserFilter } from "@/components/administration/UserFilter";
+import { ViesAdministration } from "@/components/administration/ViesAdministration";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as XLSX from "xlsx";
 
 interface FinancialSummary {
@@ -275,6 +277,17 @@ const Administration = () => {
           </div>
         </div>
 
+        <Tabs defaultValue="contabilita" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="contabilita">Contabilità</TabsTrigger>
+            <TabsTrigger value="vies">VIES</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="vies">
+            <ViesAdministration />
+          </TabsContent>
+
+          <TabsContent value="contabilita" className="space-y-6">
         {summary && <FinancialStats stats={summary} />}
 
         <div className="bg-white dark:bg-gray-800 rounded-lg border p-6 space-y-4">
@@ -327,6 +340,9 @@ const Administration = () => {
             showUserColumn={showUserColumn}
           />
         )}
+
+          </TabsContent>
+        </Tabs>
 
         <EditFinancialDialog
           open={editDialogOpen}

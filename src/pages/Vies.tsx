@@ -2175,10 +2175,54 @@ const Vies = () => {
         ? ` Archiviazione ZIP originale non completata per ${zipStorageFailures.length} file: ${zipStorageFailures.join("; ")}. Il batch non potrà proseguire finché gli ZIP non saranno caricati correttamente.`
         : "";
 
+      // Fiscal representative of the sheet, registered (or updated) in the VIES
+      // registry; the batch becomes its next "Excel Lotto N".
+      const representativeSource = batchRecords[0];
+      const representativeTaxCode = normalizeTaxCode(representativeSource.codiceFiscaleRappresentante);
+      if (!representativeTaxCode || !representativeSource.rappresentanteFiscale) {
+        throw new Error("Rappresentante fiscale senza denominazione o codice fiscale: il lotto non può essere registrato.");
+      }
+      // Empty fields never erase what the registry already holds for the representative.
+      const administratorTaxCode = normalizeTaxCode(representativeSource.codiceFiscaleAmministratore);
+      const { data: representative, error: representativeError } = await supabase
+        .from("vies_fiscal_representatives")
+        .upsert(
+          {
+            user_id: userId,
+            tax_code: representativeTaxCode,
+            name: representativeSource.rappresentanteFiscale,
+            ...(representativeSource.amministratoreRappresentante ? { administrator_name: representativeSource.amministratoreRappresentante } : {}),
+            ...(administratorTaxCode ? { administrator_tax_code: administratorTaxCode } : {}),
+            ...(representativeSource.indirizzoRappresentanteFiscale ? { address: representativeSource.indirizzoRappresentanteFiscale } : {}),
+            ...(representativeSource.pecRappresentante ? { pec: representativeSource.pecRappresentante } : {}),
+            ...(visuraStoragePath
+              ? { visura_reference: describeVisura(visuraData), visura_storage_path: `${VIES_STORAGE_BUCKET}://${visuraStoragePath}` }
+              : {}),
+          },
+          { onConflict: "user_id,tax_code" },
+        )
+        .select("id")
+        .single();
+      if (representativeError || !representative) {
+        throw new Error(`Registrazione del rappresentante fiscale non riuscita: ${representativeError?.message ?? "nessun dato"}`);
+      }
+      const { data: lastLot, error: lastLotError } = await supabase
+        .from("vies_batches")
+        .select("lot_number")
+        .eq("fiscal_representative_id", representative.id)
+        .not("lot_number", "is", null)
+        .order("lot_number", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (lastLotError) throw new Error(`Numerazione del lotto non riuscita: ${lastLotError.message}`);
+      const lotNumber = (lastLot?.lot_number ?? 0) + 1;
+
       const { error: batchError } = await supabase.from("vies_batches").insert({
         id: batchId,
         user_id: userId,
-        name: batchName,
+        name: `Excel Lotto ${lotNumber} · ${batchName}`,
+        fiscal_representative_id: representative.id,
+        lot_number: lotNumber,
         source_excel_file_name: excelFile.name,
         source_zip_file_name: `${batchZipFiles.length} ZIP nominativi (${archivedZipCount} archiviati)`,
         excel_storage_path: excelStoragePath,
@@ -2448,8 +2492,8 @@ const Vies = () => {
       setDuplicateCheckRun((run) => run + 1);
       await refreshBatchMonitor(batchId);
       toast({
-        title: "Pratiche VIES create",
-        description: `${createdPractices.length} pratiche create con ZIP e documento di polizza in ${formatDurationSeconds(batchStartedAt)}.${
+        title: `Excel Lotto ${lotNumber} creato`,
+        description: `${representativeSource.rappresentanteFiscale}: ${createdPractices.length} pratiche create con ZIP e documento di polizza in ${formatDurationSeconds(batchStartedAt)}. Il lotto è in Amministrazione › VIES.${
           excludedBatchRows.length
             ? ` ${excludedBatchRows.length} righe escluse perché incomplete o errate: nessuna pratica creata per loro.`
             : ""
