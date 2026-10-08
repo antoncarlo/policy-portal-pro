@@ -462,17 +462,22 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
                           <Pencil className="mr-2 h-4 w-4" />
                           {m.edit}
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={() => {
-                            setPracticeToDelete(practice);
-                            setDeleteDialogOpen(true);
-                          }}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          {m.delete}
-                        </DropdownMenuItem>
+                        {/* Deleting changes lots, statements and accounting: administrators only. */}
+                        {canChangeStatus && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => {
+                                setPracticeToDelete(practice);
+                                setDeleteDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              {m.delete}
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>

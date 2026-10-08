@@ -293,7 +293,7 @@ const PracticeDetail = () => {
           />
         )}
 
-        <PracticeDocuments practiceId={practice.id} refreshToken={documentsRefreshToken} />
+        <PracticeDocuments practiceId={practice.id} refreshToken={documentsRefreshToken} canDelete={userRole === "admin"} />
       </div>
     </DashboardLayout>
   );

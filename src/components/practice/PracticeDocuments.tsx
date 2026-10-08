@@ -20,6 +20,8 @@ interface PracticeDocumentsProps {
   practiceId: string;
   /** Cambiando questo valore l'elenco viene ricaricato (es. dopo la generazione del preventivo Pet). */
   refreshToken?: number;
+  /** Removing a document changes the practice's record: administrators only. */
+  canDelete?: boolean;
 }
 
 const buildDocumentStoragePath = (practiceId: string, file: File, index: number) => {
@@ -64,7 +66,7 @@ const getDocumentStorageReference = (filePath: string) => {
   };
 };
 
-export const PracticeDocuments = ({ practiceId, refreshToken = 0 }: PracticeDocumentsProps) => {
+export const PracticeDocuments = ({ practiceId, refreshToken = 0, canDelete = false }: PracticeDocumentsProps) => {
   const { toast } = useToast();
   const m = useMessages(practiceDetailMessages).documents;
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -292,13 +294,15 @@ export const PracticeDocuments = ({ practiceId, refreshToken = 0 }: PracticeDocu
                 >
                   <Download className="h-4 w-4" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDelete(doc)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                {canDelete && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(doc)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </div>
           ))}
