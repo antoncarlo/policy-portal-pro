@@ -1,3 +1,6 @@
+import { useLanguage, useMessages } from "@/i18n";
+import { roleLabel } from "@/i18n/messages/domain";
+import { usersMessages } from "@/i18n/messages/users";
 import { useState } from "react";
 import {
   Table,
@@ -53,11 +56,13 @@ export const UserTable = ({
   onDisableUser,
   onDeleteUser,
 }: UserTableProps) => {
+  const m = useMessages(usersMessages).table;
+  const language = useLanguage();
   const getRoleBadge = (role: string) => {
     const badges = {
-      admin: { label: "Admin", className: "bg-red-100 text-red-800 border-red-300" },
-      agente: { label: "Agente", className: "bg-blue-100 text-blue-800 border-blue-300" },
-      collaboratore: { label: "Collaboratore", className: "bg-green-100 text-green-800 border-green-300" },
+      admin: { label: roleLabel("admin", language), className: "bg-red-100 text-red-800 border-red-300" },
+      agente: { label: roleLabel("agente", language), className: "bg-blue-100 text-blue-800 border-blue-300" },
+      collaboratore: { label: roleLabel("collaboratore", language), className: "bg-green-100 text-green-800 border-green-300" },
     };
     const badge = badges[role as keyof typeof badges] || badges.collaboratore;
     return <Badge className={badge.className}>{badge.label}</Badge>;
@@ -78,12 +83,12 @@ export const UserTable = ({
       <Table className="min-w-[980px]">
         <TableHeader>
           <TableRow>
-            <TableHead>Utente</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Ruolo</TableHead>
-            <TableHead>Agente</TableHead>
-            <TableHead>Provvigione</TableHead>
-            <TableHead className="text-right">Pratiche</TableHead>
+            <TableHead>{m.user}</TableHead>
+            <TableHead>{m.email}</TableHead>
+            <TableHead>{m.role}</TableHead>
+            <TableHead>{m.agent}</TableHead>
+            <TableHead>{m.commission}</TableHead>
+            <TableHead className="text-right">{m.practices}</TableHead>
             <TableHead className="w-[50px]"></TableHead>
           </TableRow>
         </TableHeader>
@@ -91,7 +96,7 @@ export const UserTable = ({
           {users.length === 0 ? (
             <TableRow>
               <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                Nessun utente trovato
+                {m.empty}
               </TableCell>
             </TableRow>
           ) : (
@@ -121,10 +126,10 @@ export const UserTable = ({
                 <TableCell>
                   {user.role === "agente" || user.role === "collaboratore" ? (
                     <div className="space-y-1">
-                      <Badge variant="secondary">Base {Number(user.default_commission_percentage || 0).toFixed(2)}%</Badge>
+                      <Badge variant="secondary">{m.base(Number(user.default_commission_percentage || 0).toFixed(2))}</Badge>
                       {Array.isArray(user.commission_bonus_tiers) && user.commission_bonus_tiers.length > 0 && (
                         <div className="text-xs text-muted-foreground">
-                          {user.commission_bonus_tiers.length} scaglione/i premio
+                          {m.tiers(user.commission_bonus_tiers.length)}
                         </div>
                       )}
                     </div>
@@ -145,29 +150,29 @@ export const UserTable = ({
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => onEditRole(user)}>
                         <Edit className="h-4 w-4 mr-2" />
-                        Modifica Ruolo
+                        {m.editRole}
                       </DropdownMenuItem>
                       {(user.role === "agente" || user.role === "collaboratore") && (
                         <>
                           <DropdownMenuItem onClick={() => onEditProducts(user)}>
                             <Package className="h-4 w-4 mr-2" />
-                            Gestisci Prodotti
+                            {m.editProducts}
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => onEditCommission(user)}>
                             <Percent className="h-4 w-4 mr-2" />
-                            Gestisci Provvigioni
+                            {m.editCommission}
                           </DropdownMenuItem>
                         </>
                       )}
                       {user.role === "collaboratore" && (
                         <DropdownMenuItem onClick={() => onAssignAgent(user)}>
                           <Link2 className="h-4 w-4 mr-2" />
-                          Assegna Agente
+                          {m.assignAgent}
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuItem onClick={() => onViewPractices(user)}>
                         <BarChart3 className="h-4 w-4 mr-2" />
-                        Vedi Pratiche
+                        {m.viewPractices}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
@@ -175,14 +180,14 @@ export const UserTable = ({
                         className="text-orange-600"
                       >
                         <Ban className="h-4 w-4 mr-2" />
-                        Disattiva Utente
+                        {m.disable}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => onDeleteUser(user)}
                         className="text-red-600"
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
-                        Elimina Utente
+                        {m.delete}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

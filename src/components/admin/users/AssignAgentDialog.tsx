@@ -1,3 +1,6 @@
+import { getMessages, useMessages } from "@/i18n";
+import { commonMessages } from "@/i18n/messages/common";
+import { usersMessages } from "@/i18n/messages/users";
 import { useCallback, useState, useEffect } from "react";
 import {
   Dialog,
@@ -57,6 +60,8 @@ export const AssignAgentDialog = ({
   const [agents, setAgents] = useState<Agent[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const m = useMessages(usersMessages).assignAgent;
+  const common = useMessages(commonMessages);
 
   const loadAgents = useCallback(async () => {
     try {
@@ -96,8 +101,8 @@ export const AssignAgentDialog = ({
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
-        description: "Impossibile caricare gli agenti",
+        title: getMessages(commonMessages).error,
+        description: getMessages(usersMessages).assignAgent.loadError,
       });
     }
   }, [toast]);
@@ -121,8 +126,8 @@ export const AssignAgentDialog = ({
       if (error) throw error;
 
       toast({
-        title: "Successo",
-        description: "Agente assegnato con successo",
+        title: getMessages(commonMessages).success,
+        description: getMessages(usersMessages).assignAgent.assigned,
       });
 
       onSuccess();
@@ -130,8 +135,8 @@ export const AssignAgentDialog = ({
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
-        description: error instanceof Error ? error.message : "Impossibile assegnare l'agente",
+        title: getMessages(commonMessages).error,
+        description: error instanceof Error ? error.message : getMessages(usersMessages).assignAgent.assignError,
       });
     } finally {
       setLoading(false);
@@ -159,9 +164,9 @@ export const AssignAgentDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Assegna Agente</DialogTitle>
+          <DialogTitle>{m.title}</DialogTitle>
           <DialogDescription>
-            Collaboratore: {user.full_name} ({user.email})
+            {m.collaborator(user.full_name, user.email)}
           </DialogDescription>
         </DialogHeader>
 
@@ -169,17 +174,17 @@ export const AssignAgentDialog = ({
           {user.agent_name && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
               <p className="text-sm text-blue-800">
-                <strong>Agente attuale:</strong> {user.agent_name}
+                <strong>{m.current}</strong> {user.agent_name}
               </p>
             </div>
           )}
 
           <div className="space-y-2">
-            <Label>Cerca Agente</Label>
+            <Label>{m.search}</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Cerca per nome o email..."
+                placeholder={m.searchPlaceholder}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -188,12 +193,12 @@ export const AssignAgentDialog = ({
           </div>
 
           <div className="space-y-2">
-            <Label>Seleziona Agente</Label>
+            <Label>{m.select}</Label>
             <div className="border rounded-lg max-h-[300px] overflow-y-auto">
               {filteredAgents.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
                   <Briefcase className="h-12 w-12 mx-auto mb-2 text-gray-400" />
-                  <p>Nessun agente trovato</p>
+                  <p>{m.empty}</p>
                 </div>
               ) : (
                 <RadioGroup value={selectedAgentId || ""} onValueChange={setSelectedAgentId}>
@@ -228,11 +233,11 @@ export const AssignAgentDialog = ({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
-            Annulla
+            {common.cancel}
           </Button>
           <Button onClick={handleSave} disabled={loading || !selectedAgentId}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Assegna Agente
+            {m.submit}
           </Button>
         </DialogFooter>
       </DialogContent>

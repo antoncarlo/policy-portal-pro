@@ -1,3 +1,6 @@
+import { useLanguage, useMessages } from "@/i18n";
+import { roleLabel } from "@/i18n/messages/domain";
+import { usersMessages } from "@/i18n/messages/users";
 import { Tree, TreeNode } from "react-organizational-chart";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -24,6 +27,8 @@ interface UserNodeProps {
 }
 
 const UserNode = ({ user }: UserNodeProps) => {
+  const m = useMessages(usersMessages).org;
+  const language = useLanguage();
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -37,21 +42,21 @@ const UserNode = ({ user }: UserNodeProps) => {
     const configs = {
       admin: {
         icon: Shield,
-        label: "Admin",
+        label: roleLabel("admin", language),
         color: "text-red-600",
         bgColor: "bg-red-100",
         borderColor: "border-red-300",
       },
       agente: {
         icon: Briefcase,
-        label: "Agente",
+        label: roleLabel("agente", language),
         color: "text-blue-600",
         bgColor: "bg-blue-100",
         borderColor: "border-blue-300",
       },
       collaboratore: {
         icon: UserCheck,
-        label: "Collaboratore",
+        label: roleLabel("collaboratore", language),
         color: "text-green-600",
         bgColor: "bg-green-100",
         borderColor: "border-green-300",
@@ -93,7 +98,7 @@ const UserNode = ({ user }: UserNodeProps) => {
             </div>
           )}
           <div className="flex items-center justify-between pt-2 border-t">
-            <span className="text-xs text-gray-500">Pratiche</span>
+            <span className="text-xs text-gray-500">{m.practices}</span>
             <Badge variant="outline" className="text-xs">
               {user.practice_count}
             </Badge>
@@ -105,6 +110,7 @@ const UserNode = ({ user }: UserNodeProps) => {
 };
 
 export const OrganizationalChart = ({ users }: OrganizationalChartProps) => {
+  const m = useMessages(usersMessages).org;
   // Organize users by hierarchy
   const admins = users.filter((u) => u.role === "admin");
   const agents = users.filter((u) => u.role === "agente");
@@ -123,7 +129,7 @@ export const OrganizationalChart = ({ users }: OrganizationalChartProps) => {
       <div className="flex items-center justify-center h-64 text-gray-500">
         <div className="text-center">
           <Shield className="h-12 w-12 mx-auto mb-2 text-gray-400" />
-          <p>Nessun utente da visualizzare</p>
+          <p>{m.empty}</p>
         </div>
       </div>
     );
@@ -139,7 +145,7 @@ export const OrganizationalChart = ({ users }: OrganizationalChartProps) => {
           label={
             <div className="mb-8">
               <div className="text-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-700">Amministratori</h3>
+                <h3 className="text-lg font-semibold text-gray-700">{m.admins}</h3>
               </div>
               <div className="flex gap-4 justify-center flex-wrap">
                 {admins.map((admin) => (
@@ -153,7 +159,7 @@ export const OrganizationalChart = ({ users }: OrganizationalChartProps) => {
             <TreeNode
               label={
                 <div className="text-center mb-4">
-                  <h3 className="text-lg font-semibold text-gray-700">Agenti</h3>
+                  <h3 className="text-lg font-semibold text-gray-700">{m.agents}</h3>
                 </div>
               }
             >
@@ -163,7 +169,7 @@ export const OrganizationalChart = ({ users }: OrganizationalChartProps) => {
                     <TreeNode
                       label={
                         <div className="text-center mb-2">
-                          <h4 className="text-sm font-medium text-gray-600">Collaboratori</h4>
+                          <h4 className="text-sm font-medium text-gray-600">{m.collaborators}</h4>
                         </div>
                       }
                     >
@@ -182,7 +188,7 @@ export const OrganizationalChart = ({ users }: OrganizationalChartProps) => {
               label={
                 <div className="text-center mb-4">
                   <h3 className="text-lg font-semibold text-gray-700">
-                    Collaboratori Non Assegnati
+                    {m.unassigned}
                   </h3>
                 </div>
               }

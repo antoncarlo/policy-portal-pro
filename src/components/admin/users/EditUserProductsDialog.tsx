@@ -1,3 +1,7 @@
+import { getMessages, useLanguage, useMessages } from "@/i18n";
+import { commonMessages } from "@/i18n/messages/common";
+import { practiceTypeLabel } from "@/i18n/messages/domain";
+import { ASSIGNABLE_PRODUCTS, usersMessages } from "@/i18n/messages/users";
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -34,6 +38,9 @@ export const EditUserProductsDialog = ({
   const [loading, setLoading] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [initialProducts, setInitialProducts] = useState<string[]>([]);
+  const m = useMessages(usersMessages).products;
+  const common = useMessages(commonMessages);
+  const language = useLanguage();
 
   useEffect(() => {
     if (open && userId) {
@@ -58,8 +65,8 @@ export const EditUserProductsDialog = ({
       console.error("Error loading user products:", error);
       toast({
         variant: "destructive",
-        title: "Errore",
-        description: "Impossibile caricare i prodotti dell'utente",
+        title: getMessages(commonMessages).error,
+        description: getMessages(usersMessages).products.loadError,
       });
     }
   };
@@ -71,8 +78,8 @@ export const EditUserProductsDialog = ({
     if ((userRole === "agente" || userRole === "collaboratore") && selectedProducts.length === 0) {
       toast({
         variant: "destructive",
-        title: "Selezione prodotti richiesta",
-        description: "Seleziona almeno un prodotto per questo ruolo.",
+        title: getMessages(usersMessages).products.requiredTitle,
+        description: getMessages(usersMessages).products.requiredText,
       });
       return;
     }
@@ -80,7 +87,7 @@ export const EditUserProductsDialog = ({
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Non autenticato");
+      if (!user) throw new Error(getMessages(commonMessages).notAuthenticated);
 
       // Delete existing permissions
       const { error: deleteError } = await supabase
@@ -106,8 +113,8 @@ export const EditUserProductsDialog = ({
       }
 
       toast({
-        title: "Successo",
-        description: `Permessi prodotto aggiornati per ${userName}`,
+        title: getMessages(commonMessages).success,
+        description: getMessages(usersMessages).products.updated(userName),
       });
 
       onSuccess();
@@ -115,7 +122,7 @@ export const EditUserProductsDialog = ({
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     } finally {
@@ -123,29 +130,15 @@ export const EditUserProductsDialog = ({
     }
   };
 
-  const productList = [
-    { value: "pet", label: "Pet" },
-    { value: "car", label: "Car" },
-    { value: "casa", label: "Casa" },
-    { value: "salute", label: "Salute" },
-    { value: "fidejussioni", label: "Fidejussioni" },
-    { value: "postuma_decennale", label: "Postuma Decennale" },
-    { value: "all_risk", label: "All Risk" },
-    { value: "responsabilita_civile", label: "RC" },
-    { value: "fotovoltaico", label: "Fotovoltaico" },
-    { value: "catastrofali", label: "Catastrofali" },
-    { value: "azienda", label: "Azienda" },
-    { value: "risparmio", label: "Risparmio" },
-    { value: "vies", label: "VIES" },
-  ];
+  const productList = ASSIGNABLE_PRODUCTS.map((value) => ({ value }));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Modifica Permessi Prodotto</DialogTitle>
+          <DialogTitle>{m.title}</DialogTitle>
           <DialogDescription>
-            Gestisci i prodotti assegnati a {userName}
+            {m.description(userName)}
           </DialogDescription>
         </DialogHeader>
 
@@ -153,12 +146,12 @@ export const EditUserProductsDialog = ({
           <div className="space-y-2">
             <Label>
               <Package className="h-4 w-4 inline mr-2" />
-              Prodotti Consentiti
+              {m.allowed}
             </Label>
             <div className="text-sm text-muted-foreground mb-2">
-              Seleziona quali tipologie di polizze l'utente può gestire
+              {m.hint}
               {selectedProducts.length > 0 && (
-                <span className="ml-2 font-semibold text-primary">({selectedProducts.length} selezionati)</span>
+                <span className="ml-2 font-semibold text-primary">{m.selectedCount(selectedProducts.length)}</span>
               )}
             </div>
             <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto border rounded-md p-3">
@@ -177,7 +170,7 @@ export const EditUserProductsDialog = ({
                     }}
                     className="rounded border-gray-300"
                   />
-                  <span className="text-sm">{product.label}</span>
+                  <span className="text-sm">{practiceTypeLabel(product.value, language)}</span>
                 </label>
               ))}
             </div>
@@ -186,11 +179,11 @@ export const EditUserProductsDialog = ({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
-            Annulla
+            {common.cancel}
           </Button>
           <Button onClick={handleSubmit} disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Salva Modifiche
+            {m.save}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,3 +1,7 @@
+import { getMessages, useLanguage, useLocale, useMessages } from "@/i18n";
+import { commonMessages } from "@/i18n/messages/common";
+import { practiceTypeLabel, roleLabel } from "@/i18n/messages/domain";
+import { ASSIGNABLE_PRODUCTS, usersMessages } from "@/i18n/messages/users";
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card } from "@/components/ui/card";
@@ -71,6 +75,9 @@ const AdminUsers = () => {
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [selectedRole, setSelectedRole] = useState<UserRole | "">("");
   const [commissionBonusTiers, setCommissionBonusTiers] = useState<CommissionBonusTier[]>([]);
+  const m = useMessages(usersMessages);
+  const language = useLanguage();
+  const locale = useLocale();
 
   useEffect(() => {
     checkAdminAccess();
@@ -95,8 +102,8 @@ const AdminUsers = () => {
     if (!roleData) {
       toast({
         variant: "destructive",
-        title: "Accesso negato",
-        description: "Solo gli amministratori possono accedere a questa pagina.",
+        title: getMessages(usersMessages).accessDeniedTitle,
+        description: getMessages(usersMessages).accessDeniedText,
       });
       navigate("/dashboard");
       return;
@@ -142,8 +149,8 @@ const AdminUsers = () => {
     if ((selectedRole === "agente" || selectedRole === "collaboratore") && selectedProducts.length === 0) {
       toast({
         variant: "destructive",
-        title: "Selezione prodotti richiesta",
-        description: "Seleziona almeno un prodotto per questo ruolo.",
+        title: getMessages(usersMessages).products.requiredTitle,
+        description: getMessages(usersMessages).products.requiredText,
       });
       return;
     }
@@ -171,7 +178,7 @@ const AdminUsers = () => {
     if (authError) {
       toast({
         variant: "destructive",
-        title: "Errore creazione utente",
+        title: getMessages(usersMessages).create.userErrorTitle,
         description: authError.message,
       });
       return;
@@ -201,7 +208,7 @@ const AdminUsers = () => {
       if (roleError) {
         toast({
           variant: "destructive",
-          title: "Errore assegnazione ruolo",
+          title: getMessages(usersMessages).create.roleErrorTitle,
           description: roleError.message,
         });
         return;
@@ -223,7 +230,7 @@ const AdminUsers = () => {
           if (permError) {
             toast({
               variant: "destructive",
-              title: "Errore assegnazione prodotti",
+              title: getMessages(usersMessages).create.productsErrorTitle,
               description: permError.message,
             });
             return;
@@ -232,8 +239,8 @@ const AdminUsers = () => {
       }
 
       toast({
-        title: "Utente creato!",
-        description: `${fullName} è stato creato con ruolo ${role}${selectedProducts.length > 0 ? ` con ${selectedProducts.length} prodotti assegnati` : ''}.`,
+        title: getMessages(usersMessages).create.createdTitle,
+        description: getMessages(usersMessages).create.createdText(fullName, roleLabel(role), selectedProducts.length),
       });
 
       setDialogOpen(false);
@@ -263,9 +270,9 @@ const AdminUsers = () => {
 
   const getRoleBadge = (role: UserRole) => {
     const variants: Record<UserRole, { label: string; className: string }> = {
-      admin: { label: "ADMIN", className: "bg-destructive text-destructive-foreground" },
-      agente: { label: "AGENTE", className: "bg-primary text-primary-foreground" },
-      collaboratore: { label: "COLLABORATORE", className: "bg-secondary text-secondary-foreground" },
+      admin: { label: roleLabel("admin", language).toUpperCase(), className: "bg-destructive text-destructive-foreground" },
+      agente: { label: roleLabel("agente", language).toUpperCase(), className: "bg-primary text-primary-foreground" },
+      collaboratore: { label: roleLabel("collaboratore", language).toUpperCase(), className: "bg-secondary text-secondary-foreground" },
     };
 
     return (
@@ -284,9 +291,9 @@ const AdminUsers = () => {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
-            <h1 className="text-3xl font-bold text-foreground">Gestione Utenti</h1>
+            <h1 className="text-3xl font-bold text-foreground">{m.title}</h1>
             <p className="text-muted-foreground mt-1">
-              Gestisci tutti gli utenti della piattaforma
+              {m.subtitleAll}
             </p>
           </div>
 
@@ -294,41 +301,41 @@ const AdminUsers = () => {
             <DialogTrigger asChild>
               <Button className="h-auto min-h-10 w-full whitespace-normal text-center md:w-auto">
                 <UserPlus className="mr-2 h-4 w-4 shrink-0" />
-                <span>Crea Nuovo Utente</span>
+                <span>{m.create.createButton}</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-hidden sm:max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Crea Nuovo Utente</DialogTitle>
+                <DialogTitle>{m.create.createTitle}</DialogTitle>
                 <DialogDescription>
-                  Inserisci i dettagli del nuovo utente e assegna un ruolo
+                  {m.create.createText}
                 </DialogDescription>
               </DialogHeader>
 
               <form onSubmit={handleCreateUser} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="full_name">Nome Completo</Label>
+                  <Label htmlFor="full_name">{m.create.fullName}</Label>
                   <Input
                     id="full_name"
                     name="full_name"
-                    placeholder="Mario Rossi"
+                    placeholder={m.create.fullNamePlaceholder}
                     required
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">{m.create.email}</Label>
                   <Input
                     id="email"
                     name="email"
                     type="email"
-                    placeholder="mario.rossi@example.com"
+                    placeholder={m.create.emailPlaceholder}
                     required
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password Temporanea</Label>
+                  <Label htmlFor="password">{m.create.password}</Label>
                   <Input
                     id="password"
                     name="password"
@@ -340,28 +347,28 @@ const AdminUsers = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="role">Ruolo</Label>
+                  <Label htmlFor="role">{m.create.role}</Label>
                   <Select name="role" required onValueChange={(value) => setSelectedRole(value as UserRole)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Seleziona ruolo" />
+                      <SelectValue placeholder={m.create.selectRole} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="admin">
                         <div className="flex items-center gap-2">
                           <Shield className="h-4 w-4" />
-                          ADMIN
+                          {roleLabel("admin", language).toUpperCase()}
                         </div>
                       </SelectItem>
                       <SelectItem value="agente">
                         <div className="flex items-center gap-2">
                           <UsersIcon className="h-4 w-4" />
-                          AGENTE
+                          {roleLabel("agente", language).toUpperCase()}
                         </div>
                       </SelectItem>
                       <SelectItem value="collaboratore">
                         <div className="flex items-center gap-2">
                           <UsersIcon className="h-4 w-4" />
-                          COLLABORATORE
+                          {roleLabel("collaboratore", language).toUpperCase()}
                         </div>
                       </SelectItem>
                     </SelectContent>
@@ -372,45 +379,31 @@ const AdminUsers = () => {
                   <div className="space-y-2">
                     <Label>
                       <Package className="h-4 w-4 inline mr-2" />
-                      Prodotti Consentiti
+                      {m.products.allowed}
                     </Label>
                     <div className="text-sm text-muted-foreground mb-2">
-                      Seleziona quali tipologie di polizze l'utente può gestire
+                      {m.products.hint}
                       {selectedProducts.length > 0 && (
-                        <span className="ml-2 font-semibold text-primary">({selectedProducts.length} selezionati)</span>
+                        <span className="ml-2 font-semibold text-primary">{m.products.selectedCount(selectedProducts.length)}</span>
                       )}
                     </div>
                     <div className="grid max-h-60 grid-cols-1 gap-2 overflow-y-auto rounded-md border p-3 sm:grid-cols-2">
-                      {[
-                        { value: "pet", label: "Pet" },
-                        { value: "car", label: "Car" },
-                        { value: "casa", label: "Casa" },
-                        { value: "salute", label: "Salute" },
-                        { value: "fidejussioni", label: "Fidejussioni" },
-                        { value: "postuma_decennale", label: "Postuma Decennale" },
-                        { value: "all_risk", label: "All Risk" },
-                        { value: "responsabilita_civile", label: "RC" },
-                        { value: "fotovoltaico", label: "Fotovoltaico" },
-                        { value: "catastrofali", label: "Catastrofali" },
-                        { value: "azienda", label: "Azienda" },
-                        { value: "risparmio", label: "Risparmio" },
-                        { value: "vies", label: "VIES" },
-                      ].map((product) => (
-                        <label key={product.value} className="flex items-center space-x-2 cursor-pointer">
+                      {ASSIGNABLE_PRODUCTS.map((product) => (
+                        <label key={product} className="flex items-center space-x-2 cursor-pointer">
                           <input
                             type="checkbox"
-                            value={product.value}
-                            checked={selectedProducts.includes(product.value)}
+                            value={product}
+                            checked={selectedProducts.includes(product)}
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setSelectedProducts([...selectedProducts, product.value]);
+                                setSelectedProducts([...selectedProducts, product]);
                               } else {
-                                setSelectedProducts(selectedProducts.filter(p => p !== product.value));
+                                setSelectedProducts(selectedProducts.filter(p => p !== product));
                               }
                             }}
                             className="rounded border-gray-300"
                           />
-                          <span className="text-sm">{product.label}</span>
+                          <span className="text-sm">{practiceTypeLabel(product, language)}</span>
                         </label>
                       ))}
                     </div>
@@ -422,7 +415,7 @@ const AdminUsers = () => {
                     <div className="space-y-2">
                       <Label htmlFor="default_commission_percentage">
                         <Percent className="h-4 w-4 inline mr-2" />
-                        Provvigione Base (%)
+                        {m.commission.base}
                       </Label>
                       <Input
                         id="default_commission_percentage"
@@ -435,17 +428,17 @@ const AdminUsers = () => {
                       />
                     </div>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <Label>Premi produzione</Label>
+                      <Label>{m.commission.bonuses}</Label>
                       <Button type="button" variant="outline" size="sm" onClick={addCommissionTier} className="h-auto min-h-9 w-full whitespace-normal sm:w-auto">
                         <Plus className="mr-2 h-4 w-4 shrink-0" />
-                        <span>Scaglione</span>
+                        <span>{m.commission.tier}</span>
                       </Button>
                     </div>
                     {commissionBonusTiers.map((tier, index) => (
                       <div key={index} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end rounded-md bg-muted/40 p-3">
-                        <Input type="number" step="0.01" min="0" placeholder="Soglia €" value={tier.threshold || ""} onChange={(e) => updateCommissionTier(index, "threshold", e.target.value)} />
-                        <Input type="number" step="0.01" min="0" max="100" placeholder="Bonus %" value={tier.bonus_percentage || ""} onChange={(e) => updateCommissionTier(index, "bonus_percentage", e.target.value)} />
-                        <Input placeholder="Etichetta" value={tier.label || ""} onChange={(e) => updateCommissionTier(index, "label", e.target.value)} />
+                        <Input type="number" step="0.01" min="0" placeholder={m.commission.thresholdPlaceholder} value={tier.threshold || ""} onChange={(e) => updateCommissionTier(index, "threshold", e.target.value)} />
+                        <Input type="number" step="0.01" min="0" max="100" placeholder={m.commission.bonusPlaceholder} value={tier.bonus_percentage || ""} onChange={(e) => updateCommissionTier(index, "bonus_percentage", e.target.value)} />
+                        <Input placeholder={m.commission.label} value={tier.label || ""} onChange={(e) => updateCommissionTier(index, "label", e.target.value)} />
                         <Button type="button" variant="ghost" size="icon" onClick={() => removeCommissionTier(index)}>
                           <Trash2 className="h-4 w-4 text-red-600" />
                         </Button>
@@ -455,7 +448,7 @@ const AdminUsers = () => {
                 )}
 
                 <Button type="submit" className="w-full">
-                  Crea Utente
+                  {m.create.submit}
                 </Button>
               </form>
             </DialogContent>
@@ -467,24 +460,24 @@ const AdminUsers = () => {
           <Table className="min-w-[760px]">
             <TableHeader>
               <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Ruolo</TableHead>
-                <TableHead>Provvigione</TableHead>
-                <TableHead>Data Creazione</TableHead>
+                <TableHead>{m.create.fullName}</TableHead>
+                <TableHead>{m.table.email}</TableHead>
+                <TableHead>{m.table.role}</TableHead>
+                <TableHead>{m.table.commission}</TableHead>
+                <TableHead>{m.table.createdAt}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center">
-                    Caricamento...
+                    {getMessages(commonMessages).loading}
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-muted-foreground">
-                    Nessun utente trovato
+                    {m.table.empty}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -496,15 +489,15 @@ const AdminUsers = () => {
                     <TableCell>
                       {user.role === "agente" || user.role === "collaboratore" ? (
                         <div className="space-y-1">
-                          <Badge variant="secondary">Base {Number(user.default_commission_percentage || 0).toFixed(2)}%</Badge>
+                          <Badge variant="secondary">{m.table.base(Number(user.default_commission_percentage || 0).toFixed(2))}</Badge>
                           {Array.isArray(user.commission_bonus_tiers) && user.commission_bonus_tiers.length > 0 && (
-                            <div className="text-xs text-muted-foreground">{user.commission_bonus_tiers.length} scaglione/i</div>
+                            <div className="text-xs text-muted-foreground">{m.table.tiersShort(user.commission_bonus_tiers.length)}</div>
                           )}
                         </div>
                       ) : "-"}
                     </TableCell>
                     <TableCell>
-                      {new Date(user.created_at).toLocaleDateString("it-IT")}
+                      {new Date(user.created_at).toLocaleDateString(locale)}
                     </TableCell>
                   </TableRow>
                 ))

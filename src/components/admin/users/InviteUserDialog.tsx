@@ -1,3 +1,7 @@
+import { getMessages, useLanguage, useMessages } from "@/i18n";
+import { commonMessages } from "@/i18n/messages/common";
+import { practiceTypeLabel, roleLabel } from "@/i18n/messages/domain";
+import { ASSIGNABLE_PRODUCTS, usersMessages } from "@/i18n/messages/users";
 import { useState } from "react";
 import {
   Dialog,
@@ -52,6 +56,9 @@ export const InviteUserDialog = ({
   const [loading, setLoading] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [commissionBonusTiers, setCommissionBonusTiers] = useState<CommissionBonusTier[]>([]);
+  const m = useMessages(usersMessages);
+  const common = useMessages(commonMessages);
+  const language = useLanguage();
   const [formData, setFormData] = useState({
     email: "",
     full_name: "",
@@ -101,8 +108,8 @@ export const InviteUserDialog = ({
     if (!formData.email || !formData.full_name || !formData.password) {
       toast({
         variant: "destructive",
-        title: "Errore",
-        description: "Compila tutti i campi obbligatori",
+        title: getMessages(commonMessages).error,
+        description: getMessages(usersMessages).create.requiredFields,
       });
       return;
     }
@@ -111,8 +118,8 @@ export const InviteUserDialog = ({
     if ((formData.role === "agente" || formData.role === "collaboratore") && selectedProducts.length === 0) {
       toast({
         variant: "destructive",
-        title: "Selezione prodotti richiesta",
-        description: "Seleziona almeno un prodotto per questo ruolo.",
+        title: getMessages(usersMessages).products.requiredTitle,
+        description: getMessages(usersMessages).products.requiredText,
       });
       return;
     }
@@ -123,7 +130,7 @@ export const InviteUserDialog = ({
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
-        throw new Error("Devi essere autenticato per creare utenti");
+        throw new Error(getMessages(usersMessages).create.mustBeSignedIn);
       }
 
       const normalizedCommissionBonusTiers = normalizeTiers(commissionBonusTiers);
@@ -150,7 +157,7 @@ export const InviteUserDialog = ({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Errore durante la creazione dell\'utente');
+        throw new Error(data.error || getMessages(usersMessages).create.createError);
       }
 
       if (data.error) {
@@ -158,14 +165,14 @@ export const InviteUserDialog = ({
       }
 
       toast({
-        title: "Successo",
-        description: `Utente ${formData.full_name} creato con successo`,
+        title: getMessages(commonMessages).success,
+        description: getMessages(usersMessages).create.created(formData.full_name),
       });
 
       // Show password to admin
       toast({
-        title: "Password Generata",
-        description: `Password temporanea: ${formData.password}`,
+        title: getMessages(usersMessages).create.passwordTitle,
+        description: getMessages(usersMessages).create.passwordText(formData.password),
         duration: 10000,
       });
 
@@ -184,7 +191,7 @@ export const InviteUserDialog = ({
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     } finally {
@@ -196,22 +203,22 @@ export const InviteUserDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Invita Nuovo Utente</DialogTitle>
+          <DialogTitle>{m.create.inviteTitle}</DialogTitle>
           <DialogDescription>
-            Crea un nuovo account utente per il portale
+            {m.create.inviteText}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 py-4 overflow-y-auto max-h-[60vh]">
           <div className="space-y-2">
             <Label htmlFor="full_name">
-              Nome Completo <span className="text-red-500">*</span>
+              {m.create.fullName} <span className="text-red-500">*</span>
             </Label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 id="full_name"
-                placeholder="Mario Rossi"
+                placeholder={m.create.fullNamePlaceholder}
                 value={formData.full_name}
                 onChange={(e) => handleChange("full_name", e.target.value)}
                 className="pl-10"
@@ -222,14 +229,14 @@ export const InviteUserDialog = ({
 
           <div className="space-y-2">
             <Label htmlFor="email">
-              Email <span className="text-red-500">*</span>
+              {m.create.email} <span className="text-red-500">*</span>
             </Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 id="email"
                 type="email"
-                placeholder="mario.rossi@example.com"
+                placeholder={m.create.emailPlaceholder}
                 value={formData.email}
                 onChange={(e) => handleChange("email", e.target.value)}
                 className="pl-10"
@@ -239,7 +246,7 @@ export const InviteUserDialog = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="phone">Telefono</Label>
+            <Label htmlFor="phone">{m.create.phone}</Label>
             <div className="relative">
               <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
@@ -254,29 +261,29 @@ export const InviteUserDialog = ({
 
           <div className="space-y-2">
             <Label htmlFor="role">
-              Ruolo <span className="text-red-500">*</span>
+              {m.create.role} <span className="text-red-500">*</span>
             </Label>
             <Select value={formData.role} onValueChange={(value) => handleChange("role", value)}>
               <SelectTrigger>
-                <SelectValue placeholder="Seleziona ruolo" />
+                <SelectValue placeholder={m.create.selectRole} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="admin">
                   <div className="flex items-center gap-2">
                     <Shield className="h-4 w-4 text-red-600" />
-                    <span>Admin</span>
+                    <span>{roleLabel("admin", language)}</span>
                   </div>
                 </SelectItem>
                 <SelectItem value="agente">
                   <div className="flex items-center gap-2">
                     <Shield className="h-4 w-4 text-blue-600" />
-                    <span>Agente</span>
+                    <span>{roleLabel("agente", language)}</span>
                   </div>
                 </SelectItem>
                 <SelectItem value="collaboratore">
                   <div className="flex items-center gap-2">
                     <Shield className="h-4 w-4 text-green-600" />
-                    <span>Collaboratore</span>
+                    <span>{roleLabel("collaboratore", language)}</span>
                   </div>
                 </SelectItem>
               </SelectContent>
@@ -287,45 +294,31 @@ export const InviteUserDialog = ({
             <div className="space-y-2">
               <Label>
                 <Package className="h-4 w-4 inline mr-2" />
-                Prodotti Consentiti
+                {m.products.allowed}
               </Label>
               <div className="text-sm text-muted-foreground mb-2">
-                Seleziona quali tipologie di polizze l'utente può gestire
+                {m.products.hint}
                 {selectedProducts.length > 0 && (
-                  <span className="ml-2 font-semibold text-primary">({selectedProducts.length} selezionati)</span>
+                  <span className="ml-2 font-semibold text-primary">{m.products.selectedCount(selectedProducts.length)}</span>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto border rounded-md p-3">
-                {[
-                  { value: "pet", label: "Pet" },
-                  { value: "car", label: "Car" },
-                  { value: "casa", label: "Casa" },
-                  { value: "salute", label: "Salute" },
-                  { value: "fidejussioni", label: "Fidejussioni" },
-                  { value: "postuma_decennale", label: "Postuma Decennale" },
-                  { value: "all_risk", label: "All Risk" },
-                  { value: "responsabilita_civile", label: "RC" },
-                  { value: "fotovoltaico", label: "Fotovoltaico" },
-                  { value: "catastrofali", label: "Catastrofali" },
-                  { value: "azienda", label: "Azienda" },
-                  { value: "risparmio", label: "Risparmio" },
-                  { value: "vies", label: "VIES" },
-                ].map((product) => (
-                  <label key={product.value} className="flex items-center space-x-2 cursor-pointer">
+                {ASSIGNABLE_PRODUCTS.map((product) => (
+                  <label key={product} className="flex items-center space-x-2 cursor-pointer">
                     <input
                       type="checkbox"
-                      value={product.value}
-                      checked={selectedProducts.includes(product.value)}
+                      value={product}
+                      checked={selectedProducts.includes(product)}
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setSelectedProducts([...selectedProducts, product.value]);
+                          setSelectedProducts([...selectedProducts, product]);
                         } else {
-                          setSelectedProducts(selectedProducts.filter(p => p !== product.value));
+                          setSelectedProducts(selectedProducts.filter(p => p !== product));
                         }
                       }}
                       className="rounded border-gray-300"
                     />
-                    <span className="text-sm">{product.label}</span>
+                    <span className="text-sm">{practiceTypeLabel(product, language)}</span>
                   </label>
                 ))}
               </div>
@@ -334,7 +327,7 @@ export const InviteUserDialog = ({
 
           <div className="space-y-2">
             <Label htmlFor="commission">
-              Provvigione Base (%)
+              {m.commission.base}
             </Label>
             <div className="relative">
               <Percent className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -351,32 +344,32 @@ export const InviteUserDialog = ({
               />
             </div>
             <p className="text-xs text-gray-500">
-              Percentuale base individuale. Può essere 16%, 8% o qualsiasi valore scelto dall'amministratore.
+              {m.create.baseHint}
             </p>
           </div>
 
           <div className="space-y-3 rounded-md border p-3">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <Label>Premi produzione</Label>
+                <Label>{m.commission.bonuses}</Label>
                 <p className="text-xs text-gray-500">
-                  Aggiungi scaglioni che incrementano la provvigione base quando la produzione annua raggiunge la soglia.
+                  {m.create.bonusesHint}
                 </p>
               </div>
               <Button type="button" variant="outline" size="sm" onClick={addCommissionTier}>
                 <Plus className="h-4 w-4 mr-2" />
-                Scaglione
+                {m.commission.tier}
               </Button>
             </div>
 
             {commissionBonusTiers.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nessun premio produzione configurato.</p>
+              <p className="text-sm text-muted-foreground">{m.create.noBonuses}</p>
             ) : (
               <div className="space-y-3">
                 {commissionBonusTiers.map((tier, index) => (
                   <div key={index} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end rounded-md bg-muted/40 p-3">
                     <div className="space-y-1">
-                      <Label>Soglia (€)</Label>
+                      <Label>{m.commission.thresholdShort}</Label>
                       <Input
                         type="number"
                         step="0.01"
@@ -387,7 +380,7 @@ export const InviteUserDialog = ({
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label>Bonus (%)</Label>
+                      <Label>{m.commission.bonus}</Label>
                       <Input
                         type="number"
                         step="0.01"
@@ -399,11 +392,11 @@ export const InviteUserDialog = ({
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label>Etichetta</Label>
+                      <Label>{m.commission.label}</Label>
                       <Input
                         value={tier.label || ""}
                         onChange={(e) => updateCommissionTier(index, "label", e.target.value)}
-                        placeholder="Oltre 50k"
+                        placeholder={m.commission.labelPlaceholder}
                       />
                     </div>
                     <Button type="button" variant="ghost" size="icon" onClick={() => removeCommissionTier(index)}>
@@ -417,34 +410,34 @@ export const InviteUserDialog = ({
 
           <div className="space-y-2">
             <Label htmlFor="password">
-              Password Temporanea <span className="text-red-500">*</span>
+              {m.create.password} <span className="text-red-500">*</span>
             </Label>
             <div className="flex gap-2">
               <Input
                 id="password"
                 type="text"
-                placeholder="Genera o inserisci password"
+                placeholder={m.create.passwordPlaceholder}
                 value={formData.password}
                 onChange={(e) => handleChange("password", e.target.value)}
                 required
               />
               <Button type="button" variant="outline" onClick={generateRandomPassword}>
-                Genera
+                {m.create.generate}
               </Button>
             </div>
             <p className="text-xs text-gray-500">
-              L'utente dovrà cambiare la password al primo accesso
+              {m.create.passwordHint}
             </p>
           </div>
         </form>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
-            Annulla
+            {common.cancel}
           </Button>
           <Button onClick={handleSubmit} disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Crea Utente
+            {m.create.submit}
           </Button>
         </DialogFooter>
       </DialogContent>

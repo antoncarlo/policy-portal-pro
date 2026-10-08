@@ -7,6 +7,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Search } from "lucide-react";
+import { useMessages } from "@/i18n";
+import { usersMessages } from "@/i18n/messages/users";
 
 interface UserFiltersProps {
   searchQuery: string;
@@ -25,12 +27,13 @@ export const UserFilters = ({
   viewMode,
   onViewModeChange,
 }: UserFiltersProps) => {
+  const m = useMessages(usersMessages).filters;
   return (
     <div className="flex flex-col md:flex-row gap-4 mb-6">
       <div className="flex-1 relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
         <Input
-          placeholder="Cerca per nome, email, telefono..."
+          placeholder={m.search}
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           className="pl-10"
@@ -39,23 +42,23 @@ export const UserFilters = ({
       
       <Select value={roleFilter} onValueChange={onRoleFilterChange}>
         <SelectTrigger className="w-full md:w-[180px]">
-          <SelectValue placeholder="Tutti i Ruoli" />
+          <SelectValue placeholder={m.allRoles} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Tutti i Ruoli</SelectItem>
-          <SelectItem value="admin">Admin</SelectItem>
-          <SelectItem value="agente">Agenti</SelectItem>
-          <SelectItem value="collaboratore">Collaboratori</SelectItem>
+          <SelectItem value="all">{m.allRoles}</SelectItem>
+          <SelectItem value="admin">{m.admins}</SelectItem>
+          <SelectItem value="agente">{m.agents}</SelectItem>
+          <SelectItem value="collaboratore">{m.collaborators}</SelectItem>
         </SelectContent>
       </Select>
 
       <Select value={viewMode} onValueChange={(value) => onViewModeChange(value as "table" | "org")}>
         <SelectTrigger className="w-full md:w-[180px]">
-          <SelectValue placeholder="Vista" />
+          <SelectValue placeholder={m.view} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="table">📋 Tabella</SelectItem>
-          <SelectItem value="org">🌳 Organigramma</SelectItem>
+          <SelectItem value="table">{m.table}</SelectItem>
+          <SelectItem value="org">{m.org}</SelectItem>
         </SelectContent>
       </Select>
     </div>

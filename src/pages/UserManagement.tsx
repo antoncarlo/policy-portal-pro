@@ -15,6 +15,10 @@ import { InviteUserDialog } from "@/components/admin/users/InviteUserDialog";
 import { EditUserProductsDialog } from "@/components/admin/users/EditUserProductsDialog";
 import { EditCommissionDialog } from "@/components/admin/users/EditCommissionDialog";
 import * as XLSX from "xlsx";
+import { getMessages, useMessages } from "@/i18n";
+import { commonMessages } from "@/i18n/messages/common";
+import { roleLabel } from "@/i18n/messages/domain";
+import { usersMessages } from "@/i18n/messages/users";
 
 interface User {
   id: string;
@@ -32,6 +36,8 @@ interface User {
 const UserManagement = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const m = useMessages(usersMessages);
+  const common = useMessages(commonMessages);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -68,8 +74,8 @@ const UserManagement = () => {
     if (roleData?.role !== "admin") {
       toast({
         variant: "destructive",
-        title: "Accesso Negato",
-        description: "Solo gli amministratori possono accedere a questa pagina",
+        title: getMessages(usersMessages).accessDeniedTitle,
+        description: getMessages(usersMessages).accessDeniedText,
       });
       navigate("/dashboard");
     }
@@ -86,8 +92,8 @@ const UserManagement = () => {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
-        description: "Impossibile caricare gli utenti",
+        title: getMessages(commonMessages).error,
+        description: getMessages(usersMessages).loadError,
       });
     } finally {
       setLoading(false);
@@ -137,7 +143,7 @@ const UserManagement = () => {
   };
 
   const handleDisableUser = async (user: User) => {
-    if (!confirm(`Sei sicuro di voler disattivare ${user.full_name}?`)) return;
+    if (!confirm(getMessages(usersMessages).confirmDisable(user.full_name))) return;
 
     try {
       const { error } = await supabase.auth.admin.updateUserById(user.id, {
@@ -147,23 +153,22 @@ const UserManagement = () => {
       if (error) throw error;
 
       toast({
-        title: "Successo",
-        description: "Utente disattivato con successo",
+        title: getMessages(commonMessages).success,
+        description: getMessages(usersMessages).disabled,
       });
 
       loadUsers();
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     }
   };
 
   const handleDeleteUser = async (user: User) => {
-    if (!confirm(`ATTENZIONE: Eliminare ${user.full_name}? Questa azione è irreversibile!`))
-      return;
+    if (!confirm(getMessages(usersMessages).confirmDelete(user.full_name))) return;
 
     try {
       const { error } = await supabase.auth.admin.deleteUser(user.id);
@@ -171,44 +176,46 @@ const UserManagement = () => {
       if (error) throw error;
 
       toast({
-        title: "Successo",
-        description: "Utente eliminato con successo",
+        title: getMessages(commonMessages).success,
+        description: getMessages(usersMessages).deleted,
       });
 
       loadUsers();
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     }
   };
 
   const handleExportUsers = () => {
+    const text = getMessages(usersMessages);
+    const columns = text.exportColumns;
     const exportData = filteredUsers.map((user) => ({
-      "Nome Completo": user.full_name,
-      Email: user.email,
-      Telefono: user.phone,
-      Ruolo: user.role,
-      "Agente": user.agent_name || "-",
-      "Provvigione Base (%)": user.default_commission_percentage ?? 0,
-      "Premi Produzione": Array.isArray(user.commission_bonus_tiers) && user.commission_bonus_tiers.length > 0
+      [columns.fullName]: user.full_name,
+      [columns.email]: user.email,
+      [columns.phone]: user.phone,
+      [columns.role]: roleLabel(user.role),
+      [columns.agent]: user.agent_name || "-",
+      [columns.baseCommission]: user.default_commission_percentage ?? 0,
+      [columns.bonuses]: Array.isArray(user.commission_bonus_tiers) && user.commission_bonus_tiers.length > 0
         ? user.commission_bonus_tiers
-            .map((tier) => `${tier.label || "Scaglione"}: oltre ${tier.threshold}€ +${tier.bonus_percentage}%`)
+            .map((tier) => text.exportTier(tier.label || text.commission.tier, tier.threshold, tier.bonus_percentage))
             .join("; ")
         : "-",
-      Pratiche: user.practice_count,
+      [columns.practices]: user.practice_count,
     }));
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Utenti");
-    XLSX.writeFile(wb, `utenti_${new Date().toISOString().split("T")[0]}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, text.exportSheet);
+    XLSX.writeFile(wb, `${text.exportFile}_${new Date().toISOString().split("T")[0]}.xlsx`);
 
     toast({
-      title: "Successo",
-      description: "Dati esportati in Excel",
+      title: getMessages(commonMessages).success,
+      description: text.exported,
     });
   };
 
@@ -217,23 +224,23 @@ const UserManagement = () => {
     <div className="container mx-auto p-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Gestione Utenti</h1>
+          <h1 className="text-3xl font-bold">{m.title}</h1>
           <p className="text-gray-600 mt-1">
-            Gestisci utenti, ruoli e gerarchie organizzative
+            {m.subtitle}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={loadUsers} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-            Aggiorna
+            {common.refresh}
           </Button>
           <Button variant="outline" onClick={handleExportUsers}>
             <Download className="h-4 w-4 mr-2" />
-            Esporta
+            {m.export}
           </Button>
           <Button onClick={() => setInviteUserDialogOpen(true)}>
             <UserPlus className="h-4 w-4 mr-2" />
-            Invita Utente
+            {m.invite}
           </Button>
         </div>
       </div>

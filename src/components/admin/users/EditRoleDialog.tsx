@@ -1,3 +1,7 @@
+import { getMessages, useLanguage, useMessages } from "@/i18n";
+import { commonMessages } from "@/i18n/messages/common";
+import { roleLabel } from "@/i18n/messages/domain";
+import { usersMessages } from "@/i18n/messages/users";
 import { useState } from "react";
 import {
   Dialog,
@@ -35,26 +39,29 @@ export const EditRoleDialog = ({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [selectedRole, setSelectedRole] = useState(user?.role || "collaboratore");
+  const m = useMessages(usersMessages);
+  const common = useMessages(commonMessages);
+  const language = useLanguage();
 
   const roles = [
     {
       value: "admin",
-      label: "Admin",
-      description: "Accesso completo al sistema, gestione utenti e configurazioni",
+      label: roleLabel("admin", language),
+      description: m.roleDescriptions.admin,
       icon: Shield,
       color: "text-red-600",
     },
     {
       value: "agente",
-      label: "Agente",
-      description: "Gestisce collaboratori e le loro pratiche",
+      label: roleLabel("agente", language),
+      description: m.roleDescriptions.agente,
       icon: Briefcase,
       color: "text-blue-600",
     },
     {
       value: "collaboratore",
-      label: "Collaboratore",
-      description: "Gestisce solo le proprie pratiche",
+      label: roleLabel("collaboratore", language),
+      description: m.roleDescriptions.collaboratore,
       icon: UserCheck,
       color: "text-green-600",
     },
@@ -73,8 +80,8 @@ export const EditRoleDialog = ({
       if (error) throw error;
 
       toast({
-        title: "Successo",
-        description: `Ruolo aggiornato a ${roles.find(r => r.value === selectedRole)?.label}`,
+        title: getMessages(commonMessages).success,
+        description: getMessages(usersMessages).editRole.updated(roleLabel(selectedRole)),
       });
 
       onSuccess();
@@ -82,7 +89,7 @@ export const EditRoleDialog = ({
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Errore",
+        title: getMessages(commonMessages).error,
         description: error.message,
       });
     } finally {
@@ -96,15 +103,15 @@ export const EditRoleDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Modifica Ruolo Utente</DialogTitle>
+          <DialogTitle>{m.editRole.title}</DialogTitle>
           <DialogDescription>
-            Utente: {user.full_name} ({user.email})
+            {m.editRole.user(user.full_name, user.email)}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label>Ruolo Attuale</Label>
+            <Label>{m.editRole.current}</Label>
             <div className="p-3 bg-gray-50 rounded-md">
               <span className="font-medium">
                 {roles.find(r => r.value === user.role)?.label || user.role}
@@ -113,7 +120,7 @@ export const EditRoleDialog = ({
           </div>
 
           <div className="space-y-3">
-            <Label>Nuovo Ruolo</Label>
+            <Label>{m.editRole.next}</Label>
             <RadioGroup value={selectedRole} onValueChange={setSelectedRole}>
               {roles.map((role) => {
                 const Icon = role.icon;
@@ -149,18 +156,18 @@ export const EditRoleDialog = ({
           <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
             <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-yellow-800">
-              Il cambio ruolo è immediato e l'utente vedrà le nuove autorizzazioni al prossimo accesso.
+              {m.editRole.warning}
             </p>
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
-            Annulla
+            {common.cancel}
           </Button>
           <Button onClick={handleSave} disabled={loading || selectedRole === user.role}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Salva Modifiche
+            {m.editRole.save}
           </Button>
         </DialogFooter>
       </DialogContent>
