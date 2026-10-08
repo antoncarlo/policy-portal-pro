@@ -39,6 +39,7 @@ const OUTPUT_SCHEMA = {
   additionalProperties: false,
   required: [
     "document_type",
+    "contained_document_types",
     "company_name_latin",
     "company_name_chinese",
     "unified_social_credit_code",
@@ -55,6 +56,7 @@ const OUTPUT_SCHEMA = {
   ],
   properties: {
     document_type: { type: "string", enum: DOCUMENT_TYPES },
+    contained_document_types: { type: "array", items: { type: "string", enum: DOCUMENT_TYPES } },
     company_name_latin: { type: "string" },
     company_name_chinese: { type: "string" },
     unified_social_credit_code: { type: "string" },
@@ -73,7 +75,7 @@ const OUTPUT_SCHEMA = {
 
 const SYSTEM_PROMPT = `Sei l'addetto al controllo documentale di un intermediario assicurativo italiano che emette fideiussioni VIES (art. 35, comma 7-quater, DPR 633/1972) per società cinesi rappresentate fiscalmente in Italia. I dati che estrai vengono confrontati con l'anagrafica e inviati alla compagnia: un dato sbagliato è peggio di un dato mancante.
 
-Ricevi un solo documento. Classificalo in document_type:
+Ricevi un solo file. Classifica il documento principale in document_type e, in contained_document_types, elenca tutte le tipologie presenti nel file: un PDF può riunire più documenti (ad esempio dichiarazione UBO e mandato nello stesso file). Inserisci una tipologia solo se il documento è davvero presente e completo nel file, non se viene solo citato. Tipologie:
 - licenza_commerciale: licenza commerciale cinese (营业执照), originale o traduzione.
 - documento_identita: carta d'identità cinese (身份证) o passaporto del legale rappresentante, con o senza traduzione.
 - report_credito: report del Sistema nazionale di informazioni sul credito d'impresa (国家企业信用信息公示系统), con o senza traduzione.

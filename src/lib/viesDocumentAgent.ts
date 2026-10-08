@@ -8,6 +8,8 @@ import { isValidChineseId, isValidItalianVat, isValidUscc } from "./viesDocument
 
 export interface AgentDocumentResult {
   document_type: string;
+  /** Every document type in the file: a PDF can bundle several documents. */
+  contained_document_types?: string[];
   company_name_latin: string;
   company_name_chinese: string;
   unified_social_credit_code: string;
@@ -53,7 +55,9 @@ const invokeAgent = async (body: Record<string, unknown>) => {
   return supabase.functions.invoke("vies-document-agent", { body });
 };
 
-const toFailure = async (error: Error): Promise<Exclude<AgentCallOutcome, { status: "ok" }>> => {
+type AgentFailure = Exclude<AgentCallOutcome, { status: "ok" }> & { retryable?: boolean };
+
+const toFailure = async (error: Error): Promise<AgentFailure> => {
   let payload: { error?: string; code?: string } | null = null;
   if (error instanceof FunctionsHttpError) {
     try {
@@ -66,19 +70,36 @@ const toFailure = async (error: Error): Promise<Exclude<AgentCallOutcome, { stat
   // Function not deployed, or deployed without its API key.
   const unavailable =
     payload?.code === "AGENT_NOT_CONFIGURED" || (error instanceof FunctionsHttpError && error.context.status === 404);
-  return unavailable ? { status: "unavailable", message } : { status: "error", message };
+  // Temporary problems (rate limit, gateway, network) are worth another attempt.
+  const status = error instanceof FunctionsHttpError ? error.context.status : null;
+  const retryable = !unavailable && (status === null || status === 429 || status >= 500);
+  return unavailable ? { status: "unavailable", message } : { status: "error", message, retryable };
 };
+
+const AGENT_RETRY_DELAYS_MS = [3000, 8000];
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Quick check, without any document, that the agent is deployed and has its API key. */
 export const probeViesDocumentAgent = async (): Promise<{ ready: true } | Exclude<AgentCallOutcome, { status: "ok" }>> => {
   const { error } = await invokeAgent({ probe: true });
-  return error ? toFailure(error) : { ready: true };
+  if (!error) return { ready: true };
+  const failure = await toFailure(error);
+  return failure.status === "unavailable" ? { status: "unavailable", message: failure.message } : { status: "error", message: failure.message };
 };
 
 export const callViesDocumentAgent = async (bytes: Uint8Array, mediaType: string, fileName: string): Promise<AgentCallOutcome> => {
-  const { data, error } = await invokeAgent({ file_name: fileName, media_type: mediaType, data: toBase64(bytes) });
-  if (error) return toFailure(error);
-  return { status: "ok", result: (data as { result: AgentDocumentResult }).result };
+  const body = { file_name: fileName, media_type: mediaType, data: toBase64(bytes) };
+  for (let attempt = 0; ; attempt += 1) {
+    const { data, error } = await invokeAgent(body);
+    if (!error) return { status: "ok", result: (data as { result: AgentDocumentResult }).result };
+    const failure = await toFailure(error);
+    if (!failure.retryable || attempt >= AGENT_RETRY_DELAYS_MS.length) {
+      return failure.status === "unavailable"
+        ? { status: "unavailable", message: failure.message }
+        : { status: "error", message: attempt ? `${failure.message} (dopo ${attempt + 1} tentativi)` : failure.message };
+    }
+    await wait(AGENT_RETRY_DELAYS_MS[attempt]);
+  }
 };
 
 /** Codes read by the agent, kept only when their check character is valid. */

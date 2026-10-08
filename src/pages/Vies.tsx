@@ -113,6 +113,8 @@ type ZipDocument = {
   hasText: boolean;
   /** Recognised from the content; null = not recognised (e.g. a scan for the agent). */
   documentType: string | null;
+  /** Other document types bundled in the same file, read by the agent. */
+  extraDocumentTypes: string[];
   /** How the type was recognised: from the text, or by the document agent. */
   recognisedBy: "testo" | "agent" | null;
   /** "pending" while the scan is being read by the agent. */
@@ -182,6 +184,8 @@ type ViesReconciliationRow = {
   linkedByVat: boolean;
   vatCheck: "verified" | "unverifiable" | "mismatch" | "not_applicable";
   zipVatNumbers: string[];
+  /** Document types each document of the ZIP counts for (documentKey → types). */
+  acceptedTypes: Map<string, string[]>;
   errors: string[];
 };
 
@@ -205,7 +209,7 @@ type DocumentRequirement = ViesDocumentType;
 const documentRequirements: DocumentRequirement[] = VIES_DOCUMENT_TYPES;
 
 const documentMatchesRequirement = (document: ZipDocument, requirement: DocumentRequirement) =>
-  document.documentType === requirement.id;
+  document.documentType === requirement.id || document.extraDocumentTypes.includes(requirement.id);
 
 const normalizeText = (value: unknown) =>
   String(value ?? "")
@@ -944,6 +948,7 @@ const readZipRecursive = async (file: File): Promise<{ documents: ZipDocument[];
         chineseIds,
         hasText,
         documentType,
+        extraDocumentTypes: [],
         recognisedBy: documentType ? "testo" : null,
         agentStatus: null,
         agentIssues: [],
@@ -970,6 +975,7 @@ const readZipRecursive = async (file: File): Promise<{ documents: ZipDocument[];
             chineseIds: [],
             hasText: false,
             documentType: null,
+            extraDocumentTypes: [],
             recognisedBy: null,
             agentStatus: null,
             agentIssues: [],
@@ -987,17 +993,112 @@ const readZipRecursive = async (file: File): Promise<{ documents: ZipDocument[];
 const AGENT_CONCURRENCY = 3;
 
 /** Applies the agent's reading to a document; codes count only with a valid check character. */
+// Second look: in a ZIP where a required document type was not found, the agent
+// re-reads the documents it has not read yet, because one PDF can bundle several
+// documents. Only documents that may hold the missing types are sent.
+const REPRESENTATIVE_TYPE_IDS = new Set(VIES_DOCUMENT_TYPES.filter((type) => type.subject === "rappresentante").map((type) => type.id));
+
+const findSecondLookDocuments = (documents: ZipDocument[]) => {
+  const byZip = new Map<string, ZipDocument[]>();
+  for (const document of documents) byZip.set(document.sourceZipKey, [...(byZip.get(document.sourceZipKey) ?? []), document]);
+  const selected: ZipDocument[] = [];
+  for (const zipDocuments of byZip.values()) {
+    const found = new Set(zipDocuments.flatMap((document) => [document.documentType, ...document.extraDocumentTypes]));
+    const missing = VIES_DOCUMENT_TYPES.filter((type) => !found.has(type.id));
+    if (!missing.length) continue;
+    const needsClient = missing.some((type) => !REPRESENTATIVE_TYPE_IDS.has(type.id));
+    const needsRepresentative = missing.some((type) => REPRESENTATIVE_TYPE_IDS.has(type.id));
+    for (const document of zipDocuments) {
+      if (document.agentStatus === "ok" || !agentMediaType(document.extension) || document.isNestedZip && document.extension === "zip") continue;
+      const isRepresentativeDocument = document.documentType ? REPRESENTATIVE_TYPE_IDS.has(document.documentType) : null;
+      if (isRepresentativeDocument === true && !needsRepresentative) continue;
+      if (isRepresentativeDocument === false && !needsClient) continue;
+      selected.push(document);
+    }
+  }
+  return selected;
+};
+
+// Bytes of one document of an uploaded ZIP, also inside nested ZIPs ("a.zip/b.pdf").
+const readZipEntryBytes = async (file: File, path: string): Promise<Uint8Array | null> => {
+  const segments = path.split(/(?<=\.zip)\//i);
+  let zip = await JSZip.loadAsync(await file.arrayBuffer());
+  for (const [index, segment] of segments.entries()) {
+    const entry = zip.file(segment);
+    if (!entry) return null;
+    if (index === segments.length - 1) return entry.async("uint8array");
+    zip = await JSZip.loadAsync(await entry.async("arraybuffer"));
+  }
+  return null;
+};
+
+const SECOND_LOOK_FAILED = "Verifica approfondita dell'agent non riuscita";
+
+// What the user has to do for each reason a row is blocked: nothing is created
+// for that row until the missing document or data is provided.
+const FIX_INSTRUCTIONS: Array<[RegExp, string | ((match: RegExpMatchArray) => string)]> = [
+  [/^ZIP (.+)\.zip non caricato/, (match) => `Caricare il file ${match[1]}.zip insieme agli altri ZIP.`],
+  [/^Numero ZIP mancante/, () => "Scrivere nell'Excel, colonna ZIP, il numero dello ZIP di questa società."],
+  [/^Numero ZIP non valido/, () => `Correggere nell'Excel il numero nella colonna ZIP (da 1 a ${VIES_MAX_PRACTICES_PER_SHEET}).`],
+  [/è indicato su più righe/, () => "Correggere nell'Excel: ogni riga deve avere un numero ZIP diverso."],
+  [/^ZIP duplicato/, () => "Caricare un solo ZIP con questo numero."],
+  [/sono di un'altra società/, () => "Sostituire lo ZIP con quello che contiene i documenti di questa società."],
+  [/compaiono anche codici di un'altra società/, () => "Togliere dallo ZIP i documenti dell'altra società e ricaricarlo."],
+  [/nessun codice leggibile/, () => "Chiedere al cliente documenti in cui si leggano il codice di credito sociale o la P.IVA (scansioni nitide)."],
+  [/non verificati dall'agent/, () => "Ricaricare gli ZIP per ripetere la lettura; se si ripete, chiedere al cliente copie più leggibili."],
+  [new RegExp(`^${SECOND_LOOK_FAILED}`), () => "Ricaricare gli ZIP per ripetere la verifica dell'agent."],
+  [/letto non valid/, () => "Controllare a vista il documento: il codice stampato non si legge con certezza; se serve, chiedere una copia più nitida."],
+  [/legale rappresentante non corrispondente/, () => "Correggere nell'Excel il numero del documento del legale rappresentante, oppure chiedere al cliente il documento giusto."],
+  [/Documento d'identità scaduto/, () => "Chiedere al cliente un documento d'identità in corso di validità."],
+  [/^Esiste già la pratica VIES/, () => "Nessuna nuova pratica: la società ne ha già una. Toglierla dall'Excel."],
+  [/beneficiario/i, () => "Completare i dati del beneficiario nel foglio DATI FOGLIO o al punto 2."],
+  [/rappresentante fiscale|amministratore|Domicilio fiscale/i, () => "Completare i dati del rappresentante fiscale al punto 2 (o dalla visura)."],
+  [/^PEC/, () => "Inserire nell'Excel la PEC del cliente, o la PEC del rappresentante fiscale al punto 2."],
+  [/mancante|non valid/i, () => "Correggere il dato nell'Excel e ricaricarlo."],
+];
+
+const describeFix = (error: string) => {
+  for (const [pattern, instruction] of FIX_INSTRUCTIONS) {
+    const match = error.match(pattern);
+    if (match) return typeof instruction === "string" ? instruction : instruction(match);
+  }
+  return "Verificare il dato indicato e ricaricare la riga in un nuovo lotto.";
+};
+
+const describeMissingDocumentsFix = (requirements: DocumentRequirement[], zipName: string) => {
+  const client = requirements.filter((requirement) => requirement.subject !== "rappresentante").map((requirement) => requirement.label);
+  const representative = requirements.filter((requirement) => requirement.subject === "rappresentante").map((requirement) => requirement.label);
+  return [
+    client.length ? `chiedere al cliente ${client.join(", ")}` : null,
+    representative.length ? `aggiungere ${representative.join(", ")} del rappresentante fiscale` : null,
+  ]
+    .filter(Boolean)
+    .join("; ")
+    .replace(/^./, (first) => first.toUpperCase())
+    .concat(` e inserirli in ${zipName}.`);
+};
+
 const applyAgentOutcome = (document: ZipDocument, outcome: AgentCallOutcome): ZipDocument => {
   if (outcome.status !== "ok") {
     return { ...document, agentStatus: outcome.status, agentIssues: [outcome.message] };
   }
   const { result } = outcome;
   const verified = verifiedAgentIdentifiers(result);
-  const known = VIES_DOCUMENT_TYPES.some((type) => type.id === result.document_type);
+  const isKnown = (id: string) => VIES_DOCUMENT_TYPES.some((type) => type.id === id);
+  const known = isKnown(result.document_type);
+  const primaryType = known ? result.document_type : document.documentType ?? "altro";
   return {
     ...document,
-    documentType: known ? result.document_type : "altro",
-    recognisedBy: "agent",
+    // A document already classified from its text keeps that type; the agent adds what else the file contains.
+    documentType: document.documentType ?? primaryType,
+    extraDocumentTypes: [
+      ...new Set(
+        [result.document_type, ...(result.contained_document_types ?? [])].filter(
+          (id) => isKnown(id) && id !== (document.documentType ?? primaryType),
+        ),
+      ),
+    ],
+    recognisedBy: document.documentType ? document.recognisedBy : "agent",
     agentStatus: "ok",
     usccs: [...new Set([...document.usccs, ...verified.usccs])],
     vatNumbers: [...new Set([...document.vatNumbers, ...verified.vatNumbers])],
@@ -1253,10 +1354,30 @@ const Vies = () => {
         if (expiry && expiry < new Date()) errors.push(`Documento d'identità scaduto il ${document.agentExpiryDate}`);
       }
 
+      // A type the agent found bundled in a file counts only if that document carries
+      // the code of the company it belongs to: this client's, or the representative's.
+      const representativeCode = record.codiceFiscaleRappresentante.replace(/\s+/g, "").toUpperCase();
+      const acceptedTypes = new Map<string, string[]>();
+      for (const document of rowDocuments) {
+        const codes = new Set([...document.usccs, ...document.vatNumbers]);
+        const extras = document.extraDocumentTypes.filter((type) =>
+          REPRESENTATIVE_TYPE_IDS.has(type)
+            ? Boolean(representativeCode) && codes.has(representativeCode)
+            : expectedIdentifiers.some((code) => codes.has(code)),
+        );
+        acceptedTypes.set(
+          documentKey(document),
+          [...new Set([document.documentType, ...extras])].filter((type): type is string => Boolean(type) && type !== "altro"),
+        );
+      }
+      if (rowDocuments.some((document) => document.agentIssues.some((issue) => issue.startsWith(SECOND_LOOK_FAILED)))) {
+        errors.push(`${SECOND_LOOK_FAILED}: i documenti mancanti non sono stati ricercati di nuovo`);
+      }
+
       // Checked per ZIP: a document in another client's ZIP must not hide a gap in this one.
       const missingRequirements = matchedZipFiles.length
         ? documentRequirements.filter(
-            (requirement) => !rowDocuments.some((document) => documentMatchesRequirement(document, requirement)),
+            (requirement) => !rowDocuments.some((document) => acceptedTypes.get(documentKey(document))?.includes(requirement.id)),
           )
         : [];
 
@@ -1268,6 +1389,7 @@ const Vies = () => {
         linkedByVat,
         vatCheck,
         zipVatNumbers,
+        acceptedTypes,
         errors,
       };
     });
@@ -1440,49 +1562,84 @@ const Vies = () => {
         await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
       }
 
-      // Scans and photos: classified and read by the document agent (Claude).
-      if (agentCandidates.length) {
-        const candidateKeys = new Set(agentCandidates.map((candidate) => candidate.key));
-        setDocuments(
-          parsedDocuments.map((document) =>
-            candidateKeys.has(documentKey(document)) ? { ...document, agentStatus: "pending" } : document,
-          ),
-        );
-        let done = 0;
-        let failed = 0;
-        let unavailable: string | null = null;
-        const outcomes = new Map<string, AgentCallOutcome>();
+      // Document agent (Claude). The availability check runs once, before any upload.
+      let agentUnavailable: string | null | undefined;
+      const ensureAgentChecked = async () => {
+        if (agentUnavailable !== undefined) return;
         setZipProcessingStatus("Verifica disponibilità dell'agent documentale…");
-        // One light call first: if the agent is not configured, no scan is uploaded for nothing.
         const probe = await probeViesDocumentAgent().catch(
           (error: unknown): AgentCallOutcome => ({
             status: "error",
             message: error instanceof Error ? error.message : "Agent non raggiungibile.",
           }),
         );
-        if ("status" in probe && probe.status === "unavailable") unavailable = probe.message;
-        setAgentProgress({ done, failed, total: agentCandidates.length, unavailable });
-        await runWithConcurrency(agentCandidates, AGENT_CONCURRENCY, async (candidate) => {
-          setZipProcessingStatus(`Agent documentale: ${done}/${agentCandidates.length} documenti letti`);
-          const outcome: AgentCallOutcome = unavailable
-            ? { status: "unavailable", message: unavailable }
+        agentUnavailable = "status" in probe && probe.status === "unavailable" ? probe.message : null;
+      };
+      const runAgentPass = async (candidates: AgentCandidate[], label: string) => {
+        await ensureAgentChecked();
+        const outcomes = new Map<string, AgentCallOutcome>();
+        let done = 0;
+        let failed = 0;
+        setAgentProgress({ done, failed, total: candidates.length, unavailable: agentUnavailable ?? null });
+        await runWithConcurrency(candidates, AGENT_CONCURRENCY, async (candidate) => {
+          setZipProcessingStatus(`${label}: ${done}/${candidates.length} documenti`);
+          const outcome: AgentCallOutcome = agentUnavailable
+            ? { status: "unavailable", message: agentUnavailable }
             : await callViesDocumentAgent(candidate.bytes, candidate.mediaType, candidate.name).catch(
                 (error: unknown): AgentCallOutcome => ({
                   status: "error",
                   message: error instanceof Error ? error.message : "Agent non raggiungibile.",
                 }),
               );
-          if (outcome.status === "unavailable") unavailable = outcome.message;
+          if (outcome.status === "unavailable") agentUnavailable = outcome.message;
           outcomes.set(candidate.key, outcome);
           done += 1;
           if (outcome.status !== "ok") failed += 1;
-          setAgentProgress({ done, failed, total: agentCandidates.length, unavailable });
+          setAgentProgress({ done, failed, total: candidates.length, unavailable: agentUnavailable ?? null });
           return outcome;
         });
+        return outcomes;
+      };
+      const markPending = (keys: Set<string>) =>
+        setDocuments(
+          parsedDocuments.map((document) => (keys.has(documentKey(document)) ? { ...document, agentStatus: "pending" } : document)),
+        );
+
+      // 1. Scans and photos: classified and read by the agent.
+      if (agentCandidates.length) {
+        markPending(new Set(agentCandidates.map((candidate) => candidate.key)));
+        const outcomes = await runAgentPass(agentCandidates, "Agent documentale, lettura delle scansioni");
         parsedDocuments = parsedDocuments.map((document) => {
           const outcome = outcomes.get(documentKey(document));
           return outcome ? applyAgentOutcome(document, outcome) : document;
         });
+      }
+
+      // 2. Second look where a required document is still missing: the agent
+      // re-reads the other documents of that ZIP (a PDF can bundle several).
+      if (agentUnavailable === undefined || !agentUnavailable) {
+        const secondLook = findSecondLookDocuments(parsedDocuments);
+        if (secondLook.length) {
+          const filesByKey = new Map(selectedFiles.map((file) => [getZipReconciliationKey(file.name), file]));
+          const candidates: AgentCandidate[] = [];
+          for (const document of secondLook) {
+            const file = filesByKey.get(document.sourceZipKey);
+            const mediaType = agentMediaType(document.extension);
+            const bytes = file && mediaType ? await readZipEntryBytes(file, document.path) : null;
+            if (bytes && mediaType) candidates.push({ key: documentKey(document), name: document.name, mediaType, bytes });
+          }
+          if (candidates.length) {
+            markPending(new Set(candidates.map((candidate) => candidate.key)));
+            const outcomes = await runAgentPass(candidates, "Agent documentale, verifica approfondita dei documenti mancanti");
+            parsedDocuments = parsedDocuments.map((document) => {
+              const outcome = outcomes.get(documentKey(document));
+              if (!outcome) return document;
+              if (outcome.status === "ok") return applyAgentOutcome(document, outcome);
+              // A failed second look must not pass for "document missing": the row says why.
+              return { ...document, agentIssues: [...document.agentIssues, `${SECOND_LOOK_FAILED}: ${outcome.message}`] };
+            });
+          }
+        }
       }
 
       setDocuments(parsedDocuments);
@@ -1713,8 +1870,6 @@ const Vies = () => {
     const interval = window.setInterval(() => refreshBatchMonitor(persistedBatchId), 15000);
     return () => window.clearInterval(interval);
   }, [persistedBatchId, refreshBatchMonitor]);
-
-  const getRequirementMatches = (document: ZipDocument) => (document.documentType ? [document.documentType] : []);
 
   const getRecordValidationErrors = (record: ExcelRecord) => {
     const errors: string[] = [];
@@ -2178,10 +2333,16 @@ const Vies = () => {
         });
         const fileName = buildViesPolicyFileName(input);
         const filePath = `${practiceId}/${Date.now()}-${fileName}`;
-        const { error: uploadError } = await supabase.storage
-          .from(VIES_POLICY_DOCUMENTS_BUCKET)
-          .upload(filePath, blob, { contentType: VIES_POLICY_MIME_TYPE, upsert: false });
-        if (uploadError) throw new Error(`Documento di polizza di ${record.contraente} non archiviato: ${uploadError.message}`);
+        // Temporary storage errors are retried before giving up on the whole creation.
+        let uploadError: Error | null = null;
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          if (attempt) await new Promise((resolve) => window.setTimeout(resolve, 2000 * attempt));
+          ({ error: uploadError } = await supabase.storage
+            .from(VIES_POLICY_DOCUMENTS_BUCKET)
+            .upload(filePath, blob, { contentType: VIES_POLICY_MIME_TYPE, upsert: true }));
+          if (!uploadError) break;
+        }
+        if (uploadError) throw new Error(`Documento di polizza di ${record.contraente} non archiviato dopo 3 tentativi: ${uploadError.message}`);
         const { error: insertError } = await supabase.from("practice_documents").insert({
           practice_id: practiceId,
           file_name: fileName,
@@ -2251,7 +2412,7 @@ const Vies = () => {
           file_size: document.size,
           depth: document.depth,
           is_nested_zip: document.isNestedZip,
-          requirement_matches: getRequirementMatches(document),
+          requirement_matches: reconciliation.acceptedTypes.get(documentKey(document)) ?? [],
           status: document.extension === "errore" ? "error" : "indexed",
         };
       }));
@@ -2744,18 +2905,35 @@ const Vies = () => {
                                     {missing.length > 0 && (
                                       <div className="flex gap-2 text-amber-900">
                                         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                                        <p className="min-w-0 break-words">
-                                          <span className="font-medium">Documenti mancanti: </span>
-                                          {missing.map((requirement) => requirement.label).join(", ")}
-                                        </p>
+                                        <div className="min-w-0 break-words">
+                                          <p>
+                                            <span className="font-medium">Documenti mancanti: </span>
+                                            {missing.map((requirement) => requirement.label).join(", ")}
+                                          </p>
+                                          <p className="text-xs text-foreground">
+                                            <span className="font-medium">Cosa fare: </span>
+                                            {describeMissingDocumentsFix(missing, reconciliation.zipFile?.name ?? `${reconciliation.record.nomeZip}.zip`)}
+                                          </p>
+                                        </div>
                                       </div>
                                     )}
                                     {rowErrors.map((error) => (
                                       <div key={error} className="flex gap-2 text-destructive">
                                         <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                                        <p className="min-w-0 break-words">{error}</p>
+                                        <div className="min-w-0 break-words">
+                                          <p>{error}</p>
+                                          <p className="text-xs text-foreground">
+                                            <span className="font-medium">Cosa fare: </span>
+                                            {describeFix(error)}
+                                          </p>
+                                        </div>
                                       </div>
                                     ))}
+                                    {!pendingScans && (
+                                      <p className="text-xs text-muted-foreground">
+                                        Questa riga non verrà creata. Dopo la correzione, caricala in un nuovo lotto.
+                                      </p>
+                                    )}
                                   </div>
                                 </TableCell>
                               </TableRow>
