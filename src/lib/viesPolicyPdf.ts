@@ -102,7 +102,7 @@ const field = (fields: SpecificFields, key: string) => {
 export const missingViesPolicyData = (input: ViesPolicyPdfInput) => {
   const missing: string[] = [];
   if (!input.contraente.name) missing.push("ragione sociale contraente");
-  if (!input.contraente.taxCode) missing.push("partita IVA contraente");
+  if (!input.contraente.taxCode) missing.push("partita IVA o USCC contraente");
   if (!input.contraente.domicile) missing.push("domicilio fiscale (sede del rappresentante)");
   if (!input.beneficiario.name) missing.push("beneficiario");
   if (!input.beneficiario.address) missing.push("indirizzo beneficiario");
@@ -125,7 +125,8 @@ export const viesPolicyInputFromPractice = (practice: ViesPolicyPracticeSource):
     policyNumber: practice.policy_number && !/^VIES-/i.test(practice.policy_number) ? practice.policy_number : null,
     contraente: {
       name: practice.client_name,
-      taxCode: practice.owner_tax_code ?? "",
+      // Italian VAT number when the company has one, otherwise its Chinese USCC.
+      taxCode: practice.owner_tax_code || field(fields, "vies_uscc"),
       domicile: field(fields, "vies_domicilio_fiscale"),
     },
     beneficiario: {

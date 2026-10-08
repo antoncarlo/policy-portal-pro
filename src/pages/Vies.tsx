@@ -106,7 +106,8 @@ type ZipDocument = {
   documentType: string | null;
   /** How the type was recognised: from the text, or by the document agent. */
   recognisedBy: "testo" | "agent" | null;
-  agentStatus: "ok" | "error" | "unavailable" | null;
+  /** "pending" while the scan is being read by the agent. */
+  agentStatus: "ok" | "error" | "unavailable" | "pending" | null;
   agentIssues: string[];
   /** Identity document expiry read by the agent (DD/MM/YYYY). */
   agentExpiryDate: string;
@@ -1343,6 +1344,12 @@ const Vies = () => {
 
       // Scans and photos: classified and read by the document agent (Claude).
       if (agentCandidates.length) {
+        const candidateKeys = new Set(agentCandidates.map((candidate) => candidate.key));
+        setDocuments(
+          parsedDocuments.map((document) =>
+            candidateKeys.has(documentKey(document)) ? { ...document, agentStatus: "pending" } : document,
+          ),
+        );
         let done = 0;
         let failed = 0;
         let unavailable: string | null = null;
@@ -1617,8 +1624,12 @@ const Vies = () => {
     ...new Set([...reconciliation.errors, ...getRecordValidationErrors(reconciliation.record)]),
   ];
 
+  const getPendingScanCount = (reconciliation: ViesReconciliationRow) =>
+    reconciliation.documents.filter((document) => document.agentStatus === "pending").length;
+
   const readyRowCount = reconciliationRows.filter(
     (reconciliation) =>
+      getPendingScanCount(reconciliation) === 0 &&
       getRowBlockingErrors(reconciliation).length === 0 &&
       !(reconciliation.zipFile && reconciliation.missingRequirements.length),
   ).length;
@@ -1864,7 +1875,8 @@ const Vies = () => {
           client_email: record.pec || `vies-riga-${record.rowNumber}@placeholder.local`,
           client_phone: record.telefono || "N/D",
           beneficiary: record.beneficiario || null,
-          owner_tax_code: record.partitaIvaContraente || record.uscc || null,
+          // Column sized for Italian codes (max 16): the 18-character USCC stays in vies_uscc.
+          owner_tax_code: record.partitaIvaContraente || null,
           policy_number: record.progressivo ? `VIES-${record.progressivo}` : null,
           policy_start_date: policyStartDate,
           policy_end_date: policyEndDate,
@@ -2479,9 +2491,11 @@ const Vies = () => {
                     </TableHeader>
                     <TableBody>
                       {reconciliationRows.map((reconciliation) => {
+                        const pendingScans = getPendingScanCount(reconciliation);
                         const rowErrors = getRowBlockingErrors(reconciliation);
-                        const missing = reconciliation.zipFile ? reconciliation.missingRequirements : [];
-                        const ready = rowErrors.length === 0 && missing.length === 0;
+                        // While the agent is reading, a type may still be found: not "missing" yet.
+                        const missing = reconciliation.zipFile && !pendingScans ? reconciliation.missingRequirements : [];
+                        const ready = !pendingScans && rowErrors.length === 0 && missing.length === 0;
                         return (
                           <Fragment key={`reconciliation-${reconciliation.record.rowNumber}`}>
                             <TableRow className={ready ? undefined : "border-b-0"}>
@@ -2512,7 +2526,12 @@ const Vies = () => {
                                 {reconciliation.vatCheck === "not_applicable" && <span className="text-muted-foreground">—</span>}
                               </TableCell>
                               <TableCell className="text-right">
-                                {ready ? (
+                                {pendingScans ? (
+                                  <Badge variant="outline" className="border-amber-300 text-amber-900">
+                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                    In verifica
+                                  </Badge>
+                                ) : ready ? (
                                   <Badge className="bg-emerald-600 hover:bg-emerald-600">Pronta</Badge>
                                 ) : (
                                   <Badge variant="destructive">Bloccata</Badge>
@@ -2523,6 +2542,15 @@ const Vies = () => {
                               <TableRow className="hover:bg-transparent">
                                 <TableCell colSpan={5} className="pt-0">
                                   <div className="space-y-2 rounded-md bg-muted/40 p-3 text-sm">
+                                    {pendingScans > 0 && (
+                                      <div className="flex gap-2 text-amber-900">
+                                        <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
+                                        <p className="min-w-0 break-words">
+                                          {pendingScans === 1 ? "1 scansione in lettura" : `${pendingScans} scansioni in lettura`} dall'agent
+                                          documentale: l'esito della pratica arriva al termine.
+                                        </p>
+                                      </div>
+                                    )}
                                     {missing.length > 0 && (
                                       <div className="flex gap-2 text-amber-900">
                                         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
