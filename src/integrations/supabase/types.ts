@@ -561,6 +561,7 @@ export type Database = {
           partita_iva_beneficiario: string | null
           partita_iva_contraente: string | null
           pec: string | null
+          pec_beneficiario: string | null
           priority: number
           processed_at: string | null
           processing_started_at: string | null
@@ -600,6 +601,7 @@ export type Database = {
           partita_iva_beneficiario?: string | null
           partita_iva_contraente?: string | null
           pec?: string | null
+          pec_beneficiario?: string | null
           priority?: number
           processed_at?: string | null
           processing_started_at?: string | null
@@ -636,6 +638,7 @@ export type Database = {
           partita_iva_beneficiario?: string | null
           partita_iva_contraente?: string | null
           pec?: string | null
+          pec_beneficiario?: string | null
           priority?: number
           processed_at?: string | null
           processing_started_at?: string | null

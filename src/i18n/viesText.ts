@@ -132,6 +132,7 @@ const RULES: Rule[] = [
     ...same("PEC missing (neither the policyholder's nor the fiscal representative's)", "缺少 PEC（投保人和税务代表均未提供）"),
   },
   { pattern: /^PEC non valida$/, ...same("Invalid PEC", "PEC 无效") },
+  { pattern: /^PEC beneficiario non valida$/, ...same("Invalid beneficiary PEC", "受益人 PEC 无效") },
   {
     pattern: /^Esiste già la pratica VIES (\S+) per questa società \(creata il (.+)\)$/,
     en: (m) => `VIES application ${m[1]} already exists for this company (created on ${m[2]})`,

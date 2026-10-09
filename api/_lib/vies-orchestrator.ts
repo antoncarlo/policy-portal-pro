@@ -20,6 +20,7 @@ export type ViesJob = {
   beneficiario: string | null;
   indirizzo_beneficiario: string | null;
   partita_iva_beneficiario: string | null;
+  pec_beneficiario: string | null;
   pec: string | null;
   pagamento: string | null;
   documenti_indicati: string | null;
@@ -336,6 +337,7 @@ async function executeViesAgent(job: ViesJob, portal: ViesPortal): Promise<ViesA
       beneficiario: job.beneficiario,
       indirizzo_beneficiario: job.indirizzo_beneficiario,
       partita_iva_beneficiario: job.partita_iva_beneficiario,
+      pec_beneficiario: job.pec_beneficiario,
       pec: job.pec,
       pagamento: job.pagamento,
       documenti_indicati: job.documenti_indicati,

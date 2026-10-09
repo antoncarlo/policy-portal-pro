@@ -80,6 +80,7 @@ const ITEM_LABELS: Labels = {
   vies_visura_rappresentante: { en: "Source", zh: "来源" },
   vies_pec_rappresentante: { en: "PEC", zh: "PEC" },
   vies_indirizzo_beneficiario: { en: "Address", zh: "地址" },
+  vies_pec_beneficiario: { en: "PEC", zh: "PEC 认证邮箱" },
   vies_codice_fiscale_beneficiario: { en: "Tax code", zh: "税号" },
   vies_importo_garantito: { en: "Guaranteed amount", zh: "担保金额" },
   vies_oggetto_garanzia: { en: "Object of the guarantee", zh: "担保事项" },

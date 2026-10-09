@@ -91,6 +91,8 @@ type ExcelRecord = {
   beneficiario: string;
   indirizzoBeneficiario: string;
   partitaIvaBeneficiario: string;
+  /** Optional PEC of the beneficiary office. */
+  pecBeneficiario: string;
   // Effective PEC of the practice: the contraente's own, else the fiscal representative's.
   pec: string;
   pecRappresentante: string;
@@ -409,6 +411,7 @@ type ViesSheetData = {
   beneficiario: string;
   indirizzoBeneficiario: string;
   codiceFiscaleBeneficiario: string;
+  pecBeneficiario: string;
   rappresentanteFiscale: string;
   codiceFiscaleRappresentante: string;
   amministratoreRappresentante: string;
@@ -421,6 +424,7 @@ const initialSheetData: ViesSheetData = {
   beneficiario: VIES_DEFAULT_BENEFICIARY,
   indirizzoBeneficiario: "",
   codiceFiscaleBeneficiario: "",
+  pecBeneficiario: "",
   rappresentanteFiscale: "",
   codiceFiscaleRappresentante: "",
   amministratoreRappresentante: "",
@@ -436,6 +440,7 @@ const applySheetData = (record: ExcelRecord, sheet: ViesSheetData): ExcelRecord 
   beneficiario: record.beneficiario || sheet.beneficiario.trim(),
   indirizzoBeneficiario: record.indirizzoBeneficiario || sheet.indirizzoBeneficiario.trim(),
   partitaIvaBeneficiario: normalizeTaxCode(record.partitaIvaBeneficiario || sheet.codiceFiscaleBeneficiario),
+  pecBeneficiario: record.pecBeneficiario || sheet.pecBeneficiario.trim(),
   rappresentanteFiscale: record.rappresentanteFiscale || sheet.rappresentanteFiscale.trim(),
   codiceFiscaleRappresentante: normalizeTaxCode(record.codiceFiscaleRappresentante || sheet.codiceFiscaleRappresentante),
   amministratoreRappresentante: record.amministratoreRappresentante || sheet.amministratoreRappresentante.trim(),
@@ -498,6 +503,7 @@ const buildViesSpecificFields = ({
   vies_domicilio_fiscale: record.indirizzoRappresentanteFiscale || null,
   vies_pec_rappresentante: record.pecRappresentante || null,
   vies_indirizzo_beneficiario: record.indirizzoBeneficiario || null,
+  vies_pec_beneficiario: record.pecBeneficiario || null,
   vies_codice_fiscale_beneficiario: record.partitaIvaBeneficiario || null,
   vies_importo_garantito: VIES_GUARANTEED_AMOUNT,
   vies_oggetto_garanzia: VIES_GUARANTEE_OBJECT,
@@ -681,6 +687,7 @@ const SHEET_DATA_FIELDS: Array<[keyof ViesSheetData, string[]]> = [
   ["beneficiario", ["beneficiario", "denominazione beneficiario", "beneficiary", "受益人"]],
   ["indirizzoBeneficiario", ["indirizzo beneficiario", "beneficiary address", "受益人地址"]],
   ["codiceFiscaleBeneficiario", ["codice fiscale beneficiario", "beneficiary tax code", "受益人税号"]],
+  ["pecBeneficiario", ["pec beneficiario", "beneficiary pec", "受益人 pec"]],
   ["rappresentanteFiscale", ["rappresentante fiscale", "denominazione rappresentante fiscale", "fiscal representative", "税务代表"]],
   [
     "codiceFiscaleRappresentante",
@@ -694,6 +701,9 @@ const SHEET_DATA_FIELDS: Array<[keyof ViesSheetData, string[]]> = [
   ],
   ["pecRappresentante", ["pec rappresentante fiscale", "pec", "fiscal representative pec", "税务代表 pec"]],
 ];
+
+// Example rows of the template: the company name starts with "ESEMPIO ·", "EXAMPLE ·" or "示例 ·".
+const EXAMPLE_ROW_NAME = /^\s*(esempio|example|示例)\s*[·–—]/i;
 
 // Optional "DATI FOGLIO" sheet (Campo | Valore): the beneficiary office and the
 // fiscal representative shared by every practice of the workbook.
@@ -825,6 +835,7 @@ const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; she
           "c.f. beneficiario",
           "partita iva",
         ]),
+        pecBeneficiario: getCellByAliases(raw, ["pec beneficiario", "beneficiary pec", "受益人 pec"], { exactOnly: true }),
         pec: getCellByAliases(raw, ["pec", "pec contraente", "indirizzo pec", "pec 认证邮箱"], { exactOnly: true }),
         pecRappresentante: getCellByAliases(raw, ["pec rappresentante fiscale", "pec rappresentante"], { exactOnly: true }),
         pecFromRepresentative: false,
@@ -841,6 +852,8 @@ const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; she
     // ZIP number: the template's pre-numbered empty rows (only "ZIP" filled), a
     // repeated header row or a note under the table are not practices.
     .filter((record) => {
+      // The template ships with filled-in example rows ("ESEMPIO · …"): never practices.
+      if (EXAMPLE_ROW_NAME.test(record.contraente)) return false;
       const values = Object.values(record.raw).map(normalizeHeader).filter(Boolean);
       const looksLikeHeader = Object.values(record.raw).filter(isKnownHeader).length >= MIN_HEADER_MATCHES;
       const hasDataBesidesZip = values.length > (record.nomeZip ? 1 : 0);
@@ -1940,6 +1953,7 @@ const Vies = () => {
     if (!record.indirizzoBeneficiario) errors.push("Indirizzo beneficiario mancante");
     if (!record.partitaIvaBeneficiario) errors.push("Codice fiscale beneficiario mancante");
     else if (!isValidItalianTaxCode(record.partitaIvaBeneficiario)) errors.push("Codice fiscale beneficiario non valido");
+    if (record.pecBeneficiario && !isPlausibleEmail(record.pecBeneficiario)) errors.push("PEC beneficiario non valida");
     if (!record.rappresentanteFiscale) errors.push("Rappresentante fiscale mancante");
     if (!record.codiceFiscaleRappresentante) errors.push("Codice fiscale rappresentante fiscale mancante");
     else if (!isValidItalianTaxCode(record.codiceFiscaleRappresentante)) {
@@ -2458,6 +2472,7 @@ const Vies = () => {
           beneficiario: record.beneficiario || null,
           indirizzo_beneficiario: record.indirizzoBeneficiario || null,
           partita_iva_beneficiario: record.partitaIvaBeneficiario || null,
+          pec_beneficiario: record.pecBeneficiario || null,
           pec: record.pec || null,
           pagamento: record.pagamento || null,
           documenti_indicati: record.documentiIndicati || null,
@@ -2803,6 +2818,14 @@ const Vies = () => {
                   placeholder={m.step2.addressPlaceholder}
                   disabled={sheetLocked}
                   onChange={updateSheetData("indirizzoBeneficiario")}
+                />
+                <SheetField
+                  id="vies-pec-beneficiario"
+                  label={m.step2.beneficiaryPec}
+                  value={sheetData.pecBeneficiario}
+                  placeholder={m.step2.beneficiaryPecPlaceholder}
+                  disabled={sheetLocked}
+                  onChange={updateSheetData("pecBeneficiario")}
                 />
               </section>
 

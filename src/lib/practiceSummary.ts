@@ -536,6 +536,7 @@ function buildViesSummary(input: PracticeSummaryInput): PracticeSummary {
   pushItem(beneficiario, "beneficiary", "Denominazione", input.beneficiary);
   pushItem(beneficiario, "vies_indirizzo_beneficiario", "Indirizzo", str("vies_indirizzo_beneficiario"));
   pushItem(beneficiario, "vies_codice_fiscale_beneficiario", "Codice fiscale", str("vies_codice_fiscale_beneficiario"));
+  pushItem(beneficiario, "vies_pec_beneficiario", "PEC", str("vies_pec_beneficiario"));
   if (beneficiario.length) sections.push({ id: "beneficiario", title: "Beneficiario", items: beneficiario });
 
   const garanzia: SummaryItem[] = [];
