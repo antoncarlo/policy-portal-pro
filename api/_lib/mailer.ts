@@ -44,6 +44,16 @@ export function getMailProvider(): MailProvider {
   return 'none';
 }
 
+const gmailSender = (user: string) => process.env.GMAIL_FROM || user;
+const resendSender = () => process.env.EMAIL_FROM || process.env.VITE_EMAIL_FROM || 'notifiche@tecnomga.com';
+
+/** Indirizzo da cui partono le email con il canale attivo, null se non ce n'e' uno. */
+export function getSenderAddress(): string | null {
+  const credentials = gmailCredentials();
+  if (credentials) return gmailSender(credentials.user);
+  return resendKey() ? resendSender() : null;
+}
+
 let cachedTransport: { key: string; transport: Transporter } | null = null;
 
 function gmailTransport(credentials: { user: string; pass: string }): Transporter {
@@ -69,7 +79,7 @@ function gmailTransport(credentials: { user: string; pass: string }): Transporte
 async function sendWithGmail(message: MailMessage, credentials: { user: string; pass: string }): Promise<MailResult> {
   try {
     const info = await gmailTransport(credentials).sendMail({
-      from: `${SENDER_NAME()} <${process.env.GMAIL_FROM || credentials.user}>`,
+      from: `${SENDER_NAME()} <${gmailSender(credentials.user)}>`,
       to: message.to,
       subject: message.subject,
       html: message.html,
@@ -85,7 +95,7 @@ async function sendWithGmail(message: MailMessage, credentials: { user: string; 
 }
 
 async function sendWithResend(message: MailMessage, apiKey: string): Promise<MailResult> {
-  const sender = process.env.EMAIL_FROM || process.env.VITE_EMAIL_FROM || 'notifiche@tecnomga.com';
+  const sender = resendSender();
   try {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',

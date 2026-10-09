@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { escapeHtml, getMailProvider, sendMail } from './_lib/mailer.js';
+import { escapeHtml, getMailProvider, getSenderAddress, sendMail } from './_lib/mailer.js';
 
 /**
  * Portal actions that need the service role, called by signed-in users with their session token.
@@ -8,9 +8,17 @@ import { escapeHtml, getMailProvider, sendMail } from './_lib/mailer.js';
  * - create_user, disable_user, delete_user: administrators only.
  * - notify_new_practice: any user, for a practice of their own. The email goes out from the
  *   server, so the email provider key never reaches the browser.
+ * - email_status, send_test_email: administrators only. Which channel sends the portal's emails
+ *   and a real test message to the administrator's own address.
  */
 
-type Action = 'create_user' | 'disable_user' | 'delete_user' | 'notify_new_practice';
+type Action =
+  | 'create_user'
+  | 'disable_user'
+  | 'delete_user'
+  | 'notify_new_practice'
+  | 'email_status'
+  | 'send_test_email';
 
 const ROLES = ['admin', 'agente', 'collaboratore'] as const;
 type Role = (typeof ROLES)[number];
@@ -198,6 +206,29 @@ async function notifyNewPractice(supabase: SupabaseClient, callerId: string, cal
   return { sent: true };
 }
 
+function emailStatus() {
+  return { provider: getMailProvider(), sender: getSenderAddress() };
+}
+
+async function sendTestEmail(supabase: SupabaseClient, callerId: string, callerEmail: string) {
+  await requireAdmin(supabase, callerId);
+  if (!callerEmail) throw new HttpError(400, 'Il tuo account non ha un indirizzo email');
+  const status = emailStatus();
+  if (status.provider === 'none') {
+    return { sent: false, ...status, reason: 'Nessun servizio email configurato su Vercel (GMAIL_USER e GMAIL_APP_PASSWORD oppure RESEND_API_KEY)' };
+  }
+  const when = new Date().toLocaleString('it-IT', { timeZone: 'Europe/Rome' });
+  const result = await sendMail({
+    to: callerEmail,
+    subject: 'Prova invio email — Portale Tecno Advance MGA',
+    html: `<p>Questa è un'email di prova inviata dal portale il ${escapeHtml(when)}.</p>
+<p>Canale: <strong>${escapeHtml(status.provider === 'gmail' ? 'Gmail / Google Workspace' : 'Resend')}</strong><br>Mittente: <strong>${escapeHtml(status.sender)}</strong></p>
+<p>Se la ricevi, i promemoria di scadenza e le notifiche agli amministratori partiranno correttamente.</p>`,
+  });
+  if (!result.success) return { sent: false, ...status, reason: result.error ?? 'Errore sconosciuto' };
+  return { sent: true, ...status, to: callerEmail };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -219,6 +250,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ success: true, ...(await disableOrDeleteUser(supabase, caller.id, body, true)) });
       case 'notify_new_practice':
         return res.status(200).json({ success: true, ...(await notifyNewPractice(supabase, caller.id, caller.email ?? '', body)) });
+      case 'email_status':
+        await requireAdmin(supabase, caller.id);
+        return res.status(200).json({ success: true, ...emailStatus() });
+      case 'send_test_email':
+        return res.status(200).json({ success: true, ...(await sendTestEmail(supabase, caller.id, caller.email ?? '')) });
       default:
         return res.status(400).json({ error: 'Azione non supportata' });
     }

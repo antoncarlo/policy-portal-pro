@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { getEmailStatus, sendTestEmail, type EmailStatus } from "@/lib/portalActions";
 import { Mail, Send, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import {
   Select,
@@ -23,6 +24,7 @@ export const SMTPSettings = () => {
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
+  const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null);
   const m = useMessages(systemMessages).smtp;
   const [settings, setSettings] = useState({
     smtp_enabled: false,
@@ -37,6 +39,9 @@ export const SMTPSettings = () => {
 
   useEffect(() => {
     loadSettings();
+    getEmailStatus()
+      .then(setEmailStatus)
+      .catch((error) => console.error("Error loading email channel:", error));
   }, []);
 
   const loadSettings = async () => {
@@ -100,24 +105,22 @@ export const SMTPSettings = () => {
     setTestResult(null);
 
     try {
-      // Simulate email test
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Real message, sent by the server through the active channel to the administrator's own address
+      const result = await sendTestEmail();
+      setEmailStatus({ provider: result.provider, sender: result.sender });
 
-      // In a real implementation, you would send a test email via the SMTP server
-      const success = Math.random() > 0.3; // 70% success rate for demo
-
-      if (success) {
+      if (result.sent) {
         setTestResult("success");
         toast({
           title: getMessages(commonMessages).success,
-          description: getMessages(systemMessages).smtp.testSent,
+          description: getMessages(systemMessages).smtp.testSentTo(result.to ?? ""),
         });
       } else {
         setTestResult("error");
         toast({
           variant: "destructive",
           title: getMessages(commonMessages).error,
-          description: getMessages(systemMessages).smtp.testFailed,
+          description: getMessages(systemMessages).smtp.testFailedReason(result.reason ?? ""),
         });
       }
     } catch (error) {
@@ -141,6 +144,55 @@ export const SMTPSettings = () => {
         </div>
 
         <div className="space-y-6">
+          {/* Active sending channel: configured on Vercel, tested for real */}
+          <div className="space-y-3 rounded-md border p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <Label>{m.channel}</Label>
+                <p className="text-sm">
+                  {!emailStatus
+                    ? "…"
+                    : emailStatus.provider === "gmail"
+                      ? m.channelGmail(emailStatus.sender ?? "")
+                      : emailStatus.provider === "resend"
+                        ? m.channelResend(emailStatus.sender ?? "")
+                        : m.channelNone}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button variant="outline" onClick={handleTestEmail} disabled={testing || emailStatus?.provider === "none"}>
+                  {testing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {m.sending}
+                    </>
+                  ) : (
+                    <>
+                      <Send className="mr-2 h-4 w-4" />
+                      {m.sendTest}
+                    </>
+                  )}
+                </Button>
+                {testResult && (
+                  <div className="flex items-center gap-2">
+                    {testResult === "success" ? (
+                      <>
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                        <span className="text-sm text-green-600">{m.testOk}</span>
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="h-5 w-5 text-destructive" />
+                        <span className="text-sm text-destructive">{m.testKo}</span>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">{m.channelHint}</p>
+          </div>
+
           {/* Enable SMTP */}
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
@@ -274,41 +326,6 @@ export const SMTPSettings = () => {
               {m.save}
             </Button>
 
-            {settings.smtp_enabled && (
-              <Button
-                variant="outline"
-                onClick={handleTestEmail}
-                disabled={testing || !settings.smtp_host || !settings.smtp_username}
-              >
-                {testing ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {m.sending}
-                  </>
-                ) : (
-                  <>
-                    <Send className="mr-2 h-4 w-4" />
-                    {m.sendTest}
-                  </>
-                )}
-              </Button>
-            )}
-
-            {testResult && (
-              <div className="flex items-center gap-2">
-                {testResult === "success" ? (
-                  <>
-                    <CheckCircle2 className="h-5 w-5 text-green-600" />
-                    <span className="text-sm text-green-600">{m.testOk}</span>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="h-5 w-5 text-destructive" />
-                    <span className="text-sm text-destructive">{m.testKo}</span>
-                  </>
-                )}
-              </div>
-            )}
           </div>
         </div>
       </Card>

@@ -19,3 +19,15 @@ export async function callPortalAction<T = Record<string, unknown>>(action: stri
 
 /** Emails the administrators about a new practice. The email is sent by the server. */
 export const notifyAdminNewPractice = (practiceId: string) => callPortalAction("notify_new_practice", { practiceId });
+
+export interface EmailStatus {
+  provider: "gmail" | "resend" | "none";
+  sender: string | null;
+}
+
+/** Which channel sends the portal's emails (administrators only). */
+export const getEmailStatus = () => callPortalAction<EmailStatus>("email_status");
+
+/** Sends a real test email to the administrator's own address. */
+export const sendTestEmail = () =>
+  callPortalAction<EmailStatus & { sent: boolean; reason?: string; to?: string }>("send_test_email");
