@@ -31,10 +31,13 @@ export interface PetQuoteDocumentResult {
   attachments: string[];
 }
 
-/** URL pubblico del portale, da cui la function scarica la documentazione contrattuale (public/helpet). */
+/**
+ * URL pubblico del portale, da cui la function scarica la documentazione contrattuale (public/helpet).
+ * Non usa VERCEL_PROJECT_PRODUCTION_URL: Vercel vi mette il dominio personalizzato piu' corto
+ * (tecnomga.com), che e' il sito aziendale su register.it e non serve questi file.
+ */
 export function getPortalPublicUrl(): string {
   if (process.env.PORTAL_PUBLIC_URL) return process.env.PORTAL_PUBLIC_URL.replace(/\/$/, '');
-  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
   return 'https://policy-portal-pro.vercel.app';
 }
 
