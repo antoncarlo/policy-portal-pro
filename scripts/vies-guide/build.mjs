@@ -3,11 +3,12 @@
 // Richiede Playwright con Chromium installati globalmente (come nell'ambiente di sviluppo) e,
 // per il cinese, un font CJK di sistema (WenQuanYi Zen Hei o Noto Sans CJK).
 // Il testo sta in content.mjs; il link del portale si cambia lì (PORTAL_LINK) e si rigenera il PDF.
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { CONTACT_EMAIL, GUIDE, PEC, PORTAL_LINK, VERIFY_LINK } from "./content.mjs";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { CONTACT_EMAIL, FIGURES, GUIDE, PEC, PORTAL_LINK, SECTION_FIGURES, VERIFY_LINK } from "./content.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(process.argv[2] ?? "Guida_Operativa_VIES.pdf");
@@ -35,6 +36,16 @@ const LABELS = {
 };
 
 const verifyLink = `<strong>${VERIFY_LINK}</strong>`;
+
+const FIGURE_LABEL = { it: "Fig.", en: "Fig.", zh: "图" };
+const screenUrl = (file) => pathToFileURL(resolve(HERE, "screens", file)).href;
+
+// Screenshots of the portal (Chinese interface) that illustrate a section; numbered per language.
+const renderFigure = (id, lang, number) => {
+  const figure = FIGURES[id];
+  if (!figure) throw new Error(`Schermata sconosciuta: ${id}`);
+  return `<figure class="fig" style="width:${figure.width}"><img src="${screenUrl(figure.file)}" alt=""><figcaption><b>${FIGURE_LABEL[lang]} ${number}</b> · ${figure.caption[lang]}</figcaption></figure>`;
+};
 
 const renderBlock = (block, lang) => {
   const labels = LABELS[lang];
@@ -96,14 +107,19 @@ const renderLanguage = (guide) => {
   const overview = guide.overview
     .map((text, index) => `<div class="stage"><span class="n">${index + 1}</span><span class="t">${text}</span></div>`)
     .join("");
+  let figureNumber = 0;
   const sections = guide.sections
     .map((section, index) => {
       const heading = `<h2><span class="num">${index + 1}</span>${section.title}</h2>`;
-      const groups = groupBlocks(section.blocks).map((group) => group.map((block) => renderBlock(block, lang)).join("\n"));
+      const groups = groupBlocks(section.blocks).map((group) => ({
+        html: group.map((block) => renderBlock(block, lang)).join("\n"),
+        keep: group.length > 1,
+      }));
+      const figures = (SECTION_FIGURES[index] ?? []).map((id) => ({ html: renderFigure(id, lang, (figureNumber += 1)), keep: false }));
       // The section heading travels with the first group, so it is never left alone at the bottom of a page.
-      const [first, ...rest] = groups;
-      return `<section><div class="keep">${heading}${first}</div>${rest
-        .map((html, i) => (groupBlocks(section.blocks)[i + 1].length > 1 ? `<div class="keep">${html}</div>` : html))
+      const [first, ...rest] = [...groups, ...figures];
+      return `<section><div class="keep">${heading}${first.html}</div>${rest
+        .map((group) => (group.keep ? `<div class="keep">${group.html}</div>` : group.html))
         .join("\n")}</section>`;
     })
     .join("\n");
@@ -156,6 +172,10 @@ const css = `
   .stage .n { display: block; color: ${BRONZE}; font-weight: bold; font-size: 11pt; margin-bottom: 1px; }
   .lang[lang="zh-CN"] .stage { line-height: 1.45; }
   strong { color: inherit; }
+  .fig { margin: 8px auto 12px; break-inside: avoid; text-align: center; }
+  .fig img { display: block; width: 100%; height: auto; border: 1px solid #d0d5dd; border-radius: 4px; }
+  .fig figcaption { font-size: 7.8pt; line-height: 1.4; color: #475467; margin-top: 4px; text-align: left; }
+  .fig figcaption b { color: ${BRONZE}; }
 `;
 
 const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${css}</style></head><body>${["it", "en", "zh"]
@@ -184,7 +204,12 @@ const footerTemplate = `<div style="width:100%; padding:0 18mm; font-family: Ari
 const browser = await chromium.launch();
 try {
   const page = await browser.newPage();
-  await page.setContent(html, { waitUntil: "load" });
+  // The page is loaded from a file:// URL so that it can reference the screenshots on disk.
+  const workDir = mkdtempSync(resolve(tmpdir(), "vies-guide-"));
+  const htmlFile = resolve(workDir, "guide.html");
+  writeFileSync(htmlFile, html);
+  await page.goto(pathToFileURL(htmlFile).href, { waitUntil: "load" });
+  rmSync(workDir, { recursive: true, force: true });
   const pdf = await page.pdf({
     format: "A4",
     printBackground: true,

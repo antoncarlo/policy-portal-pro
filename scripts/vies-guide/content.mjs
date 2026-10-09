@@ -91,6 +91,10 @@ export const GUIDE = {
             t: "p",
             x: "Ogni rappresentante vede solo i lotti e le pratiche che ha caricato, mai quelli degli altri.",
           },
+          {
+            t: "note",
+            x: "Le schermate di questa guida mostrano il portale con l'interfaccia in cinese. I nomi delle società e i dati inseriti sono di fantasia. Con l'interfaccia in italiano o in inglese le schermate sono le stesse, con le etichette tradotte.",
+          },
         ],
       },
       {
@@ -170,13 +174,13 @@ export const GUIDE = {
                 "Abbina ogni riga al suo ZIP, riconosce i documenti dal contenuto, legge le scansioni e verifica l'identità della società. Indica il motivo del blocco e che cosa fare.",
               ],
               [
-                "<strong>4. Documenti obbligatori</strong>",
+                "<strong>4. Documenti obbligatori VIES</strong>",
                 "Controllare la mappa dei documenti.",
                 "Mostra, per ogni tipologia, in quanti ZIP è presente e dove manca.",
               ],
               [
                 "<strong>5. Crea le pratiche</strong>",
-                "Premere «Crea pratiche VIES».",
+                "Premere «Crea N pratiche VIES», dove N è il numero di pratiche pronte.",
                 "Crea solo le pratiche complete e corrette, ciascuna con il suo ZIP e il documento di polizza.",
               ],
             ],
@@ -365,6 +369,10 @@ export const GUIDE = {
             t: "p",
             x: "Each fiscal representative sees only the batches and applications they uploaded, never those of others.",
           },
+          {
+            t: "note",
+            x: "The screenshots in this guide show the portal with the Chinese interface. Company names and the data entered are invented. With the Italian or English interface the screens are the same, with the labels translated.",
+          },
         ],
       },
       {
@@ -444,13 +452,13 @@ export const GUIDE = {
                 "Matches each row to its ZIP, recognises documents by content, reads scans and verifies the company's identity. States the reason for a block and what to do.",
               ],
               [
-                "<strong>4. Required documents</strong>",
+                "<strong>4. Required VIES documents</strong>",
                 "Review the document map.",
                 "Shows, for each type, in how many ZIPs it is present and where it is missing.",
               ],
               [
                 "<strong>5. Create the applications</strong>",
-                "Press \"Create VIES applications\".",
+                "Press \"Create N VIES applications\", where N is the number of ready applications.",
                 "Creates only complete and correct applications, each with its ZIP and the policy document.",
               ],
             ],
@@ -638,6 +646,10 @@ export const GUIDE = {
             t: "p",
             x: "每位税务代表只能看到自己上传的批次和申请，看不到他人的。",
           },
+          {
+            t: "note",
+            x: "本指南中的截图均为门户的中文界面，其中的公司名称和填写的数据均为虚构。切换为意大利语或英语界面后，页面相同，仅标签文字不同。",
+          },
         ],
       },
       {
@@ -707,23 +719,23 @@ export const GUIDE = {
                 "读取 Excel、解压 ZIP 并为文件建立索引，包括嵌套 ZIP 内的文件。",
               ],
               [
-                "<strong>2. 表格数据</strong>",
+                "<strong>2. 表格公共信息</strong>",
                 "核对受益人和税务代表；也可上传税务代表的 visura（PDF）。",
                 "从 DATI FOGLIO 工作表或 visura 读取公司名称、税号、地址、PEC 和董事信息，供您核对。",
               ],
               [
-                "<strong>3. 申请检查</strong>",
+                "<strong>3. 申请审核</strong>",
                 "查看每一行的结果：“就绪”或“已阻止”。",
                 "将每一行与对应 ZIP 匹配，按内容识别文件，读取扫描件并核实公司身份；说明阻止原因及处理方法。",
               ],
               [
-                "<strong>4. 必备文件</strong>",
+                "<strong>4. VIES 必备文件</strong>",
                 "查看文件映射。",
                 "按文件类型显示其出现在多少个 ZIP 中，以及缺少的位置。",
               ],
               [
                 "<strong>5. 创建申请</strong>",
-                "点击“创建 VIES 申请”。",
+                "点击“创建 N 笔 VIES 申请”，N 为已就绪的申请数量。",
                 "仅创建完整且无误的申请，每笔均附带其 ZIP 和保单文件。",
               ],
             ],
@@ -830,4 +842,127 @@ export const GUIDE = {
       },
     ],
   },
+};
+
+// Schermate del portale (interfaccia in cinese, dati di fantasia). `width` e' la larghezza nella pagina.
+// SECTION_FIGURES: indice della sezione (da 0) → schermate che la illustrano, in ordine. Le sezioni senza
+// una schermata corrispondente (assunzione del rischio, contatti) restano senza figura.
+export const FIGURES = {
+  detailHead: {
+    file: "08a_pratica_testata.jpg",
+    width: "74%",
+    caption: {
+      it: "Pratica VIES aperta dal portale: contraente, beneficiario, date e durata della garanzia (3 anni).",
+      en: "A VIES application opened in the portal: policyholder, beneficiary, dates and term of the guarantee (3 years).",
+      zh: "在门户中打开的 VIES 申请：投保人、受益人、日期和担保期限（3 年）。",
+    },
+  },
+  detailSummary: {
+    file: "08b_pratica_riepilogo.jpg",
+    width: "70%",
+    caption: {
+      it: "Riepilogo della stessa pratica: dati del contraente e del rappresentante fiscale.",
+      en: "Summary of the same application: policyholder and fiscal representative data.",
+      zh: "同一申请的摘要：投保人和税务代表资料。",
+    },
+  },
+  login: {
+    file: "01_login.jpg",
+    width: "46%",
+    caption: {
+      it: "Pagina di accesso del portale.",
+      en: "Portal login page.",
+      zh: "门户登录页面。",
+    },
+  },
+  step1: {
+    file: "02_vies_step1.jpg",
+    width: "86%",
+    caption: {
+      it: "Pagina VIES, passaggio 1 «File del lotto»: modello Excel da scaricare e caricamento di Excel e ZIP.",
+      en: "VIES page, step 1 \"Batch files\": Excel template to download and upload of the Excel and ZIP files.",
+      zh: "VIES 页面，步骤 1“批次文件”：可下载的 Excel 模板，以及 Excel 和 ZIP 的上传。",
+    },
+  },
+  step2: {
+    file: "03_vies_step2.jpg",
+    width: "62%",
+    caption: {
+      it: "Passaggio 2 «Dati del foglio»: beneficiario e rappresentante fiscale.",
+      en: "Step 2 \"Sheet data\": beneficiary and fiscal representative.",
+      zh: "步骤 2“表格公共信息”：受益人和税务代表。",
+    },
+  },
+  step3: {
+    file: "04_vies_step3.jpg",
+    width: "62%",
+    caption: {
+      it: "Passaggio 3 «Controllo pratiche»: esito di ogni riga, «Pronta» o «Bloccata», con il motivo del blocco.",
+      en: "Step 3 \"Application check\": result of each row, \"Ready\" or \"Blocked\", with the reason for a block.",
+      zh: "步骤 3“申请审核”：每一行的结果“就绪”或“已阻止”，并说明阻止原因。",
+    },
+  },
+  step4: {
+    file: "05_vies_step4.jpg",
+    width: "68%",
+    caption: {
+      it: "Passaggio 4 «Documenti obbligatori VIES»: mappa dei documenti presenti in ogni ZIP.",
+      en: "Step 4 \"Required VIES documents\": map of the documents present in each ZIP.",
+      zh: "步骤 4“VIES 必备文件”：每个 ZIP 中的文件对照表。",
+    },
+  },
+  step5: {
+    file: "06_vies_step5.jpg",
+    width: "68%",
+    caption: {
+      it: "Passaggio 5 «Crea le pratiche»: il pulsante crea solo le pratiche pronte.",
+      en: "Step 5 \"Create the applications\": the button creates only the ready applications.",
+      zh: "步骤 5“创建申请”：该按钮只创建已就绪的申请。",
+    },
+  },
+  list: {
+    file: "07_pratiche_lista.jpg",
+    width: "76%",
+    caption: {
+      it: "Menu «Pratiche»: elenco delle pratiche VIES con stato, ricerca e filtri.",
+      en: "\"Applications\" menu: list of VIES applications with status, search and filters.",
+      zh: "“业务申请”菜单：VIES 申请列表，含状态、搜索和筛选。",
+    },
+  },
+  adminList: {
+    file: "09_amministrazione_vies_lista.jpg",
+    width: "72%",
+    caption: {
+      it: "Amministrazione → VIES: elenco dei rappresentanti fiscali.",
+      en: "Accounting → VIES: list of fiscal representatives.",
+      zh: "财务管理 → VIES：税务代表列表。",
+    },
+  },
+  adminSummary: {
+    file: "10_amministrazione_vies_riepilogo.jpg",
+    width: "58%",
+    caption: {
+      it: "Riepilogo di un rappresentante fiscale: lotti Excel caricati, estratto conto in PDF e stato del pagamento.",
+      en: "Summary of a fiscal representative: uploaded Excel batches, PDF statement and payment status.",
+      zh: "税务代表汇总：已上传的 Excel 批次、PDF 对账单及付款状态。",
+    },
+  },
+  statement: {
+    file: "11_estratto_conto_dialog.jpg",
+    width: "52%",
+    caption: {
+      it: "Estratto conto di un lotto: numero di polizze e premio totale da pagare, con generazione del PDF.",
+      en: "Statement of a batch: number of policies and total premium due, with PDF generation.",
+      zh: "批次对账单：保单数量和应付保费合计，并可生成 PDF。",
+    },
+  },
+};
+
+export const SECTION_FIGURES = {
+  0: ["detailHead"],
+  2: ["login"],
+  3: ["step1"],
+  4: ["step2", "step3", "step4", "step5"],
+  5: ["list", "detailSummary", "adminList", "adminSummary"],
+  6: ["statement"],
 };
