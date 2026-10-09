@@ -5,6 +5,7 @@ import { composeNotes, extractNotesSections, resolvePetCoverages, type SpecificF
 import { computePetQuote } from '../src/lib/petQuoteEngine.js';
 import { attachPetQuoteDocument, type PetQuoteDocumentResult } from './_lib/pet-quote-document.js';
 import { DOCUMENT_TYPE_ALIASES, normalizeDocumentType, type AdminClient } from './_lib/partner-api.js';
+import { escapeHtml, getMailProvider, sendMail } from './_lib/mailer.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -160,8 +161,7 @@ async function notifyAdminNewPractice(params: {
   agentName: string;
   agentEmail: string;
 }): Promise<void> {
-  const resendKey = process.env.RESEND_API_KEY;
-  if (!resendKey) return;
+  if (getMailProvider() === 'none') return;
 
   const adminEmails = (process.env.ADMIN_NOTIFICATION_EMAILS || 'info@tecnomga.com,antoncarlo@tecnomga.com')
     .split(',')
@@ -190,27 +190,27 @@ async function notifyAdminNewPractice(params: {
             </tr>
             <tr style="background:#f9fafb">
               <td style="padding:10px 14px;font-weight:600;color:#374151">Numero Pratica</td>
-              <td style="padding:10px 14px;color:#111827">${params.practiceNumber}</td>
+              <td style="padding:10px 14px;color:#111827">${escapeHtml(params.practiceNumber)}</td>
             </tr>
             <tr>
               <td style="padding:10px 14px;font-weight:600;color:#374151">Tipo Polizza</td>
-              <td style="padding:10px 14px;color:#111827">${params.practiceType}</td>
+              <td style="padding:10px 14px;color:#111827">${escapeHtml(params.practiceType)}</td>
             </tr>
             <tr style="background:#f9fafb">
               <td style="padding:10px 14px;font-weight:600;color:#374151">Cliente</td>
-              <td style="padding:10px 14px;color:#111827">${params.clientName}</td>
+              <td style="padding:10px 14px;color:#111827">${escapeHtml(params.clientName)}</td>
             </tr>
             <tr>
               <td style="padding:10px 14px;font-weight:600;color:#374151">Email Cliente</td>
-              <td style="padding:10px 14px;color:#111827">${params.clientEmail}</td>
+              <td style="padding:10px 14px;color:#111827">${escapeHtml(params.clientEmail)}</td>
             </tr>
             <tr style="background:#f9fafb">
               <td style="padding:10px 14px;font-weight:600;color:#374151">Caricata da</td>
-              <td style="padding:10px 14px;color:#111827">${params.agentName}</td>
+              <td style="padding:10px 14px;color:#111827">${escapeHtml(params.agentName)}</td>
             </tr>
             <tr>
               <td style="padding:10px 14px;font-weight:600;color:#374151">Email Agente</td>
-              <td style="padding:10px 14px;color:#111827">${params.agentEmail}</td>
+              <td style="padding:10px 14px;color:#111827">${escapeHtml(params.agentEmail)}</td>
             </tr>
             <tr style="background:#f9fafb">
               <td style="padding:10px 14px;font-weight:600;color:#374151">Data/Ora</td>
@@ -229,23 +229,10 @@ async function notifyAdminNewPractice(params: {
 
   const subject = `🆕 Nuova Pratica Caricata (API): ${params.practiceNumber} — ${params.practiceType}`;
 
-  await Promise.allSettled(
-    adminEmails.map(to =>
-      fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${resendKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: 'Tecno Advance MGA <notifiche@tecnomga.com>',
-          to: [to],
-          subject,
-          html,
-        }),
-      })
-    )
-  );
+  const results = await Promise.all(adminEmails.map(to => sendMail({ to, subject, html })));
+  results.forEach((result, index) => {
+    if (!result.success) console.error(`Notifica admin non inviata a ${adminEmails[index]}: ${result.error}`);
+  });
 }
 
 // ---------------------------------------------------------------------------

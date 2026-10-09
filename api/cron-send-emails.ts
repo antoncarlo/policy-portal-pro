@@ -12,11 +12,9 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { PRACTICE_TYPE_LABELS } from '../src/lib/practiceSummary.js';
+import { escapeHtml, getMailProvider, sendMail } from './_lib/mailer.js';
 
 // Configurazione
-const RESEND_API_KEY = process.env.RESEND_API_KEY || process.env.VITE_RESEND_API_KEY;
-const EMAIL_FROM = process.env.VITE_EMAIL_FROM || 'notifiche@tecnomga.com';
-const EMAIL_FROM_NAME = process.env.VITE_EMAIL_FROM_NAME || 'Tecno Advance MGA';
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -68,15 +66,6 @@ async function getPendingNotifications(): Promise<PendingNotification[]> {
   }
 
   return await response.json();
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
 
 function practiceTypeLabel(practiceType: string): string {
@@ -229,38 +218,10 @@ function getEmailSubject(notificationType: string, practiceType: string, daysUnt
 }
 
 /**
- * Invia email tramite Resend
+ * Invia email dal canale configurato (Gmail o Resend, vedi api/_lib/mailer.ts)
  */
 async function sendEmail(to: string, subject: string, html: string): Promise<{ success: boolean; id?: string; error?: string }> {
-  if (!RESEND_API_KEY) {
-    return { success: false, error: 'RESEND_API_KEY not configured' };
-  }
-
-  try {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: `${EMAIL_FROM_NAME} <${EMAIL_FROM}>`,
-        to: [to],
-        subject: subject,
-        html: html,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      return { success: false, error: JSON.stringify(errorData) };
-    }
-
-    const data = await response.json();
-    return { success: true, id: data.id };
-  } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
+  return sendMail({ to, subject, html });
 }
 
 /**
@@ -336,6 +297,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   console.log('🔄 Starting email notification cron job...');
+
+  // Senza un canale di invio non si prova nemmeno: i promemoria restano da inviare
+  // e non finiscono nel registro come falliti.
+  if (getMailProvider() === 'none') {
+    return res.status(200).json({
+      success: false,
+      message: 'Nessun servizio email configurato: promemoria non inviati',
+      total: 0,
+      sent: 0,
+      failed: 0,
+    });
+  }
 
   try {
     // 1. Recupera notifiche in attesa

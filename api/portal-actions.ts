@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { escapeHtml, getMailProvider, sendMail } from './_lib/mailer.js';
 
 /**
  * Portal actions that need the service role, called by signed-in users with their session token.
@@ -40,13 +41,6 @@ async function requireAdmin(supabase: SupabaseClient, userId: string) {
   if (error) throw new HttpError(500, `Errore verifica permessi: ${error.message}`);
   if (!data) throw new HttpError(403, 'Accesso riservato agli amministratori');
 }
-
-const escapeHtml = (value: unknown) =>
-  String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 
 async function createUser(supabase: SupabaseClient, callerId: string, body: Record<string, unknown>) {
   await requireAdmin(supabase, callerId);
@@ -150,15 +144,13 @@ async function notifyNewPractice(supabase: SupabaseClient, callerId: string, cal
   if (error) throw new HttpError(500, error.message);
   if (!practice || practice.user_id !== callerId) throw new HttpError(404, 'Pratica non trovata');
 
-  const resendKey = process.env.RESEND_API_KEY || process.env.VITE_RESEND_API_KEY;
-  if (!resendKey) return { sent: false, reason: 'RESEND_API_KEY non configurata' };
+  if (getMailProvider() === 'none') return { sent: false, reason: 'Nessun servizio email configurato' };
 
   const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', callerId).maybeSingle();
   const adminEmails = (process.env.ADMIN_NOTIFICATION_EMAILS || 'info@tecnomga.com,antoncarlo@tecnomga.com')
     .split(',')
     .map((address) => address.trim())
     .filter(Boolean);
-  const from = `${process.env.VITE_EMAIL_FROM_NAME || 'Tecno Advance MGA'} <${process.env.VITE_EMAIL_FROM || 'notifiche@tecnomga.com'}>`;
   const dateStr = new Date().toLocaleString('it-IT', { timeZone: 'Europe/Rome' });
 
   const rows: Array<[string, unknown]> = [
@@ -197,17 +189,12 @@ async function notifyNewPractice(supabase: SupabaseClient, callerId: string, cal
   </td></tr></table>
 </body></html>`;
 
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from,
-      to: adminEmails,
-      subject: `Nuova Pratica Caricata: ${practice.practice_number} — ${practice.practice_type}`,
-      html,
-    }),
+  const result = await sendMail({
+    to: adminEmails,
+    subject: `Nuova Pratica Caricata: ${practice.practice_number} — ${practice.practice_type}`,
+    html,
   });
-  if (!response.ok) return { sent: false, reason: `Invio email non riuscito (${response.status})` };
+  if (!result.success) return { sent: false, reason: `Invio email non riuscito: ${result.error ?? 'errore sconosciuto'}` };
   return { sent: true };
 }
 
