@@ -4,7 +4,7 @@
 // Testo rivisto con le regole del humanizer: frasi dirette, niente annunci ("ecco i passaggi"),
 // niente elenchi con titoletti in grassetto, grassetto solo per etichette di tabella e totali.
 
-export const PORTAL_LINK = "https://policy-portal-pro.vercel.app";
+export const PORTAL_LINK = "https://portale.tecnomga.com";
 export const VERIFY_LINK = "www.markelinsurance.it/prodotti/fideiussioni/verifica-polizze";
 export const CONTACT_EMAIL = "info@tecnomga.com";
 export const PEC = "tecnoadvancemgabroker@legalmail.it";
