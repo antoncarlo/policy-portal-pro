@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { ControllerReport } from '../../src/lib/viesController.js';
 import { runBatchController } from './vies-controller-data.js';
+import { assertSecondFactor } from './mfa.js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -79,6 +80,7 @@ export async function resolveUserFromRequest(req: VercelRequest, supabase = getS
   if (error || !data.user) {
     throw new Error('Sessione non valida o scaduta. Effettuare nuovamente il login.');
   }
+  await assertSecondFactor(supabase, token, data.user.id);
 
   return data.user.id;
 }

@@ -24,6 +24,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Mail, User, Phone, Shield, Percent, Package, Plus, Trash2 } from "lucide-react";
+import { generateSecurePassword } from "@/lib/passwordGenerator";
 
 interface InviteUserDialogProps {
   open: boolean;
@@ -94,12 +95,7 @@ export const InviteUserDialog = ({
   };
 
   const generateRandomPassword = () => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%";
-    let password = "";
-    for (let i = 0; i < 12; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setFormData((prev) => ({ ...prev, password }));
+    setFormData((prev) => ({ ...prev, password: generateSecurePassword() }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

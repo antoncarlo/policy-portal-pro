@@ -24,7 +24,7 @@ export const SecuritySettings = () => {
   });
 
   const validatePassword = (password: string): string | null => {
-    if (password.length < 8) {
+    if (password.length < 12) {
       return getMessages(settingsMessages).security.tooShort;
     }
     if (!/[A-Z]/.test(password)) {

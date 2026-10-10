@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { escapeHtml, getMailProvider, getSenderAddress, sendMail } from './_lib/mailer.js';
+import { assertSecondFactor, MfaRequiredError } from './_lib/mfa.js';
 
 /**
  * Portal actions that need the service role, called by signed-in users with their session token.
@@ -8,6 +9,7 @@ import { escapeHtml, getMailProvider, getSenderAddress, sendMail } from './_lib/
  * - create_user, disable_user, delete_user: administrators only.
  * - notify_new_practice: any user, for a practice of their own. The email goes out from the
  *   server, so the email provider key never reaches the browser.
+ * - reset_mfa: administrators only. Removes the user's authenticator-app factors (lost phone).
  * - email_status, send_test_email: administrators only. Which channel sends the portal's emails
  *   and a real test message to the administrator's own address.
  */
@@ -18,7 +20,8 @@ type Action =
   | 'delete_user'
   | 'notify_new_practice'
   | 'email_status'
-  | 'send_test_email';
+  | 'send_test_email'
+  | 'reset_mfa';
 
 const ROLES = ['admin', 'agente', 'collaboratore'] as const;
 type Role = (typeof ROLES)[number];
@@ -39,8 +42,15 @@ function getSupabaseAdmin(): SupabaseClient {
 async function resolveCaller(req: VercelRequest, supabase: SupabaseClient) {
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) throw new HttpError(401, 'Token di autorizzazione mancante');
-  const { data, error } = await supabase.auth.getUser(header.slice('Bearer '.length).trim());
+  const token = header.slice('Bearer '.length).trim();
+  const { data, error } = await supabase.auth.getUser(token);
   if (error || !data.user) throw new HttpError(401, 'Sessione non valida o scaduta');
+  try {
+    await assertSecondFactor(supabase, token, data.user.id);
+  } catch (mfaError) {
+    if (mfaError instanceof MfaRequiredError) throw new HttpError(403, mfaError.message);
+    throw new HttpError(500, mfaError instanceof Error ? mfaError.message : 'Verifica sicurezza non riuscita');
+  }
   return data.user;
 }
 
@@ -138,6 +148,22 @@ async function disableOrDeleteUser(supabase: SupabaseClient, callerId: string, b
     if (error) throw new HttpError(400, error.message);
   }
   return {};
+}
+
+async function resetMfa(supabase: SupabaseClient, callerId: string, body: Record<string, unknown>) {
+  await requireAdmin(supabase, callerId);
+  const userId = typeof body.userId === 'string' ? body.userId : '';
+  if (!userId) throw new HttpError(400, 'Utente mancante');
+  if (userId === callerId) throw new HttpError(400, 'Non puoi reimpostare la tua verifica da qui: usa le Impostazioni');
+
+  const { data, error } = await supabase.auth.admin.mfa.listFactors({ userId });
+  if (error) throw new HttpError(400, error.message);
+  const factors = data?.factors ?? [];
+  for (const factor of factors) {
+    const { error: deleteError } = await supabase.auth.admin.mfa.deleteFactor({ userId, id: factor.id });
+    if (deleteError) throw new HttpError(400, deleteError.message);
+  }
+  return { removed: factors.length };
 }
 
 async function notifyNewPractice(supabase: SupabaseClient, callerId: string, callerEmail: string, body: Record<string, unknown>) {
@@ -250,6 +276,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ success: true, ...(await disableOrDeleteUser(supabase, caller.id, body, true)) });
       case 'notify_new_practice':
         return res.status(200).json({ success: true, ...(await notifyNewPractice(supabase, caller.id, caller.email ?? '', body)) });
+      case 'reset_mfa':
+        return res.status(200).json({ success: true, ...(await resetMfa(supabase, caller.id, body)) });
       case 'email_status':
         await requireAdmin(supabase, caller.id);
         return res.status(200).json({ success: true, ...emailStatus() });

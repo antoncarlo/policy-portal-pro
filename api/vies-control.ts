@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { findExistingViesPractices, runBatchController } from './_lib/vies-controller-data.js';
+import { MfaRequiredError } from './_lib/mfa.js';
 import {
   assertBatchAccess,
   assertJobAccess,
@@ -120,7 +121,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: `Azione VIES non supportata: ${action}` });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Errore sconosciuto nel controllo VIES.';
-    return res.status(400).json({ ok: false, error: message });
+    return res.status(error instanceof MfaRequiredError ? 403 : 400).json({ ok: false, error: message });
   }
 }
 

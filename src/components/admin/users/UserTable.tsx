@@ -1,7 +1,7 @@
 import { useLanguage, useMessages } from "@/i18n";
 import { roleLabel } from "@/i18n/messages/domain";
 import { usersMessages } from "@/i18n/messages/users";
-import { useState } from "react";
+import { mfaMessages } from "@/i18n/messages/mfa";
 import {
   Table,
   TableBody,
@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MoreVertical, Edit, Link2, BarChart3, Ban, Trash2, Package, Percent } from "lucide-react";
+import { MoreVertical, Edit, Link2, BarChart3, Ban, Trash2, Package, Percent, ShieldOff } from "lucide-react";
 
 interface User {
   id: string;
@@ -42,6 +42,7 @@ interface UserTableProps {
   onEditCommission: (user: User) => void;
   onAssignAgent: (user: User) => void;
   onViewPractices: (user: User) => void;
+  onResetMfa: (user: User) => void;
   onDisableUser: (user: User) => void;
   onDeleteUser: (user: User) => void;
 }
@@ -53,10 +54,12 @@ export const UserTable = ({
   onEditCommission,
   onAssignAgent,
   onViewPractices,
+  onResetMfa,
   onDisableUser,
   onDeleteUser,
 }: UserTableProps) => {
   const m = useMessages(usersMessages).table;
+  const mfa = useMessages(mfaMessages).admin;
   const language = useLanguage();
   const getRoleBadge = (role: string) => {
     const badges = {
@@ -173,6 +176,10 @@ export const UserTable = ({
                       <DropdownMenuItem onClick={() => onViewPractices(user)}>
                         <BarChart3 className="h-4 w-4 mr-2" />
                         {m.viewPractices}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onResetMfa(user)}>
+                        <ShieldOff className="h-4 w-4 mr-2" />
+                        {mfa.resetMenu}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem

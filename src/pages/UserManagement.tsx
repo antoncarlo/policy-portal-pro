@@ -20,6 +20,7 @@ import { getMessages, useMessages } from "@/i18n";
 import { commonMessages } from "@/i18n/messages/common";
 import { roleLabel } from "@/i18n/messages/domain";
 import { usersMessages } from "@/i18n/messages/users";
+import { mfaMessages } from "@/i18n/messages/mfa";
 
 interface User {
   id: string;
@@ -143,6 +144,22 @@ const UserManagement = () => {
     navigate(`/practices?user=${user.id}`);
   };
 
+  const handleResetMfa = async (user: User) => {
+    const text = getMessages(mfaMessages).admin;
+    if (!confirm(`${text.resetTitle}\n\n${text.resetText(user.full_name)}`)) return;
+
+    try {
+      await callPortalAction("reset_mfa", { userId: user.id });
+      toast({ title: getMessages(commonMessages).success, description: text.resetDone });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: getMessages(commonMessages).error,
+        description: error.message,
+      });
+    }
+  };
+
   const handleDisableUser = async (user: User) => {
     if (!confirm(getMessages(usersMessages).confirmDisable(user.full_name))) return;
 
@@ -263,6 +280,7 @@ const UserManagement = () => {
           onEditCommission={handleEditCommission}
           onAssignAgent={handleAssignAgent}
           onViewPractices={handleViewPractices}
+          onResetMfa={handleResetMfa}
           onDisableUser={handleDisableUser}
           onDeleteUser={handleDeleteUser}
         />

@@ -3,43 +3,70 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useMessages } from "@/i18n";
 import { commonMessages } from "@/i18n/messages/common";
+import { getMfaGate } from "@/lib/mfa";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  /** Pagine che servono proprio per completare la verifica in due passaggi (non possono richiederla). */
+  skipMfaGate?: boolean;
 }
 
-export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
+export const ProtectedRoute = ({ children, skipMfaGate = false }: ProtectedRouteProps) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const common = useMessages(commonMessages);
   const [authenticated, setAuthenticated] = useState(false);
 
   useEffect(() => {
-    checkAuth();
+    let active = true;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    // Sessione valida e, se serve, verifica in due passaggi completata (aal2).
+    const checkAccess = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!active) return;
       if (!session) {
         navigate("/auth");
-      } else {
-        setAuthenticated(true);
+        setLoading(false);
+        return;
+      }
+      if (!skipMfaGate) {
+        try {
+          const gate = await getMfaGate(session.user.id);
+          if (!active) return;
+          if (gate === "challenge") {
+            navigate("/auth"); // il codice dell'app si chiede nella pagina di accesso
+            setLoading(false);
+            return;
+          }
+          if (gate === "enroll") {
+            navigate("/mfa-setup");
+            setLoading(false);
+            return;
+          }
+        } catch {
+          // Controllo non riuscito: per sicurezza non si mostra la pagina
+          navigate("/auth");
+          setLoading(false);
+          return;
+        }
+      }
+      setAuthenticated(true);
+      setLoading(false);
+    };
+
+    void checkAccess();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        navigate("/auth");
       }
     });
 
-    return () => subscription.unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
-  }, [navigate]);
-
-  const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-      navigate("/auth");
-    } else {
-      setAuthenticated(true);
-    }
-    
-    setLoading(false);
-  };
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [navigate, skipMfaGate]);
 
   if (loading) {
     return (

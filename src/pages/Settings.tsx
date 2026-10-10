@@ -3,6 +3,7 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { SecuritySettings } from "@/components/settings/SecuritySettings";
+import { MfaSettings } from "@/components/settings/MfaSettings";
 import { PreferencesSettings } from "@/components/settings/PreferencesSettings";
 import { CollaboratorsSettings } from "@/components/settings/CollaboratorsSettings";
 import { PracticeTemplatesSettings } from "@/components/settings/PracticeTemplatesSettings";
@@ -138,6 +139,7 @@ const Settings = () => {
 
           <TabsContent value="security" className="space-y-4">
             <SecuritySettings />
+            <MfaSettings />
           </TabsContent>
 
           <TabsContent value="preferences" className="space-y-4">

@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { checkRateLimit, createAdminClient, getClientIp, prepareGetEndpoint } from './_lib/partner-api.js';
 import { attachPetQuoteDocument, type PetQuotePracticeRow } from './_lib/pet-quote-document.js';
+import { assertSecondFactor, MfaRequiredError } from './_lib/mfa.js';
 import { buildPetQuoteCatalog, computePetQuote, type PetQuoteRequest } from '../src/lib/petQuoteEngine.js';
 import { buildPetSummary } from '../src/lib/practiceSummary.js';
 import { buildPetQuoteFileName, generatePetQuotePdf, petQuotePdfToBytes } from '../src/lib/petQuotePdf.js';
@@ -104,6 +105,12 @@ async function handleAttach(req: VercelRequest, res: VercelResponse) {
   const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
   if (userError || !userData?.user) return res.status(401).json({ error: 'Sessione non valida.' });
   const userId = userData.user.id as string;
+  try {
+    await assertSecondFactor(supabaseAdmin, token, userId);
+  } catch (mfaError) {
+    if (mfaError instanceof MfaRequiredError) return res.status(403).json({ error: mfaError.message });
+    return res.status(503).json({ error: 'Servizio temporaneamente non disponibile.' });
+  }
 
   const body = req.body as Record<string, unknown>;
   const practiceId = typeof body.practice_id === 'string' ? body.practice_id : '';
