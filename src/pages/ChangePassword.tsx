@@ -8,7 +8,7 @@ import { commonMessages } from "@/i18n/messages/common";
 import { passwordMessages } from "@/i18n/messages/passwords";
 import { supabase } from "@/integrations/supabase/client";
 import { callPortalAction } from "@/lib/portalActions";
-import { refreshAfterPasswordChange } from "@/lib/passwordSession";
+import { currentSessionEmail, signInAfterPasswordChange } from "@/lib/passwordSession";
 
 /** Primo accesso con la password provvisoria data dall'amministratore: va sostituita prima di entrare nel portale. */
 const ChangePassword = () => {
@@ -17,8 +17,9 @@ const ChangePassword = () => {
   const m = useMessages(passwordMessages).change;
 
   const submit = async (password: string) => {
+    const email = await currentSessionEmail();
     await callPortalAction("set_password", { password });
-    const stillSignedIn = await refreshAfterPasswordChange(); // la sessione riceve il flag aggiornato
+    const stillSignedIn = await signInAfterPasswordChange(email, password); // la vecchia sessione e' stata annullata dal cambio
     toast({ title: getMessages(commonMessages).success, description: getMessages(passwordMessages).reset.done });
     navigate(stillSignedIn ? "/dashboard" : "/auth", { replace: true });
   };

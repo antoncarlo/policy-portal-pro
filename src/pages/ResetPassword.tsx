@@ -12,7 +12,7 @@ import { passwordMessages } from "@/i18n/messages/passwords";
 import { supabase } from "@/integrations/supabase/client";
 import { getMfaGate } from "@/lib/mfa";
 import { callPortalAction } from "@/lib/portalActions";
-import { refreshAfterPasswordChange } from "@/lib/passwordSession";
+import { currentSessionEmail, signInAfterPasswordChange } from "@/lib/passwordSession";
 
 type Stage = "form" | "mfa" | "invalid";
 
@@ -34,8 +34,9 @@ const ResetPassword = () => {
   const pending = useRef("");
 
   const finish = async (password: string) => {
+    const email = await currentSessionEmail();
     await callPortalAction("set_password", { password });
-    const stillSignedIn = await refreshAfterPasswordChange(); // la sessione riceve il flag aggiornato
+    const stillSignedIn = await signInAfterPasswordChange(email, password); // la vecchia sessione e' stata annullata dal cambio
     toast({ title: getMessages(commonMessages).success, description: getMessages(passwordMessages).reset.done });
     navigate(stillSignedIn ? "/dashboard" : "/auth", { replace: true });
   };

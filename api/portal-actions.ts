@@ -187,7 +187,8 @@ async function setPassword(supabase: SupabaseClient, caller: { id: string; email
   const probe = getSupabaseAnon();
   const { data: attempt } = await probe.auth.signInWithPassword({ email: caller.email, password });
   if (attempt?.session) {
-    await probe.auth.signOut().catch(() => undefined);
+    // Solo la sessione di controllo: un signOut globale chiuderebbe anche quella aperta dall'utente nel browser.
+    await probe.auth.signOut({ scope: 'local' }).catch(() => undefined);
     throw new HttpError(400, 'La nuova password deve essere diversa da quella attuale', 'same_password');
   }
 
