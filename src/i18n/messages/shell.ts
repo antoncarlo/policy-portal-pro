@@ -34,6 +34,9 @@ export const shellMessages = defineMessages({
       invalidCredentials: "Email o password non corretti",
       successTitle: "Accesso effettuato!",
       successDescription: "Benvenuto nel portale.",
+      privacy: "Informativa privacy",
+      terms: "Termini e condizioni",
+      storageNotice: "Questo portale usa solo cookie e archiviazione tecnici, necessari all'accesso e alle preferenze di visualizzazione. Non usa cookie di profilazione né strumenti di tracciamento.",
     },
     landing: {
       goToPortal: "Vai al Portale",
@@ -98,6 +101,9 @@ export const shellMessages = defineMessages({
       invalidCredentials: "Incorrect email or password",
       successTitle: "Signed in!",
       successDescription: "Welcome to the portal.",
+      privacy: "Privacy notice",
+      terms: "Terms and conditions",
+      storageNotice: "This portal uses only technical cookies and storage, needed for sign-in and display preferences. It does not use profiling cookies or tracking tools.",
     },
     landing: {
       goToPortal: "Go to Portal",
@@ -162,6 +168,9 @@ export const shellMessages = defineMessages({
       invalidCredentials: "电子邮箱或密码不正确",
       successTitle: "登录成功！",
       successDescription: "欢迎使用本门户。",
+      privacy: "隐私声明",
+      terms: "条款与条件",
+      storageNotice: "本门户仅使用登录和显示偏好所需的技术性 Cookie 与本地存储，不使用画像 Cookie，也不使用任何跟踪工具。",
     },
     landing: {
       goToPortal: "进入门户",

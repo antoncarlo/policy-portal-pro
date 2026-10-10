@@ -35,7 +35,7 @@ function gmailCredentials(): { user: string; pass: string } | null {
 }
 
 function resendKey(): string | undefined {
-  return process.env.RESEND_API_KEY || process.env.VITE_RESEND_API_KEY;
+  return process.env.RESEND_API_KEY;
 }
 
 export function getMailProvider(): MailProvider {

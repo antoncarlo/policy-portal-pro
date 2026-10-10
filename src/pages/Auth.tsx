@@ -12,6 +12,10 @@ import { getMessages, useMessages } from "@/i18n";
 import { shellMessages } from "@/i18n/messages/shell";
 import { commonMessages } from "@/i18n/messages/common";
 
+// Documenti pubblicati sul sito della società
+const PRIVACY_URL = "https://tecnomga.com/wp-content/uploads/2025/12/Informativaprivacytecno-1_1.pdf";
+const TERMS_URL = "https://tecnomga.com/wp-content/uploads/2025/12/terms-and-conditions.pdf";
+
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -113,6 +117,18 @@ const Auth = () => {
             </Button>
           </form>
         </Card>
+
+        <div className="mt-6 space-y-2 text-center text-xs text-muted-foreground">
+          <p>{m.storageNotice}</p>
+          <p className="space-x-3">
+            <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">
+              {m.privacy}
+            </a>
+            <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">
+              {m.terms}
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );
