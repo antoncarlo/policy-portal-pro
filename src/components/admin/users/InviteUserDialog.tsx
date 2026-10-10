@@ -1,5 +1,6 @@
-import { getMessages, useLanguage, useMessages } from "@/i18n";
+import { getMessages, LANGUAGES, useLanguage, useMessages } from "@/i18n";
 import { commonMessages } from "@/i18n/messages/common";
+import { passwordMessages } from "@/i18n/messages/passwords";
 import { practiceTypeLabel, roleLabel } from "@/i18n/messages/domain";
 import { ASSIGNABLE_PRODUCTS, usersMessages } from "@/i18n/messages/users";
 import { useState } from "react";
@@ -60,11 +61,14 @@ export const InviteUserDialog = ({
   const m = useMessages(usersMessages);
   const common = useMessages(commonMessages);
   const language = useLanguage();
+  const invite = useMessages(passwordMessages).invite;
+  const [sendWelcome, setSendWelcome] = useState(true);
   const [formData, setFormData] = useState({
     email: "",
     full_name: "",
     phone: "",
     role: "collaboratore",
+    language: language as string,
     password: "",
     default_commission_percentage: "0",
   });
@@ -145,6 +149,8 @@ export const InviteUserDialog = ({
           full_name: formData.full_name,
           phone: formData.phone,
           role: formData.role,
+          language: formData.language,
+          send_welcome: sendWelcome,
           default_commission_percentage: parseFloat(formData.default_commission_percentage) || 0,
           commission_bonus_tiers: normalizedCommissionBonusTiers,
           allowed_products: selectedProducts,
@@ -166,6 +172,14 @@ export const InviteUserDialog = ({
         description: getMessages(usersMessages).create.created(formData.full_name),
       });
 
+      if (sendWelcome) {
+        const welcome = getMessages(passwordMessages).invite;
+        toast(
+          data.welcome?.sent
+            ? { title: getMessages(commonMessages).success, description: welcome.welcomeSent(formData.email) }
+            : { variant: "destructive", title: getMessages(commonMessages).error, description: welcome.welcomeFailed(data.welcome?.reason ?? "?") },
+        );
+      }
       // Show password to admin
       toast({
         title: getMessages(usersMessages).create.passwordTitle,
@@ -182,9 +196,11 @@ export const InviteUserDialog = ({
         full_name: "",
         phone: "",
         role: "collaboratore",
+        language: language as string,
         password: "",
         default_commission_percentage: "0",
       });
+      setSendWelcome(true);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -285,6 +301,23 @@ export const InviteUserDialog = ({
                 </SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="user_language">{invite.languageLabel}</Label>
+            <Select value={formData.language} onValueChange={(value) => handleChange("language", value)}>
+              <SelectTrigger id="user_language">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LANGUAGES.map((entry) => (
+                  <SelectItem key={entry.code} value={entry.code}>
+                    {entry.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-gray-500">{invite.languageHint}</p>
           </div>
 
           {(formData.role === "agente" || formData.role === "collaboratore") && (
@@ -426,6 +459,19 @@ export const InviteUserDialog = ({
               {m.create.passwordHint}
             </p>
           </div>
+
+          <label className="flex items-start gap-2 rounded-md border p-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={sendWelcome}
+              onChange={(e) => setSendWelcome(e.target.checked)}
+              className="mt-1 rounded border-gray-300"
+            />
+            <span className="text-sm">
+              <span className="font-medium">{invite.sendWelcome}</span>
+              <span className="block text-xs text-gray-500">{invite.sendWelcomeHint}</span>
+            </span>
+          </label>
         </form>
 
         <DialogFooter>

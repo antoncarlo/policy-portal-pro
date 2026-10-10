@@ -2,9 +2,8 @@
 
 ## Come funziona
 
+- La verifica è facoltativa, per tutti (amministratori compresi): ognuno la attiva da Impostazioni > Sicurezza.
 - Chi ha un'app di autenticazione collegata deve inserire il codice a ogni accesso.
-- Gli amministratori devono averla: al primo accesso il portale li porta alla configurazione (`/mfa-setup`).
-- Agenti e collaboratori possono attivarla da Impostazioni > Sicurezza.
 - Il controllo vero sta nel database (migrazione `20261010_mfa_enforcement.sql`):
   regola RLS restrittiva su ogni tabella e su `storage.objects`, controllo su ogni richiesta PostgREST
   (anche le funzioni RPC) e controllo nelle funzioni `/api/*` (`api/_lib/mfa.ts`).
@@ -12,8 +11,8 @@
 
 ## Interruttore (tabella `public.security_flags`, chiave `mfa_enforcement`)
 
-La migrazione installa tutto con l'obbligo **spento**. Si accende solo dopo che il frontend con la
-schermata del codice è online, altrimenti gli amministratori resterebbero senza dati.
+La migrazione installa tutto **spento**. Si accende solo dopo che il frontend con la schermata del codice
+è online. Acceso, riguarda soltanto chi ha attivato l'app: gli altri utenti non cambiano.
 
 ```sql
 -- prova su pochi utenti
@@ -27,8 +26,8 @@ update public.security_flags set enabled = false where key = 'mfa_enforcement';
 ## Telefono perso
 
 - Un amministratore può reimpostare la verifica di un altro utente da Gestione Utenti
-  (menu dei tre puntini > «Reimposta verifica in due passaggi»). L'utente configura di nuovo l'app al prossimo accesso.
-- Se è bloccato l'unico amministratore: spegnere l'interruttore (sopra), poi eliminare i suoi fattori:
+  (menu dei tre puntini > «Reimposta verifica in due passaggi»). L'utente accede con la sola password e può riattivare l'app da Impostazioni > Sicurezza.
+- Se nessun amministratore riesce a entrare: spegnere l'interruttore (sopra), poi eliminare i fattori dell'utente:
   `delete from auth.mfa_factors where user_id = '<uuid>';` e riaccendere.
 
 ## Nuove tabelle

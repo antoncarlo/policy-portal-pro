@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { escapeHtml, getMailProvider, getSenderAddress, sendMail } from './_lib/mailer.js';
 import { assertSecondFactor, MfaRequiredError } from './_lib/mfa.js';
+import { getSupabaseAnon, normalizeLanguage, sendAccessEmail, type AccessEmailResult } from './_lib/auth-emails.js';
+import { checkPassword } from '../src/lib/passwordPolicy.js';
 
 /**
  * Portal actions that need the service role, called by signed-in users with their session token.
@@ -9,6 +11,11 @@ import { assertSecondFactor, MfaRequiredError } from './_lib/mfa.js';
  * - create_user, disable_user, delete_user: administrators only.
  * - notify_new_practice: any user, for a practice of their own. The email goes out from the
  *   server, so the email provider key never reaches the browser.
+ * - create_user also sends the welcome email and flags the account: the temporary password must be
+ *   replaced at the first sign-in (app_metadata.must_change_password).
+ * - set_password: any user, for their own account. The only way to clear that flag: the new password is
+ *   checked and set by the server, so the change cannot be skipped from the browser.
+ * - resend_access_email: administrators only. Welcome email (user never signed in) or reset link.
  * - reset_mfa: administrators only. Removes the user's authenticator-app factors (lost phone).
  * - email_status, send_test_email: administrators only. Which channel sends the portal's emails
  *   and a real test message to the administrator's own address.
@@ -21,13 +28,15 @@ type Action =
   | 'notify_new_practice'
   | 'email_status'
   | 'send_test_email'
-  | 'reset_mfa';
+  | 'reset_mfa'
+  | 'set_password'
+  | 'resend_access_email';
 
 const ROLES = ['admin', 'agente', 'collaboratore'] as const;
 type Role = (typeof ROLES)[number];
 
 class HttpError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(public status: number, message: string, public code?: string) {
     super(message);
   }
 }
@@ -67,6 +76,8 @@ async function createUser(supabase: SupabaseClient, callerId: string, body: Reco
   const password = typeof body.password === 'string' ? body.password : '';
   const fullName = typeof body.full_name === 'string' ? body.full_name.trim() : '';
   const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
+  const language = normalizeLanguage(body.language);
+  const sendWelcome = body.send_welcome !== false;
   const role = body.role as Role;
   if (!email || !password || !fullName || !ROLES.includes(role)) throw new HttpError(400, 'Campi obbligatori mancanti');
 
@@ -87,9 +98,18 @@ async function createUser(supabase: SupabaseClient, callerId: string, body: Reco
     password,
     email_confirm: true,
     user_metadata: { full_name: fullName, phone },
+    // Only the server can write app_metadata: the user cannot clear this flag from the browser.
+    app_metadata: { must_change_password: true },
   });
   if (authError || !authData.user) throw new HttpError(400, `Errore creazione utente: ${authError?.message ?? 'nessun dato'}`);
   const newUserId = authData.user.id;
+  if (authData.user.app_metadata?.must_change_password !== true) {
+    const { error: flagError } = await supabase.auth.admin.updateUserById(newUserId, { app_metadata: { must_change_password: true } });
+    if (flagError) {
+      await supabase.auth.admin.deleteUser(newUserId);
+      throw new HttpError(400, `Errore creazione utente: ${flagError.message}`);
+    }
+  }
 
   const rollback = async () => {
     await supabase.from('user_product_permissions').delete().eq('user_id', newUserId);
@@ -104,6 +124,7 @@ async function createUser(supabase: SupabaseClient, callerId: string, body: Reco
       email,
       full_name: fullName,
       phone: phone || null,
+      language,
       default_commission_percentage: Number(body.default_commission_percentage) || 0,
       commission_bonus_tiers: bonusTiers,
     },
@@ -130,7 +151,52 @@ async function createUser(supabase: SupabaseClient, callerId: string, body: Reco
     }
   }
 
-  return { user: { id: newUserId, email, full_name: fullName } };
+  const welcome: AccessEmailResult = sendWelcome
+    ? await sendAccessEmail(supabase, { kind: 'welcome', email, name: fullName, language })
+    : { sent: false, reason: 'Non richiesta' };
+
+  return { user: { id: newUserId, email, full_name: fullName }, welcome };
+}
+
+async function resendAccessEmail(supabase: SupabaseClient, callerId: string, body: Record<string, unknown>) {
+  await requireAdmin(supabase, callerId);
+  const userId = typeof body.userId === 'string' ? body.userId : '';
+  if (!userId) throw new HttpError(400, 'Utente mancante');
+
+  const { data, error } = await supabase.auth.admin.getUserById(userId);
+  if (error || !data.user?.email) throw new HttpError(404, 'Utente non trovato');
+  const { data: profile } = await supabase.from('profiles').select('full_name, language').eq('id', userId).maybeSingle();
+
+  // Never signed in: it is still the welcome message; otherwise a password reset link.
+  const result = await sendAccessEmail(supabase, {
+    kind: data.user.last_sign_in_at ? 'recovery' : 'welcome',
+    email: data.user.email,
+    name: profile?.full_name ?? '',
+    language: normalizeLanguage(profile?.language),
+  });
+  return { sent: result.sent, reason: result.reason, to: data.user.email };
+}
+
+async function setPassword(supabase: SupabaseClient, caller: { id: string; email?: string | null }, body: Record<string, unknown>) {
+  const password = typeof body.password === 'string' ? body.password : '';
+  const problem = checkPassword(password);
+  if (problem) throw new HttpError(400, 'La password non rispetta le regole: almeno 12 caratteri, una maiuscola e un numero', 'weak_password');
+  if (!caller.email) throw new HttpError(400, 'Il tuo account non ha un indirizzo email');
+
+  // The new password must differ from the current one (the temporary one): if signing in with it works, it is the same.
+  const probe = getSupabaseAnon();
+  const { data: attempt } = await probe.auth.signInWithPassword({ email: caller.email, password });
+  if (attempt?.session) {
+    await probe.auth.signOut().catch(() => undefined);
+    throw new HttpError(400, 'La nuova password deve essere diversa da quella attuale', 'same_password');
+  }
+
+  const { error } = await supabase.auth.admin.updateUserById(caller.id, {
+    password,
+    app_metadata: { must_change_password: false },
+  });
+  if (error) throw new HttpError(400, error.message);
+  return {};
 }
 
 async function disableOrDeleteUser(supabase: SupabaseClient, callerId: string, body: Record<string, unknown>, remove: boolean) {
@@ -276,6 +342,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ success: true, ...(await disableOrDeleteUser(supabase, caller.id, body, true)) });
       case 'notify_new_practice':
         return res.status(200).json({ success: true, ...(await notifyNewPractice(supabase, caller.id, caller.email ?? '', body)) });
+      case 'set_password':
+        return res.status(200).json({ success: true, ...(await setPassword(supabase, caller, body)) });
+      case 'resend_access_email':
+        return res.status(200).json({ success: true, ...(await resendAccessEmail(supabase, caller.id, body)) });
       case 'reset_mfa':
         return res.status(200).json({ success: true, ...(await resetMfa(supabase, caller.id, body)) });
       case 'email_status':
@@ -288,6 +358,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   } catch (error) {
     const status = error instanceof HttpError ? error.status : 500;
-    return res.status(status).json({ error: error instanceof Error ? error.message : 'Errore imprevisto' });
+    return res.status(status).json({
+      error: error instanceof Error ? error.message : 'Errore imprevisto',
+      ...(error instanceof HttpError && error.code ? { code: error.code } : {}),
+    });
   }
 }

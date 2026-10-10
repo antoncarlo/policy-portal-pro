@@ -21,6 +21,7 @@ import { commonMessages } from "@/i18n/messages/common";
 import { roleLabel } from "@/i18n/messages/domain";
 import { usersMessages } from "@/i18n/messages/users";
 import { mfaMessages } from "@/i18n/messages/mfa";
+import { passwordMessages } from "@/i18n/messages/passwords";
 
 interface User {
   id: string;
@@ -142,6 +143,26 @@ const UserManagement = () => {
 
   const handleViewPractices = (user: User) => {
     navigate(`/practices?user=${user.id}`);
+  };
+
+  const handleSendAccessEmail = async (user: User) => {
+    const text = getMessages(passwordMessages).resend;
+    if (!confirm(`${text.title}\n\n${text.text(user.full_name)}`)) return;
+
+    try {
+      const result = await callPortalAction<{ sent: boolean; reason?: string; to?: string }>("resend_access_email", { userId: user.id });
+      toast(
+        result.sent
+          ? { title: getMessages(commonMessages).success, description: text.done(result.to ?? user.email) }
+          : { variant: "destructive", title: getMessages(commonMessages).error, description: text.failed(result.reason ?? "?") },
+      );
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: getMessages(commonMessages).error,
+        description: error.message,
+      });
+    }
   };
 
   const handleResetMfa = async (user: User) => {
@@ -281,6 +302,7 @@ const UserManagement = () => {
           onAssignAgent={handleAssignAgent}
           onViewPractices={handleViewPractices}
           onResetMfa={handleResetMfa}
+          onSendAccessEmail={handleSendAccessEmail}
           onDisableUser={handleDisableUser}
           onDeleteUser={handleDeleteUser}
         />

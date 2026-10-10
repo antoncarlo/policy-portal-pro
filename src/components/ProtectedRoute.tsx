@@ -4,14 +4,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMessages } from "@/i18n";
 import { commonMessages } from "@/i18n/messages/common";
 import { getMfaGate } from "@/lib/mfa";
+import { mustChangePassword } from "@/lib/passwordPolicy";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  /** Pagine che servono proprio per completare la verifica in due passaggi (non possono richiederla). */
-  skipMfaGate?: boolean;
+  /** Pagina per cambiare la password provvisoria: non puo' rimandare a se stessa. */
+  skipPasswordGate?: boolean;
 }
 
-export const ProtectedRoute = ({ children, skipMfaGate = false }: ProtectedRouteProps) => {
+export const ProtectedRoute = ({ children, skipPasswordGate = false }: ProtectedRouteProps) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const common = useMessages(commonMessages);
@@ -20,7 +21,7 @@ export const ProtectedRoute = ({ children, skipMfaGate = false }: ProtectedRoute
   useEffect(() => {
     let active = true;
 
-    // Sessione valida e, se serve, verifica in due passaggi completata (aal2).
+    // Sessione valida, codice dell'app inserito (se l'utente l'ha attivata) e password non provvisoria.
     const checkAccess = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!active) return;
@@ -29,26 +30,25 @@ export const ProtectedRoute = ({ children, skipMfaGate = false }: ProtectedRoute
         setLoading(false);
         return;
       }
-      if (!skipMfaGate) {
-        try {
-          const gate = await getMfaGate(session.user.id);
+      try {
+        if ((await getMfaGate()) === "challenge") {
           if (!active) return;
-          if (gate === "challenge") {
-            navigate("/auth"); // il codice dell'app si chiede nella pagina di accesso
-            setLoading(false);
-            return;
-          }
-          if (gate === "enroll") {
-            navigate("/mfa-setup");
-            setLoading(false);
-            return;
-          }
-        } catch {
-          // Controllo non riuscito: per sicurezza non si mostra la pagina
-          navigate("/auth");
+          navigate("/auth"); // il codice dell'app si chiede nella pagina di accesso
           setLoading(false);
           return;
         }
+      } catch {
+        // Controllo non riuscito: per sicurezza non si mostra la pagina
+        if (!active) return;
+        navigate("/auth");
+        setLoading(false);
+        return;
+      }
+      if (!active) return;
+      if (!skipPasswordGate && mustChangePassword(session.user)) {
+        navigate("/change-password");
+        setLoading(false);
+        return;
       }
       setAuthenticated(true);
       setLoading(false);
@@ -66,7 +66,7 @@ export const ProtectedRoute = ({ children, skipMfaGate = false }: ProtectedRoute
       active = false;
       subscription.unsubscribe();
     };
-  }, [navigate, skipMfaGate]);
+  }, [navigate, skipPasswordGate]);
 
   if (loading) {
     return (

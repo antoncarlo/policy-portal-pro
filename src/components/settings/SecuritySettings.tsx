@@ -8,6 +8,7 @@ import { getMessages, useMessages } from "@/i18n";
 import { commonMessages } from "@/i18n/messages/common";
 import { settingsMessages } from "@/i18n/messages/settings";
 import { supabase } from "@/integrations/supabase/client";
+import { checkPassword } from "@/lib/passwordPolicy";
 import { Loader2, Lock, Eye, EyeOff } from "lucide-react";
 
 export const SecuritySettings = () => {
@@ -24,16 +25,8 @@ export const SecuritySettings = () => {
   });
 
   const validatePassword = (password: string): string | null => {
-    if (password.length < 12) {
-      return getMessages(settingsMessages).security.tooShort;
-    }
-    if (!/[A-Z]/.test(password)) {
-      return getMessages(settingsMessages).security.needsUppercase;
-    }
-    if (!/[0-9]/.test(password)) {
-      return getMessages(settingsMessages).security.needsNumber;
-    }
-    return null;
+    const problem = checkPassword(password);
+    return problem ? getMessages(settingsMessages).security[problem] : null;
   };
 
   const handleChangePassword = async () => {

@@ -30,11 +30,6 @@ export const mfaMessages = defineMessages({
       noFactor: "Nessun metodo di verifica trovato. Contatta un amministratore.",
       signOut: "Esci e torna all'accesso",
     },
-    forced: {
-      title: "Configura la verifica in due passaggi",
-      text: "Per proteggere i dati dei clienti, gli account amministratore devono usare la verifica in due passaggi. Configurala ora per continuare.",
-      signOut: "Esci",
-    },
     settings: {
       title: "Verifica in due passaggi",
       description: "Proteggi il tuo account con un codice dell'app di autenticazione, oltre alla password.",
@@ -47,7 +42,6 @@ export const mfaMessages = defineMessages({
       disableText: "Dopo la disattivazione l'accesso richiederà solo la password.",
       disableConfirm: "Disattiva",
       disabled: "Verifica in due passaggi disattivata",
-      adminRequired: "Per gli amministratori la verifica in due passaggi è obbligatoria e non si può disattivare.",
       recovery: "Se perdi il telefono, chiedi a un amministratore di reimpostare la verifica.",
       loadError: "Impossibile leggere lo stato della verifica",
     },
@@ -87,11 +81,6 @@ export const mfaMessages = defineMessages({
       noFactor: "No verification method found. Contact an administrator.",
       signOut: "Sign out and go back",
     },
-    forced: {
-      title: "Set up two-step verification",
-      text: "To protect client data, administrator accounts must use two-step verification. Set it up now to continue.",
-      signOut: "Sign out",
-    },
     settings: {
       title: "Two-step verification",
       description: "Protect your account with a code from an authenticator app, in addition to your password.",
@@ -104,7 +93,6 @@ export const mfaMessages = defineMessages({
       disableText: "After turning it off, signing in will require only your password.",
       disableConfirm: "Turn off",
       disabled: "Two-step verification turned off",
-      adminRequired: "Two-step verification is mandatory for administrators and cannot be turned off.",
       recovery: "If you lose your phone, ask an administrator to reset the verification.",
       loadError: "Could not read the verification status",
     },
@@ -144,11 +132,6 @@ export const mfaMessages = defineMessages({
       noFactor: "未找到验证方式。请联系管理员。",
       signOut: "退出并返回登录",
     },
-    forced: {
-      title: "设置两步验证",
-      text: "为保护客户数据，管理员账号必须使用两步验证。请立即设置后继续。",
-      signOut: "退出",
-    },
     settings: {
       title: "两步验证",
       description: "除密码外，再用验证器应用的验证码保护您的账号。",
@@ -161,7 +144,6 @@ export const mfaMessages = defineMessages({
       disableText: "停用后，登录将只需要密码。",
       disableConfirm: "停用",
       disabled: "两步验证已停用",
-      adminRequired: "管理员必须使用两步验证，无法停用。",
       recovery: "如果丢失手机，请联系管理员重置验证。",
       loadError: "无法读取验证状态",
     },

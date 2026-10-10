@@ -1,16 +1,14 @@
 -- Second factor (TOTP) enforcement for portal users.
 --
--- Rule: a user needs a session at level aal2 (password + authenticator code) when
---   * the user is an administrator, or
---   * the user has a verified authenticator factor.
--- Everyone else keeps working with password only.
+-- Rule: a user who turned on the authenticator app (a verified TOTP factor) needs a session at
+-- level aal2 (password + authenticator code). Two-step verification is optional: nobody is
+-- forced to enroll, administrators included.
 --
 -- Layers:
 --   1. RLS: a RESTRICTIVE policy on every public table and on storage.objects
 --      (covers table access, Storage and Realtime).
 --   2. PostgREST pre-request hook: rejects every request, including calls to the
---      SECURITY DEFINER functions that bypass RLS, except public.has_role, which the
---      enrollment screen needs before the administrator has a factor.
+--      SECURITY DEFINER functions that bypass RLS.
 --   3. /api/* functions ask public.mfa_required_for_user (see api/_lib/mfa.ts).
 --
 -- Deploy switch: enforcement is OFF until public.security_flags('mfa_enforcement') is
@@ -54,10 +52,7 @@ as $$
               from public.security_flags f where f.key = 'mfa_enforcement'),
            false)
      and p_user_id is not null
-     and (
-       exists (select 1 from auth.mfa_factors f where f.user_id = p_user_id and f.status = 'verified')
-       or exists (select 1 from public.user_roles r where r.user_id = p_user_id and r.role = 'admin')
-     )
+     and exists (select 1 from auth.mfa_factors f where f.user_id = p_user_id and f.status = 'verified')
 $$;
 revoke all on function public.mfa_required_for_user(uuid) from public, anon, authenticated;
 grant execute on function public.mfa_required_for_user(uuid) to service_role;
@@ -127,8 +122,7 @@ begin
   if claims ->> 'role' is distinct from 'authenticated' then
     return;
   end if;
-  -- The enrollment screen decides who must enroll by asking has_role (suffix match: the
-  -- path may or may not carry a gateway prefix).
+  -- has_role stays reachable before the code is entered (it only answers a yes/no question).
   if req_path like '%/rpc/has\_role' then
     return;
   end if;

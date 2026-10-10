@@ -1,12 +1,12 @@
 // Secondo fattore (TOTP, app di autenticazione) per gli utenti del portale.
 // Livelli Supabase: aal1 = solo password, aal2 = password + codice dell'app.
-//  - chi ha un fattore verificato deve fare il codice a ogni accesso (aal2);
-//  - gli amministratori devono avere il fattore: senza, vengono portati alla configurazione.
+// La verifica e' facoltativa: la attiva l'utente da Impostazioni > Sicurezza. Chi l'ha attivata
+// deve inserire il codice a ogni accesso (aal2).
 // Il controllo vero sui dati lo fa il database (regole RLS) e le funzioni /api: questo file serve
 // a far vedere all'utente la schermata giusta, non a proteggere i dati.
 import { supabase } from "@/integrations/supabase/client";
 
-export type MfaGate = "ok" | "challenge" | "enroll";
+export type MfaGate = "ok" | "challenge";
 
 export interface TotpFactor {
   id: string;
@@ -28,26 +28,11 @@ export async function listVerifiedTotpFactors(): Promise<TotpFactor[]> {
   return (data?.totp ?? []).map((factor) => ({ id: factor.id, friendlyName: factor.friendly_name ?? null }));
 }
 
-const adminCache = new Map<string, boolean>();
-
-/** True se l'utente e' amministratore (funzione del database: non dipende dalle regole RLS). */
-export async function isAdminUser(userId: string): Promise<boolean> {
-  const cached = adminCache.get(userId);
-  if (cached !== undefined) return cached;
-  const { data, error } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
-  if (error) throw error;
-  const admin = data === true;
-  adminCache.set(userId, admin);
-  return admin;
-}
-
 /** Quale schermata serve all'utente con la sessione corrente. */
-export async function getMfaGate(userId: string): Promise<MfaGate> {
+export async function getMfaGate(): Promise<MfaGate> {
   const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   if (error) throw error;
-  if (data.currentLevel === "aal2") return "ok";
-  if (data.nextLevel === "aal2") return "challenge";
-  return (await isAdminUser(userId)) ? "enroll" : "ok";
+  return data.currentLevel !== "aal2" && data.nextLevel === "aal2" ? "challenge" : "ok";
 }
 
 /** Elimina i tentativi di configurazione lasciati a meta' (non verificati). */
@@ -93,7 +78,6 @@ export async function removeTotpFactor(factorId: string): Promise<void> {
 /** Il codice dell'app e' di 6 cifre: toglie spazi e altri caratteri. */
 export const normalizeTotpCode = (value: string) => value.replace(/\D/g, "").slice(0, 6);
 
-export const clearMfaCache = () => adminCache.clear();
 
 /** Errore "codice sbagliato o scaduto" di Supabase (distinto dagli errori di rete o di sessione). */
 export const isInvalidCodeError = (error: unknown) => {

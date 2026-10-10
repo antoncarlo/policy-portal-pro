@@ -13,7 +13,7 @@ export async function callPortalAction<T = Record<string, unknown>>(action: stri
     body: JSON.stringify({ action, ...payload }),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok || data?.error) throw new Error(data?.error || `Errore ${response.status}`);
+  if (!response.ok || data?.error) throw Object.assign(new Error(data?.error || `Errore ${response.status}`), { code: data?.code as string | undefined });
   return data as T;
 }
 

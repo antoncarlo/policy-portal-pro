@@ -1,18 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Shield } from "lucide-react";
+import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { getMessages, useMessages } from "@/i18n";
 import { shellMessages } from "@/i18n/messages/shell";
 import { commonMessages } from "@/i18n/messages/common";
+import { passwordMessages } from "@/i18n/messages/passwords";
 import { MfaChallenge } from "@/components/auth/MfaChallenge";
-import { getMfaGate, clearMfaCache } from "@/lib/mfa";
+import { getMfaGate } from "@/lib/mfa";
+import { mustChangePassword } from "@/lib/passwordPolicy";
 
 // Documenti pubblicati sul sito della società
 const PRIVACY_URL = "https://tecnomga.com/wp-content/uploads/2025/12/Informativaprivacytecno-1_1.pdf";
@@ -27,17 +29,16 @@ const Auth = () => {
   const routing = useRef(false);
   const m = useMessages(shellMessages).login;
   const common = useMessages(commonMessages);
+  const forgotLink = useMessages(passwordMessages).forgot.link;
 
-  // Dopo l'accesso decide dove andare: codice dell'app, configurazione obbligatoria (admin) o portale.
+  // Dopo l'accesso decide dove andare: codice dell'app, cambio della password provvisoria o portale.
   const routeAfterAuth = useCallback(
-    async (userId: string) => {
+    async (user: User) => {
       if (routing.current) return;
       routing.current = true;
       try {
-        const gate = await getMfaGate(userId);
-        if (gate === "challenge") setStage("mfa");
-        else if (gate === "enroll") navigate("/mfa-setup");
-        else navigate("/dashboard");
+        if ((await getMfaGate()) === "challenge") setStage("mfa");
+        else navigate(mustChangePassword(user) ? "/change-password" : "/dashboard");
       } catch {
         // Se il controllo non e' possibile non si entra nel portale: si resta sull'accesso
         setStage("credentials");
@@ -51,21 +52,20 @@ const Auth = () => {
   useEffect(() => {
     // Check if user is already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) void routeAfterAuth(session.user.id);
+      if (session) void routeAfterAuth(session.user);
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
-        clearMfaCache();
         setStage("credentials");
         return;
       }
       // MFA_CHALLENGE_VERIFIED: la sessione e' diventata aal2, si puo' entrare.
       // Non si chiamano altri metodi di Supabase dentro il listener (blocco della libreria): si rimanda.
       if (session && (event === "SIGNED_IN" || event === "MFA_CHALLENGE_VERIFIED")) {
-        const userId = session.user.id;
-        setTimeout(() => void routeAfterAuth(userId), 0);
+        const user = session.user;
+        setTimeout(() => void routeAfterAuth(user), 0);
       }
     });
 
@@ -102,7 +102,7 @@ const Auth = () => {
 
   const handleMfaVerified = async () => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (session) await routeAfterAuth(session.user.id);
+    if (session) await routeAfterAuth(session.user);
   };
 
   const handleMfaSignOut = async () => {
@@ -156,6 +156,11 @@ const Auth = () => {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? m.submitting : m.submit}
             </Button>
+            <p className="text-center text-sm">
+              <Link to="/forgot-password" className="text-muted-foreground underline hover:text-foreground">
+                {forgotLink}
+              </Link>
+            </p>
           </form>
             </>
           )}
