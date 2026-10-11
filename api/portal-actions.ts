@@ -9,6 +9,7 @@ import { dispatchNotifications, sendNotificationSample } from './_lib/notificati
 import { assertCanDelete, getUserFootprint, OffboardingError, reassignUserData } from './_lib/offboarding.js';
 import { logActivity } from './_lib/audit.js';
 import { RenewalError, renewPractice } from './_lib/renewals.js';
+import { ClientError, exportClientData, mergeClients } from './_lib/clients.js';
 import { captureServerError } from './_lib/monitoring.js';
 
 /**
@@ -26,6 +27,8 @@ import { captureServerError } from './_lib/monitoring.js';
  * - send_test_notification: administrators only. A sample notification to the addresses chosen for a user.
  * - user_footprint, reassign_user_data: administrators only. What a user still owns, and handing it all to another user
  *   (so an account can be disabled or deleted without losing its practices).
+ * - merge_clients: the owner of the clients (or an administrator). Unites duplicates in the address book.
+ * - export_client_data: the owner, their agent or an administrator. Everything held about one client (JSON).
  * - renew_practice: whoever can see the practice. Creates the renewal (a new practice linked to the expiring one).
  * - reset_mfa: administrators only. Removes the user's authenticator-app factors (lost phone).
  * - email_status, send_test_email: administrators only. Which channel sends the portal's emails
@@ -40,6 +43,8 @@ type Action =
   | 'log_session_event'
   | 'reassign_user_data'
   | 'renew_practice'
+  | 'merge_clients'
+  | 'export_client_data'
   | 'flush_notifications'
   | 'notify_new_practice'
   | 'send_test_notification'
@@ -362,6 +367,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await dispatchNotifications(supabase).catch((error: unknown) => console.error('rinnovo: notifiche non inviate:', error));
         return res.status(200).json({ success: true, ...renewal });
       }
+      case 'merge_clients': {
+        const keepId = typeof body.keepId === 'string' ? body.keepId : '';
+        const mergeIds = Array.isArray(body.mergeIds) ? body.mergeIds.filter((id): id is string => typeof id === 'string') : [];
+        const result = await mergeClients(supabase, { keepId, mergeIds, actorId: caller.id });
+        await logActivity(supabase, { actorId: caller.id, action: 'client.merge', target: { table: 'clients', id: result.keptId }, details: { merged: result.merged, practices_moved: result.practicesMoved, filled: result.filled }, req });
+        return res.status(200).json({ success: true, ...result });
+      }
+      case 'export_client_data': {
+        const clientId = typeof body.clientId === 'string' ? body.clientId : '';
+        if (!clientId) throw new HttpError(400, 'Cliente mancante');
+        const data = await exportClientData(supabase, { clientId, actorId: caller.id });
+        await logActivity(supabase, { actorId: caller.id, action: 'client.export', target: { table: 'clients', id: clientId }, details: { practices: data.practices.length, emails: data.emails_sent.length }, req });
+        return res.status(200).json({ success: true, export: data });
+      }
       // 'notify_new_practice' is the name the previous version of the browser app uses.
       case 'flush_notifications':
       case 'notify_new_practice':
@@ -403,13 +422,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'Azione non supportata' });
     }
   } catch (error) {
-    const status = error instanceof HttpError || error instanceof OffboardingError || error instanceof RenewalError ? error.status : 500;
+    const status = error instanceof HttpError || error instanceof OffboardingError || error instanceof RenewalError || error instanceof ClientError ? error.status : 500;
     // Expected refusals carry their own status; anything else is an unexpected failure worth knowing about.
     if (status >= 500) await captureServerError(error, 'portal-actions', { tags: { action: String((req.body as Record<string, unknown> | undefined)?.action ?? '') } });
     return res.status(status).json({
       error: error instanceof Error ? error.message : 'Errore imprevisto',
       ...(error instanceof HttpError && error.code ? { code: error.code } : {}),
-      ...(error instanceof OffboardingError || error instanceof RenewalError ? { code: error.code } : {}),
+      ...(error instanceof OffboardingError || error instanceof RenewalError || error instanceof ClientError ? { code: error.code } : {}),
     });
   }
 }

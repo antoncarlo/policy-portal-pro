@@ -30,9 +30,11 @@ Prima versione numerata. Riepilogo di ciò che il portale fa oggi:
 
 - Monitoraggio (`docs/monitoring.md`): pagina di errore al posto dello schermo bianco (con riferimento e ripristino al cambio pagina), errori del browser e delle funzioni verso Sentry se è impostato un DSN (nessuna dipendenza nuova), avviso agli amministratori quando un cron si interrompe, `/api/health` pubblico (database) e dettagliato con `CRON_SECRET` (variabili mancanti o malformate, funzioni attive; mai valori), controllo dell'ambiente con zod nel riepilogo giornaliero.
 
-- Test nel repository (`docs/testing.md`): `npm test` esegue le prove sul server (flussi di notifiche, pratiche, consegne in uscita, account, rate limit, firme, email, rinnovi, offboarding, monitoraggio: 222 controlli); `npm run test:e2e` esegue 247 controlli nel browser (Playwright) con la rete simulata; entrambi in CI.
+- Test nel repository (`docs/testing.md`): `npm test` esegue le prove sul server (flussi di notifiche, pratiche, consegne in uscita, account, rate limit, firme, email, rinnovi, offboarding, monitoraggio: 232 controlli); `npm run test:e2e` esegue 266 controlli nel browser (Playwright) con la rete simulata; entrambi in CI.
 
 - Campanella delle notifiche nel menu: numero delle notifiche da leggere, ultime 20 (documenti caricati, cambi di stato) nella lingua dell'utente, un clic apre la pratica e la segna come letta, «Segna tutte come lette»; aggiornamento ogni minuto.
+
+- Rubrica clienti: «Possibili doppioni» (stesso codice fiscale, partita IVA o email, anche a catena) con scelta di quale tenere e unione guidata: le pratiche passano al cliente scelto, i campi vuoti si completano, resta traccia nel registro di audit. Dal dettaglio cliente «Esporta dati (GDPR)»: file JSON con anagrafica, pratiche, storico, elenco documenti ed email inviate (art. 15 e 20).
 
 ### Corretto
 - Amministrazione: premio ed esportazione leggevano un campo che non esiste più (`premium_amount`, ora `premium_net`); il salvataggio delle modifiche contabili veniva rifiutato.

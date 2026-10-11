@@ -36,4 +36,5 @@ select public.pseudonymize_ip('203.0.113.77');   -- 203.0.113.0
 
 - Su Supabase la pulizia gira nel database (pg_cron): non dipende da Vercel e non consuma i cron giornalieri del piano Hobby.
 - Un indirizzo già reso anonimo non viene ritoccato (la funzione è idempotente).
-- L'esportazione e la cancellazione dei dati di un singolo interessato (GDPR art. 15/17) non sono ancora automatiche: oggi si fanno dall'amministrazione sul database.
+- **Esportazione** dei dati di un singolo interessato (GDPR art. 15/20): dal dettaglio cliente, «Esporta dati (GDPR)» (JSON con anagrafica, pratiche, storico, elenco documenti, email inviate; i file dei documenti non sono inclusi). Ogni esportazione è nel registro di audit.
+- **Cancellazione** (art. 17): le pratiche e i dati contrattuali si conservano per il tempo previsto dalla normativa assicurativa, quindi non si cancellano a richiesta prima della scadenza di quel termine; i clienti della rubrica senza pratiche si possono eliminare da Clienti. Una richiesta di cancellazione va valutata caso per caso dal titolare del trattamento.
