@@ -16,7 +16,7 @@ import { readPortalRegistry } from './_lib/vies-orchestrator.js';
 // The signature covers the exact bytes received, so the body is read here and not parsed by the platform.
 export const config = { api: { bodyParser: false } };
 
-async function readRawBody(req: VercelRequest): Promise<string> {
+export async function readRawBody(req: VercelRequest): Promise<string> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of req as AsyncIterable<Buffer | string>) {

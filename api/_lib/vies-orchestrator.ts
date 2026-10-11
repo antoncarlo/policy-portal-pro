@@ -379,6 +379,46 @@ export function isExternalPortalConfigured(): boolean {
   return getConfiguredPortals().length > 0;
 }
 
+/** The body sent to a portal (schema_version 2). Kept apart from the call so it can be checked on its own. */
+export function buildPortalPayload(
+  job: ViesJob,
+  portal: Pick<ViesPortal, 'id' | 'callbackSecret'>,
+  practice: { id: string; practice_number: string; practice_type: string; client_name: string } | null,
+  documents: Awaited<ReturnType<typeof listSignedPracticeDocuments>>,
+) {
+  return {
+    schema_version: 2,
+    idempotency_key: job.id,
+    practice: practice
+      ? { id: practice.id, number: practice.practice_number, type: practice.practice_type, client_name: practice.client_name }
+      : null,
+    documents,
+    callback: portal.callbackSecret
+      ? {
+          url: `${getPublicBaseUrl()}/api/vies-portal-callback`,
+          portal_id: portal.id,
+          signature: 'HMAC-SHA256: X-Signature = "sha256=" + hex(HMAC(secret, X-Timestamp + "." + raw body))',
+          events: ['practice.received', 'practice.info_requested', 'practice.deliberated', 'practice.rejected', 'practice.issued'],
+        }
+      : null,
+    job_id: job.id,
+    batch_id: job.batch_id,
+    row_number: job.row_number,
+    progressivo: job.progressivo,
+    contraente: job.contraente,
+    indirizzo_rappresentante_fiscale: job.indirizzo_rappresentante_fiscale,
+    partita_iva_contraente: job.partita_iva_contraente,
+    beneficiario: job.beneficiario,
+    indirizzo_beneficiario: job.indirizzo_beneficiario,
+    partita_iva_beneficiario: job.partita_iva_beneficiario,
+    pec_beneficiario: job.pec_beneficiario,
+    pec: job.pec,
+    pagamento: job.pagamento,
+    documenti_indicati: job.documenti_indicati,
+    raw_payload: job.raw_payload,
+  };
+}
+
 // Adapter for the external connection. There is deliberately no simulation mode.
 //
 // Contract with the receiving portal (schema_version 2; the flat v1 fields are kept as they were):
@@ -408,37 +448,7 @@ async function executeViesAgent(job: ViesJob, portal: ViesPortal): Promise<ViesA
       Authorization: `Bearer ${portal.apiKey}`,
       'Idempotency-Key': job.id,
     },
-    body: JSON.stringify({
-      schema_version: 2,
-      idempotency_key: job.id,
-      practice: practice
-        ? { id: practice.id, number: practice.practice_number, type: practice.practice_type, client_name: practice.client_name }
-        : null,
-      documents,
-      callback: portal.callbackSecret
-        ? {
-            url: `${getPublicBaseUrl()}/api/vies-portal-callback`,
-            portal_id: portal.id,
-            signature: 'HMAC-SHA256: X-Signature = "sha256=" + hex(HMAC(secret, X-Timestamp + "." + raw body))',
-            events: ['practice.received', 'practice.info_requested', 'practice.deliberated', 'practice.rejected', 'practice.issued'],
-          }
-        : null,
-      job_id: job.id,
-      batch_id: job.batch_id,
-      row_number: job.row_number,
-      progressivo: job.progressivo,
-      contraente: job.contraente,
-      indirizzo_rappresentante_fiscale: job.indirizzo_rappresentante_fiscale,
-      partita_iva_contraente: job.partita_iva_contraente,
-      beneficiario: job.beneficiario,
-      indirizzo_beneficiario: job.indirizzo_beneficiario,
-      partita_iva_beneficiario: job.partita_iva_beneficiario,
-      pec_beneficiario: job.pec_beneficiario,
-      pec: job.pec,
-      pagamento: job.pagamento,
-      documenti_indicati: job.documenti_indicati,
-      raw_payload: job.raw_payload,
-    }),
+    body: JSON.stringify(buildPortalPayload(job, portal, practice, documents)),
   });
 
   const payload = await safeJson(response);
