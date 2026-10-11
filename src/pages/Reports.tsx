@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { DashboardLayout } from '../components/dashboard/DashboardLayout';
 import { supabase } from '../integrations/supabase/client';
 import { fetchAllRows } from '@/lib/fetchAllRows';
+import type { Database } from '@/integrations/supabase/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -67,6 +68,15 @@ interface DashboardKPIs {
   expiring_soon: number;
 }
 
+/** The database returns the grouped figures as JSON: here they get the shape the page draws. */
+const readProductionStats = (row: Database["public"]["Functions"]["get_production_stats"]["Returns"][number]): ProductionStats => ({
+  ...row,
+  practices_by_type: row.practices_by_type as ProductionStats["practices_by_type"],
+  practices_by_status: row.practices_by_status as ProductionStats["practices_by_status"],
+  practices_by_month: row.practices_by_month as ProductionStats["practices_by_month"],
+  top_agents: row.top_agents as ProductionStats["top_agents"],
+});
+
 // Report Produzione - Dashboard Analytics e Export
 export default function Reports() {
   const m = useMessages(reportsMessages);
@@ -95,7 +105,7 @@ export default function Reports() {
   };
   const [startDate, setStartDate] = useState<Date>(new Date(new Date().getFullYear(), 0, 1));
   const [endDate, setEndDate] = useState<Date>(new Date());
-  const [period, setPeriod] = useState<'week' | 'month' | 'quarter' | 'year'>('month');
+  const [period, setPeriod] = useState<'week' | 'month' | 'quarter' | 'year' | 'custom'>('month');
   const [stats, setStats] = useState<ProductionStats | null>(null);
   const [kpis, setKPIs] = useState<DashboardKPIs | null>(null);
   const [loading, setLoading] = useState(true);
@@ -120,7 +130,7 @@ export default function Reports() {
 
       if (statsError) throw statsError;
       if (statsData && statsData.length > 0) {
-        setStats(statsData[0]);
+        setStats(readProductionStats(statsData[0]));
       }
 
       // Carica KPI dashboard

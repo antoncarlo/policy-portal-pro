@@ -2,6 +2,7 @@ import { getMessages, useLanguage, useMessages } from "@/i18n";
 import { commonMessages } from "@/i18n/messages/common";
 import { practiceTypeLabel } from "@/i18n/messages/domain";
 import { ASSIGNABLE_PRODUCTS, usersMessages } from "@/i18n/messages/users";
+import type { Enums } from "@/integrations/supabase/types";
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -104,7 +105,7 @@ export const EditUserProductsDialog = ({
           .insert(
             selectedProducts.map(productType => ({
               user_id: userId,
-              practice_type: productType,
+              practice_type: productType as Enums<"practice_type">,
               created_by: user.id,
             }))
           );

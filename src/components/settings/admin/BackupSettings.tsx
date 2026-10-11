@@ -42,11 +42,11 @@ export const BackupSettings = () => {
     setLoading(true);
     try {
       // Export all tables data
-      const tables = ["profiles", "practices", "clients", "practice_documents", "practice_events", "notifications"];
+      const tables = ["profiles", "practices", "clients", "practice_documents", "practice_events", "notifications"] as const;
       const exportData: {
         export_date: string;
         version: string;
-        tables: Record<string, Json[] | null>;
+        tables: Record<string, unknown[] | null>;
       } = {
         export_date: new Date().toISOString(),
         version: "1.0.0",

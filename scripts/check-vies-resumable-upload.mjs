@@ -45,7 +45,8 @@ if (!/buildStableZipStorageName/.test(source) || /zip-nominativi\/\$\{buildSafeS
   failures.push('I nomi Storage degli ZIP devono essere stabili e riconoscibili, non suffissati con Date.now come file generici.');
 }
 
-if (!/if \(zipStorageFailures\.length\)[\s\S]*Upload ZIP incompleto/.test(source)) {
+const viesMessages = fs.readFileSync(new URL('../src/i18n/messages/vies.ts', import.meta.url), 'utf8');
+if (!/if \(zipStorageFailures\.length\)[\s\S]*errors\.zipUploadIncomplete/.test(source) || (viesMessages.match(/zipUploadIncomplete:/g) ?? []).length < 3) {
   failures.push('La creazione batch deve fermarsi con errore esplicito se uno ZIP non è stato caricato nello Storage.');
 }
 
@@ -57,7 +58,7 @@ if (!/VIES_ZIP_UPLOAD_CONCURRENCY\s*=\s*2/.test(source) || !/runWithConcurrency\
   failures.push('La preparazione batch deve caricare gli ZIP con concorrenza controllata per ridurre il tempo totale senza saturare il browser.');
 }
 
-if (!/Upload ZIP parallelo/.test(source) || !/totalZipUploadBytes/.test(source)) {
+if (!/status\.uploadZipProgress\(/.test(source) || !/totalZipUploadBytes/.test(source) || (viesMessages.match(/uploadZipProgress:/g) ?? []).length < 3) {
   failures.push('La preparazione batch deve mostrare progresso aggregato leggibile durante gli upload ZIP concorrenti.');
 }
 

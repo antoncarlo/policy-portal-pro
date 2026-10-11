@@ -3,6 +3,7 @@ import { commonMessages } from "@/i18n/messages/common";
 import { roleLabel } from "@/i18n/messages/domain";
 import { usersMessages } from "@/i18n/messages/users";
 import { useState } from "react";
+import type { Enums } from "@/integrations/supabase/types";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +18,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Shield, Briefcase, UserCheck, AlertTriangle } from "lucide-react";
+
+type AppRole = Enums<"app_role">;
+const isAppRole = (value: unknown): value is AppRole => value === "admin" || value === "agente" || value === "collaboratore";
 
 interface EditRoleDialogProps {
   open: boolean;
@@ -38,7 +42,7 @@ export const EditRoleDialog = ({
 }: EditRoleDialogProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [selectedRole, setSelectedRole] = useState(user?.role || "collaboratore");
+  const [selectedRole, setSelectedRole] = useState<AppRole>(isAppRole(user?.role) ? user.role : "collaboratore");
   const m = useMessages(usersMessages);
   const common = useMessages(commonMessages);
   const language = useLanguage();
@@ -121,7 +125,7 @@ export const EditRoleDialog = ({
 
           <div className="space-y-3">
             <Label>{m.editRole.next}</Label>
-            <RadioGroup value={selectedRole} onValueChange={setSelectedRole}>
+            <RadioGroup value={selectedRole} onValueChange={(value) => isAppRole(value) && setSelectedRole(value)}>
               {roles.map((role) => {
                 const Icon = role.icon;
                 return (
@@ -132,7 +136,7 @@ export const EditRoleDialog = ({
                         ? "border-primary bg-primary/5"
                         : "border-gray-200 hover:border-gray-300"
                     }`}
-                    onClick={() => setSelectedRole(role.value)}
+                    onClick={() => isAppRole(role.value) && setSelectedRole(role.value)}
                   >
                     <RadioGroupItem value={role.value} id={role.value} />
                     <div className="flex-1">

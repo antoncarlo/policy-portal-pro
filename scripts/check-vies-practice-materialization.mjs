@@ -6,6 +6,8 @@ const viesPage = readFileSync(resolve(root, "src/pages/Vies.tsx"), "utf8");
 const practicesTable = readFileSync(resolve(root, "src/components/practices/PracticesTable.tsx"), "utf8");
 const practicesFilters = readFileSync(resolve(root, "src/components/practices/PracticesFilters.tsx"), "utf8");
 const practiceDetail = readFileSync(resolve(root, "src/pages/PracticeDetail.tsx"), "utf8");
+const domainMessages = readFileSync(resolve(root, "src/i18n/messages/domain.ts"), "utf8");
+const practiceDetailMessages = readFileSync(resolve(root, "src/i18n/messages/practiceDetail.ts"), "utf8");
 const supabaseTypes = readFileSync(resolve(root, "src/integrations/supabase/types.ts"), "utf8");
 const viesPracticeTypeMigrationPath = resolve(root, "supabase/migrations/20260607_add_vies_practice_type.sql");
 const migrations = existsSync(viesPracticeTypeMigrationPath) ? readFileSync(viesPracticeTypeMigrationPath, "utf8") : "";
@@ -29,33 +31,33 @@ const checks = [
   },
   {
     name: "la pagina VIES mostra un link alla pratica generata",
-    pass: /navigate\(`\/practices\/\$\{job\.external_reference\}`\)/.test(viesPage),
+    pass: /navigate\(`\/practices\/\$\{[^}]+\}`\)/.test(viesPage),
   },
   {
     name: "la lista pratiche mostra VIES e Fidejussioni come tipologie distinte",
     pass:
-      /vies:\s*"VIES"/.test(practicesTable) &&
-      /fidejussioni:\s*"Fidejussioni"/.test(practicesTable) &&
-      !/VIES\s*\/\s*Fideiussioni/.test(practicesTable),
+      /vies:\s*"VIES"/.test(domainMessages) &&
+      /fidejussioni:\s*"Fidejussioni"/.test(domainMessages) &&
+      /practiceTypeLabel/.test(practicesTable) &&
+      !/VIES\s*\/\s*Fideiussioni/.test(domainMessages + practicesTable),
   },
   {
     name: "i filtri pratiche permettono di filtrare separatamente VIES e Fidejussioni",
     pass:
-      /value="vies"/.test(practicesFilters) &&
-      /value="fidejussioni"/.test(practicesFilters) &&
+      /PRACTICE_TYPES\.map/.test(practicesFilters) &&
+      /export const PRACTICE_TYPES = \[[^\]]*"fidejussioni"[^\]]*"vies"/.test(domainMessages) &&
       !/VIES\s*\/\s*Fideiussioni/.test(practicesFilters),
   },
   {
     name: "il dettaglio pratica mostra il riepilogo solo per pratiche VIES",
-    pass: /practice\.practice_type === "vies"/.test(practiceDetail) && /Riepilogo VIES/.test(practiceDetail),
+    pass: /practice\.practice_type === "vies"/.test(practiceDetail) && /viesText:\s*"Dati della richiesta VIES/.test(practiceDetailMessages),
   },
   {
     name: "il dettaglio pratica usa Contraente e Beneficiario senza chiamare il contraente cliente",
     pass:
-      /Informazioni Contraente/.test(practiceDetail) &&
-      /Contraente/.test(practiceDetail) &&
-      /Beneficiario/.test(practiceDetail) &&
-      !/Informazioni Cliente/.test(practiceDetail),
+      /clientInfo:\s*"Informazioni Contraente"/.test(practiceDetailMessages) &&
+      /beneficiary:\s*\(name: string\) => `Beneficiario/.test(practiceDetailMessages) &&
+      !/Informazioni Cliente/.test(practiceDetail + practiceDetailMessages),
   },
 ];
 

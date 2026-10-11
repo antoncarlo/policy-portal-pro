@@ -19,6 +19,9 @@ import { mapPracticeTypeToEnum } from "@/utils/practiceTypeMapping";
 
 type PolicyFieldValue = string | number | boolean;
 
+/** What a text control shows: a value saved as a flag or never set is empty. */
+const asText = (value: PolicyFieldValue | undefined) => (typeof value === 'boolean' || value === undefined ? '' : value);
+
 interface DynamicPolicyFieldsProps {
   policyType: string;
   onFieldsChange?: (fields: Record<string, PolicyFieldValue>) => void;
@@ -91,7 +94,7 @@ export const DynamicPolicyFields = ({ policyType, onFieldsChange }: DynamicPolic
             <Input
               {...commonProps}
               type={field.type}
-              value={fieldValues[field.name] || ''}
+              value={asText(fieldValues[field.name])}
               onChange={(e) => handleFieldChange(field.name, e.target.value)}
               pattern={field.validation?.pattern}
               minLength={field.validation?.minLength}
@@ -113,7 +116,7 @@ export const DynamicPolicyFields = ({ policyType, onFieldsChange }: DynamicPolic
             <Input
               {...commonProps}
               type="number"
-              value={fieldValues[field.name] || ''}
+              value={asText(fieldValues[field.name])}
               onChange={(e) => handleFieldChange(field.name, e.target.value)}
               min={field.validation?.min}
               max={field.validation?.max}
@@ -135,7 +138,7 @@ export const DynamicPolicyFields = ({ policyType, onFieldsChange }: DynamicPolic
             <Input
               {...commonProps}
               type="date"
-              value={fieldValues[field.name] || ''}
+              value={asText(fieldValues[field.name])}
               onChange={(e) => handleFieldChange(field.name, e.target.value)}
             />
             {field.description && (
@@ -154,7 +157,7 @@ export const DynamicPolicyFields = ({ policyType, onFieldsChange }: DynamicPolic
             <Select
               name={field.name}
               required={field.required}
-              value={fieldValues[field.name] || ''}
+              value={String(asText(fieldValues[field.name]))}
               onValueChange={(value) => handleFieldChange(field.name, value)}
             >
               <SelectTrigger>
@@ -183,7 +186,7 @@ export const DynamicPolicyFields = ({ policyType, onFieldsChange }: DynamicPolic
             </Label>
             <Textarea
               {...commonProps}
-              value={fieldValues[field.name] || ''}
+              value={asText(fieldValues[field.name])}
               onChange={(e) => handleFieldChange(field.name, e.target.value)}
               rows={4}
               minLength={field.validation?.minLength}
@@ -201,7 +204,7 @@ export const DynamicPolicyFields = ({ policyType, onFieldsChange }: DynamicPolic
             <Checkbox
               id={field.name}
               name={field.name}
-              checked={fieldValues[field.name] || false}
+              checked={fieldValues[field.name] === true}
               onCheckedChange={(checked) => handleFieldChange(field.name, checked === true)}
             />
             <Label

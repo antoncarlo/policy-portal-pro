@@ -1,4 +1,9 @@
 import { useState, useEffect } from "react";
+import type { Enums } from "@/integrations/supabase/types";
+
+type FinancialStatus = Enums<"financial_status">;
+const isFinancialStatus = (value: unknown): value is FinancialStatus =>
+  value === "non_incassata" || value === "incassata" || value === "provvigioni_ricevute";
 import {
   Dialog,
   DialogContent,
@@ -27,7 +32,7 @@ interface Practice {
   id: string;
   practice_number: string;
   client_name: string;
-  premium_amount: number | null;
+  premium_net: number | null;
   commission_percentage: number | null;
   commission_amount: number | null;
   financial_status: string;
@@ -53,15 +58,15 @@ export const EditFinancialDialog = ({
   const m = useMessages(administrationMessages).edit;
   const [premiumAmount, setPremiumAmount] = useState("");
   const [commissionPercentage, setCommissionPercentage] = useState("");
-  const [financialStatus, setFinancialStatus] = useState("non_incassata");
+  const [financialStatus, setFinancialStatus] = useState<FinancialStatus>("non_incassata");
   const [paymentDate, setPaymentDate] = useState("");
   const [commissionReceivedDate, setCommissionReceivedDate] = useState("");
 
   useEffect(() => {
     if (practice) {
-      setPremiumAmount(practice.premium_amount?.toString() || "");
+      setPremiumAmount(practice.premium_net?.toString() || "");
       setCommissionPercentage(practice.commission_percentage?.toString() || "");
-      setFinancialStatus(practice.financial_status || "non_incassata");
+      setFinancialStatus(isFinancialStatus(practice.financial_status) ? practice.financial_status : "non_incassata");
       setPaymentDate(practice.payment_date || "");
       setCommissionReceivedDate(practice.commission_received_date || "");
     }
@@ -75,7 +80,7 @@ export const EditFinancialDialog = ({
 
     try {
       const updateData: TablesUpdate<"practices"> = {
-        premium_amount: premiumAmount ? parseFloat(premiumAmount) : null,
+        premium_net: premiumAmount ? parseFloat(premiumAmount) : null,
         commission_percentage: commissionPercentage ? parseFloat(commissionPercentage) : null,
         financial_status: financialStatus,
         payment_date: paymentDate || null,
@@ -164,7 +169,7 @@ export const EditFinancialDialog = ({
 
           <div className="space-y-2">
             <Label htmlFor="financialStatus">{m.status}</Label>
-            <Select value={financialStatus} onValueChange={setFinancialStatus}>
+            <Select value={financialStatus} onValueChange={(value) => setFinancialStatus(value as FinancialStatus)}>
               <SelectTrigger id="financialStatus">
                 <SelectValue />
               </SelectTrigger>

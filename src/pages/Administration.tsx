@@ -43,7 +43,7 @@ interface Practice {
   practice_number: string;
   practice_type: string;
   client_name: string;
-  premium_amount: number | null;
+  premium_net: number | null;
   commission_percentage: number | null;
   commission_amount: number | null;
   financial_status: string;
@@ -217,7 +217,7 @@ const Administration = () => {
       [columns.type]: practiceTypeLabel(p.practice_type, language),
       [columns.client]: p.client_name,
       ...(selectedUserId === "all" && { [columns.user]: p.user_full_name }),
-      [columns.premium]: p.premium_amount || 0,
+      [columns.premium]: p.premium_net || 0,
       [columns.commissionPercentage]: p.commission_percentage || 0,
       [columns.commission]: p.commission_amount || 0,
       [columns.status]: financialStatusLabel(p.financial_status, language),

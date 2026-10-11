@@ -922,16 +922,16 @@ const expandZipBundles = async (files: File[]): Promise<{ files: File[]; bundles
 
     bundles.push(file.name);
     for (const [number, entry] of practiceZips) {
-      expanded.push(new File([await entry.async("uint8array")], `${number}.zip`, { type: "application/zip" }));
+      expanded.push(new File([await entry.async("arraybuffer")], `${number}.zip`, { type: "application/zip" }));
     }
     for (const [number, folderEntries] of practiceFolders) {
       if (practiceZips.has(number)) continue;
       const practiceZip = new JSZip();
       for (const entry of folderEntries) {
         const innerPath = entry.name.slice(commonRoot.length).split("/").slice(1).join("/");
-        practiceZip.file(innerPath, await entry.async("uint8array"));
+        practiceZip.file(innerPath, await entry.async("arraybuffer"));
       }
-      const bytes = await practiceZip.generateAsync({ type: "uint8array", compression: "STORE" });
+      const bytes = await practiceZip.generateAsync({ type: "arraybuffer", compression: "STORE" });
       expanded.push(new File([bytes], `${number}.zip`, { type: "application/zip" }));
     }
   }
@@ -2209,7 +2209,7 @@ const Vies = () => {
       );
 
       for (const result of zipUploadResults) {
-        if (!result.ok) {
+        if (result.ok === false) {
           zipStorageFailures.push(result.message);
           continue;
         }

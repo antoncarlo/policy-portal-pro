@@ -93,7 +93,12 @@ const UserManagement = () => {
 
       if (error) throw error;
 
-      setUsers(data || []);
+      setUsers(
+        (data ?? []).map((row) => ({
+          ...row,
+          commission_bonus_tiers: Array.isArray(row.commission_bonus_tiers) ? (row.commission_bonus_tiers as User["commission_bonus_tiers"]) : null,
+        })),
+      );
     } catch (error) {
       toast({
         variant: "destructive",

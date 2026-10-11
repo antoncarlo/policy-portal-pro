@@ -1,23 +1,7 @@
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-
-interface PracticeDetail {
-  practice_number: string;
-  practice_type: string;
-  status: string;
-  client_name: string;
-  client_email: string;
-  agent_name: string;
-  company_name: string;
-  annual_premium: number;
-  agent_commission: number;
-  policy_start_date: string;
-  policy_end_date: string;
-  created_at: string;
-  payment_frequency: string;
-  notes: string;
-}
+import type { ProductionDetailRow } from '@/lib/productionReport';
 
 interface ProductionStats {
   total_practices: number;
@@ -48,7 +32,7 @@ interface ExportOptions {
 }
 
 export async function exportToExcel(
-  practices: PracticeDetail[],
+  practices: ProductionDetailRow[],
   stats: ProductionStats | null,
   options: ExportOptions
 ) {
@@ -83,16 +67,12 @@ export async function exportToExcel(
     'Tipo': p.practice_type,
     'Stato': p.status,
     'Cliente': p.client_name,
-    'Email Cliente': p.client_email,
-    'Agente': p.agent_name,
-    'Compagnia': p.company_name,
-    'Premio Annuo': p.annual_premium,
-    'Provvigione': p.agent_commission,
+    'Numero Polizza': p.policy_number || '',
+    'Premio Lordo': p.premium_gross ?? 0,
+    'Provvigione': p.commission_amount ?? 0,
     'Data Inizio': p.policy_start_date ? format(new Date(p.policy_start_date), 'dd/MM/yyyy') : '',
     'Data Fine': p.policy_end_date ? format(new Date(p.policy_end_date), 'dd/MM/yyyy') : '',
     'Data Creazione': format(new Date(p.created_at), 'dd/MM/yyyy'),
-    'Frequenza Pagamento': p.payment_frequency,
-    'Note': p.notes || '',
   }));
 
   const ws_practices = XLSX.utils.json_to_sheet(practicesData);
