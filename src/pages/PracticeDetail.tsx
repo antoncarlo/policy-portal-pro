@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -20,6 +20,9 @@ import { practiceDetailMessages } from "@/i18n/messages/practiceDetail";
 import { practiceStatusLabel, practiceTypeLabel } from "@/i18n/messages/domain";
 import { PracticeLotBreadcrumb } from "@/components/practice/PracticeLotBreadcrumb";
 import { translateDuration } from "@/i18n/summaryText";
+import { RenewPracticeButton } from "@/components/practice/RenewPracticeButton";
+import { clientsMessages } from "@/i18n/messages/clients";
+import { fetchRenewals, fetchRenewalSource, type RenewalLink } from "@/lib/renewals";
 
 
 type PracticeStatus = "in_lavorazione" | "in_attesa" | "integrazioni" | "approvata" | "rifiutata" | "completata";
@@ -51,6 +54,7 @@ interface Practice {
   created_at: string;
   updated_at: string;
   vies_batch_id: string | null;
+  renewal_of: string | null;
 }
 
 const PracticeDetail = () => {
@@ -62,6 +66,9 @@ const PracticeDetail = () => {
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string>('');
   const m = useMessages(practiceDetailMessages);
+  const renewalText = useMessages(clientsMessages).expiry;
+  const [renewalSource, setRenewalSource] = useState<RenewalLink | null>(null);
+  const [renewedBy, setRenewedBy] = useState<RenewalLink | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -100,6 +107,13 @@ const PracticeDetail = () => {
 
       if (error) throw error;
       setPractice(data);
+      // The practice this one renews, and the one that renewed it: a failure only hides the links.
+      const [source, renewals] = await Promise.all([
+        fetchRenewalSource(data.renewal_of).catch(() => null),
+        fetchRenewals([data.id]).catch(() => new Map<string, RenewalLink>()),
+      ]);
+      setRenewalSource(source);
+      setRenewedBy(renewals.get(data.id) ?? null);
     } catch (error: unknown) {
       toast({
         variant: "destructive",
@@ -142,6 +156,16 @@ const PracticeDetail = () => {
     return null;
   }
 
+  // A policy in force (or expired a short while ago) that nobody has renewed yet.
+  const daysToExpiry = practice.policy_end_date ? Math.round((Date.parse(`${practice.policy_end_date}T00:00:00Z`) - Date.now()) / 86_400_000) : null;
+  const canRenew =
+    daysToExpiry !== null &&
+    daysToExpiry <= 120 &&
+    daysToExpiry >= -365 &&
+    ["completata", "approvata", "in_lavorazione"].includes(practice.status) &&
+    practice.practice_type !== "vies" &&
+    !renewedBy;
+
   return (
     <DashboardLayout>
       <div className="max-w-7xl space-y-6">
@@ -171,6 +195,30 @@ const PracticeDetail = () => {
               <p className="text-muted-foreground">
                 {getPracticeTypeLabel(practice.practice_type)}
               </p>
+              {(renewalSource || renewedBy || canRenew) && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm" data-testid="renewal-links">
+                  {renewalSource && (
+                    <Link to={`/practices/${renewalSource.id}`} className="text-primary hover:underline" data-testid="renewal-of">
+                      {renewalText.renewalOf(renewalSource.practice_number)}
+                    </Link>
+                  )}
+                  {renewedBy ? (
+                    <Link to={`/practices/${renewedBy.id}`} className="text-green-600 hover:underline dark:text-green-400" data-testid="renewed-by">
+                      {renewalText.renewedBy(renewedBy.practice_number)}
+                    </Link>
+                  ) : (
+                    canRenew && (
+                      <RenewPracticeButton
+                        practiceId={practice.id}
+                        practiceNumber={practice.practice_number}
+                        policyStartDate={practice.policy_start_date}
+                        policyEndDate={practice.policy_end_date!}
+                        onRenewed={setRenewedBy}
+                      />
+                    )
+                  )}
+                </div>
+              )}
             </div>
 
           </div>

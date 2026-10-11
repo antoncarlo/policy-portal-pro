@@ -822,6 +822,7 @@ export type Database = {
       }
       practices: {
         Row: {
+          renewal_of: string | null
           api_key_id: string | null
           beneficiary: string | null
           client_email: string
@@ -855,6 +856,7 @@ export type Database = {
           vies_batch_id: string | null
         }
         Insert: {
+          renewal_of?: string | null
           api_key_id?: string | null
           beneficiary?: string | null
           client_email: string
@@ -888,6 +890,7 @@ export type Database = {
           vies_batch_id?: string | null
         }
         Update: {
+          renewal_of?: string | null
           api_key_id?: string | null
           beneficiary?: string | null
           client_email?: string
@@ -2105,6 +2108,7 @@ export type Database = {
           total_premium: number
         }[]
       }
+      get_renewal_stats: { Args: { p_from: string; p_to: string }; Returns: Json }
       get_upcoming_expiries: {
         Args: {
           p_days_ahead?: number

@@ -8,6 +8,7 @@ import { checkPassword } from '../src/lib/passwordPolicy.js';
 import { dispatchNotifications, sendNotificationSample } from './_lib/notification-dispatch.js';
 import { assertCanDelete, getUserFootprint, OffboardingError, reassignUserData } from './_lib/offboarding.js';
 import { logActivity } from './_lib/audit.js';
+import { RenewalError, renewPractice } from './_lib/renewals.js';
 
 /**
  * Portal actions that need the service role, called by signed-in users with their session token.
@@ -24,6 +25,7 @@ import { logActivity } from './_lib/audit.js';
  * - send_test_notification: administrators only. A sample notification to the addresses chosen for a user.
  * - user_footprint, reassign_user_data: administrators only. What a user still owns, and handing it all to another user
  *   (so an account can be disabled or deleted without losing its practices).
+ * - renew_practice: whoever can see the practice. Creates the renewal (a new practice linked to the expiring one).
  * - reset_mfa: administrators only. Removes the user's authenticator-app factors (lost phone).
  * - email_status, send_test_email: administrators only. Which channel sends the portal's emails
  *   and a real test message to the administrator's own address.
@@ -36,6 +38,7 @@ type Action =
   | 'user_footprint'
   | 'log_session_event'
   | 'reassign_user_data'
+  | 'renew_practice'
   | 'flush_notifications'
   | 'notify_new_practice'
   | 'send_test_notification'
@@ -344,6 +347,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await audit('user.reassign', fromUserId, { to_user_id: toUserId, practices: result.moved, clients: result.clients, collaborators: result.collaborators, lots: result.batches, api_keys: result.apiKeys });
         return res.status(200).json({ success: true, ...result });
       }
+      case 'renew_practice': {
+        const practiceId = typeof body.practiceId === 'string' ? body.practiceId : '';
+        if (!practiceId) throw new HttpError(400, 'Pratica mancante');
+        const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', caller.id).maybeSingle();
+        const renewal = await renewPractice(supabase, {
+          practiceId,
+          actorId: caller.id,
+          actorLabel: (profile?.full_name as string | undefined)?.trim() || 'Utente',
+        });
+        await logActivity(supabase, { actorId: caller.id, action: 'practice.renew', target: { table: 'practices', id: practiceId }, details: { renewal_id: renewal.practiceId, renewal_number: renewal.practiceNumber }, req });
+        // The administrators hear about the new practice like about any other.
+        await dispatchNotifications(supabase).catch((error: unknown) => console.error('rinnovo: notifiche non inviate:', error));
+        return res.status(200).json({ success: true, ...renewal });
+      }
       // 'notify_new_practice' is the name the previous version of the browser app uses.
       case 'flush_notifications':
       case 'notify_new_practice':
@@ -385,11 +402,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'Azione non supportata' });
     }
   } catch (error) {
-    const status = error instanceof HttpError || error instanceof OffboardingError ? error.status : 500;
+    const status = error instanceof HttpError || error instanceof OffboardingError || error instanceof RenewalError ? error.status : 500;
     return res.status(status).json({
       error: error instanceof Error ? error.message : 'Errore imprevisto',
       ...(error instanceof HttpError && error.code ? { code: error.code } : {}),
-      ...(error instanceof OffboardingError ? { code: error.code } : {}),
+      ...(error instanceof OffboardingError || error instanceof RenewalError ? { code: error.code } : {}),
     });
   }
 }
