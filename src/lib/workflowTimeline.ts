@@ -12,7 +12,7 @@ export function translateWorkflowDescription(description: string): string | null
 
   if ((match = /^Inviata al portale (.+?)(?: \(riferimento (.+)\))?$/.exec(description))) return t.sent(match[1], match[2] ?? null);
   if ((match = /^Presa in carico dal portale (.+) \(riferimento (.+)\)$/.exec(description))) return t.received(match[1], match[2]);
-  if ((match = /^Deliberata dalla compagnia: bozza da pagare(?: \(([^)]*)\))?((?: · .+)*)$/.exec(description))) {
+  if ((match = /^Deliberata(?: dalla compagnia)?: bozza da pagare(?: \(([^)]*)\))?((?: · .+)*)$/.exec(description))) {
     let dueDate: string | null = null;
     const notes: string[] = [];
     for (const part of match[2].split(" · ").filter(Boolean)) {
@@ -22,9 +22,9 @@ export function translateWorkflowDescription(description: string): string | null
     }
     return t.deliberated(match[1] ?? null, dueDate, notes.join(" · ") || null);
   }
-  if ((match = /^Non deliberata dalla compagnia: (.+)$/s.exec(description))) return t.rejected(match[1]);
-  if ((match = /^Integrazioni richieste dalla compagnia: (.+)$/s.exec(description))) return t.infoRequested(match[1]);
-  if ((match = /^Integrazioni inviate alla compagnia(?:: (.+))?$/s.exec(description))) return t.infoProvided(match[1] ?? null);
+  if ((match = /^Non deliberata(?: dalla compagnia)?: (.+)$/s.exec(description))) return t.rejected(match[1]);
+  if ((match = /^Integrazioni richieste(?: dalla compagnia)?: (.+)$/s.exec(description))) return t.infoRequested(match[1]);
+  if ((match = /^Integrazioni (?:inviate alla compagnia|fornite)(?:: (.+))?$/s.exec(description))) return t.infoProvided(match[1] ?? null);
   if ((match = /^Polizza emessa(?: \((.+)\))?$/.exec(description))) return t.issued(match[1] ?? null);
   if ((match = /^Pratica riaperta(?:: (.+))?$/s.exec(description))) return t.reopened(match[1] ?? null);
   if ((match = /^Pagamento registrato \((\S+)\)(?: · (.+))?$/.exec(description))) return t.paid(match[1], match[2] ?? null);

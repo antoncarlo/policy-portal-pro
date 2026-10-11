@@ -16,7 +16,7 @@ Ogni pratica, di qualsiasi tipologia, passa da sette sezioni. Non c'è una colon
 | Emesse | `completata` | Polizza emessa |
 | Non deliberate | `rifiutata` | La compagnia non ha deliberato |
 
-Chi vede cosa: ogni utente vede le **proprie** pratiche in ogni sezione, l'amministratore vede tutto e le sposta. Se nessun portale è collegato, l'amministratore registra le risposte della compagnia a mano dalla scheda *Flusso* del dettaglio pratica: il flusso è lo stesso.
+Chi vede cosa: ogni utente vede le **proprie** pratiche in ogni sezione, l'amministratore vede tutto e le sposta. Se nessun portale è collegato, l'amministratore registra le risposte della compagnia a mano dalla sezione *Valutazione pratica* del dettaglio pratica: il flusso è lo stesso.
 
 Passaggi consentiti (le altre richieste ricevono 409 `invalid_transition`; solo l'amministratore può forzarle):
 

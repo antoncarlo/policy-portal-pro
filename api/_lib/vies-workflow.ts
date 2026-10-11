@@ -121,17 +121,17 @@ function describe(event: WorkflowEvent, actor: string): string {
     case 'sent':
       return `Inviata al portale ${event.portalName ?? event.portalId}${event.reference ? ` (riferimento ${event.reference})` : ''}`;
     case 'deliberated': {
-      const parts = [`Deliberata dalla compagnia: bozza da pagare${actor ? ` (${actor})` : ''}`];
+      const parts = [`Deliberata: bozza da pagare${actor ? ` (${actor})` : ''}`];
       if (event.paymentDueDate) parts.push(`pagamento entro il ${formatItalianDate(event.paymentDueDate)}`);
       if (event.note) parts.push(event.note);
       return parts.join(' · ');
     }
     case 'rejected':
-      return `Non deliberata dalla compagnia: ${event.reason}`;
+      return `Non deliberata: ${event.reason}`;
     case 'info_requested':
-      return `Integrazioni richieste dalla compagnia: ${event.message}`;
+      return `Integrazioni richieste: ${event.message}`;
     case 'info_provided':
-      return `Integrazioni inviate alla compagnia${event.message ? `: ${event.message}` : ''}`;
+      return `Integrazioni fornite${event.message ? `: ${event.message}` : ''}`;
     case 'issued':
       return `Polizza emessa${actor ? ` (${actor})` : ''}`;
     case 'reopened':

@@ -34,23 +34,23 @@ function copyFor(kind: NotifyKind, language: EmailLanguage, number: string, clie
     it: {
       deliberated: {
         subject: `Pratica ${number} deliberata: bozza da pagare`,
-        title: 'La compagnia ha deliberato la pratica',
+        title: 'La pratica è stata deliberata',
         lines: [
           `La pratica ${number} (${client}) è stata deliberata. La bozza è disponibile nel portale.`,
           due ? `Il pagamento va effettuato entro il ${due}.` : 'Dopo la registrazione del pagamento la polizza potrà essere emessa.',
-          ...(note ? [`Nota della compagnia: ${note}`] : []),
+          ...(note ? [`Nota: ${note}`] : []),
         ],
         button: 'Apri la pratica',
       },
       info_requested: {
         subject: `Pratica ${number}: integrazioni richieste`,
-        title: 'La compagnia chiede delle integrazioni',
-        lines: [`Per la pratica ${number} (${client}) la compagnia ha richiesto documenti o chiarimenti prima di deliberare.`, ...(note ? [`Richiesta: ${note}`] : [])],
+        title: 'Servono delle integrazioni',
+        lines: [`Per la pratica ${number} (${client}) servono documenti o chiarimenti prima di decidere.`, ...(note ? [`Richiesta: ${note}`] : [])],
         button: 'Apri la pratica',
       },
       rejected: {
         subject: `Pratica ${number} non deliberata`,
-        title: 'La compagnia non ha deliberato la pratica',
+        title: 'La pratica non è stata deliberata',
         lines: [`La pratica ${number} (${client}) non è stata deliberata.`, ...(note ? [`Motivo: ${note}`] : [])],
         button: 'Apri la pratica',
       },
@@ -64,23 +64,23 @@ function copyFor(kind: NotifyKind, language: EmailLanguage, number: string, clie
     en: {
       deliberated: {
         subject: `Practice ${number} approved: draft ready for payment`,
-        title: 'The insurer has approved the practice',
+        title: 'The practice has been approved',
         lines: [
           `Practice ${number} (${client}) has been approved. The draft is available in the portal.`,
           due ? `Payment is due by ${due}.` : 'Once the payment is recorded, the policy can be issued.',
-          ...(note ? [`Insurer's note: ${note}`] : []),
+          ...(note ? [`Note: ${note}`] : []),
         ],
         button: 'Open the practice',
       },
       info_requested: {
         subject: `Practice ${number}: more information requested`,
-        title: 'The insurer asks for more information',
-        lines: [`For practice ${number} (${client}) the insurer asked for documents or clarifications before approving.`, ...(note ? [`Request: ${note}`] : [])],
+        title: 'More information is needed',
+        lines: [`For practice ${number} (${client}) documents or clarifications are needed before deciding.`, ...(note ? [`Request: ${note}`] : [])],
         button: 'Open the practice',
       },
       rejected: {
         subject: `Practice ${number} not approved`,
-        title: 'The insurer has not approved the practice',
+        title: 'The practice has not been approved',
         lines: [`Practice ${number} (${client}) has not been approved.`, ...(note ? [`Reason: ${note}`] : [])],
         button: 'Open the practice',
       },
@@ -94,23 +94,23 @@ function copyFor(kind: NotifyKind, language: EmailLanguage, number: string, clie
     zh: {
       deliberated: {
         subject: `保单申请 ${number} 已核准：待付款草稿`,
-        title: '保险公司已核准该申请',
+        title: '该申请已核准',
         lines: [
           `申请 ${number}（${client}）已核准，草稿已上传至门户。`,
           due ? `请在 ${due} 前完成付款。` : '登记付款后即可出单。',
-          ...(note ? [`保险公司备注：${note}`] : []),
+          ...(note ? [`备注：${note}`] : []),
         ],
         button: '打开申请',
       },
       info_requested: {
         subject: `申请 ${number}：需补充材料`,
-        title: '保险公司要求补充材料',
-        lines: [`申请 ${number}（${client}）在核准前，保险公司要求补充文件或说明。`, ...(note ? [`要求：${note}`] : [])],
+        title: '需要补充材料',
+        lines: [`申请 ${number}（${client}）在作出决定前，需要补充文件或说明。`, ...(note ? [`要求：${note}`] : [])],
         button: '打开申请',
       },
       rejected: {
         subject: `申请 ${number} 未获核准`,
-        title: '保险公司未核准该申请',
+        title: '该申请未获核准',
         lines: [`申请 ${number}（${client}）未获核准。`, ...(note ? [`原因：${note}`] : [])],
         button: '打开申请',
       },

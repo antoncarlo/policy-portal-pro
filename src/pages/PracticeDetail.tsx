@@ -10,7 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 import { PracticeTimeline } from "@/components/practice/PracticeTimeline";
 import { PracticeDocuments } from "@/components/practice/PracticeDocuments";
 import { PetQuoteDocumentCard } from "@/components/practice/PetQuoteDocumentCard";
-import { PracticeStatusForm } from "@/components/practice/PracticeStatusForm";
 import { PracticeNotes } from "@/components/practice/PracticeNotes";
 import { PracticeSummaryCard } from "@/components/practice/PracticeSummaryCard";
 import { PracticeWorkflowCard } from "@/components/practice/PracticeWorkflowCard";
@@ -126,12 +125,6 @@ const PracticeDetail = () => {
   const getStatusLabel = (status: PracticeStatus) => practiceStatusLabel(status);
 
   const getPracticeTypeLabel = (type: PracticeType) => practiceTypeLabel(type);
-
-  const handleStatusUpdate = () => {
-    loadPractice();
-  };
-
-
 
   if (loading) {
     return (
@@ -273,12 +266,6 @@ const PracticeDetail = () => {
 
         <div className="grid lg:grid-cols-2 gap-6">
           <div className="space-y-6">
-            <PracticeStatusForm 
-              practiceId={practice.id} 
-              currentStatus={practice.status}
-              onStatusUpdate={handleStatusUpdate}
-              userRole={userRole}
-            />
             <PracticeNotes
               key={practice.updated_at}
               practiceId={practice.id}
