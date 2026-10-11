@@ -1,3 +1,7 @@
+> **Stato al 12 ottobre 2026 — documento storico.** Questo rapporto è la fotografia dell'11 ottobre da cui è partito il lavoro di produzione. I rilievi sono stati trattati nelle PR #3 e #4 (dettaglio in `CHANGELOG.md`, versione 1.0.0 e successive); i numeri e i giudizi qui sotto descrivono la situazione di allora, non quella attuale.
+>
+> **Non realizzati:** S6 (MFA obbligatoria per gli amministratori: il titolare l'ha voluta facoltativa), S7 (protezione anti-automazione sul login), M7 (preventivatori oltre Pet), C11 (sinistri, CRM e lead). **C9 solo in parte:** la registrazione del pagamento e i passaggi del flusso avvisano il partner, altre modifiche fatte dall'amministratore no.
+
 # Policy Portal Pro — Audit Completo e Piano di Production Readiness
 
 *Audit tecnico, di sicurezza e funzionale dell'intera piattaforma (frontend, API serverless, database Supabase, deploy Vercel, sito di produzione), eseguito l'11 ottobre 2026 sul branch `claude/eloquent-ramanujan-i21dum` (commit `0d384d8`). Il documento classifica ogni rilievo per gravità, conferma il livello reale di completezza modulo per modulo e definisce il piano operativo per portare il portale al 100% di prontezza per l'uso di massa.*
