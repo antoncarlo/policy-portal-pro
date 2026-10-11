@@ -59,7 +59,7 @@ export interface FilterableQuery<T> {
 }
 
 /** Query su `practices` vista con i soli metodi dei filtri: tiene bassa la profondita' dei tipi. */
-export interface StageFilterable extends FilterableQuery<StageFilterable> {}
+export type StageFilterable = FilterableQuery<StageFilterable>;
 
 /** Applica a una query su `practices` il filtro della sezione. */
 export function applyStageFilter<T extends FilterableQuery<T>>(query: T, stage: PracticeStage): T {

@@ -27,6 +27,18 @@ export const workflowMessages = defineMessages({
       dueSoon: (count: number) => (count === 1 ? "1 in scadenza" : `${count} in scadenza`),
       menuLabel: "Sezioni",
     },
+    timeline: {
+      sent: (portal: string, reference: string | null) => `Inviata al portale ${portal}${reference ? ` (riferimento ${reference})` : ""}`,
+      received: (portal: string, reference: string) => `Presa in carico dal portale ${portal} (riferimento ${reference})`,
+      deliberated: (actor: string | null, dueDate: string | null, note: string | null) =>
+        ["Deliberata dalla compagnia: bozza da pagare" + (actor ? ` (${actor})` : ""), dueDate ? `pagamento entro il ${dueDate}` : null, note].filter(Boolean).join(" · "),
+      rejected: (reason: string) => `Non deliberata dalla compagnia: ${reason}`,
+      infoRequested: (message: string) => `Integrazioni richieste dalla compagnia: ${message}`,
+      infoProvided: (message: string | null) => `Integrazioni inviate alla compagnia${message ? `: ${message}` : ""}`,
+      issued: (actor: string | null) => `Polizza emessa${actor ? ` (${actor})` : ""}`,
+      reopened: (reason: string | null) => `Pratica riaperta${reason ? `: ${reason}` : ""}`,
+      paid: (date: string, actor: string | null) => `Pagamento registrato (${date})${actor ? ` · ${actor}` : ""}`,
+    },
     card: {
       title: "Flusso con la compagnia",
       steps: ["Caricata", "In valutazione", "Deliberata", "Pagata", "Emessa"],
@@ -150,6 +162,18 @@ export const workflowMessages = defineMessages({
       dueSoon: (count: number) => `${count} due soon`,
       menuLabel: "Sections",
     },
+    timeline: {
+      sent: (portal: string, reference: string | null) => `Sent to portal ${portal}${reference ? ` (reference ${reference})` : ""}`,
+      received: (portal: string, reference: string) => `Received by portal ${portal} (reference ${reference})`,
+      deliberated: (actor: string | null, dueDate: string | null, note: string | null) =>
+        ["Approved by the insurer: draft to pay" + (actor ? ` (${actor})` : ""), dueDate ? `payment due by ${dueDate}` : null, note].filter(Boolean).join(" · "),
+      rejected: (reason: string) => `Not approved by the insurer: ${reason}`,
+      infoRequested: (message: string) => `Information requested by the insurer: ${message}`,
+      infoProvided: (message: string | null) => `Information sent to the insurer${message ? `: ${message}` : ""}`,
+      issued: (actor: string | null) => `Policy issued${actor ? ` (${actor})` : ""}`,
+      reopened: (reason: string | null) => `Practice reopened${reason ? `: ${reason}` : ""}`,
+      paid: (date: string, actor: string | null) => `Payment recorded (${date})${actor ? ` · ${actor}` : ""}`,
+    },
     card: {
       title: "Insurer workflow",
       steps: ["Uploaded", "Under review", "Approved", "Paid", "Issued"],
@@ -272,6 +296,18 @@ export const workflowMessages = defineMessages({
       label: "申请分类",
       dueSoon: (count: number) => `${count} 件即将到期`,
       menuLabel: "分类",
+    },
+    timeline: {
+      sent: (portal: string, reference: string | null) => `已提交至门户 ${portal}${reference ? `（参考号 ${reference}）` : ""}`,
+      received: (portal: string, reference: string) => `门户 ${portal} 已接收（参考号 ${reference}）`,
+      deliberated: (actor: string | null, dueDate: string | null, note: string | null) =>
+        ["保险公司已核准：待付款草稿" + (actor ? `（${actor}）` : ""), dueDate ? `付款截止 ${dueDate}` : null, note].filter(Boolean).join(" · "),
+      rejected: (reason: string) => `保险公司未核准：${reason}`,
+      infoRequested: (message: string) => `保险公司要求补充材料：${message}`,
+      infoProvided: (message: string | null) => `已向保险公司补充材料${message ? `：${message}` : ""}`,
+      issued: (actor: string | null) => `保单已出具${actor ? `（${actor}）` : ""}`,
+      reopened: (reason: string | null) => `申请已重新打开${reason ? `：${reason}` : ""}`,
+      paid: (date: string, actor: string | null) => `已登记付款（${date}）${actor ? ` · ${actor}` : ""}`,
     },
     card: {
       title: "保险公司流程",

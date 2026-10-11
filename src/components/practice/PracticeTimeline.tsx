@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatDateTime, useMessages } from "@/i18n";
 import { practiceDetailMessages } from "@/i18n/messages/practiceDetail";
 import { domainMessages, practiceStatusLabel } from "@/i18n/messages/domain";
+import { translateWorkflowDescription } from "@/lib/workflowTimeline";
 
 // Event descriptions are written in Italian by the database triggers.
 const italianStatusKey = (value: string) =>
@@ -37,7 +38,7 @@ export const PracticeTimeline = ({ practiceId }: PracticeTimelineProps) => {
       };
       return m.statusChanged(status(change[1]), status(change[2]));
     }
-    return description;
+    return translateWorkflowDescription(description) ?? description;
   };
 
   useEffect(() => {
