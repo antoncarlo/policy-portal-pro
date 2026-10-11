@@ -13,11 +13,11 @@ const styles = {
   header: {
     background: BRAND,
     color: '#fff',
-    padding: '32px 40px',
+    padding: '32px clamp(16px, 5vw, 40px)',
   } as React.CSSProperties,
   headerTitle: {
     margin: '0 0 8px',
-    fontSize: '28px',
+    fontSize: 'clamp(22px, 6vw, 28px)',
     fontWeight: 700,
   } as React.CSSProperties,
   headerSub: {
@@ -28,7 +28,7 @@ const styles = {
   nav: {
     background: '#f4f6fb',
     borderBottom: '1px solid #dde3f0',
-    padding: '0 40px',
+    padding: '0 clamp(8px, 4vw, 40px)',
     display: 'flex',
     gap: '0',
     overflowX: 'auto' as const,
@@ -47,7 +47,7 @@ const styles = {
   container: {
     maxWidth: '900px',
     margin: '0 auto',
-    padding: '40px',
+    padding: 'clamp(16px, 5vw, 40px)',
   } as React.CSSProperties,
   section: {
     marginBottom: '48px',
@@ -306,6 +306,13 @@ $result = json_decode(curl_exec($ch), true);
 curl_close($ch);
 var_dump($result);`;
 
+/** The tables are wider than a phone: they scroll sideways inside their own box instead of widening the page. */
+const DocTable = ({ children }: { children: React.ReactNode }) => (
+  <div style={{ overflowX: 'auto', marginBottom: '16px' }}>
+    <table style={{ ...styles.table, marginBottom: 0 }}>{children}</table>
+  </div>
+);
+
 export default function ApiDocs() {
   return (
     <div style={styles.page}>
@@ -351,7 +358,7 @@ export default function ApiDocs() {
             Ogni richiesta deve includere due header di sicurezza:
           </p>
 
-          <table style={styles.table}>
+          <DocTable>
             <thead>
               <tr>
                 <th style={styles.th}>Header</th>
@@ -372,7 +379,7 @@ export default function ApiDocs() {
                 </td>
               </tr>
             </tbody>
-          </table>
+          </DocTable>
 
           <div style={styles.infoBox}>
             Ogni partner riceve una chiave univoca. Le chiavi vengono create dall&apos;amministratore in{' '}
@@ -399,7 +406,7 @@ $signature = 'sha256=' . hash_hmac('sha256', $rawBody, $secret);`}</pre>
         <section id="endpoint" style={styles.section}>
           <h2 style={styles.h2}>3. Endpoint</h2>
 
-          <table style={styles.table}>
+          <DocTable>
             <tbody>
               <tr>
                 <td style={{ ...styles.td, fontWeight: 600, width: '140px' }}>URL</td>
@@ -410,10 +417,10 @@ $signature = 'sha256=' . hash_hmac('sha256', $rawBody, $secret);`}</pre>
                 <td style={styles.tdAlt}><code style={styles.inlineCode}>application/json</code></td>
               </tr>
             </tbody>
-          </table>
+          </DocTable>
 
           <h3 style={styles.h3}>Headers richiesti</h3>
-          <table style={styles.table}>
+          <DocTable>
             <thead>
               <tr>
                 <th style={styles.th}>Header</th>
@@ -439,10 +446,10 @@ $signature = 'sha256=' . hash_hmac('sha256', $rawBody, $secret);`}</pre>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DocTable>
 
           <h3 style={styles.h3}>Campi del body</h3>
-          <table style={styles.table}>
+          <DocTable>
             <thead>
               <tr>
                 <th style={styles.th}>Campo</th>
@@ -481,7 +488,7 @@ $signature = 'sha256=' . hash_hmac('sha256', $rawBody, $secret);`}</pre>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DocTable>
 
           <h3 style={styles.h3}>Tipi pratica validi</h3>
           <p style={styles.p}>Il campo <code style={styles.inlineCode}>practice_type</code> accetta (case-insensitive):</p>
@@ -505,7 +512,7 @@ catastrofali | azienda | postuma_decennale | all_risk | risparmio | salute`}</pr
             I link di download sono URL firmati con scadenza di <strong>1 ora</strong>.
           </p>
 
-          <table style={styles.table}>
+          <DocTable>
             <thead>
               <tr>
                 <th style={styles.th}>Query Param</th>
@@ -525,7 +532,7 @@ catastrofali | azienda | postuma_decennale | all_risk | risparmio | salute`}</pr
                 <td style={styles.tdAlt}>Numero pratica (es. PR-2026-1234)</td>
               </tr>
             </tbody>
-          </table>
+          </DocTable>
 
           <h3 style={styles.h3}>Esempio risposta GET documenti</h3>
           <pre style={styles.code}>{`GET /api/get-practice-documents?practice_id=550e8400-e29b-41d4-a716-446655440000
@@ -554,7 +561,7 @@ X-API-Key: tmga_a1b2c3d4...
             Per alcune tipologie la presenza di documenti specifici è obbligatoria.
             Il filename deve <em>contenere</em> il nome del documento richiesto.
           </p>
-          <table style={styles.table}>
+          <DocTable>
             <thead>
               <tr>
                 <th style={styles.th}>Tipologia</th>
@@ -569,13 +576,13 @@ X-API-Key: tmga_a1b2c3d4...
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DocTable>
         </section>
 
         {/* 5. Codici di risposta */}
         <section id="risposte" style={styles.section}>
           <h2 style={styles.h2}>5. Codici di Risposta</h2>
-          <table style={styles.table}>
+          <DocTable>
             <thead>
               <tr>
                 <th style={styles.th}>Codice</th>
@@ -592,7 +599,7 @@ X-API-Key: tmga_a1b2c3d4...
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DocTable>
 
           <h3 style={styles.h3}>Esempio risposta 200</h3>
           <pre style={styles.code}>{`{
@@ -735,7 +742,7 @@ GET /api/vies-intake-status                      (gli ultimi 50 lotti della chia
   "data": { "payment_due_date": "2026-12-20", "note": "…",
             "documents": [ { "file_name": "bozza.pdf", "document_type": "bozza_deliberata",
                              "download_url": "https://…", "expires_at": "…" } ] } }`}</pre>
-          <table style={styles.table}>
+          <DocTable>
             <thead>
               <tr>
                 <th style={styles.th}>event_type</th>
@@ -760,7 +767,7 @@ GET /api/vies-intake-status                      (gli ultimi 50 lotti della chia
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DocTable>
           <p style={styles.p}>
             Rispondete <code style={styles.inlineCode}>2xx</code> appena ricevuta la notifica. Con <code style={styles.inlineCode}>5xx</code>,
             <code style={styles.inlineCode}> 408</code>, <code style={styles.inlineCode}>429</code> o senza risposta entro 6 secondi riproviamo dopo
@@ -783,7 +790,7 @@ GET /api/vies-intake-status                      (gli ultimi 50 lotti della chia
           <p style={styles.p}>
             Per richiedere le credenziali API o per supporto tecnico:
           </p>
-          <table style={styles.table}>
+          <DocTable>
             <tbody>
               <tr>
                 <td style={{ ...styles.td, fontWeight: 600, width: '160px' }}>Email</td>
@@ -794,7 +801,7 @@ GET /api/vies-intake-status                      (gli ultimi 50 lotti della chia
                 <td style={styles.tdAlt}>Richiesta credenziali API integrazione portale</td>
               </tr>
             </tbody>
-          </table>
+          </DocTable>
         </section>
 
       </div>

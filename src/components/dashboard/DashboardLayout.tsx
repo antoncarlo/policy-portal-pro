@@ -1,6 +1,8 @@
 import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { DESKTOP_QUERY, useMediaQuery } from "@/hooks/use-media-query";
 import {
   Shield,
   LayoutDashboard,
@@ -16,6 +18,7 @@ import {
   ClipboardList,
   ShieldCheck,
   ChevronDown,
+  Menu,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -43,6 +46,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const common = useMessages(commonMessages);
   const flow = useMessages(workflowMessages);
   const { data: stageCounts } = usePracticeStageCounts();
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [canAccessVies, setCanAccessVies] = useState(false);
 
@@ -99,6 +104,10 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     }
   };
 
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname, location.search, isDesktop]);
+
   const isActive = (path: string) => location.pathname === path;
 
   // "Pratiche" opens into its sections; the section in use comes from the address.
@@ -132,20 +141,22 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { path: "/user-management", icon: UserCog, label: m.nav.userManagement },
   ];
 
-  return (
-    <div className="flex min-h-screen bg-background">
-      {/* Sidebar */}
-      <aside className="fixed h-full w-64 overflow-y-auto border-r border-border bg-card">
-        <div className="relative border-b border-border p-6">
-          <Link to="/" className="flex items-center justify-center">
-            <img src="/logo.svg" alt="Tecno Advance MGA" className="h-12" />
-          </Link>
+  // The same menu in two places: fixed at the side from 1024 px up (PC, iPad landscape), a drawer opened
+  // from a top bar below it (phones, iPad portrait). The links close the drawer.
+  const renderPanel = ({ withBell, onNavigate }: { withBell: boolean; onNavigate?: (event: React.MouseEvent) => void }) => (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="relative shrink-0 border-b border-border p-6">
+        <Link to="/" className="flex items-center justify-center">
+          <img src="/logo.svg" alt="Tecno Advance MGA" className="h-12" />
+        </Link>
+        {withBell && (
           <div className="absolute right-2 top-2">
             <NotificationBell />
           </div>
-        </div>
+        )}
+      </div>
 
-        <nav className="space-y-2 p-4 pb-36">
+        <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-4" onClick={onNavigate}>
           {visibleNavItems.map((item) => {
             const Icon = item.icon;
             if (item.path === "/practices") {
@@ -245,7 +256,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           )}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 space-y-2 border-t border-border bg-card p-4">
+        <div className="shrink-0 space-y-2 border-t border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <LanguageSwitcher className="w-full justify-start" align="start" />
           <Button 
             variant="ghost" 
@@ -256,11 +267,46 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             <span>{m.nav.logout}</span>
           </Button>
         </div>
-      </aside>
+    </div>
+  );
+
+  return (
+    <div className="flex min-h-screen bg-background">
+      {isDesktop ? (
+        <aside data-testid="sidebar" className="fixed inset-y-0 left-0 z-30 w-64 border-r border-border bg-card">
+          {renderPanel({ withBell: true })}
+        </aside>
+      ) : (
+        <>
+          <header
+            data-testid="mobile-header"
+            className="fixed inset-x-0 top-0 z-40 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center gap-2 border-b border-border bg-card px-2 pt-[env(safe-area-inset-top)]"
+          >
+            <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" data-testid="mobile-menu-button" aria-label={m.nav.menu} onClick={() => setMenuOpen(true)}>
+              <Menu className="h-6 w-6" />
+            </Button>
+            <Link to="/dashboard" className="flex min-w-0 flex-1 items-center">
+              <img src="/logo.svg" alt="Tecno Advance MGA" className="h-8 max-w-full" />
+            </Link>
+            <NotificationBell />
+          </header>
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+            <SheetContent side="left" aria-describedby={undefined} className="w-[18rem] max-w-[85vw] gap-0 p-0 sm:max-w-[18rem]" data-testid="mobile-menu">
+              <SheetTitle className="sr-only">{m.nav.menu}</SheetTitle>
+              {renderPanel({
+                withBell: false,
+                onNavigate: (event) => {
+                  if ((event.target as HTMLElement).closest("a")) setMenuOpen(false);
+                },
+              })}
+            </SheetContent>
+          </Sheet>
+        </>
+      )}
 
       {/* Main Content */}
-      <main className="ml-64 min-w-0 flex-1">
-        <div className="w-full max-w-full overflow-x-hidden p-8">{children}</div>
+      <main className={cn("min-w-0 flex-1", isDesktop ? "ml-64" : "pt-[calc(3.5rem+env(safe-area-inset-top))]")}>
+        <div className="w-full max-w-full p-4 sm:p-6 lg:p-8">{children}</div>
       </main>
     </div>
   );

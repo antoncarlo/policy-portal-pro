@@ -30,6 +30,7 @@ import {
 import { Eye, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { TABLE_QUERY, useMediaQuery } from "@/hooks/use-media-query";
 import { formatDate, getMessages, useMessages } from "@/i18n";
 import { clientsMessages } from "@/i18n/messages/clients";
 
@@ -62,6 +63,7 @@ export const ClientsTable = ({
   const navigate = useNavigate();
   const { toast } = useToast();
   const m = useMessages(clientsMessages).table;
+  const compact = !useMediaQuery(TABLE_QUERY);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
 
@@ -94,10 +96,76 @@ export const ClientsTable = ({
     }
   };
 
+  const renderActions = (client: Client) => (
+    <div className="flex justify-end gap-2">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => navigate(`/clients/${client.id}`)}
+      >
+        <Eye className="h-4 w-4" />
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => onClientEdit(client)}>
+            <Pencil className="mr-2 h-4 w-4" />
+            {m.edit}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="text-destructive focus:text-destructive"
+            onClick={() => {
+              setClientToDelete(client);
+              setDeleteDialogOpen(true);
+            }}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            {m.delete}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+
+  const cards = (
+    <div className="space-y-2" data-testid="client-cards">
+      {loading ? (
+        <p className="py-8 text-center text-muted-foreground">{m.loading}</p>
+      ) : clients.length === 0 ? (
+        <p className="py-8 text-center text-muted-foreground">{m.empty}</p>
+      ) : (
+        clients.map((client) => (
+          <div key={client.id} className="rounded-lg border bg-card p-3" data-testid="client-card">
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="break-words font-medium">{client.full_name}</div>
+                {client.company_name && <div className="break-words text-sm text-muted-foreground">{client.company_name}</div>}
+                {client.email && <div className="break-all text-sm text-muted-foreground">{client.email}</div>}
+                <div className="mt-1 flex flex-wrap gap-x-2 text-sm text-muted-foreground">
+                  {(client.phone || client.mobile) && <span>{client.phone || client.mobile}</span>}
+                  {client.address_city && <span>· {client.address_city}</span>}
+                  <span>· {formatDate(client.created_at)}</span>
+                </div>
+              </div>
+              {renderActions(client)}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+
   return (
+    <>
+      {compact ? cards : (
     <Card className="overflow-hidden">
       <div className="w-full overflow-x-auto">
-      <Table className="min-w-[980px]">
+      <Table className="min-w-[860px]">
         <TableHeader>
           <TableRow>
             <TableHead>{m.name}</TableHead>
@@ -142,39 +210,7 @@ export const ClientsTable = ({
                   {formatDate(client.created_at)}
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => navigate(`/clients/${client.id}`)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onClientEdit(client)}>
-                          <Pencil className="mr-2 h-4 w-4" />
-                          {m.edit}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={() => {
-                            setClientToDelete(client);
-                            setDeleteDialogOpen(true);
-                          }}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          {m.delete}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                  {renderActions(client)}
                 </TableCell>
               </TableRow>
             ))
@@ -182,6 +218,8 @@ export const ClientsTable = ({
         </TableBody>
             </Table>
       </div>
+    </Card>
+      )}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
@@ -202,6 +240,6 @@ export const ClientsTable = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+    </>
   );
 };

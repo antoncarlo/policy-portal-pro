@@ -1,4 +1,5 @@
 import { useLanguage, useMessages } from "@/i18n";
+import { TABLE_QUERY, useMediaQuery } from "@/hooks/use-media-query";
 import { roleLabel } from "@/i18n/messages/domain";
 import { usersMessages } from "@/i18n/messages/users";
 import { mfaMessages } from "@/i18n/messages/mfa";
@@ -67,6 +68,7 @@ export const UserTable = ({
   const mfa = useMessages(mfaMessages).admin;
   const access = useMessages(passwordMessages).resend;
   const language = useLanguage();
+  const compact = !useMediaQuery(TABLE_QUERY);
   const getRoleBadge = (role: string) => {
     const badges = {
       admin: { label: roleLabel("admin", language), className: "bg-red-100 text-red-800 border-red-300" },
@@ -86,10 +88,110 @@ export const UserTable = ({
       .slice(0, 2);
   };
 
+  const actions = (user: User) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 md:h-9 md:w-9" aria-label={m.actions}>
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onEditRole(user)}>
+              <Edit className="h-4 w-4 mr-2" />
+              {m.editRole}
+            </DropdownMenuItem>
+            {(user.role === "agente" || user.role === "collaboratore") && (
+              <>
+                <DropdownMenuItem onClick={() => onEditProducts(user)}>
+                  <Package className="h-4 w-4 mr-2" />
+                  {m.editProducts}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onEditCommission(user)}>
+                  <Percent className="h-4 w-4 mr-2" />
+                  {m.editCommission}
+                </DropdownMenuItem>
+              </>
+            )}
+            {user.role === "collaboratore" && (
+              <DropdownMenuItem onClick={() => onAssignAgent(user)}>
+                <Link2 className="h-4 w-4 mr-2" />
+                {m.assignAgent}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onClick={() => onEditNotifications(user)}>
+              <Mail className="h-4 w-4 mr-2" />
+              {m.editNotifications}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onViewPractices(user)}>
+              <BarChart3 className="h-4 w-4 mr-2" />
+              {m.viewPractices}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onSendAccessEmail(user)}>
+              <MailPlus className="h-4 w-4 mr-2" />
+              {access.menu}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onResetMfa(user)}>
+              <ShieldOff className="h-4 w-4 mr-2" />
+              {mfa.resetMenu}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => onDisableUser(user)}
+              className="text-orange-600"
+            >
+              <Ban className="h-4 w-4 mr-2" />
+              {m.disable}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onDeleteUser(user)}
+              className="text-red-600"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {m.delete}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+  );
+
+  if (compact) {
+    return (
+      <div className="space-y-3" data-testid="user-cards">
+        {users.length === 0 ? (
+          <div className="rounded-lg border py-8 text-center text-gray-500">{m.empty}</div>
+        ) : (
+          users.map((user) => (
+            <div key={user.id} className="rounded-lg border bg-card p-3" data-testid="user-card">
+              <div className="flex items-start gap-3">
+                <Avatar className="shrink-0">
+                  <AvatarImage src={user.avatar_url || undefined} />
+                  <AvatarFallback>{getInitials(user.full_name)}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <div className="break-words font-medium">{user.full_name}</div>
+                  <div className="break-all text-sm text-muted-foreground">{user.email}</div>
+                  {user.phone && <div className="break-words text-sm text-muted-foreground">{user.phone}</div>}
+                </div>
+                {actions(user)}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                {getRoleBadge(user.role)}
+                {(user.role === "agente" || user.role === "collaboratore") && (
+                  <Badge variant="secondary">{m.base(Number(user.default_commission_percentage || 0).toFixed(2))}</Badge>
+                )}
+                <Badge variant="outline">{m.practices}: {user.practice_count}</Badge>
+                {user.agent_name && <span className="break-words text-muted-foreground">{m.agent}: {user.agent_name}</span>}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-hidden rounded-lg border">
       <div className="w-full overflow-x-auto">
-      <Table className="min-w-[980px]">
+      <Table className="min-w-[900px]">
         <TableHeader>
           <TableRow>
             <TableHead>{m.user}</TableHead>
@@ -150,68 +252,7 @@ export const UserTable = ({
                   <Badge variant="outline">{user.practice_count}</Badge>
                 </TableCell>
                 <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onEditRole(user)}>
-                        <Edit className="h-4 w-4 mr-2" />
-                        {m.editRole}
-                      </DropdownMenuItem>
-                      {(user.role === "agente" || user.role === "collaboratore") && (
-                        <>
-                          <DropdownMenuItem onClick={() => onEditProducts(user)}>
-                            <Package className="h-4 w-4 mr-2" />
-                            {m.editProducts}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => onEditCommission(user)}>
-                            <Percent className="h-4 w-4 mr-2" />
-                            {m.editCommission}
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                      {user.role === "collaboratore" && (
-                        <DropdownMenuItem onClick={() => onAssignAgent(user)}>
-                          <Link2 className="h-4 w-4 mr-2" />
-                          {m.assignAgent}
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem onClick={() => onEditNotifications(user)}>
-                        <Mail className="h-4 w-4 mr-2" />
-                        {m.editNotifications}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onViewPractices(user)}>
-                        <BarChart3 className="h-4 w-4 mr-2" />
-                        {m.viewPractices}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onSendAccessEmail(user)}>
-                        <MailPlus className="h-4 w-4 mr-2" />
-                        {access.menu}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onResetMfa(user)}>
-                        <ShieldOff className="h-4 w-4 mr-2" />
-                        {mfa.resetMenu}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => onDisableUser(user)}
-                        className="text-orange-600"
-                      >
-                        <Ban className="h-4 w-4 mr-2" />
-                        {m.disable}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => onDeleteUser(user)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        {m.delete}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  {actions(user)}
                 </TableCell>
               </TableRow>
             ))

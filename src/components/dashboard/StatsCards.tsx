@@ -71,11 +71,11 @@ export const StatsCards = () => {
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
       {statsConfig.map((stat) => {
         const Icon = stat.icon;
         return (
-          <Card key={stat.title} className="p-6">
+          <Card key={stat.title} className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <div className={`p-2 rounded-lg ${stat.bgColor}`}>
                 <Icon className={`h-5 w-5 ${stat.color}`} />
@@ -85,7 +85,7 @@ export const StatsCards = () => {
               <p className="text-sm font-medium text-muted-foreground mb-1">
                 {stat.title}
               </p>
-              <p className="text-3xl font-bold text-foreground">{stat.value}</p>
+              <p className="text-2xl font-bold text-foreground sm:text-3xl">{stat.value}</p>
               <p className="text-xs text-muted-foreground mt-1">{stat.change}</p>
             </div>
           </Card>

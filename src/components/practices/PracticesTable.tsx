@@ -39,6 +39,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { TABLE_QUERY, useMediaQuery } from "@/hooks/use-media-query";
 import { formatDate, getMessages, useMessages } from "@/i18n";
 import { practicesMessages } from "@/i18n/messages/practices";
 import { commonMessages } from "@/i18n/messages/common";
@@ -74,6 +75,7 @@ interface Practice {
 }
 
 type ListView = "lots" | "flat";
+type LotGroup = { lot: PracticeLot; practices: Practice[] };
 const VIEW_STORAGE_KEY = "practices-list-view";
 const readStoredView = (): ListView => {
   try {
@@ -111,6 +113,7 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
   const lotText = useMessages(practicesMessages).lots;
   const flow = useMessages(workflowMessages);
   const common = useMessages(commonMessages);
+  const compact = !useMediaQuery(TABLE_QUERY);
   const [searchParams, setSearchParams] = useSearchParams();
   const lotId = searchParams.get("lot");
   const [practices, setPractices] = useState<Practice[]>([]);
@@ -466,6 +469,57 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
     }
   };
 
+  const renderActions = (practice: Practice) => (
+    <div className="flex justify-end gap-2">
+      <Button 
+        variant="ghost" 
+        size="sm"
+        onClick={() => navigate(`/practices/${practice.id}`)}
+      >
+        <Eye className="h-4 w-4" />
+      </Button>
+      <Button 
+        variant="ghost" 
+        size="sm"
+        onClick={() => handleDownloadDocuments(practice)}
+        title={m.downloadDocuments}
+      >
+        <Download className="h-4 w-4" />
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            onClick={() => navigate(`/practices/${practice.id}`)}
+          >
+            <Pencil className="mr-2 h-4 w-4" />
+            {m.edit}
+          </DropdownMenuItem>
+          {/* Deleting changes lots, statements and accounting: administrators only. */}
+          {canChangeStatus && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => {
+                  setPracticeToDelete(practice);
+                  setDeleteDialogOpen(true);
+                }}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {m.delete}
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+
   const renderPracticeRow = (practice: Practice, nested = false) => (
     <TableRow key={practice.id} data-testid="practice-row" className={nested ? "bg-muted/20" : undefined}>
       <TableCell>
@@ -477,9 +531,9 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
       </TableCell>
       <TableCell className={cn("font-medium whitespace-nowrap", nested && "pl-10")}>{practice.practice_number}</TableCell>
       <TableCell className="max-w-[220px] break-words">{practice.client_name}</TableCell>
-      <TableCell className="max-w-[220px] break-words text-muted-foreground">{practice.beneficiary || "-"}</TableCell>
+      <TableCell className="hidden max-w-[220px] break-words text-muted-foreground min-[1440px]:table-cell">{practice.beneficiary || "-"}</TableCell>
       <TableCell className="whitespace-nowrap">{getPracticeTypeLabel(practice.practice_type)}</TableCell>
-      <TableCell className="max-w-[180px] break-words text-muted-foreground">
+      <TableCell className="hidden max-w-[180px] break-words text-muted-foreground min-[1440px]:table-cell">
         {practice.policy_number || "-"}
       </TableCell>
       <TableCell className="text-muted-foreground">
@@ -491,57 +545,116 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
         </Badge>
       </TableCell>
       <TableCell className="text-right">
-        <div className="flex justify-end gap-2">
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => navigate(`/practices/${practice.id}`)}
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => handleDownloadDocuments(practice)}
-            title={m.downloadDocuments}
-          >
-            <Download className="h-4 w-4" />
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() => navigate(`/practices/${practice.id}`)}
-              >
-                <Pencil className="mr-2 h-4 w-4" />
-                {m.edit}
-              </DropdownMenuItem>
-              {/* Deleting changes lots, statements and accounting: administrators only. */}
-              {canChangeStatus && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-destructive focus:text-destructive"
-                    onClick={() => {
-                      setPracticeToDelete(practice);
-                      setDeleteDialogOpen(true);
-                    }}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    {m.delete}
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        {renderActions(practice)}
       </TableCell>
     </TableRow>
 
+  );
+
+  const renderPracticeCard = (practice: Practice, nested = false) => (
+    <div key={practice.id} data-testid="practice-row" className={cn("rounded-lg border bg-card p-3", nested && "ml-4 bg-muted/20")}>
+      <div className="flex items-start gap-3">
+        <Checkbox
+          className="mt-1"
+          aria-label={m.selectOne(practice.practice_number)}
+          checked={selectedPracticeIds.has(practice.id)}
+          onCheckedChange={() => togglePracticeSelection(practice.id)}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="break-all font-medium">{practice.practice_number}</div>
+          <div className="break-words text-sm">{practice.client_name}</div>
+          {practice.beneficiary && <div className="break-words text-sm text-muted-foreground">{practice.beneficiary}</div>}
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+            <span>{getPracticeTypeLabel(practice.practice_type)}</span>
+            {practice.policy_number && <span className="break-all">· {practice.policy_number}</span>}
+            <span>· {formatDate(practice.created_at)}</span>
+          </div>
+        </div>
+      </div>
+      <div className="mt-2 flex items-center justify-between gap-2 pl-7">
+        <Badge variant="outline" className={getStatusColor(practice.status)}>
+          {getStatusLabel(practice.status)}
+        </Badge>
+        {renderActions(practice)}
+      </div>
+    </div>
+  );
+
+  const lotSummary = (group: LotGroup, title: string, open: boolean, stageCounts: Map<PracticeStage, number>) => {
+    const { lot } = group;
+    return (
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <button
+          type="button"
+          className="flex min-h-9 items-center gap-2 text-left font-semibold"
+          aria-expanded={open}
+          aria-label={`${open ? lotText.collapse : lotText.expand}: ${title}`}
+          onClick={() => toggleLot(lot.batchId)}
+          data-testid="lot-toggle"
+        >
+          <ChevronRight className={cn("h-4 w-4 shrink-0 transition-transform", open && "rotate-90")} />
+          {title}
+        </button>
+        <Badge variant="secondary" data-testid="lot-count">
+          {group.practices.length < lot.practiceCount ? lotText.shownOf(group.practices.length, lot.practiceCount) : lotText.count(lot.practiceCount)}
+        </Badge>
+        {lot.representative && <span className="text-sm text-muted-foreground">{lot.representative}</span>}
+        <span className="text-sm text-muted-foreground">{formatDate(lot.createdAt)}</span>
+        <span className="flex flex-wrap gap-1.5">
+          {[...stageCounts.entries()].map(([key, count]) => (
+            <span key={key} className="rounded-full border border-border bg-background px-2 py-0.5 text-xs">
+              {count} · {flow.stages[key]}
+            </span>
+          ))}
+        </span>
+      </div>
+    );
+  };
+
+  const stageCountsOf = (group: LotGroup) => {
+    const counts = new Map<PracticeStage, number>();
+    for (const practice of group.practices) {
+      const key = stageOf({ status: practice.status, financial_status: practice.financial_status });
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return counts;
+  };
+
+  const renderLotCards = () => (
+    <>
+      {lotGroups.map((group) => {
+        const { lot } = group;
+        const open = expandedLots.has(lot.batchId);
+        const title = lotTitle(lot, lotText.lotName);
+        const allSelected = group.practices.every((practice) => selectedPracticeIds.has(practice.id));
+        const someSelected = group.practices.some((practice) => selectedPracticeIds.has(practice.id));
+        return (
+          <div key={lot.batchId} className="space-y-2">
+            <div className="rounded-lg border bg-muted/40 p-3" data-testid="lot-row" data-lot-id={lot.batchId}>
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  className="mt-2.5"
+                  aria-label={lotText.selectLot(title)}
+                  checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                  onCheckedChange={() => toggleLotSelection(group)}
+                />
+                <div className="min-w-0 flex-1">{lotSummary(group, title, open, stageCountsOf(group))}</div>
+              </div>
+              <div className="mt-1 flex justify-end">
+                <Button variant="ghost" size="sm" onClick={() => navigate(`/practices?lot=${lot.batchId}`)}>
+                  {lotText.openLot}
+                </Button>
+              </div>
+            </div>
+            {open && group.practices.map((practice) => renderPracticeCard(practice, true))}
+          </div>
+        );
+      })}
+      {singles.length > 0 && lotGroups.length > 0 && (
+        <p className="pt-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{lotText.others}</p>
+      )}
+      {singles.map((practice) => renderPracticeCard(practice))}
+    </>
   );
 
   const renderLotRows = () => (
@@ -552,11 +665,7 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
         const title = lotTitle(lot, lotText.lotName);
         const allSelected = group.practices.every((practice) => selectedPracticeIds.has(practice.id));
         const someSelected = group.practices.some((practice) => selectedPracticeIds.has(practice.id));
-        const stageCounts = new Map<PracticeStage, number>();
-        for (const practice of group.practices) {
-          const key = stageOf({ status: practice.status, financial_status: practice.financial_status });
-          stageCounts.set(key, (stageCounts.get(key) ?? 0) + 1);
-        }
+        const stageCounts = stageCountsOf(group);
         return (
           <Fragment key={lot.batchId}>
             <TableRow className="bg-muted/40 hover:bg-muted/60" data-testid="lot-row" data-lot-id={lot.batchId}>
@@ -568,31 +677,7 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
                 />
               </TableCell>
               <TableCell colSpan={7}>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <button
-                    type="button"
-                    className="flex items-center gap-2 text-left font-semibold"
-                    aria-expanded={open}
-                    aria-label={`${open ? lotText.collapse : lotText.expand}: ${title}`}
-                    onClick={() => toggleLot(lot.batchId)}
-                    data-testid="lot-toggle"
-                  >
-                    <ChevronRight className={cn("h-4 w-4 shrink-0 transition-transform", open && "rotate-90")} />
-                    {title}
-                  </button>
-                  <Badge variant="secondary" data-testid="lot-count">
-                    {group.practices.length < lot.practiceCount ? lotText.shownOf(group.practices.length, lot.practiceCount) : lotText.count(lot.practiceCount)}
-                  </Badge>
-                  {lot.representative && <span className="text-sm text-muted-foreground">{lot.representative}</span>}
-                  <span className="text-sm text-muted-foreground">{formatDate(lot.createdAt)}</span>
-                  <span className="flex flex-wrap gap-1.5">
-                    {[...stageCounts.entries()].map(([key, count]) => (
-                      <span key={key} className="rounded-full border border-border bg-background px-2 py-0.5 text-xs">
-                        {count} · {flow.stages[key]}
-                      </span>
-                    ))}
-                  </span>
-                </div>
+                {lotSummary(group, title, open, stageCounts)}
               </TableCell>
               <TableCell className="text-right">
                 <Button variant="ghost" size="sm" onClick={() => navigate(`/practices?lot=${lot.batchId}`)}>
@@ -684,9 +769,30 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
           )}
         </div>
       )}
+      {compact ? (
+        <div className="space-y-2" data-testid="practice-cards">
+          {loading ? (
+            <p className="py-8 text-center text-muted-foreground">{m.loading}</p>
+          ) : filteredPractices.length === 0 ? (
+            <p className="py-8 text-center text-muted-foreground">{m.empty}</p>
+          ) : (
+            <>
+              <label className="flex items-center gap-3 px-1 py-1 text-sm">
+                <Checkbox
+                  aria-label={m.selectAll}
+                  checked={filteredPractices.length > 0 && filteredPractices.every((practice) => selectedPracticeIds.has(practice.id))}
+                  onCheckedChange={toggleAllFilteredPractices}
+                />
+                <span>{m.selectAll}</span>
+              </label>
+              {view === "lots" ? renderLotCards() : filteredPractices.map((practice) => renderPracticeCard(practice))}
+            </>
+          )}
+        </div>
+      ) : (
       <Card className="overflow-hidden">
         <div className="w-full overflow-x-auto">
-        <Table className="min-w-[1050px]">
+        <Table className="min-w-[760px] min-[1440px]:min-w-[1050px]">
         <TableHeader>
           <TableRow>
             <TableHead className="w-12">
@@ -698,9 +804,9 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
             </TableHead>
             <TableHead>{m.number}</TableHead>
             <TableHead>{m.client}</TableHead>
-            <TableHead>{m.beneficiary}</TableHead>
+            <TableHead className="hidden min-[1440px]:table-cell">{m.beneficiary}</TableHead>
             <TableHead>{m.type}</TableHead>
-            <TableHead>{m.policy}</TableHead>
+            <TableHead className="hidden min-[1440px]:table-cell">{m.policy}</TableHead>
             <TableHead>{m.date}</TableHead>
             <TableHead>{m.status}</TableHead>
             <TableHead className="text-right">{m.actions}</TableHead>
@@ -726,6 +832,7 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
         </Table>
         </div>
     </Card>
+      )}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

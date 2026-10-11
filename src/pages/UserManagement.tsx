@@ -252,15 +252,15 @@ const UserManagement = () => {
 
   return (
     <DashboardLayout>
-    <div className="container mx-auto p-6">
+    <div className="container mx-auto p-0 md:p-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
-          <h1 className="text-3xl font-bold">{m.title}</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">{m.title}</h1>
           <p className="text-gray-600 mt-1">
             {m.subtitle}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={loadUsers} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             {common.refresh}

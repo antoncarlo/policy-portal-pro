@@ -18,6 +18,7 @@ export const shellMessages = defineMessages({
       userManagement: "Gestione Utenti",
       logout: "Esci",
       language: "Lingua",
+      menu: "Menu",
     },
     logout: {
       errorDescription: "Impossibile disconnettersi.",
@@ -83,6 +84,7 @@ export const shellMessages = defineMessages({
       adminSection: "Administration",
       userManagement: "User Management",
       logout: "Sign out",
+      menu: "Menu",
       language: "Language",
     },
     logout: {
@@ -149,6 +151,7 @@ export const shellMessages = defineMessages({
       adminSection: "系统管理",
       userManagement: "用户管理",
       logout: "退出登录",
+      menu: "菜单",
       language: "语言",
     },
     logout: {

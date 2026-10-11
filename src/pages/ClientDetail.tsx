@@ -99,19 +99,19 @@ const ClientDetail = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/clients")}>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-4">
+            <Button variant="ghost" size="sm" className="h-10 w-10 shrink-0 p-0" onClick={() => navigate("/clients")} aria-label={common.back}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">{client.full_name}</h1>
+            <div className="min-w-0">
+              <h1 className="break-words text-2xl font-bold text-foreground sm:text-3xl">{client.full_name}</h1>
               {client.company_name && (
                 <p className="text-muted-foreground mt-1">{client.company_name}</p>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" onClick={() => void handleExport()} disabled={exporting} title={dataText.hint} data-testid="export-client-data">
               <Download className="mr-2 h-4 w-4" />
               {dataText.button}
@@ -125,7 +125,7 @@ const ClientDetail = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Client Information */}
-          <Card className="p-6 lg:col-span-2">
+          <Card className="p-4 sm:p-6 lg:col-span-2">
             <h2 className="text-xl font-semibold mb-4">{m.info}</h2>
             <div className="space-y-4">
               {/* Contact Information */}
@@ -134,8 +134,8 @@ const ClientDetail = () => {
                 <div className="space-y-2">
                   {client.email && (
                     <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
-                      <a href={`mailto:${client.email}`} className="text-sm hover:underline">
+                      <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <a href={`mailto:${client.email}`} className="inline-flex min-h-9 min-w-0 items-center break-all text-sm hover:underline">
                         {client.email}
                       </a>
                     </div>
@@ -143,7 +143,7 @@ const ClientDetail = () => {
                   {client.phone && (
                     <div className="flex items-center gap-2">
                       <Phone className="h-4 w-4 text-muted-foreground" />
-                      <a href={`tel:${client.phone}`} className="text-sm hover:underline">
+                      <a href={`tel:${client.phone}`} className="inline-flex min-h-9 items-center text-sm hover:underline">
                         {client.phone}
                       </a>
                     </div>
@@ -151,7 +151,7 @@ const ClientDetail = () => {
                   {client.mobile && (
                     <div className="flex items-center gap-2">
                       <Phone className="h-4 w-4 text-muted-foreground" />
-                      <a href={`tel:${client.mobile}`} className="text-sm hover:underline">
+                      <a href={`tel:${client.mobile}`} className="inline-flex min-h-9 items-center text-sm hover:underline">
                         {client.mobile} {m.mobileSuffix}
                       </a>
                     </div>
@@ -225,7 +225,7 @@ const ClientDetail = () => {
           </Card>
 
           {/* Statistics */}
-          <Card className="p-6">
+          <Card className="p-4 sm:p-6">
             <h2 className="text-xl font-semibold mb-4">{m.stats}</h2>
             <div className="space-y-4">
               <div>
@@ -244,7 +244,7 @@ const ClientDetail = () => {
         </div>
 
         {/* Associated Practices */}
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">{m.practices}</h2>
             <Badge variant="secondary">{practices.length}</Badge>
@@ -259,16 +259,16 @@ const ClientDetail = () => {
               {practices.map((practice) => (
                 <div
                   key={practice.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent cursor-pointer"
+                  className="flex flex-col gap-2 p-3 border rounded-lg hover:bg-accent cursor-pointer sm:flex-row sm:items-center sm:justify-between sm:p-4"
                   onClick={() => navigate(`/practices/${practice.id}`)}
                 >
-                  <div>
-                    <div className="font-medium">{practice.practice_number}</div>
-                    <div className="text-sm text-muted-foreground">
+                  <div className="min-w-0">
+                    <div className="break-all font-medium">{practice.practice_number}</div>
+                    <div className="break-words text-sm text-muted-foreground">
                       {practiceTypeLabel(practice.practice_type)} - {practice.policy_number || "N/A"}
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="sm:text-right">
                     <Badge>{practiceStatusLabel(practice.status)}</Badge>
                     <div className="text-sm text-muted-foreground mt-1">
                       {formatDate(practice.created_at)}

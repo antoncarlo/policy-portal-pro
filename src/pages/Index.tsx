@@ -50,13 +50,13 @@ const Index = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="py-20 px-4">
+      <section className="px-4 py-12 sm:py-20">
         <div className="container mx-auto text-center max-w-4xl">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 text-foreground">
+          <h1 className="mb-6 break-words text-3xl font-bold text-foreground sm:text-5xl md:text-6xl">
             {m.heroTitle}
             <span className="block text-primary mt-2">{m.heroAccent}</span>
           </h1>
-          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+          <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground sm:text-xl">
             {m.heroText}
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
@@ -89,9 +89,9 @@ const Index = () => {
       </section>
 
       {/* Features Section */}
-      <section className="py-16 px-4 bg-card">
+      <section className="bg-card px-4 py-12 sm:py-16">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12 text-foreground">
+          <h2 className="mb-8 text-center text-2xl font-bold text-foreground sm:mb-12 sm:text-3xl">
             {m.featuresTitle}
           </h2>
           <div className="grid md:grid-cols-3 gap-8">
