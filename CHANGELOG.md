@@ -30,6 +30,8 @@ Prima versione numerata. Riepilogo di ciò che il portale fa oggi:
 
 - Monitoraggio (`docs/monitoring.md`): pagina di errore al posto dello schermo bianco (con riferimento e ripristino al cambio pagina), errori del browser e delle funzioni verso Sentry se è impostato un DSN (nessuna dipendenza nuova), avviso agli amministratori quando un cron si interrompe, `/api/health` pubblico (database) e dettagliato con `CRON_SECRET` (variabili mancanti o malformate, funzioni attive; mai valori), controllo dell'ambiente con zod nel riepilogo giornaliero.
 
+- Test nel repository (`docs/testing.md`): `npm test` esegue le prove sul server (flussi di notifiche, pratiche, consegne in uscita, account, rate limit, firme, email, rinnovi, offboarding, monitoraggio: 222 controlli); `npm run test:e2e` esegue 235 controlli nel browser (Playwright) con la rete simulata; entrambi in CI.
+
 ### Corretto
 - Amministrazione: premio ed esportazione leggevano un campo che non esiste più (`premium_amount`, ora `premium_net`); il salvataggio delle modifiche contabili veniva rifiutato.
 - Report: le colonne premio/provvigione dell'esportazione Excel/PDF erano vuote; i grafici per mese e la classifica agenti non ricevevano i campi attesi.

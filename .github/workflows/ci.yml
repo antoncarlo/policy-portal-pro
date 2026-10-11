@@ -35,3 +35,28 @@ jobs:
         run: node scripts/audit-gate.mjs
       - name: Build
         run: npx vite build
+
+  # Browser scenarios against the dev server with the network mocked (nothing real is touched).
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser scenarios
+        run: npm run test:e2e
+      - name: Screenshots of a failed run
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: e2e/artifacts
+          if-no-files-found: ignore
