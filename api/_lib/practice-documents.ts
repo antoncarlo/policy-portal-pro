@@ -1,24 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { practiceBelongsToTenant, prepareGetEndpoint, queryString } from './partner-api.js';
+import { getDocumentStorageReference } from './vies-documents.js';
 
 const SIGNED_URL_EXPIRY_SECONDS = 3600; // 1 hour
-const PRACTICE_DOCUMENTS_BUCKET = 'practice-documents';
-const VIES_BATCH_FILES_BUCKET = 'vies-batch-files';
-const VIES_BATCH_FILES_PREFIX = `${VIES_BATCH_FILES_BUCKET}://`;
-
-function getDocumentStorageReference(filePath: string) {
-  if (filePath.startsWith(VIES_BATCH_FILES_PREFIX)) {
-    return {
-      bucket: VIES_BATCH_FILES_BUCKET,
-      path: filePath.slice(VIES_BATCH_FILES_PREFIX.length),
-    };
-  }
-
-  return {
-    bucket: PRACTICE_DOCUMENTS_BUCKET,
-    path: filePath,
-  };
-}
 
 /**
  * GET /api/get-practice-documents

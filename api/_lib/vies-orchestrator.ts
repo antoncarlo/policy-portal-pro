@@ -3,6 +3,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { ControllerReport } from '../../src/lib/viesController.js';
 import { runBatchController } from './vies-controller-data.js';
 import { assertSecondFactor } from './mfa.js';
+import { listSignedPracticeDocuments } from './vies-documents.js';
+import { applyWorkflowEvent, WorkflowError } from './vies-workflow.js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -13,6 +15,8 @@ export type ViesJob = {
   id: string;
   batch_id: string;
   user_id: string;
+  /** Id of the practice created for the row. */
+  external_reference: string | null;
   row_number: number;
   progressivo: string | null;
   contraente: string | null;
@@ -109,7 +113,7 @@ export async function assertBatchAccess(
 }
 
 // The agency's administrators work on every lot, including those uploaded by clients.
-async function isAdmin(supabase: SupabaseClient, userId: string): Promise<boolean> {
+export async function isAdmin(supabase: SupabaseClient, userId: string): Promise<boolean> {
   const { data, error } = await supabase
     .from('user_roles')
     .select('role')
@@ -239,6 +243,22 @@ export async function processViesQueue(options: {
 
         if (completeError) throw new Error(`Completamento job fallito: ${completeError.message}`);
         summary.completed += 1;
+
+        // The practice moves to "in valutazione" and records where it went. The send itself is done:
+        // if this step fails the job stays completed and the error is reported.
+        if (job.external_reference) {
+          try {
+            await applyWorkflowEvent(
+              supabase,
+              job.external_reference,
+              { type: 'sent', portalId: portal.id, portalName: portal.name, reference: result.externalReference ?? null },
+              { actor: { label: 'Invio al portale' } },
+            );
+          } catch (workflowError) {
+            const message = workflowError instanceof WorkflowError || workflowError instanceof Error ? workflowError.message : 'Errore sconosciuto';
+            summary.errors.push({ jobId: job.id, message: `Pratica inviata ma non aggiornata nel flusso: ${message}` });
+          }
+        }
         continue;
       }
 
@@ -279,27 +299,59 @@ function computeRetryDelaySeconds(attempts: number): number {
   return baseSeconds * 2 ** cappedAttempt;
 }
 
-export type ViesPortal = { id: string; name: string; url: string; apiKey: string };
+export type ViesPortal = {
+  id: string;
+  name: string;
+  url: string;
+  apiKey: string;
+  /** Shared secret the portal signs its callbacks with (HMAC-SHA256). Empty: callbacks are not accepted. */
+  callbackSecret: string;
+  /** Hosts, besides the portal's own, the portal may hand documents out from. */
+  documentHosts: string[];
+};
+
+/** Public address of this portal, where external portals send their answers. */
+export function getPublicBaseUrl(): string {
+  return (process.env.PORTAL_URL?.trim() || 'https://portale.tecnomga.com').replace(/\/+$/, '');
+}
+
+/** Hosts a portal may fetch/hand out documents from: its own and the ones listed for it. */
+export function portalDocumentHosts(portal: Pick<ViesPortal, 'url' | 'documentHosts'>): string[] {
+  const hosts = [...portal.documentHosts];
+  try {
+    hosts.push(new URL(portal.url).hostname);
+  } catch {
+    // A portal without a valid address contributes no host.
+  }
+  return hosts.map((host) => host.toLowerCase());
+}
 
 /**
  * External portals the practices can be sent to, configured on the server only:
- * - VIES_PORTALS: JSON list [{"id":"…","name":"…","url":"https://…","apiKeyEnv":"VIES_PORTAL_…_KEY"}],
- *   each API key in its own environment variable;
- * - or a single portal with VIES_PORTAL_API_URL, VIES_PORTAL_API_KEY and VIES_PORTAL_NAME.
- * A portal without URL or key is not listed. URLs and keys never reach the browser.
+ * - VIES_PORTALS: JSON list [{"id":"…","name":"…","url":"https://…","apiKeyEnv":"VIES_PORTAL_…_KEY",
+ *   "callbackSecretEnv":"VIES_PORTAL_…_CALLBACK_SECRET","documentHosts":["files.example.com"]}],
+ *   each secret in its own environment variable;
+ * - or a single portal with VIES_PORTAL_API_URL, VIES_PORTAL_API_KEY, VIES_PORTAL_NAME
+ *   and VIES_PORTAL_CALLBACK_SECRET.
+ * A portal without URL or key is not listed. URLs, keys and secrets never reach the browser.
  */
-export function getConfiguredPortals(): ViesPortal[] {
+export function readPortalRegistry(): ViesPortal[] {
   const portals: ViesPortal[] = [];
   try {
     const configured = JSON.parse(process.env.VIES_PORTALS ?? '[]') as Array<Record<string, unknown>>;
     for (const entry of Array.isArray(configured) ? configured : []) {
       const id = typeof entry.id === 'string' ? entry.id.trim() : '';
       const keyEnv = typeof entry.apiKeyEnv === 'string' ? entry.apiKeyEnv : '';
+      const secretEnv = typeof entry.callbackSecretEnv === 'string' ? entry.callbackSecretEnv : '';
       portals.push({
         id,
         name: typeof entry.name === 'string' && entry.name.trim() ? entry.name.trim() : id,
         url: typeof entry.url === 'string' ? entry.url.trim() : '',
         apiKey: keyEnv ? process.env[keyEnv] ?? '' : '',
+        callbackSecret: secretEnv ? process.env[secretEnv] ?? '' : '',
+        documentHosts: Array.isArray(entry.documentHosts)
+          ? entry.documentHosts.filter((host): host is string => typeof host === 'string' && host.trim().length > 0).map((host) => host.trim())
+          : [],
       });
     }
   } catch {
@@ -311,9 +363,16 @@ export function getConfiguredPortals(): ViesPortal[] {
       name: process.env.VIES_PORTAL_NAME?.trim() || 'Portale VIES',
       url: process.env.VIES_PORTAL_API_URL,
       apiKey: process.env.VIES_PORTAL_API_KEY ?? '',
+      callbackSecret: process.env.VIES_PORTAL_CALLBACK_SECRET ?? '',
+      documentHosts: [],
     });
   }
-  return portals.filter((portal) => portal.id && portal.url && portal.apiKey);
+  return portals;
+}
+
+/** Portals a practice can be sent to. */
+export function getConfiguredPortals(): ViesPortal[] {
+  return readPortalRegistry().filter((portal) => portal.id && portal.url && portal.apiKey);
 }
 
 export function isExternalPortalConfigured(): boolean {
@@ -321,14 +380,49 @@ export function isExternalPortalConfigured(): boolean {
 }
 
 // Adapter for the external connection. There is deliberately no simulation mode.
+//
+// Contract with the receiving portal (schema_version 2; the flat v1 fields are kept as they were):
+//   POST <portal url>, Authorization: Bearer <key>, Idempotency-Key: <job id>
+//   practice   our id and number: the portal quotes them back in its callbacks
+//   documents  every file of the practice, as download links valid for three days
+//   callback   where and how the portal answers (see docs/vies-connector.md)
 async function executeViesAgent(job: ViesJob, portal: ViesPortal): Promise<ViesAgentResult> {
+  const supabase = getSupabaseAdmin();
+  let practice: { id: string; practice_number: string; practice_type: string; client_name: string } | null = null;
+  let documents: Awaited<ReturnType<typeof listSignedPracticeDocuments>> = [];
+  if (job.external_reference) {
+    const { data, error } = await supabase
+      .from('practices')
+      .select('id, practice_number, practice_type, client_name')
+      .eq('id', job.external_reference)
+      .maybeSingle();
+    if (error) throw new Error(`Lettura della pratica non riuscita: ${error.message}`);
+    practice = data;
+    if (practice) documents = await listSignedPracticeDocuments(supabase, practice.id);
+  }
+
   const response = await fetch(portal.url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${portal.apiKey}`,
+      'Idempotency-Key': job.id,
     },
     body: JSON.stringify({
+      schema_version: 2,
+      idempotency_key: job.id,
+      practice: practice
+        ? { id: practice.id, number: practice.practice_number, type: practice.practice_type, client_name: practice.client_name }
+        : null,
+      documents,
+      callback: portal.callbackSecret
+        ? {
+            url: `${getPublicBaseUrl()}/api/vies-portal-callback`,
+            portal_id: portal.id,
+            signature: 'HMAC-SHA256: X-Signature = "sha256=" + hex(HMAC(secret, X-Timestamp + "." + raw body))',
+            events: ['practice.received', 'practice.info_requested', 'practice.deliberated', 'practice.rejected', 'practice.issued'],
+          }
+        : null,
       job_id: job.id,
       batch_id: job.batch_id,
       row_number: job.row_number,
@@ -361,7 +455,7 @@ async function executeViesAgent(job: ViesJob, portal: ViesPortal): Promise<ViesA
   return {
     success: true,
     externalReference: typeof payload?.external_reference === 'string' ? payload.external_reference : undefined,
-    details: { portal_response: payload ?? null },
+    details: { portal_response: payload ?? null, documents_sent: documents.length },
   };
 }
 

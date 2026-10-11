@@ -17,7 +17,7 @@ import { getMessages, useMessages } from "@/i18n";
 import { practiceDetailMessages } from "@/i18n/messages/practiceDetail";
 import { PRACTICE_STATUSES, practiceStatusLabel } from "@/i18n/messages/domain";
 
-type PracticeStatus = "in_lavorazione" | "in_attesa" | "approvata" | "rifiutata" | "completata";
+type PracticeStatus = "in_lavorazione" | "in_attesa" | "integrazioni" | "approvata" | "rifiutata" | "completata";
 
 interface PracticeStatusFormProps {
   practiceId: string;

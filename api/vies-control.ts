@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { findExistingViesPractices, runBatchController } from './_lib/vies-controller-data.js';
 import { MfaRequiredError } from './_lib/mfa.js';
+import { isWorkflowAction, runWorkflowAction } from './_lib/vies-workflow-actions.js';
+import { WorkflowError } from './_lib/vies-workflow.js';
 import {
   assertBatchAccess,
   assertJobAccess,
@@ -118,9 +120,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ ok: true, batch: data });
     }
 
+    // Practice flow with the company, by hand or to read the state of the connections (administrators).
+    if (isWorkflowAction(action)) {
+      const result = await runWorkflowAction(supabase, userId, action, (req.body ?? {}) as Record<string, unknown>);
+      return res.status(200).json(result);
+    }
+
     return res.status(400).json({ error: `Azione VIES non supportata: ${action}` });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Errore sconosciuto nel controllo VIES.';
+    if (error instanceof WorkflowError) return res.status(error.status).json({ ok: false, error: message, code: error.code });
     return res.status(error instanceof MfaRequiredError ? 403 : 400).json({ ok: false, error: message });
   }
 }

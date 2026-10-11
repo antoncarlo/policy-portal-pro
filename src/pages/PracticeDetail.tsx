@@ -21,7 +21,7 @@ import { practiceStatusLabel, practiceTypeLabel } from "@/i18n/messages/domain";
 import { translateDuration } from "@/i18n/summaryText";
 
 
-type PracticeStatus = "in_lavorazione" | "in_attesa" | "approvata" | "rifiutata" | "completata";
+type PracticeStatus = "in_lavorazione" | "in_attesa" | "integrazioni" | "approvata" | "rifiutata" | "completata";
 type PracticeType = "fidejussioni" | "car" | "postuma_decennale" | "all_risk" | "responsabilita_civile" | "pet" | "fotovoltaico" | "catastrofali" | "azienda" | "casa" | "risparmio" | "salute" | "auto" | "vita" | "responsabilita" | "vies" | "altro";
 
 interface Practice {
@@ -114,6 +114,7 @@ const PracticeDetail = () => {
       completata: "bg-green-500/10 text-green-500 border-green-500/20",
       rifiutata: "bg-red-500/10 text-red-500 border-red-500/20",
       in_attesa: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
+      integrazioni: "bg-orange-500/10 text-orange-500 border-orange-500/20",
       approvata: "bg-cyan-500/10 text-cyan-500 border-cyan-500/20",
     };
     return colors[status] || colors.in_lavorazione;

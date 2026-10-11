@@ -5,16 +5,20 @@ import { attachPracticeDocument, DocumentError, type IncomingDocument } from './
 /**
  * Passages of a practice through the company flow:
  *   da lavorare -> (sent) in valutazione -> (deliberated) deliberata -> pagata -> (issued) emessa
- *                                       \-> (rejected) non deliberata
+ *                    |    ^                \-> (rejected) non deliberata
+ *                    v    | (info_provided)
+ *                 integrazioni richieste (info_requested)
  * One place applies them, whoever asks: the company's portal calling back, an administrator in the
  * portal, or the portal's own send. Every change leaves a line in the practice's history.
  */
 
 export type WorkflowEvent =
   | { type: 'sent'; portalId: string; portalName?: string; reference?: string | null; at?: string }
-  | { type: 'deliberated'; at?: string; paymentDueDate?: string | null; note?: string | null; draft?: IncomingDocument | null; documentHost?: string }
+  | { type: 'deliberated'; at?: string; paymentDueDate?: string | null; note?: string | null; draft?: IncomingDocument | null; documentHosts?: string[] }
   | { type: 'rejected'; reason: string; at?: string }
-  | { type: 'issued'; at?: string; document?: IncomingDocument | null; documentHost?: string }
+  | { type: 'info_requested'; message: string }
+  | { type: 'info_provided'; message?: string | null }
+  | { type: 'issued'; at?: string; document?: IncomingDocument | null; documentHosts?: string[] }
   | { type: 'reopened'; reason?: string | null };
 
 export interface WorkflowContext {
@@ -44,7 +48,7 @@ export class WorkflowError extends Error {
   }
 }
 
-type Status = 'in_lavorazione' | 'in_attesa' | 'approvata' | 'rifiutata' | 'completata';
+type Status = 'in_lavorazione' | 'in_attesa' | 'integrazioni' | 'approvata' | 'rifiutata' | 'completata';
 
 interface Plan {
   toStatus: Status;
@@ -63,16 +67,27 @@ export function planTransition(status: string, paid: boolean, event: WorkflowEve
   switch (event) {
     case 'sent':
       if (current === 'in_attesa') return { toStatus: 'in_attesa', moves: false };
-      if (current === 'in_lavorazione' || force) return { toStatus: 'in_attesa', moves: true };
+      // Sending again after the company asked for more documents answers the request.
+      if (current === 'in_lavorazione' || current === 'integrazioni' || force) return { toStatus: 'in_attesa', moves: true };
       return fail('La pratica non è più da lavorare: non può essere inviata al portale');
+    case 'info_requested':
+      if (current === 'integrazioni') return { toStatus: 'integrazioni', moves: false };
+      if (current === 'in_attesa' || current === 'in_lavorazione' || force) return { toStatus: 'integrazioni', moves: true };
+      return fail(current === 'approvata' ? 'La pratica è già stata deliberata' : current === 'rifiutata' ? 'La pratica risulta non deliberata' : 'La pratica è già emessa');
+    case 'info_provided':
+      if (current === 'in_attesa') return { toStatus: 'in_attesa', moves: false };
+      if (current === 'integrazioni' || force) return { toStatus: 'in_attesa', moves: true };
+      return fail('Per questa pratica non risultano integrazioni richieste');
     case 'deliberated':
       if (current === 'approvata' && !paid) return { toStatus: 'approvata', moves: false };
-      if (current === 'in_attesa' || current === 'in_lavorazione' || force) return { toStatus: 'approvata', moves: current !== 'approvata' };
+      if (current === 'in_attesa' || current === 'integrazioni' || current === 'in_lavorazione' || force) {
+        return { toStatus: 'approvata', moves: current !== 'approvata' };
+      }
       if (current === 'approvata') return fail('La pratica è già stata pagata: la deliberazione non si può cambiare');
       return fail(current === 'rifiutata' ? 'La pratica risulta non deliberata' : 'La pratica è già emessa');
     case 'rejected':
       if (current === 'rifiutata') return { toStatus: 'rifiutata', moves: false };
-      if (current === 'in_lavorazione' || current === 'in_attesa' || (current === 'approvata' && !paid) || force) {
+      if (current === 'in_lavorazione' || current === 'in_attesa' || current === 'integrazioni' || (current === 'approvata' && !paid) || force) {
         return { toStatus: 'rifiutata', moves: true };
       }
       return fail(current === 'completata' ? 'La pratica è già emessa' : 'La pratica è già stata pagata: non si può rifiutare');
@@ -90,6 +105,8 @@ const EVENT_COLUMNS: Record<WorkflowEvent['type'], string> = {
   sent: 'sent',
   deliberated: 'deliberated',
   rejected: 'rejected',
+  info_requested: 'info_requested',
+  info_provided: 'info_provided',
   issued: 'issued',
   reopened: 'reopened',
 };
@@ -111,6 +128,10 @@ function describe(event: WorkflowEvent, actor: string): string {
     }
     case 'rejected':
       return `Non deliberata dalla compagnia: ${event.reason}`;
+    case 'info_requested':
+      return `Integrazioni richieste dalla compagnia: ${event.message}`;
+    case 'info_provided':
+      return `Integrazioni inviate alla compagnia${event.message ? `: ${event.message}` : ''}`;
     case 'issued':
       return `Polizza emessa${actor ? ` (${actor})` : ''}`;
     case 'reopened':
@@ -138,6 +159,10 @@ function workflowColumns(event: WorkflowEvent): Record<string, unknown> {
       };
     case 'rejected':
       return { rejected_at: event.at ?? nowIso(), rejection_reason: event.reason };
+    // The request itself stays in the practice's history; the workflow row only records that it exists.
+    case 'info_requested':
+    case 'info_provided':
+      return {};
     case 'issued':
       return { issued_at: event.at ?? nowIso() };
     case 'reopened':
@@ -188,7 +213,7 @@ export async function applyWorkflowEvent(
   if (document) {
     try {
       const stored = await attachPracticeDocument(supabase, practice, document, event.type === 'deliberated' ? 'bozza_deliberata' : 'polizza_emessa', {
-        allowedHost: 'documentHost' in event ? event.documentHost : undefined,
+        documentHosts: 'documentHosts' in event ? event.documentHosts : undefined,
         uploadedBy: context.actor.userId ?? null,
       });
       documentId = stored.id;

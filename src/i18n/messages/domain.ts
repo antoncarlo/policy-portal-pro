@@ -6,6 +6,7 @@ export const domainMessages = defineMessages({
     practiceStatus: {
       in_lavorazione: "In Lavorazione",
       in_attesa: "In Attesa",
+      integrazioni: "Integrazioni richieste",
       approvata: "Approvata",
       rifiutata: "Rifiutata",
       completata: "Completata",
@@ -46,6 +47,7 @@ export const domainMessages = defineMessages({
     practiceStatus: {
       in_lavorazione: "In Progress",
       in_attesa: "Pending",
+      integrazioni: "Information requested",
       approvata: "Approved",
       rifiutata: "Rejected",
       completata: "Completed",
@@ -86,6 +88,7 @@ export const domainMessages = defineMessages({
     practiceStatus: {
       in_lavorazione: "处理中",
       in_attesa: "待处理",
+      integrazioni: "需补充材料",
       approvata: "已批准",
       rifiutata: "已拒绝",
       completata: "已完成",
@@ -124,7 +127,7 @@ export const domainMessages = defineMessages({
   },
 });
 
-export const PRACTICE_STATUSES = ["in_lavorazione", "in_attesa", "approvata", "rifiutata", "completata"] as const;
+export const PRACTICE_STATUSES = ["in_lavorazione", "in_attesa", "integrazioni", "approvata", "rifiutata", "completata"] as const;
 
 /** Tipi di pratica nell'ordine dei menu ("responsabilita" è il tipo storico). */
 export const PRACTICE_TYPES = [

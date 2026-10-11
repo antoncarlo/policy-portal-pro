@@ -14,6 +14,18 @@
       "destination": "/api/get-practice-status?view=documents"
     },
     {
+      "source": "/api/vies-portal-callback",
+      "destination": "/api/vies-connect?route=callback"
+    },
+    {
+      "source": "/api/vies-intake",
+      "destination": "/api/vies-connect?route=intake"
+    },
+    {
+      "source": "/api/vies-intake-status",
+      "destination": "/api/vies-connect?route=intake-status"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

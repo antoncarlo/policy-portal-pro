@@ -18,7 +18,7 @@ export interface IncomingDocument {
   mime_type?: string;
   /** Base64 content, for small files. */
   content_base64?: string;
-  /** Address to download it from (https, only the portal's own host). */
+  /** Address to download it from (https, only the portal's own hosts). */
   url?: string;
 }
 
@@ -47,7 +47,7 @@ export const safeFileName = (name: string) =>
 const guessMime = (fileName: string) =>
   /\.pdf$/i.test(fileName) ? 'application/pdf' : /\.zip$/i.test(fileName) ? 'application/zip' : /\.png$/i.test(fileName) ? 'image/png' : /\.jpe?g$/i.test(fileName) ? 'image/jpeg' : 'application/pdf';
 
-async function downloadFromPortal(url: string, allowedHost: string): Promise<Buffer> {
+async function downloadFromPortal(url: string, allowedHosts: string[]): Promise<Buffer> {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -55,7 +55,7 @@ async function downloadFromPortal(url: string, allowedHost: string): Promise<Buf
     throw new DocumentError('Indirizzo del documento non valido');
   }
   if (parsed.protocol !== 'https:') throw new DocumentError('Il documento va scaricato da un indirizzo https');
-  if (!allowedHost || parsed.hostname.toLowerCase() !== allowedHost.toLowerCase()) {
+  if (!allowedHosts.some((host) => host && parsed.hostname.toLowerCase() === host.toLowerCase())) {
     throw new DocumentError('Il documento può essere scaricato solo dal portale che lo invia');
   }
   const controller = new AbortController();
@@ -79,7 +79,7 @@ async function downloadFromPortal(url: string, allowedHost: string): Promise<Buf
 /** Reads the content of an incoming document and checks it. */
 export async function readIncomingDocument(
   document: IncomingDocument,
-  options: { allowedHost?: string } = {},
+  options: { documentHosts?: string[] } = {},
 ): Promise<{ bytes: Buffer; mimeType: string; fileName: string }> {
   const fileName = safeFileName(document.file_name || 'documento.pdf');
   let bytes: Buffer;
@@ -87,7 +87,7 @@ export async function readIncomingDocument(
     if (!/^[A-Za-z0-9+/=\s]+$/.test(document.content_base64)) throw new DocumentError('Contenuto del documento non valido (base64)');
     bytes = Buffer.from(document.content_base64, 'base64');
   } else if (document.url) {
-    bytes = await downloadFromPortal(document.url, options.allowedHost ?? '');
+    bytes = await downloadFromPortal(document.url, options.documentHosts ?? []);
   } else {
     throw new DocumentError('Il documento non ha contenuto né indirizzo');
   }
@@ -107,7 +107,7 @@ export async function attachPracticeDocument(
   practice: { id: string; user_id: string },
   document: IncomingDocument,
   documentType: StoredDocumentType,
-  options: { allowedHost?: string; uploadedBy?: string | null } = {},
+  options: { documentHosts?: string[]; uploadedBy?: string | null } = {},
 ): Promise<{ id: string; file_name: string; file_path: string }> {
   const { bytes, mimeType, fileName } = await readIncomingDocument(document, options);
   const path = `${practice.id}/${documentType}-${Date.now()}-${fileName}`;
@@ -133,4 +133,60 @@ export async function attachPracticeDocument(
     throw new DocumentError(`Registrazione del documento non riuscita: ${error?.message ?? 'nessun dato'}`);
   }
   return data as { id: string; file_name: string; file_path: string };
+}
+
+// ---------------------------------------------------------------------------
+// Documents going out: the practice's files as time-limited download links
+// ---------------------------------------------------------------------------
+
+const VIES_BATCH_FILES_BUCKET = 'vies-batch-files';
+const VIES_BATCH_FILES_PREFIX = `${VIES_BATCH_FILES_BUCKET}://`;
+
+/** Where a practice document lives: documents of VIES lots are kept in the lots' bucket. */
+export function getDocumentStorageReference(filePath: string) {
+  if (filePath.startsWith(VIES_BATCH_FILES_PREFIX)) {
+    return { bucket: VIES_BATCH_FILES_BUCKET, path: filePath.slice(VIES_BATCH_FILES_PREFIX.length) };
+  }
+  return { bucket: PRACTICE_DOCUMENTS_BUCKET, path: filePath };
+}
+
+export interface OutgoingDocument {
+  file_name: string;
+  mime_type: string;
+  size: number;
+  document_type: string | null;
+  download_url: string;
+  expires_at: string;
+}
+
+/** Documents the company needs to evaluate the practice. What came back from a portal is not sent back. */
+export async function listSignedPracticeDocuments(
+  supabase: SupabaseClient,
+  practiceId: string,
+  ttlSeconds = 3 * 24 * 3600,
+): Promise<OutgoingDocument[]> {
+  const { data, error } = await supabase
+    .from('practice_documents')
+    .select('file_name, file_path, file_size, mime_type, document_type')
+    .eq('practice_id', practiceId)
+    .order('created_at', { ascending: true });
+  if (error) throw new Error(`Lettura dei documenti della pratica non riuscita: ${error.message}`);
+
+  const expiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString();
+  const documents: OutgoingDocument[] = [];
+  for (const row of data ?? []) {
+    if (row.document_type === 'bozza_deliberata' || row.document_type === 'polizza_emessa') continue;
+    const reference = getDocumentStorageReference(row.file_path as string);
+    const { data: signed, error: signError } = await supabase.storage.from(reference.bucket).createSignedUrl(reference.path, ttlSeconds);
+    if (signError || !signed?.signedUrl) throw new Error(`Link del documento "${row.file_name}" non generato: ${signError?.message ?? 'nessun link'}`);
+    documents.push({
+      file_name: row.file_name as string,
+      mime_type: (row.mime_type as string) || 'application/octet-stream',
+      size: Number(row.file_size) || 0,
+      document_type: (row.document_type as string | null) ?? null,
+      download_url: signed.signedUrl,
+      expires_at: expiresAt,
+    });
+  }
+  return documents;
 }

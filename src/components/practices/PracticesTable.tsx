@@ -47,7 +47,7 @@ interface PracticesTableProps {
   filters: PracticeFilters;
 }
 
-type PracticeStatus = "in_lavorazione" | "in_attesa" | "approvata" | "rifiutata" | "completata";
+type PracticeStatus = "in_lavorazione" | "in_attesa" | "integrazioni" | "approvata" | "rifiutata" | "completata";
 type PracticeType = string;
 
 interface Practice {
@@ -274,6 +274,7 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
       completata: "bg-green-600/10 text-green-600 border-green-600/20",
       in_lavorazione: "bg-chart-2/10 text-chart-2 border-chart-2/20",
       in_attesa: "bg-yellow-600/10 text-yellow-600 border-yellow-600/20",
+      integrazioni: "bg-orange-600/10 text-orange-600 border-orange-600/20",
       approvata: "bg-blue-600/10 text-blue-600 border-blue-600/20",
       rifiutata: "bg-destructive/10 text-destructive border-destructive/20",
     };

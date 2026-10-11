@@ -3,6 +3,7 @@
 // Nascono dagli stati che il portale gia' ha (stato + stato incasso), senza duplicare dati:
 //   Da lavorare        in_lavorazione              pratica caricata o ricevuta, da valutare e preparare
 //   In valutazione     in_attesa                   inviata al portale della compagnia, si attende la risposta
+//   Integrazioni       integrazioni                la compagnia chiede documenti o chiarimenti prima di deliberare
 //   Deliberate         approvata, non incassata    la compagnia ha deliberato: bozza pronta, da pagare
 //   Pagate             approvata, incassata        pagamento registrato, in attesa dell'emissione
 //   Emesse             completata                  polizza emessa
@@ -13,6 +14,7 @@
 export const PRACTICE_STAGES = [
   "da_lavorare",
   "in_valutazione",
+  "integrazioni",
   "deliberata",
   "da_emettere",
   "emessa",
@@ -33,6 +35,8 @@ export function stageOf(practice: StageInput): PracticeStage {
   switch (practice.status) {
     case "in_attesa":
       return "in_valutazione";
+    case "integrazioni":
+      return "integrazioni";
     case "approvata":
       return isPaid(practice.financial_status) ? "da_emettere" : "deliberata";
     case "completata":
@@ -61,6 +65,8 @@ export function applyStageFilter<T extends FilterableQuery<T>>(query: T, stage: 
       return query.eq("status", "in_lavorazione");
     case "in_valutazione":
       return query.eq("status", "in_attesa");
+    case "integrazioni":
+      return query.eq("status", "integrazioni");
     case "deliberata":
       return query.eq("status", "approvata").or("financial_status.is.null,financial_status.eq.non_incassata");
     case "da_emettere":

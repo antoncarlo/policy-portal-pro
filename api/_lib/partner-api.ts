@@ -301,7 +301,7 @@ export function queryDate(req: VercelRequest, name: string): string | undefined 
   return Number.isNaN(d.getTime()) ? undefined : raw;
 }
 
-export const PRACTICE_STATUSES = ['in_lavorazione', 'in_attesa', 'approvata', 'rifiutata', 'completata'] as const;
+export const PRACTICE_STATUSES = ['in_lavorazione', 'in_attesa', 'integrazioni', 'approvata', 'rifiutata', 'completata'] as const;
 export const FINANCIAL_STATUSES = ['non_incassata', 'incassata', 'provvigioni_ricevute'] as const;
 
 export function daysBetween(fromIso: string, toIso: string): number {

@@ -13,7 +13,7 @@ import { practicesMessages } from "@/i18n/messages/practices";
 import { practiceStatusLabel, practiceTypeLabel } from "@/i18n/messages/domain";
 import autoTable from "jspdf-autotable";
 
-type PracticeStatus = "in_lavorazione" | "in_attesa" | "approvata" | "rifiutata" | "completata";
+type PracticeStatus = "in_lavorazione" | "in_attesa" | "integrazioni" | "approvata" | "rifiutata" | "completata";
 type PracticeType = string;
 
 interface Practice {

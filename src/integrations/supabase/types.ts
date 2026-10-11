@@ -1297,6 +1297,7 @@ export type Database = {
         | "approvata"
         | "rifiutata"
         | "completata"
+        | "integrazioni"
       practice_type:
         | "auto"
         | "casa"
@@ -1450,6 +1451,7 @@ export const Constants = {
         "approvata",
         "rifiutata",
         "completata",
+        "integrazioni",
       ],
       practice_type: [
         "auto",
