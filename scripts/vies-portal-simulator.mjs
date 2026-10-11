@@ -6,6 +6,10 @@
 //       external_reference e stampa pratica e documenti. Con --auto-reply risponde da solo a ogni
 //       pratica: "received" subito, poi "deliberated" (o altro con --outcome) dopo --delay secondi.
 //
+//   node scripts/vies-portal-simulator.mjs receive  --port 4011 --secret SECRET [--fail 500] [--ignore-signature]
+//       Fa da portale di un rappresentante fiscale (o della compagnia): riceve le notifiche in uscita,
+//       ne verifica la firma con il segreto e le stampa. --fail risponde con quell'errore (per provare i ritentativi).
+//
 //   node scripts/vies-portal-simulator.mjs callback --url https://…/api/vies-portal-callback \
 //       --portal-id co --secret SECRET --event deliberated --practice-number VIES-2026-0001-ab12cd34 \
 //       [--due 2026-12-31] [--note "testo"] [--reason "testo"] [--pdf bozza.pdf] [--event-id evt-1]
@@ -32,6 +36,16 @@ const EVENT_TYPES = { received: "practice.received", info_requested: "practice.i
 /** Firma: "sha256=" + HMAC-SHA256(secret, timestamp + "." + corpo grezzo). */
 export function sign(secret, timestamp, rawBody) {
   return `sha256=${createHmac("sha256", secret).update(`${timestamp}.${rawBody}`).digest("hex")}`;
+}
+
+/** Verifica X-Timestamp / X-Signature di una notifica ricevuta. */
+export function verifyNotification(secret, headers, rawBody, nowSeconds = Math.floor(Date.now() / 1000)) {
+  const timestamp = headers["x-timestamp"];
+  const signature = headers["x-signature"];
+  if (!timestamp || !/^\d{9,12}$/.test(String(timestamp))) return "timestamp mancante o non valido";
+  if (Math.abs(nowSeconds - Number(timestamp)) > 300) return "timestamp scaduto (oltre 5 minuti)";
+  if (!signature || signature !== sign(secret, String(timestamp), rawBody)) return "firma non valida";
+  return null;
 }
 
 export function buildEvent(options) {
@@ -78,6 +92,27 @@ async function main() {
     process.exit(result.status === 200 ? 0 : 1);
   }
 
+  if (command === "receive") {
+    const port = Number(args.port || 4011);
+    const fail = args.fail ? Number(args.fail) : 0;
+    createServer((request, response) => {
+      let raw = "";
+      request.on("data", (chunk) => (raw += chunk));
+      request.on("end", () => {
+        const problem = args.secret && !args["ignore-signature"] ? verifyNotification(args.secret, request.headers, raw) : null;
+        let body = {};
+        try { body = JSON.parse(raw || "{}"); } catch { /* not json */ }
+        console.log(`\n< ${body.event_type ?? "?"} (${request.headers["idempotency-key"]}, tentativo ${request.headers["x-delivery-attempt"] ?? "1"}) firma: ${problem ?? (args.secret ? "valida" : "non verificata")}`);
+        if (body.practice) console.log(`  pratica ${body.practice.number} · sezione ${body.stage ?? "-"} · ${JSON.stringify(body.data ?? {}).slice(0, 300)}`);
+        if (body.lot) console.log(`  lotto ${body.lot.source_reference} · ${body.lot.status} · ${(body.data?.practices ?? []).length} pratiche`);
+        if (problem) { response.writeHead(401, { "Content-Type": "application/json" }).end(JSON.stringify({ error: problem })); return; }
+        if (fail) { response.writeHead(fail, { "Content-Type": "application/json" }).end(JSON.stringify({ error: "errore simulato" })); return; }
+        response.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ ok: true }));
+      });
+    }).listen(port, () => console.log(`In ascolto delle notifiche su http://127.0.0.1:${port}${args.secret ? " (firma verificata)" : ""}`));
+    return;
+  }
+
   if (command === "listen") {
     const port = Number(args.port || 4010);
     const key = args.key || "simulator-key";
@@ -88,6 +123,13 @@ async function main() {
       request.on("end", () => {
         if (request.headers.authorization !== `Bearer ${key}`) { response.writeHead(401).end(JSON.stringify({ error: "chiave non valida" })); return; }
         const body = JSON.parse(raw || "{}");
+        if (body.event_type) {
+          // Una notifica del portale (pagamento registrato, integrazioni inviate, riapertura), non un invio.
+          const problem = args.secret ? verifyNotification(args.secret, request.headers, raw) : null;
+          console.log(`\n< notifica ${body.event_type} per ${body.practice?.number ?? "-"} (firma: ${problem ?? (args.secret ? "valida" : "non verificata")})`);
+          response.writeHead(problem ? 401 : 200, { "Content-Type": "application/json" }).end(JSON.stringify(problem ? { error: problem } : { ok: true }));
+          return;
+        }
         const reference = `SIM-${Date.now()}`;
         console.log(`\n< invio ricevuto (Idempotency-Key ${request.headers["idempotency-key"]})`);
         console.log(`  pratica: ${body.practice?.number} (${body.practice?.id}) · ${body.contraente}`);
@@ -111,7 +153,7 @@ async function main() {
     return;
   }
 
-  console.log("Uso: listen | callback  (vedi l'intestazione del file)");
+  console.log("Uso: listen | receive | callback  (vedi l'intestazione del file)");
   process.exit(command ? 1 : 0);
 }
 

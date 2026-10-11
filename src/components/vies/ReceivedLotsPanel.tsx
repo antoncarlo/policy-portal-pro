@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { callWorkflow } from "@/lib/workflowApi";
 import { formatDate, useMessages } from "@/i18n";
 import { connectionsMessages } from "@/i18n/messages/connections";
 
@@ -112,16 +113,15 @@ export const ReceivedLotsPanel = ({ activeLotId, onLoad, refreshKey }: ReceivedL
       return;
     }
     setBusyId(rejecting.id);
-    const { error } = await supabase
-      .from("vies_intake_lots")
-      .update({ status: "rejected", rejected_reason: reason.trim() })
-      .eq("id", rejecting.id)
-      .in("status", ["received", "processing"]);
-    setBusyId(null);
-    if (error) {
-      toast({ variant: "destructive", title: m.errorTitle, description: error.message });
+    try {
+      // Through the server: the portal that sent the lot is told it was rejected, with the reason.
+      await callWorkflow("intake_reject", { lotId: rejecting.id, reason: reason.trim() });
+    } catch (error) {
+      setBusyId(null);
+      toast({ variant: "destructive", title: m.errorTitle, description: error instanceof Error ? error.message : undefined });
       return;
     }
+    setBusyId(null);
     toast({ title: m.rejectedTitle });
     setRejecting(null);
     setReason("");

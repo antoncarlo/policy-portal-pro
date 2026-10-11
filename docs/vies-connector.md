@@ -30,15 +30,16 @@ da lavorare ──inviata──▶ in valutazione ──deliberata──▶ deli
 
 Una pratica **già pagata non può essere rifiutata** né rideliberata; l'emissione richiede il pagamento.
 
-## SECTION 02 — Tre collegamenti
+## SECTION 02 — Collegamenti in entrata e in uscita
 
-| Direzione | Indirizzo | Chi lo usa |
+Il portale parla in **entrambe le direzioni** con i due tipi di controparte: le compagnie di assicurazione e i rappresentanti fiscali (o altri portali) che caricano lotti.
+
+| | In entrata (verso questo portale) | In uscita (da questo portale) |
 |---|---|---|
-| Lotti in ingresso | `POST /api/vies-intake`, `GET /api/vies-intake-status` | Altri portali, con `X-API-Key` |
-| Invio alla compagnia | `POST <url del portale compagnia>` | Il portale, in uscita |
-| Risposte della compagnia | `POST /api/vies-portal-callback` | Il portale della compagnia, firmato |
+| **Compagnia** | Risposte firmate: presa in carico, integrazioni, deliberata con bozza, non deliberata, emessa (`POST /api/vies-portal-callback`) | Invio delle pratiche con documenti; eventi: pagamento registrato, integrazioni inviate, pratica riaperta |
+| **Rappresentante fiscale / portale sorgente** | Lotti: Excel, ZIP, visura (`POST /api/vies-intake`, `X-API-Key`) | Notifiche firmate (lotto elaborato o rifiutato, ogni passaggio delle pratiche, bozza e polizza come link) e lettura dello stato (`GET /api/vies-intake-status`, `GET /api/get-practice-status`, `GET /api/get-practice-documents`) |
 
-Gli indirizzi di questo portale sono in **Impostazioni → Connessioni**, con lo stato di ogni portale configurato (pronto per l'invio, pronto a ricevere risposte) e il registro degli ultimi scambi, con l'esito di ciascuno.
+Gli indirizzi di questo portale sono in **Impostazioni → Connessioni**, con lo stato di ogni portale configurato, l'indirizzo di notifica di ogni chiave API (con prova di invio), il registro degli ultimi scambi in entrata e quello delle consegne in uscita, con l'esito e il motivo di ogni errore.
 
 ### 2.1 Lotti in ingresso (altri portali → questo portale)
 
@@ -83,7 +84,7 @@ Content-Type: application/json
 - La risposta attesa è `200` con `{ "external_reference": "<il vostro riferimento>" }` (facoltativo ma consigliato: permette di individuare la pratica anche senza il nostro id). `5xx` e `429` vengono ritentati con attesa crescente; altri errori fermano l'invio con il motivo mostrato in pagina.
 - A invio riuscito la pratica passa a **In valutazione** e registra portale e riferimento. L'invio resta valido anche se questo passaggio fallisce: l'errore viene riportato.
 
-### 2.3 Risposte della compagnia (portale compagnia → questo portale)
+### 2.3 Risposte della compagnia (portale compagnia → questo portale) — entrata
 
 `POST https://portale.tecnomga.com/api/vies-portal-callback`
 
@@ -143,6 +144,71 @@ $ts = (string) time(); $raw = json_encode($event);
 $sig = 'sha256=' . hash_hmac('sha256', $ts . '.' . $raw, $secret);
 ```
 
+### 2.4 Notifiche ai rappresentanti fiscali (questo portale → portale sorgente) — uscita
+
+Ogni chiave API può avere un indirizzo `https` che riceve le notifiche (Impostazioni → Connessioni → *Rappresentanti fiscali e portali che inviano lotti* → **Configura**). Alla creazione compare un **segreto di firma, mostrato una sola volta**: va comunicato al portale del partner. Lo stesso pulsante lo rigenera (il vecchio smette di valere subito); **Prova** invia una notifica `practice.test`.
+
+Le pratiche create da un lotto ricevuto appartengono anche alla chiave che lo ha inviato: il partner le legge con la sua chiave dalle API di sempre.
+
+```
+POST <indirizzo del partner>
+Content-Type: application/json
+X-Event-Type: practice.deliberated
+Idempotency-Key: <event_id>        # uguale a event_id nel corpo; lo stesso evento ritentato ha la stessa chiave
+X-Delivery-Attempt: 1
+X-Partner-Id: <id della chiave API>
+X-Timestamp: 1760000000
+X-Signature: sha256=…               # HMAC-SHA256(segreto, X-Timestamp + "." + corpo grezzo)
+```
+
+```json
+{
+  "schema_version": 1,
+  "event_id": "5b0f…",
+  "event_type": "practice.deliberated",
+  "occurred_at": "2026-10-12T09:30:00Z",
+  "source": { "lot_id": "…", "reference": "LOTTO-2026-10-A" },
+  "practice": { "id": "…", "number": "VIES-2026-0001-ab12cd34", "client_name": "Azienda Uno" },
+  "stage": "deliberata",
+  "data": {
+    "payment_due_date": "2026-12-20", "note": "Premio confermato",
+    "documents": [ { "file_name": "bozza.pdf", "document_type": "bozza_deliberata", "mime_type": "application/pdf",
+                     "size": 120344, "download_url": "https://…", "expires_at": "2026-10-19T09:30:00Z" } ]
+  }
+}
+```
+
+| `event_type` | Quando | `data` |
+|---|---|---|
+| `lot.processed` | L'amministratore ha caricato il lotto nel flusso e le pratiche sono state create | `practices`: riga, contraente, numero pratica, sezione |
+| `lot.rejected` | Lotto rifiutato | `reason` |
+| `practice.in_review` | Pratica inviata alla compagnia | — |
+| `practice.info_requested` | La compagnia chiede integrazioni | `message` |
+| `practice.info_provided` | Integrazioni inviate alla compagnia | `message` |
+| `practice.deliberated` | Deliberata: bozza da pagare | `payment_due_date`, `note`, `documents` (bozza) |
+| `practice.rejected` | Non deliberata | `reason` |
+| `practice.paid` | Pagamento registrato | `payment_date`, `payment_due_date`, `documents` |
+| `practice.issued` | Polizza emessa | `policy_number`, `documents` (polizza) |
+| `practice.reopened` | Pratica riaperta | `reason` |
+| `practice.test` | Prova dalle impostazioni | `message` |
+
+`stage` è la sezione in cui si trova ora la pratica (`da_lavorare`, `in_valutazione`, `integrazioni`, `deliberata`, `da_emettere`, `emessa`, `non_deliberata`). I link ai documenti valgono sette giorni.
+
+**Consegna e ritentativi.** `2xx` = consegnata. `5xx`, `408`, `425`, `429`, nessuna risposta entro 6 secondi: ritentata dopo 1 minuto, 5 minuti, 30 minuti, 2 ore, 6 ore, 24 ore (7 tentativi in tutto); i ritentativi partono anche dal ciclo automatico giornaliero e da **Riprova** nelle impostazioni. Gli altri `4xx` fermano la consegna subito (stato *Non consegnata*, con il motivo): corretta la causa, **Riprova**. Il ricevente deve rispondere in fretta e **trattare `event_id` come chiave di idempotenza**: lo stesso evento può arrivare più di una volta. L'ordine non è garantito: `stage` e `occurred_at` dicono qual è lo stato più recente.
+
+### 2.5 Eventi verso il portale della compagnia — uscita
+
+Oltre all'invio delle pratiche (2.2), il portale avvisa la compagnia di ciò che da sola non può sapere. Indirizzo: `eventsUrl` del portale in `VIES_PORTALS`, altrimenti lo stesso dell'invio. Intestazioni: `Authorization: Bearer <chiave>`, `X-Portal-Id`, `X-Event-Type`, `Idempotency-Key`, e se è configurato il segreto `X-Timestamp` / `X-Signature` (stessa firma delle risposte, stesso segreto).
+
+| `event_type` | Quando | `data` |
+|---|---|---|
+| `practice.paid` | Pagamento registrato: la compagnia può emettere la polizza | `payment_date` |
+| `practice.info_provided` | Integrazioni inviate | `message`, `documents` (i documenti della pratica, con i link) |
+| `practice.reopened` | La pratica è stata riaperta (non è più da considerare in valutazione) | `reason` |
+| `practice.test` | **Prova invio** dalle impostazioni | `message` |
+
+Il corpo ha `schema_version: 2`, `event_id`, `event_type`, `occurred_at`, `practice: { id, number, reference }`, `data`. Stesse regole di consegna e ritentativo di 2.4. Gli eventi che la compagnia stessa ha causato (deliberata, non deliberata, emessa, integrazioni richieste) non le vengono rimandati.
+
 ## SECTION 03 — Configurazione (Vercel, sola produzione)
 
 I portali si configurano **solo sul server**; indirizzi, chiavi e segreti non arrivano mai al browser.
@@ -150,13 +216,14 @@ I portali si configurano **solo sul server**; indirizzi, chiavi e segreti non ar
 ```
 VIES_PORTALS=[{"id":"alfa","name":"Compagnia Alfa","url":"https://portale.alfa.example/api/practices",
                "apiKeyEnv":"VIES_PORTAL_ALFA_KEY","callbackSecretEnv":"VIES_PORTAL_ALFA_SECRET",
-               "documentHosts":["files.alfa.example"]}]
+               "documentHosts":["files.alfa.example"],
+               "eventsUrl":"https://portal.alfa.example/api/events"}]   # facoltativo: senza, gli eventi vanno all'indirizzo di invio
 VIES_PORTAL_ALFA_KEY=<chiave che il portale compagnia accetta in Authorization: Bearer>
 VIES_PORTAL_ALFA_SECRET=<segreto condiviso per firmare le risposte: almeno 32 byte casuali>
 PORTAL_URL=https://portale.tecnomga.com      # già usato per le email: è anche l'indirizzo delle risposte
 ```
 
-In alternativa, per un solo portale: `VIES_PORTAL_API_URL`, `VIES_PORTAL_API_KEY`, `VIES_PORTAL_NAME`, `VIES_PORTAL_CALLBACK_SECRET` (id `default`). Un portale senza indirizzo o chiave non compare tra quelli a cui inviare; senza segreto non può rispondere. Dopo la modifica serve un nuovo deploy.
+In alternativa, per un solo portale: `VIES_PORTAL_API_URL`, `VIES_PORTAL_API_KEY`, `VIES_PORTAL_NAME`, `VIES_PORTAL_CALLBACK_SECRET`, `VIES_PORTAL_EVENTS_URL` (id `default`). Un portale senza indirizzo o chiave non compare tra quelli a cui inviare; senza segreto non può rispondere. Dopo la modifica serve un nuovo deploy.
 
 Per generare il segreto: `openssl rand -hex 32`. Per cambiarlo senza interruzioni, concordare con la compagnia l'ora del passaggio: il vecchio segreto smette di valere con il deploy.
 
@@ -174,6 +241,11 @@ node scripts/vies-portal-simulator.mjs callback --url https://portale.tecnomga.c
   --due 2026-12-31 --note "Premio confermato" --pdf bozza.pdf
 ```
 
+```bash
+# fa da portale del partner (o della compagnia) che riceve le notifiche in uscita e ne verifica la firma
+node scripts/vies-portal-simulator.mjs receive --port 4011 --secret whsec_… [--fail 500]
+```
+
 Eventi: `received`, `info_requested`, `deliberated`, `rejected`, `issued`. Per provare in locale con un portale raggiungibile da Internet serve un tunnel verso `--port`.
 
 ## SECTION 05 — Controlli e rischi
@@ -182,6 +254,7 @@ Eventi: `received`, `info_requested`, `deliberated`, `rejected`, `issued`. Per p
 - **Isolamento**: un portale risponde solo per le pratiche che risultano inviate a lui (anche quelle inviate prima di questa funzione); una chiave API vede solo i propri lotti.
 - **Documenti**: tipo, dimensione e intestazione del file vengono verificati; i link in ingresso sono accettati solo da host autorizzati e solo in https.
 - **Lotti**: i file passano per indirizzi firmati e hanno nome sanificato; il percorso inizia sempre con l'id dell'utente proprietario (le regole di accesso allo storage lo leggono da lì).
+- **Notifiche in uscita**: l'indirizzo deve essere https e raggiungibile da Internet (niente indirizzi interni, `localhost`, credenziali nell'indirizzo, reindirizzamenti); il segreto di firma sta in una tabella che il browser non può leggere e viene mostrato una sola volta; ogni consegna è registrata con tentativi ed esito.
 - **Privacy**: il registro non conserva il contenuto dei documenti, solo il loro nome e la dimensione.
 - **Limiti noti**: il limite di corpo della piattaforma (4,5 MB) vale per le risposte con documento in `content_base64`: per file più grandi la compagnia usa `url`. Il caricamento dei file di un lotto ricevuto nel flusso avviene nel browser dell'amministratore, come per il caricamento a mano (un lotto molto grande richiede tempo e un computer acceso).
 - **Da fare con la compagnia**: concordare contratto definitivo (campi, codici di errore, tempi di risposta) e un ambiente di prova; il contratto qui descritto è il riferimento dal quale partire e si adatta con modifiche locali a `buildPortalPayload` e a `parseCallbackEvent`.

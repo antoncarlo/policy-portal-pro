@@ -483,6 +483,103 @@ export type Database = {
           },
         ]
       }
+      outbound_deliveries: {
+        Row: {
+          attempts: number
+          created_at: string
+          delivered_at: string | null
+          event_id: string
+          event_type: string
+          id: string
+          last_error: string | null
+          last_http_status: number | null
+          next_attempt_at: string
+          payload: Json
+          practice_id: string | null
+          status: string
+          target_id: string
+          target_kind: string
+          target_label: string | null
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          delivered_at?: string | null
+          event_id?: string
+          event_type: string
+          id?: string
+          last_error?: string | null
+          last_http_status?: number | null
+          next_attempt_at?: string
+          payload: Json
+          practice_id?: string | null
+          status?: string
+          target_id: string
+          target_kind: string
+          target_label?: string | null
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          delivered_at?: string | null
+          event_id?: string
+          event_type?: string
+          id?: string
+          last_error?: string | null
+          last_http_status?: number | null
+          next_attempt_at?: string
+          payload?: Json
+          practice_id?: string | null
+          status?: string
+          target_id?: string
+          target_kind?: string
+          target_label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outbound_deliveries_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_webhooks: {
+        Row: {
+          active: boolean
+          api_key_id: string
+          created_at: string
+          secret: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          active?: boolean
+          api_key_id: string
+          created_at?: string
+          secret: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          active?: boolean
+          api_key_id?: string
+          created_at?: string
+          secret?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_webhooks_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: true
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       practice_documents: {
         Row: {
           created_at: string

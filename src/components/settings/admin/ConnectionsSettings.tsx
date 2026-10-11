@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
-import { getPortalStatus, type PortalStatus } from "@/lib/workflowApi";
+import { getPortalStatus, testPortal, type PortalStatus } from "@/lib/workflowApi";
+import { OutboundSettings } from "@/components/settings/admin/OutboundSettings";
+import { useToast } from "@/hooks/use-toast";
 import { formatDateTime, useMessages } from "@/i18n";
-import { connectionsMessages } from "@/i18n/messages/connections";
+import { connectionsMessages, outboundMessages } from "@/i18n/messages/connections";
 
 interface IntegrationEvent {
   id: string;
@@ -54,6 +56,9 @@ const CopyableAddress = ({ label, value, copyLabel, copiedLabel }: { label: stri
 /** Connections with other portals (administrators): what is ready, the addresses to give out, the latest exchanges. */
 export const ConnectionsSettings = () => {
   const m = useMessages(connectionsMessages).settings;
+  const portalText = useMessages(outboundMessages).portalTest;
+  const { toast } = useToast();
+  const [testing, setTesting] = useState<string | null>(null);
   const [status, setStatus] = useState<PortalStatus | null>(null);
   const [events, setEvents] = useState<IntegrationEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +88,23 @@ export const ConnectionsSettings = () => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const runPortalTest = async (portalId: string) => {
+    setTesting(portalId);
+    try {
+      const result = await testPortal(portalId);
+      toast(
+        result.delivered
+          ? { title: portalText.ok(result.status) }
+          : { variant: "destructive", title: portalText.test, description: portalText.failed(result.error ?? "") },
+      );
+      await load();
+    } catch (error) {
+      toast({ variant: "destructive", title: portalText.test, description: error instanceof Error ? error.message : undefined });
+    } finally {
+      setTesting(null);
+    }
+  };
 
   const flag = (ready: boolean, missing: string) =>
     ready ? (
@@ -125,6 +147,7 @@ export const ConnectionsSettings = () => {
                           <TableHead>{m.columns.address}</TableHead>
                           <TableHead>{m.columns.send}</TableHead>
                           <TableHead>{m.columns.receive}</TableHead>
+                          <TableHead />
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -137,6 +160,12 @@ export const ConnectionsSettings = () => {
                             <TableCell className="text-muted-foreground">{portal.host || "—"}</TableCell>
                             <TableCell>{flag(portal.can_send, m.sendNoKey)}</TableCell>
                             <TableCell>{flag(portal.can_receive, m.receiveNoSecret)}</TableCell>
+                            <TableCell className="text-right">
+                              <Button size="sm" variant="outline" disabled={!portal.can_send || testing !== null} onClick={() => void runPortalTest(portal.id)} title={portal.events_host ? `${portalText.eventsAddress} ${portal.events_host}` : undefined}>
+                                {testing === portal.id ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+                                {portalText.test}
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -201,6 +230,8 @@ export const ConnectionsSettings = () => {
           )}
         </CardContent>
       </Card>
+
+      <OutboundSettings />
     </div>
   );
 };

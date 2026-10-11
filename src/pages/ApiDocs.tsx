@@ -717,9 +717,62 @@ GET /api/vies-intake-status                      (gli ultimi 50 lotti della chia
       "practices": [ { "row_number": 1, "contraente": "Azienda Uno", "practice_number": "VIES-2026-0001-ab12cd34",
                        "stage": "da_lavorare|in_valutazione|integrazioni|deliberata|da_emettere|emessa|non_deliberata",
                        "payment_due_date": "2026-11-30", "note": null }, … ] }`}</pre>
+          <h3 style={styles.h3}>5. Notifiche in uscita (webhook)</h3>
           <p style={styles.p}>
-            <code style={styles.inlineCode}>practices</code> compare quando il lotto è «processed». Il documento della bozza
-            deliberata si scarica con <code style={styles.inlineCode}>GET /api/get-practice-documents</code> usando
+            Il flusso funziona anche nell&apos;altro verso: Tecno Advance MGA avvisa il vostro portale a ogni passaggio, senza
+            che dobbiate chiedere lo stato. Comunicateci un indirizzo <strong>https</strong> pubblico: riceverete un
+            <strong> segreto di firma</strong> (mostrato una sola volta). Ogni chiamata è una <code style={styles.inlineCode}>POST</code> JSON con
+            <code style={styles.inlineCode}> X-Event-Type</code>, <code style={styles.inlineCode}>Idempotency-Key</code> (= <code style={styles.inlineCode}>event_id</code>),
+            <code style={styles.inlineCode}> X-Timestamp</code> e <code style={styles.inlineCode}>X-Signature</code> =
+            <code style={styles.inlineCode}> sha256=</code> + HMAC-SHA256(segreto, X-Timestamp + &quot;.&quot; + corpo grezzo); scartate quelle con
+            timestamp oltre 5 minuti.
+          </p>
+          <pre style={styles.code}>{`{ "schema_version": 1, "event_id": "5b0f…", "event_type": "practice.deliberated",
+  "occurred_at": "2026-10-12T09:30:00Z",
+  "source": { "lot_id": "…", "reference": "LOTTO-2026-10-A" },
+  "practice": { "id": "…", "number": "VIES-2026-0001-ab12cd34", "client_name": "Azienda Uno" },
+  "stage": "deliberata",
+  "data": { "payment_due_date": "2026-12-20", "note": "…",
+            "documents": [ { "file_name": "bozza.pdf", "document_type": "bozza_deliberata",
+                             "download_url": "https://…", "expires_at": "…" } ] } }`}</pre>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th}>event_type</th>
+                <th style={styles.th}>Quando</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ['lot.processed', 'lotto caricato nel flusso: elenco pratiche create (data.practices)'],
+                ['lot.rejected', 'lotto rifiutato (data.reason)'],
+                ['practice.in_review', 'pratica inviata alla compagnia'],
+                ['practice.info_requested / practice.info_provided', 'la compagnia chiede integrazioni / integrazioni inviate (data.message)'],
+                ['practice.deliberated', 'deliberata: bozza da pagare (payment_due_date, documents)'],
+                ['practice.rejected', 'non deliberata (data.reason)'],
+                ['practice.paid', 'pagamento registrato'],
+                ['practice.issued', 'polizza emessa (policy_number, documents)'],
+                ['practice.reopened', 'pratica riaperta (data.reason)'],
+              ].map(([type, when], i) => (
+                <tr key={type}>
+                  <td style={i % 2 === 0 ? styles.td : styles.tdAlt}><code style={styles.inlineCode}>{type}</code></td>
+                  <td style={i % 2 === 0 ? styles.td : styles.tdAlt}>{when}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p style={styles.p}>
+            Rispondete <code style={styles.inlineCode}>2xx</code> appena ricevuta la notifica. Con <code style={styles.inlineCode}>5xx</code>,
+            <code style={styles.inlineCode}> 408</code>, <code style={styles.inlineCode}>429</code> o senza risposta entro 6 secondi riproviamo dopo
+            1, 5, 30 minuti, 2, 6 e 24 ore; un altro <code style={styles.inlineCode}>4xx</code> ferma la consegna. Lo stesso
+            <code style={styles.inlineCode}> event_id</code> può arrivare più volte e fuori ordine: usatelo come chiave di idempotenza e
+            fate fede a <code style={styles.inlineCode}>stage</code> e <code style={styles.inlineCode}>occurred_at</code>. Le pratiche dei lotti
+            ricevuti sono leggibili con la vostra chiave anche da <code style={styles.inlineCode}>GET /api/get-practices</code>,
+            <code style={styles.inlineCode}> get-practice-status</code> e <code style={styles.inlineCode}>get-practice-documents</code>.
+          </p>
+
+          <p style={styles.p}>
+            <code style={styles.inlineCode}>practices</code> compare quando il lotto è «processed», con i link alla bozza deliberata e alla polizza emessa (<code style={styles.inlineCode}>documents</code>, validi un giorno). Gli stessi documenti si scaricano anche con <code style={styles.inlineCode}>GET /api/get-practice-documents</code> usando
             <code style={styles.inlineCode}> practice_number</code>. Stati della pratica nelle altre API:
             <code style={styles.inlineCode}> in_lavorazione, in_attesa, integrazioni, approvata, rifiutata, completata</code>.
           </p>
