@@ -14,7 +14,7 @@ import {
 } from './vies-outbound.js';
 import * as crypto from 'crypto';
 import { getPublicBaseUrl, isAdmin, readPortalRegistry } from './vies-orchestrator.js';
-import { applyWorkflowEvent, loadPractice, WorkflowError, type WorkflowEvent } from './vies-workflow.js';
+import { applyWorkflowEvent, defaultInfoDueDate, loadPractice, parseInfoDueDate, WorkflowError, type WorkflowEvent } from './vies-workflow.js';
 import type { IncomingDocument } from './vies-documents.js';
 
 /**
@@ -268,7 +268,7 @@ async function runWorkflowActionInner(
   const context = { actor: { label: (profile?.full_name as string | undefined)?.trim() || 'Amministratore', userId }, force };
 
   let event: WorkflowEvent;
-  let announce: { kind: OutboundKind; details?: { message?: string | null; reason?: string | null } } | null = null;
+  let announce: { kind: OutboundKind; details?: { message?: string | null; reason?: string | null; dueDate?: string | null } } | null = null;
   let policyNumber: string | undefined;
 
   switch (action) {
@@ -287,8 +287,9 @@ async function runWorkflowActionInner(
     }
     case 'workflow_request_info': {
       const message = required(body.message, 2000, 'Indicare cosa serve');
-      event = { type: 'info_requested', message };
-      announce = { kind: 'info_requested', details: { message } };
+      const dueDate = parseInfoDueDate(body.dueDate) ?? defaultInfoDueDate();
+      event = { type: 'info_requested', message, dueDate };
+      announce = { kind: 'info_requested', details: { message, dueDate } };
       break;
     }
     case 'workflow_provide_info': {

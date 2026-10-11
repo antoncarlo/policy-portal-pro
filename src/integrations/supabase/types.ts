@@ -338,6 +338,9 @@ export type Database = {
       }
       email_logs: {
         Row: {
+          delivery_detail: string | null
+          delivery_updated_at: string | null
+          provider: string | null
           created_at: string
           error_message: string | null
           id: string
@@ -352,6 +355,9 @@ export type Database = {
           template_used: string | null
         }
         Insert: {
+          delivery_detail?: string | null
+          delivery_updated_at?: string | null
+          provider?: string | null
           created_at?: string
           error_message?: string | null
           id?: string
@@ -366,6 +372,9 @@ export type Database = {
           template_used?: string | null
         }
         Update: {
+          delivery_detail?: string | null
+          delivery_updated_at?: string | null
+          provider?: string | null
           created_at?: string
           error_message?: string | null
           id?: string
@@ -395,6 +404,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      email_suppressions: {
+        Row: {
+          detail: string | null
+          email: string
+          first_at: string
+          hits: number
+          last_at: string
+          reason: string
+          source: string
+        }
+        Insert: {
+          detail?: string | null
+          email: string
+          first_at?: string
+          hits?: number
+          last_at?: string
+          reason: string
+          source?: string
+        }
+        Update: {
+          detail?: string | null
+          email?: string
+          first_at?: string
+          hits?: number
+          last_at?: string
+          reason?: string
+          source?: string
+        }
+        Relationships: []
       }
       expiry_notifications: {
         Row: {
@@ -536,6 +575,7 @@ export type Database = {
       }
       outbound_deliveries: {
         Row: {
+          alerted_at: string | null
           attempts: number
           created_at: string
           delivered_at: string | null
@@ -553,6 +593,7 @@ export type Database = {
           target_label: string | null
         }
         Insert: {
+          alerted_at?: string | null
           attempts?: number
           created_at?: string
           delivered_at?: string | null
@@ -570,6 +611,7 @@ export type Database = {
           target_label?: string | null
         }
         Update: {
+          alerted_at?: string | null
           attempts?: number
           created_at?: string
           delivered_at?: string | null
@@ -712,6 +754,10 @@ export type Database = {
       }
       practice_workflow: {
         Row: {
+          info_due_date: string | null
+          info_overdue_notified_at: string | null
+          info_reminded_at: string | null
+          info_requested_at: string | null
           deliberated_at: string | null
           deliberation_note: string | null
           issued_at: string | null
@@ -727,6 +773,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          info_due_date?: string | null
+          info_overdue_notified_at?: string | null
+          info_reminded_at?: string | null
+          info_requested_at?: string | null
           deliberated_at?: string | null
           deliberation_note?: string | null
           issued_at?: string | null
@@ -742,6 +792,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          info_due_date?: string | null
+          info_overdue_notified_at?: string | null
+          info_reminded_at?: string | null
+          info_requested_at?: string | null
           deliberated_at?: string | null
           deliberation_note?: string | null
           issued_at?: string | null

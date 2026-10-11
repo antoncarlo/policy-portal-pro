@@ -90,6 +90,19 @@ interface Copy {
     introMany: (actor: string, count: number) => string;
     action: string;
   };
+  infoDeadline: {
+    reminderSubjectOne: (number: string, date: string) => string;
+    reminderSubjectMany: (count: number) => string;
+    reminderIntroOne: (label: string, date: string, request: string | null) => string;
+    reminderIntroMany: (count: number) => string;
+    overdueSubjectOne: (number: string) => string;
+    overdueSubjectMany: (count: number) => string;
+    overdueIntroOne: (label: string, date: string, request: string | null) => string;
+    overdueIntroMany: (count: number) => string;
+    action: string;
+    /** Added for the administrators, who hear about it when the term has passed. */
+    escalation: string;
+  };
   buttonOne: string;
   buttonMany: string;
   system: string;
@@ -117,7 +130,7 @@ const COPY: Record<Language, Copy> = {
     statusAction: {
       da_lavorare: () => 'Entra nel portale per vedere come procedere.',
       in_valutazione: () => 'Per ora non servono azioni: ti avviseremo appena c\'è una decisione.',
-      integrazioni: () => 'Entra nel portale per controllare le azioni da fare: carica i documenti o i chiarimenti richiesti.',
+      integrazioni: (d) => `Entra nel portale per controllare le azioni da fare: carica i documenti o i chiarimenti richiesti${d.dueDate ? ` entro il ${d.dueDate}` : ''}.`,
       deliberata: (d) => `Entra nel portale per controllare le azioni da fare: scarica la bozza e procedi al pagamento${d.dueDate ? ` entro il ${d.dueDate}` : ''}.`,
       da_emettere: () => 'Non servono azioni: ti avviseremo quando la polizza sarà emessa.',
       emessa: () => 'Entra nel portale per scaricare la polizza.',
@@ -150,6 +163,18 @@ const COPY: Record<Language, Copy> = {
       introMany: (a, c) => `${a} ha aggiornato le note di ${c} pratiche:`,
       action: 'Entra nel portale per leggerle.',
     },
+    infoDeadline: {
+      reminderSubjectOne: (n, d) => `Pratica n. ${n}: integrazioni da fornire entro il ${d}`,
+      reminderSubjectMany: (c) => `${c} pratiche con integrazioni in scadenza`,
+      reminderIntroOne: (l, d, r) => `Per la pratica ${l} le integrazioni richieste vanno fornite entro il ${d}${r ? `: ${r}` : '.'}`,
+      reminderIntroMany: (c) => `Per ${c} pratiche le integrazioni richieste stanno per scadere:`,
+      overdueSubjectOne: (n) => `Pratica n. ${n}: integrazioni in ritardo`,
+      overdueSubjectMany: (c) => `${c} pratiche con integrazioni in ritardo`,
+      overdueIntroOne: (l, d, r) => `Per la pratica ${l} le integrazioni richieste dovevano arrivare entro il ${d} e non risultano ancora fornite${r ? `: ${r}` : '.'}`,
+      overdueIntroMany: (c) => `Per ${c} pratiche il termine per le integrazioni è scaduto:`,
+      action: 'Entra nel portale: carica i documenti o i chiarimenti richiesti, poi segna le integrazioni come fornite.',
+      escalation: 'Ricevi questo avviso perché il termine è scaduto: contatta chi segue la pratica.',
+    },
     buttonOne: 'Apri la pratica',
     buttonMany: 'Apri il portale',
     system: 'il sistema',
@@ -175,7 +200,7 @@ const COPY: Record<Language, Copy> = {
     statusAction: {
       da_lavorare: () => 'Log in to the portal to see how to proceed.',
       in_valutazione: () => 'No action is needed for now: we will let you know as soon as there is a decision.',
-      integrazioni: () => 'Log in to the portal to see what to do: upload the documents or clarifications requested.',
+      integrazioni: (d) => `Log in to the portal to see what to do: upload the documents or clarifications requested${d.dueDate ? ` by ${d.dueDate}` : ''}.`,
       deliberata: (d) => `Log in to the portal to see what to do: download the draft and proceed with the payment${d.dueDate ? ` by ${d.dueDate}` : ''}.`,
       da_emettere: () => 'No action is needed: we will let you know when the policy is issued.',
       emessa: () => 'Log in to the portal to download the policy.',
@@ -208,6 +233,18 @@ const COPY: Record<Language, Copy> = {
       introMany: (a, c) => `${a} has updated the notes of ${c} practices:`,
       action: 'Log in to the portal to read them.',
     },
+    infoDeadline: {
+      reminderSubjectOne: (n, d) => `Practice no. ${n}: information due by ${d}`,
+      reminderSubjectMany: (c) => `${c} practices with information about to fall due`,
+      reminderIntroOne: (l, d, r) => `For practice ${l} the information requested is due by ${d}${r ? `: ${r}` : '.'}`,
+      reminderIntroMany: (c) => `For ${c} practices the information requested is about to fall due:`,
+      overdueSubjectOne: (n) => `Practice no. ${n}: information overdue`,
+      overdueSubjectMany: (c) => `${c} practices with information overdue`,
+      overdueIntroOne: (l, d, r) => `For practice ${l} the information requested was due by ${d} and has not been provided yet${r ? `: ${r}` : '.'}`,
+      overdueIntroMany: (c) => `For ${c} practices the term for the information requested has passed:`,
+      action: 'Log in to the portal: upload the documents or clarifications requested, then mark the information as provided.',
+      escalation: 'You receive this notice because the term has passed: get in touch with whoever follows the practice.',
+    },
     buttonOne: 'Open the practice',
     buttonMany: 'Open the portal',
     system: 'the system',
@@ -233,7 +270,7 @@ const COPY: Record<Language, Copy> = {
     statusAction: {
       da_lavorare: () => '请登录门户查看如何办理。',
       in_valutazione: () => '目前无需操作：一有决定我们会通知您。',
-      integrazioni: () => '请登录门户查看待办事项：上传所要求的文件或说明。',
+      integrazioni: (d) => `请登录门户查看待办事项：${d.dueDate ? `请在 ${d.dueDate} 前` : ''}上传所要求的文件或说明。`,
       deliberata: (d) => `请登录门户查看待办事项：下载草稿并${d.dueDate ? `在 ${d.dueDate} 前` : ''}完成付款。`,
       da_emettere: () => '无需操作：保单出具后我们会通知您。',
       emessa: () => '请登录门户下载保单。',
@@ -265,6 +302,18 @@ const COPY: Record<Language, Copy> = {
       introOne: (a, l) => `${a} 更新了申请 ${l} 的备注。`,
       introMany: (a, c) => `${a} 更新了 ${c} 件申请的备注：`,
       action: '请登录门户阅读。',
+    },
+    infoDeadline: {
+      reminderSubjectOne: (n, d) => `申请 ${n}：请在 ${d} 前补充材料`,
+      reminderSubjectMany: (c) => `${c} 件申请的补充材料即将到期`,
+      reminderIntroOne: (l, d, r) => `申请 ${l} 所要求的补充材料须在 ${d} 前提供${r ? `：${r}` : '。'}`,
+      reminderIntroMany: (c) => `${c} 件申请所要求的补充材料即将到期：`,
+      overdueSubjectOne: (n) => `申请 ${n}：补充材料已逾期`,
+      overdueSubjectMany: (c) => `${c} 件申请的补充材料已逾期`,
+      overdueIntroOne: (l, d, r) => `申请 ${l} 所要求的补充材料应在 ${d} 前提供，目前尚未收到${r ? `：${r}` : '。'}`,
+      overdueIntroMany: (c) => `${c} 件申请的补充材料期限已过：`,
+      action: '请登录门户：上传所要求的文件或说明，然后将补充材料标记为已提供。',
+      escalation: '您收到此通知是因为期限已过：请联系负责该申请的人员。',
     },
     buttonOne: '打开申请',
     buttonMany: '打开门户',

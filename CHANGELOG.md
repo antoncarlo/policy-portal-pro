@@ -20,6 +20,10 @@ Prima versione numerata. Riepilogo di ciò che il portale fa oggi:
 
 - Rate limit condiviso tra le istanze: i contatori sono nel database (`rate_limit_hit`, incremento atomico) e valgono per indirizzo e per endpoint (100/min), per chiave API (300/min) e per il recupero password (5 ogni 10 min per IP, 3 l'ora per indirizzo). Se il database non risponde si ripiega sul contatore dell'istanza. Indirizzo del chiamante dagli header della piattaforma (`x-vercel-forwarded-for`, `x-real-ip`).
 
+- Registro di tutte le email (`email_logs`) e rapporti di recapito Resend (`/api/resend-webhook`): stati `delivered`, `delayed`, `bounced`, `complained`; rimbalzo definitivo o reclamo chiudono l'indirizzo (`email_suppressions`) e avvisano gli amministratori.
+- Avvisi agli amministratori: consegne verso portali esterni fallite (una volta), attività automatiche interrotte, indirizzi non raggiungibili; riepilogo giornaliero di ciò che è ancora aperto.
+- Termine delle integrazioni richieste: data da fornire (proposta a 7 giorni, modificabile; `due_date` anche nella risposta della compagnia e nella notifica ai partner), promemoria due giorni prima e avviso di ritardo agli amministratori il giorno dopo; scadenza visibile nella scheda Flusso.
+
 ### Corretto
 - Amministrazione: premio ed esportazione leggevano un campo che non esiste più (`premium_amount`, ora `premium_net`); il salvataggio delle modifiche contabili veniva rifiutato.
 - Report: le colonne premio/provvigione dell'esportazione Excel/PDF erano vuote; i grafici per mese e la classifica agenti non ricevevano i campi attesi.

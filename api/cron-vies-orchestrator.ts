@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabaseAdmin, processViesQueue, sendMethodNotAllowed, verifyCronOrWorkerAuth } from './_lib/vies-orchestrator.js';
 import { dispatchNotifications } from './_lib/notification-dispatch.js';
+import { processInfoDeadlines } from './_lib/info-deadlines.js';
 import { alertCronFailure, alertFailedDeliveries, sendDailyDigest } from './_lib/ops-alerts.js';
 import { processDueDeliveries } from './_lib/vies-outbound.js';
 
@@ -30,6 +31,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       error: error instanceof Error ? error.message : 'errore sconosciuto',
     }));
 
+    // Terms of the information requested on practices: reminders and notices go to the queue first.
+    const infoDeadlines = await processInfoDeadlines(getSupabaseAdmin()).catch((error: unknown) => {
+      console.error('Termini delle integrazioni:', error instanceof Error ? error.message : error);
+      return { reminders: 0, overdue: 0, error: error instanceof Error ? error.message : 'errore sconosciuto' };
+    });
+
     // Emails waiting in the queue: whatever the immediate sending (right after each action) missed.
     const notifications = await dispatchNotifications(getSupabaseAdmin());
 
@@ -43,6 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       message: 'Ciclo orchestratore VIES completato.',
       summary,
       deliveries,
+      infoDeadlines,
       notifications,
       alerts,
       digest,

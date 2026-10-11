@@ -243,6 +243,7 @@ interface WorkflowInfo {
   payment_due_date: string | null;
   deliberation_note: string | null;
   rejection_reason: string | null;
+  info_due_date: string | null;
 }
 
 /** The practice's draft and policy, as links valid for a week. */
@@ -274,6 +275,7 @@ async function flowDocuments(supabase: SupabaseClient, practiceId: string): Prom
 interface EventDetails {
   message?: string | null;
   reason?: string | null;
+  dueDate?: string | null;
 }
 
 async function buildSourcePayload(
@@ -309,6 +311,7 @@ async function buildSourcePayload(
       note: kind === 'deliberated' ? workflow?.deliberation_note ?? null : undefined,
       reason: kind === 'rejected' ? details.reason ?? workflow?.rejection_reason ?? null : kind === 'reopened' ? details.reason ?? null : undefined,
       message: kind === 'info_requested' || kind === 'info_provided' ? details.message ?? null : undefined,
+      due_date: kind === 'info_requested' ? details.dueDate ?? workflow?.info_due_date ?? null : undefined,
       policy_number: kind === 'issued' ? practice.policy_number : undefined,
       documents: withDocuments ? await flowDocuments(supabase, practice.id) : undefined,
     },
@@ -367,7 +370,7 @@ export async function emitPracticeEvent(
     if (!practice) return { queued: 0, delivered: 0 };
     const { data: workflow } = await supabase
       .from('practice_workflow')
-      .select('source_portal, source_reference, target_portal, target_reference, payment_due_date, deliberation_note, rejection_reason')
+      .select('source_portal, source_reference, target_portal, target_reference, payment_due_date, deliberation_note, rejection_reason, info_due_date')
       .eq('practice_id', options.practiceId)
       .maybeSingle();
     const info = practice as PracticeInfo;
