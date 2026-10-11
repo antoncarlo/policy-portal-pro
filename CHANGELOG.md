@@ -44,8 +44,10 @@ Prima versione numerata. Riepilogo di ciò che il portale fa oggi:
 - Cambio stato in blocco (elenco pratiche): passa dal flusso con la compagnia (`workflow_bulk_status`, 50 pratiche per chiamata, il browser le invia a gruppi di 25) invece di scrivere lo stato sulla riga. Ora ogni pratica aggiorna il flusso (date, motivo, termine delle integrazioni), lascia la riga nello storico, avvisa il rappresentante fiscale che l'ha inviata e dà le email di sempre; i passaggi non consentiti (per esempio emettere una polizza non pagata) non avvengono e sono elencati con il motivo, le altre pratiche proseguono. «Rifiutata» e «Integrazioni richieste» chiedono il testo. Una riga nel registro di audit (`practice.bulk_status`) per ogni operazione.
 - Accessi falliti nel registro di audit: la schermata di accesso segnala a `/api/login-failure` l'indirizzo digitato (mai la password) e il registro mostra «Accesso non riuscito» con indirizzo, IP, browser e se l'indirizzo è un account; cinque fallimenti in dieci minuti per lo stesso indirizzo avvisano gli amministratori (una volta l'ora). Limiti e motivi in `docs/monitoring.md`.
 - Guida all'integrazione API versione 2.8 (firma sui byte esatti e periodo di transizione, rate limit condiviso, campo `lot`) e PDF rigenerato: `npm run docs:api-pdf` lo produce dal Markdown su carta intestata (`scripts/api-guide/build.mjs`; dipendenza di sviluppo `marked`).
+- Rapporto di audit di partenza archiviato in `docs/archive/AUDIT_PRODUCTION_READINESS.md`, con la nota sullo stato dei rilievi.
 
 ### Modificato
+- Database (migrazione `20261023_rls_initplan_and_trigger_grants.sql`, già applicata in produzione): quindici regole di accesso ai dati (agent_settings, practice_documents, user_product_permissions, system_settings, activity_logs, expiry_notifications, api_logs) calcolano `auth.uid()` una volta per richiesta invece che per ogni riga, con lo stesso comportamento; sette funzioni che servono solo ai trigger non sono più richiamabili da `anon` e `authenticated`.
 - Pagina iniziale: dopo l'accesso resta un solo pulsante verso il portale nell'intestazione («Vai al portale»); «Dashboard» faceva la stessa cosa.
 
 ### Rimosso
