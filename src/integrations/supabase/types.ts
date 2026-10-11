@@ -219,6 +219,57 @@ export type Database = {
           },
         ]
       }
+      audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_role: string | null
+          at: string
+          changed_keys: string[] | null
+          details: Json | null
+          id: number
+          ip: string | null
+          new_data: Json | null
+          old_data: Json | null
+          row_id: string | null
+          source: string
+          table_name: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_role?: string | null
+          at?: string
+          changed_keys?: string[] | null
+          details?: Json | null
+          id?: number
+          ip?: string | null
+          new_data?: Json | null
+          old_data?: Json | null
+          row_id?: string | null
+          source?: string
+          table_name?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_role?: string | null
+          at?: string
+          changed_keys?: string[] | null
+          details?: Json | null
+          id?: number
+          ip?: string | null
+          new_data?: Json | null
+          old_data?: Json | null
+          row_id?: string | null
+          source?: string
+          table_name?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           address_city: string | null

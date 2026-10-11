@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { findExistingViesPractices, runBatchController } from './_lib/vies-controller-data.js';
 import { MfaRequiredError } from './_lib/mfa.js';
+import { logActivity } from './_lib/audit.js';
 import { dispatchNotifications } from './_lib/notification-dispatch.js';
 import { isWorkflowAction, runWorkflowAction } from './_lib/vies-workflow-actions.js';
 import { WorkflowError } from './_lib/vies-workflow.js';
@@ -94,6 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
       // The practices that went out moved to "in valutazione": the people concerned are told by email.
       await dispatchNotifications(supabase);
+      await logActivity(supabase, { actorId: userId, action: 'lot.send', target: { table: 'vies_batches', id: batchId }, details: { portal: portal.id, practices: report.ok }, req });
       return res.status(200).json({ ok: true, portal: { id: portal.id, name: portal.name }, report, summary });
     }
 

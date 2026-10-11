@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isPaid } from '../../src/lib/practiceStages.js';
 import { getMailProvider } from './mailer.js';
+import { logActivity } from './audit.js';
 import { attributeQueuedEvents, dispatchNotifications } from './notification-dispatch.js';
 import {
   assertPublicHttpsUrl,
@@ -78,7 +79,7 @@ function parseDraft(value: unknown): IncomingDocument | null {
   return { file_name: fileName, mime_type: text(value.mime_type, 100), content_base64: storagePath ? undefined : content, storage_path: storagePath };
 }
 
-export async function runWorkflowAction(
+async function runWorkflowActionInner(
   supabase: SupabaseClient,
   userId: string,
   action: WorkflowActionName,
@@ -353,4 +354,35 @@ export async function runWorkflowAction(
     dispatchNotifications(supabase),
   ]);
   return { ok: true, ...result };
+}
+
+const PRACTICE_ACTIONS = new Set<WorkflowActionName>([
+  'workflow_deliberate', 'workflow_reject', 'workflow_request_info', 'workflow_provide_info', 'workflow_issue', 'workflow_reopen', 'workflow_mark_sent', 'workflow_register_payment',
+]);
+
+/**
+ * Runs the action and leaves a line in the audit log: who decided what on which practice (the database
+ * only sees the service role here), who changed a partner's notification address, who rejected a lot.
+ */
+export async function runWorkflowAction(
+  supabase: SupabaseClient,
+  userId: string,
+  action: WorkflowActionName,
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const result = await runWorkflowActionInner(supabase, userId, action, body);
+  const id = (key: string) => (typeof body[key] === 'string' ? (body[key] as string) : null);
+  if (PRACTICE_ACTIONS.has(action)) {
+    await logActivity(supabase, {
+      actorId: userId,
+      action: `practice.${action.replace('workflow_', '')}`,
+      target: { table: 'practices', id: id('practiceId') },
+      details: { changed: result.changed ?? null, to: result.to ?? result.stage ?? null },
+    });
+  } else if (action === 'webhook_set' || action === 'webhook_remove') {
+    await logActivity(supabase, { actorId: userId, action: `partner.${action}`, target: { table: 'partner_webhooks', id: id('apiKeyId') }, details: { rotated_secret: body.rotateSecret === true } });
+  } else if (action === 'intake_reject' || action === 'intake_link') {
+    await logActivity(supabase, { actorId: userId, action: `lot.${action.replace('intake_', '')}`, target: { table: 'vies_intake_lots', id: id('lotId') } });
+  }
+  return result;
 }

@@ -14,6 +14,7 @@ import { commonMessages } from "@/i18n/messages/common";
 import { passwordMessages } from "@/i18n/messages/passwords";
 import { MfaChallenge } from "@/components/auth/MfaChallenge";
 import { getMfaGate } from "@/lib/mfa";
+import { recordLoginOnce } from "@/lib/audit";
 import { mustChangePassword } from "@/lib/passwordPolicy";
 
 // Documenti pubblicati sul sito della società
@@ -38,7 +39,10 @@ const Auth = () => {
       routing.current = true;
       try {
         if ((await getMfaGate()) === "challenge") setStage("mfa");
-        else navigate(mustChangePassword(user) ? "/change-password" : "/dashboard");
+        else {
+          recordLoginOnce(user);
+          navigate(mustChangePassword(user) ? "/change-password" : "/dashboard");
+        }
       } catch {
         // Se il controllo non e' possibile non si entra nel portale: si resta sull'accesso
         setStage("credentials");

@@ -26,6 +26,7 @@ import { shellMessages } from "@/i18n/messages/shell";
 import { workflowMessages } from "@/i18n/messages/workflow";
 import { usePracticeStageCounts } from "@/hooks/usePracticeStageCounts";
 import { PracticeLotsMenu } from "@/components/dashboard/PracticeLotsMenu";
+import { recordSessionEvent } from "@/lib/audit";
 import { PRACTICE_STAGES, isPracticeStage } from "@/lib/practiceStages";
 import { cn } from "@/lib/utils";
 
@@ -78,6 +79,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   };
 
   const handleLogout = async () => {
+    // The line goes to the audit log while the session still exists.
+    await recordSessionEvent("logout");
     const { error } = await supabase.auth.signOut();
     
     if (error) {
