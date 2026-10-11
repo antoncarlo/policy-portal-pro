@@ -172,6 +172,31 @@ Funzionalità che partono ma non si chiudono: l'utente avvia un processo e nessu
 | C9 | **Pratiche create da UI verso partner** | `emitPracticeEvent` è chiamato solo da workflow VIES e callback. Modifiche finanziarie o documentali fatte dall'admin su una pratica partner non generano evento al partner. | **P2** |
 | C10 | **Centro notifiche in-app** | Preferenze notifica esistono (`PreferencesSettings`) ma non c'è inbox/campanella: le preferenze governano solo email. | **P2** |
 | C11 | **Sinistri, CRM/lead, rinnovi** | Moduli assenti (coerente con il gap doc). | Roadmap prodotto |
+| C12 | **Vista Pratiche per lotto VIES** | Un rappresentante fiscale che carica 5 lotti in un giorno vede 100 righe piatte nella sezione Pratiche, non 5 lotti espandibili. Specifica completa in §6.1. | **P1** |
+
+### 6.1 Specifica: raggruppamento per lotto nella sezione Pratiche
+
+**Problema.** Le pratiche VIES nascono a lotti (un file Excel + ZIP = un lotto, fino a 20 pratiche). Nella pagina Pratiche ogni pratica è una riga indipendente: con 5 lotti al giorno l'elenco diventa illeggibile e l'utente non ritrova il lotto da cui una pratica proviene.
+
+**Comportamento richiesto.**
+- Nella sezione Pratiche le pratiche VIES compaiono raggruppate per lotto: una riga per lotto (`Lotto 3 — Rapp. fiscale Rossi — 20 pratiche — 12/10/2026 — 18 approvate, 2 integrazioni`).
+- Click sulla riga lotto → espansione in-place delle pratiche del lotto, ciascuna con il proprio numero `PR-YYYY-NNNN`, stato, cliente, azioni, esattamente come oggi.
+- Le pratiche non VIES restano righe singole. Toggle "Vista per lotto / Vista piatta" ricordato nelle preferenze utente.
+- Filtri e ricerca continuano a funzionare sulla singola pratica: se un filtro colpisce una pratica dentro un lotto, il lotto appare già espanso con le sole pratiche che corrispondono e un contatore "3 di 20".
+- Le azioni massive (export, cambio stato dove consentito) sono disponibili sia sul lotto intero sia sulla selezione di pratiche.
+- Lo stesso raggruppamento va replicato in Amministrazione (già parzialmente presente in `ViesAdministration.tsx`) e nell'export Excel (colonne `lotto_numero`, `lotto_id`, `rappresentante_fiscale`).
+
+**Stato del dato oggi.** La tabella `practices` **non ha** una colonna che la leghi al lotto. Il collegamento esiste solo in modo indiretto: `vies_jobs.external_reference` (testo) contiene l'id della pratica e `vies_jobs.batch_id` punta a `vies_batches`, che ha `lot_number`, `name`, `fiscal_representative_id`. La pagina Pratiche non effettua questo join.
+
+**Implementazione proposta (ordine).**
+1. Migrazione: `ALTER TABLE practices ADD COLUMN vies_batch_id uuid REFERENCES vies_batches(id) ON DELETE SET NULL; CREATE INDEX practices_vies_batch_idx ON practices(vies_batch_id);` + backfill `UPDATE practices p SET vies_batch_id = j.batch_id FROM vies_jobs j WHERE j.external_reference = p.id::text AND p.vies_batch_id IS NULL;`.
+2. Scrittura: `api/_lib/vies-orchestrator.ts` e `vies-intake.ts` valorizzano `vies_batch_id` alla creazione della pratica (oggi scrivono solo `external_reference` sul job).
+3. Lettura: una vista o RPC `get_practices_grouped(filters)` che restituisce le pratiche con `vies_batch_id`, `lot_number`, `batch_name`, `fiscal_representative_name` e i contatori per stato del lotto (riusare `refresh_vies_batch_counters`). RLS: il lotto è visibile se almeno una pratica del lotto è visibile al chiamante.
+4. UI: in `src/components/practices/PracticesTable.tsx` introdurre righe di gruppo collassabili (pattern già usato da shadcn `Collapsible`), stato di espansione per lotto, badge contatori, toggle vista; `PracticesFilters.tsx` aggiunge il filtro "Lotto" e "Rappresentante fiscale"; `PracticesExport.tsx` aggiunge le tre colonne.
+5. Dettaglio pratica: breadcrumb "Lotto 3 › PR-2026-0412" con link al lotto e navigazione precedente/successiva all'interno del lotto.
+6. API partner: `GET /api/get-practices` espone `lot: { id, number, name }` per coerenza con la dashboard del partner.
+
+**Effort stimato:** 4 giorni (1 DB/backfill, 1 API, 2 UI + export).
 
 ---
 
@@ -252,8 +277,9 @@ Funzionalità che partono ma non si chiudono: l'utente avvia un processo e nessu
 | 1.7 | Sessioni reali (lista dispositivi, revoca) o rimozione scheda | M1 | 1,5 g |
 | 1.8 | Vitest su `src/lib` + `api/_lib` (target 70 % sulle funzioni pure); Playwright sui 5 flussi critici | Q4 | 5 g |
 | 1.9 | CORS esplicito; validazione UUID nel tenant filter; timing-safe cron | S10, S13, S12 | 0,5 g |
+| 1.10 | **Vista Pratiche raggruppata per lotto VIES** (colonna `vies_batch_id`, backfill, RPC, righe espandibili, filtri, export) | C12, §6.1 | 4 g |
 
-**Totale Fase 1: ~18 giorni/persona.**
+**Totale Fase 1: ~22 giorni/persona.**
 
 ### Fase 2 — Scala e prodotto (mesi 2-3)
 
@@ -295,7 +321,7 @@ Funzionalità che partono ma non si chiudono: l'utente avvia un processo e nessu
 | **ALTO** | 6 | S2, S3, S4, Q1, Q2, Q3 |
 | **MEDIO** | 10 | S5, S6, S7, S8, Q4, Q5, Q6, Q7, C1–C2 (P0 funzionali) |
 | **BASSO** | 11 | S9–S13, Q8–Q10, M-serie |
-| **Cicli aperti** | 11 | C1–C11 |
+| **Cicli aperti / UX** | 12 | C1–C12 |
 | **Mock / placeholder** | 10 | M1–M10 |
 
 *Documento generato dall'audit dell'11 ottobre 2026. Nessuna modifica al codice applicativo è stata introdotta in questa sessione: tutte le evidenze sono riproducibili con i comandi `npx tsc -p tsconfig.app.json --noEmit`, `npm run test:*`, `npm audit` e con richieste HTTP non autenticate verso `https://portale.tecnomga.com/api/*`.*
