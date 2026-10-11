@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { processViesQueue, sendMethodNotAllowed, verifyCronOrWorkerAuth } from './_lib/vies-orchestrator.js';
+import { getSupabaseAdmin, processViesQueue, sendMethodNotAllowed, verifyCronOrWorkerAuth } from './_lib/vies-orchestrator.js';
+import { processDueDeliveries } from './_lib/vies-outbound.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST' && req.method !== 'GET') {
@@ -20,10 +21,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       workerId: `vies-cron-${process.env.VERCEL_REGION ?? 'local'}-${Date.now()}`,
     });
 
+    // Notifications to the representatives' portals and to the company that did not get through yet.
+    const deliveries = await processDueDeliveries(getSupabaseAdmin(), { limit: 25 }).catch((error: unknown) => ({
+      attempted: 0,
+      delivered: 0,
+      error: error instanceof Error ? error.message : 'errore sconosciuto',
+    }));
+
     return res.status(200).json({
       ok: true,
       message: 'Ciclo orchestratore VIES completato.',
       summary,
+      deliveries,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Errore sconosciuto durante il ciclo orchestratore VIES.';

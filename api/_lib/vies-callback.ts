@@ -1,7 +1,10 @@
-import * as crypto from 'crypto';
+import { SIGNATURE_TOLERANCE_SECONDS, signCallback, verifyCallbackSignature } from './vies-signature.js';
+
+export { SIGNATURE_TOLERANCE_SECONDS, signCallback, verifyCallbackSignature };
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { IncomingDocument } from './vies-documents.js';
 import { notifyPracticeOwner, type NotifyKind } from './vies-notify.js';
+import { emitPracticeEvent, type OutboundKind } from './vies-outbound.js';
 import { portalDocumentHosts, type ViesPortal } from './vies-orchestrator.js';
 import { applyWorkflowEvent, findPracticeForPortal, loadPractice, WorkflowError, type WorkflowEvent } from './vies-workflow.js';
 
@@ -16,7 +19,6 @@ import { applyWorkflowEvent, findPracticeForPortal, loadPractice, WorkflowError,
  * and every event carries an `event_id`: the same event sent twice is applied once.
  */
 
-export const SIGNATURE_TOLERANCE_SECONDS = 300;
 export const MAX_CALLBACK_BODY_BYTES = 4 * 1024 * 1024;
 
 export const CALLBACK_EVENT_TYPES = [
@@ -28,29 +30,6 @@ export const CALLBACK_EVENT_TYPES = [
 ] as const;
 export type CallbackEventType = (typeof CALLBACK_EVENT_TYPES)[number];
 
-export function signCallback(secret: string, timestamp: string, rawBody: string): string {
-  return `sha256=${crypto.createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex')}`;
-}
-
-export type SignatureCheck = { ok: true } | { ok: false; code: 'bad_timestamp' | 'stale_timestamp' | 'bad_signature' };
-
-export function verifyCallbackSignature(options: {
-  secret: string;
-  timestamp: string | undefined;
-  signature: string | undefined;
-  rawBody: string;
-  nowSeconds?: number;
-}): SignatureCheck {
-  const { secret, timestamp, signature, rawBody } = options;
-  if (!timestamp || !/^\d{9,12}$/.test(timestamp)) return { ok: false, code: 'bad_timestamp' };
-  const now = options.nowSeconds ?? Math.floor(Date.now() / 1000);
-  if (Math.abs(now - Number(timestamp)) > SIGNATURE_TOLERANCE_SECONDS) return { ok: false, code: 'stale_timestamp' };
-  if (!signature) return { ok: false, code: 'bad_signature' };
-  const expected = Buffer.from(signCallback(secret, timestamp, rawBody));
-  const received = Buffer.from(signature.trim());
-  if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) return { ok: false, code: 'bad_signature' };
-  return { ok: true };
-}
 
 // ---------------------------------------------------------------------------
 // Payload
@@ -309,10 +288,19 @@ export async function handlePortalCallback(
       'practice.issued': 'issued',
     };
     if (result.changed || event.type === 'practice.deliberated') {
-      await notifyPracticeOwner(supabase, practiceId, kind[event.type], {
-        dueDate: event.paymentDueDate,
-        note: event.note ?? event.reason ?? event.message,
-      });
+      // The owner by email, the representative who sent the practice in by notification.
+      await Promise.all([
+        notifyPracticeOwner(supabase, practiceId, kind[event.type], {
+          dueDate: event.paymentDueDate,
+          note: event.note ?? event.reason ?? event.message,
+        }),
+        emitPracticeEvent(supabase, {
+          practiceId,
+          kind: kind[event.type] as OutboundKind,
+          origin: 'portal',
+          details: { message: event.message, reason: event.reason },
+        }),
+      ]);
     }
     return reply(200, {
       ok: true,

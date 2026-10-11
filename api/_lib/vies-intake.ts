@@ -1,5 +1,5 @@
 import type { ApiKeyContext, AdminClient } from './partner-api.js';
-import { safeFileName } from './vies-documents.js';
+import { getDocumentStorageReference, safeFileName } from './vies-documents.js';
 import { stageOf } from '../../src/lib/practiceStages.js';
 
 /**
@@ -284,8 +284,33 @@ export async function lotStatus(supabase: AdminClient, ctx: ApiKeyContext, query
         });
       }
     }
+    // The draft to pay and the issued policy, as links valid for a day.
+    const withDocuments = ids.filter((id) => ['deliberata', 'da_emettere', 'emessa'].includes(String(byId.get(id)?.stage)));
+    const documentsByPractice = new Map<string, Array<Record<string, unknown>>>();
+    for (let start = 0; start < withDocuments.length; start += 100) {
+      const { data: docs } = await supabase
+        .from('practice_documents')
+        .select('practice_id, file_name, file_path, mime_type, document_type')
+        .in('practice_id', withDocuments.slice(start, start + 100))
+        .in('document_type', ['bozza_deliberata', 'polizza_emessa'])
+        .order('created_at', { ascending: false });
+      for (const doc of docs ?? []) {
+        const reference = getDocumentStorageReference(doc.file_path as string);
+        const { data: signed } = await supabase.storage.from(reference.bucket).createSignedUrl(reference.path, 24 * 3600);
+        if (!signed?.signedUrl) continue;
+        const list = documentsByPractice.get(doc.practice_id as string) ?? [];
+        list.push({ document_type: doc.document_type, file_name: doc.file_name, mime_type: doc.mime_type, download_url: signed.signedUrl, expires_at: new Date(Date.now() + 24 * 3600 * 1000).toISOString() });
+        documentsByPractice.set(doc.practice_id as string, list);
+      }
+    }
     for (const job of jobs ?? []) {
-      practices.push({ row_number: job.row_number, contraente: job.contraente, ...(byId.get(job.external_reference as string) ?? { practice_number: null, stage: null }) });
+      const id = job.external_reference as string;
+      practices.push({
+        row_number: job.row_number,
+        contraente: job.contraente,
+        ...(byId.get(id) ?? { practice_number: null, stage: null }),
+        ...(documentsByPractice.has(id) ? { documents: documentsByPractice.get(id) } : {}),
+      });
     }
   }
   return { lot: summarize(lot), practices };

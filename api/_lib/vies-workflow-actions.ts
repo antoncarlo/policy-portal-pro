@@ -2,6 +2,16 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { isPaid } from '../../src/lib/practiceStages.js';
 import { getMailProvider } from './mailer.js';
 import { notifyPracticeOwner, type NotifyKind } from './vies-notify.js';
+import {
+  assertPublicHttpsUrl,
+  emitLotEvent,
+  emitPracticeEvent,
+  processDueDeliveries,
+  retryDeliveries,
+  sendTestEvent,
+  type OutboundKind,
+} from './vies-outbound.js';
+import * as crypto from 'crypto';
 import { getPublicBaseUrl, isAdmin, readPortalRegistry } from './vies-orchestrator.js';
 import { applyWorkflowEvent, loadPractice, WorkflowError, type WorkflowEvent } from './vies-workflow.js';
 import type { IncomingDocument } from './vies-documents.js';
@@ -28,6 +38,14 @@ export const WORKFLOW_ACTIONS = [
   'workflow_register_payment',
   'portal_status',
   'intake_link',
+  'intake_reject',
+  'webhook_list',
+  'webhook_set',
+  'webhook_remove',
+  'webhook_test',
+  'portal_test',
+  'deliveries_retry',
+  'deliveries_process',
 ] as const;
 export type WorkflowActionName = (typeof WORKFLOW_ACTIONS)[number];
 
@@ -93,6 +111,13 @@ export async function runWorkflowAction(
             host,
             can_send: Boolean(host && portal.apiKey),
             can_receive: Boolean(portal.callbackSecret),
+            events_host: (() => {
+              try {
+                return new URL(portal.eventsUrl || portal.url).hostname;
+              } catch {
+                return '';
+              }
+            })(),
           };
         }),
     };
@@ -102,7 +127,7 @@ export async function runWorkflowAction(
   if (action === 'intake_link') {
     const lotId = required(body.lotId, 64, 'lotId obbligatorio');
     const batchId = required(body.batchId, 64, 'batchId obbligatorio');
-    const { data: lot } = await supabase.from('vies_intake_lots').select('id, status, source_portal, source_reference').eq('id', lotId).maybeSingle();
+    const { data: lot } = await supabase.from('vies_intake_lots').select('id, status, source_portal, source_reference, api_key_id').eq('id', lotId).maybeSingle();
     if (!lot) throw new WorkflowError(404, 'lot_not_found', 'Lotto non trovato');
     if (lot.status !== 'received' && lot.status !== 'processing') throw new WorkflowError(409, 'invalid_transition', 'Il lotto è già stato chiuso');
     const { data: batch } = await supabase.from('vies_batches').select('id').eq('id', batchId).maybeSingle();
@@ -115,12 +140,125 @@ export async function runWorkflowAction(
       const { error } = await supabase.from('practice_workflow').upsert(rows, { onConflict: 'practice_id' });
       if (error) throw new WorkflowError(500, 'database', `Origine delle pratiche non registrata: ${error.message}`);
     }
+    // The practices belong to the key that sent the lot too: the representative reads them (status,
+    // documents) through the usual API with its own key.
+    if (lot.api_key_id) {
+      for (let start = 0; start < practiceIds.length; start += 200) {
+        const { error } = await supabase.from('practices').update({ api_key_id: lot.api_key_id }).in('id', practiceIds.slice(start, start + 200)).is('api_key_id', null);
+        if (error) throw new WorkflowError(500, 'database', `Pratiche non collegate alla chiave API: ${error.message}`);
+      }
+    }
     const { error: closeError } = await supabase
       .from('vies_intake_lots')
       .update({ status: 'processed', batch_id: batchId, processed_at: new Date().toISOString() })
       .eq('id', lot.id);
     if (closeError) throw new WorkflowError(500, 'database', closeError.message);
-    return { ok: true, linked: practiceIds.length };
+    const notified = await emitLotEvent(supabase, { lotId: lot.id as string, kind: 'processed' });
+    return { ok: true, linked: practiceIds.length, notified: notified.queued > 0 };
+  }
+
+  // A received lot the administrator turns down: the representative is told with the reason.
+  if (action === 'intake_reject') {
+    const lotId = required(body.lotId, 64, 'lotId obbligatorio');
+    const reason = required(body.reason, 1000, 'Indicare il motivo');
+    const { data, error } = await supabase
+      .from('vies_intake_lots')
+      .update({ status: 'rejected', rejected_reason: reason })
+      .eq('id', lotId)
+      .in('status', ['received', 'processing'])
+      .select('id');
+    if (error) throw new WorkflowError(500, 'database', error.message);
+    if (!data?.length) throw new WorkflowError(409, 'invalid_transition', 'Il lotto non è più da lavorare');
+    const notified = await emitLotEvent(supabase, { lotId, kind: 'rejected' });
+    return { ok: true, notified: notified.queued > 0 };
+  }
+
+  // Notifications going out to the representatives' portals (one address and secret per API key).
+  if (action === 'webhook_list') {
+    const [{ data: keys }, { data: hooks }, { data: pending }, { data: mappings }] = await Promise.all([
+      supabase.from('api_keys').select('id, name, key_prefix, partner_email, is_active').order('created_at', { ascending: false }).limit(200),
+      supabase.from('partner_webhooks').select('api_key_id, url, active, created_at, updated_at'),
+      supabase.from('outbound_deliveries').select('target_id, status').eq('target_kind', 'source').in('status', ['pending', 'failed']).limit(5000),
+      supabase.from('api_key_user_mapping').select('api_key_id'),
+    ]);
+    const hookByKey = new Map((hooks ?? []).map((hook) => [hook.api_key_id as string, hook]));
+    const mapped = new Set((mappings ?? []).map((row) => row.api_key_id as string));
+    const counts = new Map<string, { pending: number; failed: number }>();
+    for (const row of pending ?? []) {
+      const entry = counts.get(row.target_id as string) ?? { pending: 0, failed: 0 };
+      if (row.status === 'pending') entry.pending += 1;
+      else entry.failed += 1;
+      counts.set(row.target_id as string, entry);
+    }
+    return {
+      ok: true,
+      keys: (keys ?? []).map((key) => ({
+        id: key.id,
+        name: key.name,
+        key_prefix: key.key_prefix,
+        partner_email: key.partner_email,
+        is_active: key.is_active,
+        mapped: mapped.has(key.id as string),
+        webhook: hookByKey.get(key.id as string) ?? null,
+        pending: counts.get(key.id as string)?.pending ?? 0,
+        failed: counts.get(key.id as string)?.failed ?? 0,
+      })),
+    };
+  }
+
+  if (action === 'webhook_set') {
+    const apiKeyId = required(body.apiKeyId, 64, 'apiKeyId obbligatorio');
+    const { data: key } = await supabase.from('api_keys').select('id, name').eq('id', apiKeyId).maybeSingle();
+    if (!key) throw new WorkflowError(404, 'key_not_found', 'Chiave API non trovata');
+    const { data: existing } = await supabase.from('partner_webhooks').select('api_key_id, url, active').eq('api_key_id', apiKeyId).maybeSingle();
+    const url = text(body.url, 500) ?? (existing?.url as string | undefined);
+    if (!url) throw new WorkflowError(422, 'invalid_payload', 'Indicare l\'indirizzo che riceve le notifiche');
+    try {
+      assertPublicHttpsUrl(url);
+    } catch (error) {
+      throw new WorkflowError(422, 'invalid_url', error instanceof Error ? error.message : 'Indirizzo non valido');
+    }
+    const active = typeof body.active === 'boolean' ? body.active : (existing?.active as boolean | undefined) ?? true;
+    // The secret is shown once, when it is made: only the server keeps it afterwards.
+    const secret = !existing || body.rotateSecret === true ? `whsec_${crypto.randomBytes(32).toString('hex')}` : null;
+    const row = { api_key_id: apiKeyId, url, active, ...(secret ? { secret } : {}) };
+    const { error } = await supabase.from('partner_webhooks').upsert(row, { onConflict: 'api_key_id' });
+    if (error) throw new WorkflowError(500, 'database', error.message);
+    return { ok: true, secret, created: !existing };
+  }
+
+  if (action === 'webhook_remove') {
+    const apiKeyId = required(body.apiKeyId, 64, 'apiKeyId obbligatorio');
+    const { error } = await supabase.from('partner_webhooks').delete().eq('api_key_id', apiKeyId);
+    if (error) throw new WorkflowError(500, 'database', error.message);
+    return { ok: true };
+  }
+
+  if (action === 'webhook_test') {
+    const apiKeyId = required(body.apiKeyId, 64, 'apiKeyId obbligatorio');
+    const { data: key } = await supabase.from('api_keys').select('id, name').eq('id', apiKeyId).maybeSingle();
+    if (!key) throw new WorkflowError(404, 'key_not_found', 'Chiave API non trovata');
+    const result = await sendTestEvent(supabase, { kind: 'source', id: apiKeyId, label: key.name as string });
+    return { ok: true, ...result };
+  }
+
+  if (action === 'portal_test') {
+    const portalId = required(body.portalId, 64, 'portalId obbligatorio');
+    const portal = readPortalRegistry().find((candidate) => candidate.id === portalId);
+    if (!portal) throw new WorkflowError(404, 'portal_not_found', 'Portale non configurato');
+    const result = await sendTestEvent(supabase, { kind: 'portal', id: portal.id, label: portal.name });
+    return { ok: true, ...result };
+  }
+
+  if (action === 'deliveries_retry') {
+    const id = text(body.deliveryId, 64);
+    const result = await retryDeliveries(supabase, id ? { id } : {});
+    return { ok: true, ...result };
+  }
+
+  if (action === 'deliveries_process') {
+    const result = await processDueDeliveries(supabase, { limit: 25 });
+    return { ok: true, ...result };
   }
 
   const practiceId = required(body.practiceId, 64, 'practiceId obbligatorio');
@@ -131,6 +269,8 @@ export async function runWorkflowAction(
   let event: WorkflowEvent;
   let notify: NotifyKind | null = null;
   let notifyDetails: { dueDate?: string | null; note?: string | null } = {};
+  let announce: { kind: OutboundKind; details?: { message?: string | null; reason?: string | null } } | null = null;
+  let policyNumber: string | undefined;
 
   switch (action) {
     case 'workflow_deliberate': {
@@ -139,6 +279,7 @@ export async function runWorkflowAction(
       event = { type: 'deliberated', paymentDueDate, note, draft: parseDraft(body.draft) };
       notify = 'deliberated';
       notifyDetails = { dueDate: paymentDueDate, note };
+      announce = { kind: 'deliberated' };
       break;
     }
     case 'workflow_reject': {
@@ -146,6 +287,7 @@ export async function runWorkflowAction(
       event = { type: 'rejected', reason };
       notify = 'rejected';
       notifyDetails = { note: reason };
+      announce = { kind: 'rejected', details: { reason } };
       break;
     }
     case 'workflow_request_info': {
@@ -153,29 +295,30 @@ export async function runWorkflowAction(
       event = { type: 'info_requested', message };
       notify = 'info_requested';
       notifyDetails = { note: message };
+      announce = { kind: 'info_requested', details: { message } };
       break;
     }
-    case 'workflow_provide_info':
-      event = { type: 'info_provided', message: text(body.message, 1000) ?? null };
+    case 'workflow_provide_info': {
+      const message = text(body.message, 1000) ?? null;
+      event = { type: 'info_provided', message };
+      announce = { kind: 'info_provided', details: { message } };
       break;
-    case 'workflow_issue': {
+    }
+    case 'workflow_issue':
       event = { type: 'issued', document: parseDraft(body.document) };
       notify = 'issued';
-      const policyNumber = text(body.policyNumber, 100);
-      if (policyNumber) {
-        const result = await applyWorkflowEvent(supabase, practiceId, event, context);
-        // The number is recorded only where the practice has none yet.
-        await supabase.from('practices').update({ policy_number: policyNumber }).eq('id', practiceId).is('policy_number', null);
-        if (result.changed) await notifyPracticeOwner(supabase, practiceId, 'issued');
-        return { ok: true, ...result };
-      }
+      announce = { kind: 'issued' };
+      policyNumber = text(body.policyNumber, 100);
+      break;
+    case 'workflow_reopen': {
+      const reason = text(body.reason, 500) ?? null;
+      event = { type: 'reopened', reason };
+      announce = { kind: 'reopened', details: { reason } };
       break;
     }
-    case 'workflow_reopen':
-      event = { type: 'reopened', reason: text(body.reason, 500) ?? null };
-      break;
     case 'workflow_mark_sent':
       event = { type: 'sent', portalId: 'manuale', portalName: text(body.portalName, 100) ?? 'invio manuale', reference: text(body.reference, 128) ?? null };
+      announce = { kind: 'sent' };
       break;
     case 'workflow_register_payment': {
       const practice = await loadPractice(supabase, practiceId);
@@ -196,11 +339,23 @@ export async function runWorkflowAction(
         description: `Pagamento registrato (${paidAt.split('-').reverse().join('/')}) · ${context.actor.label}`,
         created_by: userId,
       });
+      // The company learns that the payment is in: it can issue the policy.
+      await emitPracticeEvent(supabase, { practiceId: practice.id, kind: 'paid', origin: 'admin' });
       return { ok: true, changed: true, practiceId: practice.id, stage: 'da_emettere' };
     }
+    default:
+      throw new WorkflowError(400, 'invalid_action', 'Azione non supportata');
   }
 
   const result = await applyWorkflowEvent(supabase, practiceId, event, context);
-  if (notify && (result.changed || notify === 'deliberated')) await notifyPracticeOwner(supabase, practiceId, notify, notifyDetails);
+  if (policyNumber) {
+    // The number is recorded only where the practice has none yet.
+    await supabase.from('practices').update({ policy_number: policyNumber }).eq('id', practiceId).is('policy_number', null);
+  }
+  const changed = result.changed || notify === 'deliberated';
+  await Promise.all([
+    notify && changed ? notifyPracticeOwner(supabase, practiceId, notify, notifyDetails) : null,
+    announce && changed ? emitPracticeEvent(supabase, { practiceId, kind: announce.kind, origin: 'admin', details: announce.details }) : null,
+  ]);
   return { ok: true, ...result };
 }
