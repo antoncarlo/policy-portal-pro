@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { stageOf } from '../../src/lib/practiceStages.js';
 import { getDocumentStorageReference, listSignedPracticeDocuments, type OutgoingDocument } from './vies-documents.js';
 import { readPortalRegistry } from './vies-portals.js';
+import { alertFailedDeliveries } from './ops-alerts.js';
 import { signCallback } from './vies-signature.js';
 
 /**
@@ -203,12 +204,14 @@ export async function processDueDeliveries(supabase: SupabaseClient, options: { 
       if (result.delivered) delivered += 1;
     }),
   );
+  // Whatever gave up in this run (or earlier, unseen) is reported to the administrators, once.
+  if (attempted > 0) await alertFailedDeliveries(supabase);
   return { attempted, delivered };
 }
 
 /** Puts failed (or one given) notifications back to be delivered now, and delivers them. */
 export async function retryDeliveries(supabase: SupabaseClient, options: { id?: string } = {}): Promise<{ attempted: number; delivered: number }> {
-  let query = supabase.from('outbound_deliveries').update({ status: 'pending', attempts: 0, next_attempt_at: nowIso() }).neq('status', 'delivered');
+  let query = supabase.from('outbound_deliveries').update({ status: 'pending', attempts: 0, next_attempt_at: nowIso(), alerted_at: null }).neq('status', 'delivered');
   if (options.id) query = query.eq('id', options.id);
   const { data } = await query.select('id');
   if (!data?.length) return { attempted: 0, delivered: 0 };

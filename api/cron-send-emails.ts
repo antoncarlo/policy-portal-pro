@@ -16,6 +16,7 @@ import { escapeHtml, getMailProvider, sendMail } from './_lib/mailer.js';
 import { bearerMatches } from './_lib/secrets.js';
 import { getSupabaseAdmin } from './_lib/auth-emails.js';
 import { findSuppressed } from './_lib/email-log.js';
+import { alertCronFailure } from './_lib/ops-alerts.js';
 
 // Configurazione
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
@@ -382,6 +383,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   } catch (error) {
     console.error('❌ Cron job error:', error);
+    await alertCronFailure(getSupabaseAdmin(), 'cron-send-emails', error);
     return res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
