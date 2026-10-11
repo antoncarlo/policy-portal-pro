@@ -5,6 +5,7 @@ import { completeLot, createLot, IntakeError, lotStatus } from './_lib/vies-inta
 import { checkEnv } from './_lib/env.js';
 import { captureServerError } from './_lib/monitoring.js';
 import { handleResendWebhook } from './_lib/resend-webhook.js';
+import { recordLoginFailure } from './_lib/login-failures.js';
 import { bearerMatches } from './_lib/secrets.js';
 import { readPortalRegistry } from './_lib/vies-orchestrator.js';
 
@@ -13,6 +14,7 @@ import { readPortalRegistry } from './_lib/vies-orchestrator.js';
  * addresses, set in vercel.json:
  *   GET  /api/health                 is the portal up; with the cron secret also what is configured (names only)
  *   POST /api/resend-webhook         delivery reports from the email provider (signed by Svix, see resend-webhook.ts)
+ *   POST /api/login-failure          the sign-in page reports a failed sign-in (the address, never the password; see login-failures.ts)
  *   POST /api/vies-portal-callback   answers from the company's portal (signed, see vies-callback.ts)
  *   POST /api/vies-intake            a portal sends in a lot: create_lot, complete_lot (X-API-Key)
  *   GET  /api/vies-intake-status     state of the lots sent in (X-API-Key)
@@ -47,6 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (route === 'intake-status') return await handleIntakeStatus(req, res);
     if (route === 'resend-webhook') return await handleResendDelivery(req, res);
     if (route === 'health') return await handleHealth(req, res);
+    if (route === 'login-failure') return await handleLoginFailure(req, res);
     return res.status(404).json({ error: 'not_found' });
   } catch (error) {
     if (error instanceof IntakeError) return res.status(error.status).json({ ok: false, error: error.code, message: error.message, ...error.extra });
@@ -54,6 +57,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await captureServerError(error, 'vies-connect', { tags: { route: String(route ?? '') } });
     return res.status(500).json({ ok: false, error: 'internal_error', message: 'Errore interno, riprovare.' });
   }
+}
+
+/** A failed sign-in reported by the sign-in page: one line in the audit log, never a lock. The answer is always the same. */
+async function handleLoginFailure(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ ok: false, error: 'method_not_allowed' });
+  }
+  res.setHeader('Cache-Control', 'no-store');
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const result = await recordLoginFailure(createAdminClient(), { email: body.email, ip: getClientIp(req), userAgent: header(req, 'user-agent') });
+  if (result.status === 'invalid') return res.status(400).json({ ok: false, error: 'invalid_email' });
+  if (result.status === 'rate_limited') {
+    res.setHeader('Retry-After', String(result.retryAfter));
+    return res.status(429).json({ ok: false, error: 'rate_limited' });
+  }
+  return res.status(200).json({ ok: true });
 }
 
 /**
