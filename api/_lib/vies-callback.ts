@@ -168,6 +168,17 @@ export interface CallbackResponse {
 
 const reply = (status: number, body: Record<string, unknown>): CallbackResponse => ({ status, body });
 
+/**
+ * Where a practice went: the flow row says so; for practices sent before the flow existed, the
+ * completed send in the lot's queue does. A practice that was never sent to the portal is not its to change.
+ */
+async function wasSentTo(supabase: SupabaseClient, practiceId: string, portalId: string): Promise<boolean> {
+  const { data: workflow } = await supabase.from('practice_workflow').select('target_portal').eq('practice_id', practiceId).maybeSingle();
+  if (workflow?.target_portal) return workflow.target_portal === portalId;
+  const { data: jobs } = await supabase.from('vies_jobs').select('agent_result').eq('external_reference', practiceId).eq('status', 'completed').limit(20);
+  return (jobs ?? []).some((job) => (job.agent_result as { portal_id?: string } | null)?.portal_id === portalId);
+}
+
 export async function handlePortalCallback(
   supabase: SupabaseClient,
   portals: ViesPortal[],
@@ -246,8 +257,7 @@ export async function handlePortalCallback(
     if (!practiceId) throw new WorkflowError(404, 'practice_not_found', 'Pratica non trovata');
 
     // A portal answers only for the practices that went to it.
-    const { data: workflow } = await supabase.from('practice_workflow').select('target_portal').eq('practice_id', practiceId).maybeSingle();
-    if (workflow?.target_portal && workflow.target_portal !== portal.id) {
+    if (!(await wasSentTo(supabase, practiceId, portal.id))) {
       throw new WorkflowError(403, 'practice_not_assigned', 'La pratica non è stata inviata a questo portale');
     }
 

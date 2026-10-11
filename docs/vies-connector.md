@@ -117,7 +117,7 @@ La firma copre i **byte esatti** del corpo: non ri-serializzare il JSON dopo ave
 
 `draft` e `document` sono `{ "file_name", "mime_type", "content_base64" }` per file piccoli (corpo massimo 4 MB), oppure `{ "file_name", "mime_type", "url" }` con un indirizzo **https** il cui host sia quello del portale o uno di `documentHosts`. Tipi ammessi: PDF, ZIP, JPEG, PNG; massimo 12 MB; l'intestazione del file deve corrispondere al tipo dichiarato.
 
-Risposte: `200` applicato (o già applicato), `400` corpo non valido (`invalid_json`, `invalid_payload`), `401` portale o firma non validi (stessa risposta per portale sconosciuto, senza segreto e firma errata), `403 practice_not_assigned` (la pratica è stata inviata a un altro portale), `404 practice_not_found`, `409 invalid_transition` o `conflict`, `422 invalid_document`, `429`, `503`. Un evento fallito può essere **rinviato con lo stesso `event_id`**: viene riapplicato.
+Risposte: `200` applicato (o già applicato), `400` corpo non valido (`invalid_json`, `invalid_payload`), `401` portale o firma non validi (stessa risposta per portale sconosciuto, senza segreto e firma errata), `403 practice_not_assigned` (la pratica non risulta inviata a questo portale: vale la riga di flusso o l'invio completato verso di lui; una pratica segnata «inviata a mano» non è assegnata a nessun portale), `404 practice_not_found`, `409 invalid_transition` o `conflict`, `422 invalid_document`, `429`, `503`. Un evento fallito può essere **rinviato con lo stesso `event_id`**: viene riapplicato.
 
 #### Esempio di firma
 
@@ -179,7 +179,7 @@ Eventi: `received`, `info_requested`, `deliberated`, `rejected`, `issued`. Per p
 ## SECTION 05 — Controlli e rischi
 
 - **Idempotenza**: ogni evento è registrato in `integration_events` prima di essere applicato; un indice univoco su (portale, `event_id`) impedisce la doppia applicazione anche con due richieste simultanee.
-- **Isolamento**: un portale risponde solo per le pratiche inviate a lui; una chiave API vede solo i propri lotti.
+- **Isolamento**: un portale risponde solo per le pratiche che risultano inviate a lui (anche quelle inviate prima di questa funzione); una chiave API vede solo i propri lotti.
 - **Documenti**: tipo, dimensione e intestazione del file vengono verificati; i link in ingresso sono accettati solo da host autorizzati e solo in https.
 - **Lotti**: i file passano per indirizzi firmati e hanno nome sanificato; il percorso inizia sempre con l'id dell'utente proprietario (le regole di accesso allo storage lo leggono da lì).
 - **Privacy**: il registro non conserva il contenuto dei documenti, solo il loro nome e la dimensione.
