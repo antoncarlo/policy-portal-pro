@@ -2,11 +2,13 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyApiCors, authenticateApiKey, checkRateLimit, createAdminClient, getClientIp, logApiRequest, rejectAuth } from './_lib/partner-api.js';
 import { handlePortalCallback, MAX_CALLBACK_BODY_BYTES } from './_lib/vies-callback.js';
 import { completeLot, createLot, IntakeError, lotStatus } from './_lib/vies-intake.js';
+import { handleResendWebhook } from './_lib/resend-webhook.js';
 import { readPortalRegistry } from './_lib/vies-orchestrator.js';
 
 /**
- * Connections with other portals, one function (the platform limits their number) behind three
+ * Connections with other portals, one function (the platform limits their number) behind a few
  * addresses, set in vercel.json:
+ *   POST /api/resend-webhook         delivery reports from the email provider (signed by Svix, see resend-webhook.ts)
  *   POST /api/vies-portal-callback   answers from the company's portal (signed, see vies-callback.ts)
  *   POST /api/vies-intake            a portal sends in a lot: create_lot, complete_lot (X-API-Key)
  *   GET  /api/vies-intake-status     state of the lots sent in (X-API-Key)
@@ -39,12 +41,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (route === 'callback') return await handleCallback(req, res);
     if (route === 'intake') return await handleIntake(req, res);
     if (route === 'intake-status') return await handleIntakeStatus(req, res);
+    if (route === 'resend-webhook') return await handleResendDelivery(req, res);
     return res.status(404).json({ error: 'not_found' });
   } catch (error) {
     if (error instanceof IntakeError) return res.status(error.status).json({ ok: false, error: error.code, message: error.message, ...error.extra });
     console.error('vies-connect:', error instanceof Error ? error.message : error);
     return res.status(500).json({ ok: false, error: 'internal_error', message: 'Errore interno, riprovare.' });
   }
+}
+
+async function handleResendDelivery(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ ok: false, error: 'method_not_allowed', message: 'Utilizzare POST.' });
+  }
+  const supabase = createAdminClient();
+  const limit = await checkRateLimit(getClientIp(req), { scope: 'resend-webhook', supabase, limit: 600 });
+  if (!limit.allowed) {
+    res.setHeader('Retry-After', String(limit.retryAfter));
+    return res.status(429).json({ ok: false, error: 'rate_limited', retry_after: limit.retryAfter });
+  }
+  const rawBody = await readRawBody(req);
+  const result = await handleResendWebhook(supabase, process.env.RESEND_WEBHOOK_SECRET, {
+    headers: { 'svix-id': header(req, 'svix-id'), 'svix-timestamp': header(req, 'svix-timestamp'), 'svix-signature': header(req, 'svix-signature') },
+    rawBody,
+  });
+  return res.status(result.status).json(result.body);
 }
 
 async function handleCallback(req: VercelRequest, res: VercelResponse) {

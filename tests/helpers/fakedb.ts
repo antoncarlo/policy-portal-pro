@@ -109,6 +109,9 @@ export class FakeDb {
     if (table === "integration_events" && row.direction === "inbound" && row.external_event_id) {
       return this.rows(table).some((o) => clash(o) && o.direction === "inbound" && o.portal_id === row.portal_id && o.external_event_id === row.external_event_id);
     }
+    if (table === "email_suppressions") {
+      return this.rows(table).some((o) => clash(o) && o.email === row.email);
+    }
     if (table === "vies_intake_lots") {
       return this.rows(table).some((o) => clash(o) && o.source_portal === row.source_portal && o.source_reference === row.source_reference);
     }
@@ -163,6 +166,15 @@ class Query implements PromiseLike<any> {
   }
   lt(col: string, value: any) {
     this.filters.push((r) => r[col] !== undefined && r[col] !== null && r[col] < value);
+    return this;
+  }
+  gt(col: string, value: any) {
+    this.filters.push((r) => r[col] !== undefined && r[col] !== null && r[col] > value);
+    return this;
+  }
+  ilike(col: string, pattern: string) {
+    const expression = new RegExp(`^${pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*").replace(/_/g, ".")}$`, "i");
+    this.filters.push((r) => typeof r[col] === "string" && expression.test(r[col]));
     return this;
   }
   lte(col: string, value: any) {

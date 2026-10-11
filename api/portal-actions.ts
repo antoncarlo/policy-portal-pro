@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { escapeHtml, getMailProvider, getSenderAddress, sendMail } from './_lib/mailer.js';
+import { sendMailLogged } from './_lib/email-log.js';
+import { escapeHtml, getMailProvider, getSenderAddress } from './_lib/mailer.js';
 import { assertSecondFactor, MfaRequiredError } from './_lib/mfa.js';
 import { getSupabaseAnon, normalizeLanguage, sendAccessEmail, type AccessEmailResult } from './_lib/auth-emails.js';
 import { checkPassword } from '../src/lib/passwordPolicy.js';
@@ -277,13 +278,13 @@ async function sendTestEmail(supabase: SupabaseClient, callerId: string, callerE
     return { sent: false, ...status, reason: 'Nessun servizio email configurato su Vercel (GMAIL_USER e GMAIL_APP_PASSWORD oppure RESEND_API_KEY)' };
   }
   const when = new Date().toLocaleString('it-IT', { timeZone: 'Europe/Rome' });
-  const result = await sendMail({
+  const result = await sendMailLogged(supabase, {
     to: callerEmail,
     subject: 'Prova invio email — Portale Tecno Advance MGA',
     html: `<p>Questa è un'email di prova inviata dal portale il ${escapeHtml(when)}.</p>
 <p>Canale: <strong>${escapeHtml(status.provider === 'gmail' ? 'Gmail / Google Workspace' : 'Resend')}</strong><br>Mittente: <strong>${escapeHtml(status.sender)}</strong></p>
 <p>Se la ricevi, i promemoria di scadenza e le notifiche agli amministratori partiranno correttamente.</p>`,
-  });
+  }, { template: 'smtp_test', recipientName: null });
   if (!result.success) return { sent: false, ...status, reason: result.error ?? 'Errore sconosciuto' };
   return { sent: true, ...status, to: callerEmail };
 }

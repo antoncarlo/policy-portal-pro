@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { stageOf, type PracticeStage } from '../../src/lib/practiceStages.js';
 import { portalUrl } from './auth-emails.js';
-import { getMailProvider, sendMail } from './mailer.js';
+import { sendMailLogged } from './email-log.js';
+import { getMailProvider } from './mailer.js';
 import {
   copyFor,
   formatDate,
@@ -152,7 +153,7 @@ export interface DispatchSummary {
 }
 
 /** Fixed addresses that also hear about every new practice (the office mailboxes). */
-function extraAddresses(): string[] {
+export function extraAddresses(): string[] {
   const raw = process.env.ADMIN_NOTIFICATION_EMAILS ?? 'info@tecnomga.com,antoncarlo@tecnomga.com';
   if (raw.trim().toLowerCase() === 'none') return [];
   return unique(raw.split(',').map((address) => address.trim().toLowerCase()).filter(isEmailAddress));
@@ -532,19 +533,11 @@ async function sendAll(supabase: SupabaseClient, claimed: QueuedEvent[], summary
     await inBatches(deliveries, SEND_CONCURRENCY, async (delivery) => {
       const built = delivery.type === 'status_changed' ? buildStatus(delivery, context) : buildActivity(delivery, context);
       if (!built) return;
-      const result = await sendMail({ to: delivery.target.emails, subject: built.subject, html: built.html });
-      const rows = delivery.target.emails.map((address) => ({
-        practice_id: built.practiceId,
-        recipient_email: address,
-        recipient_name: delivery.target.name || null,
-        subject: built.subject,
-        template_used: `notification_${built.type}`,
-        notification_type: built.type,
-        status: result.success ? 'sent' : 'failed',
-        error_message: result.success ? null : shorten(result.error ?? 'errore sconosciuto', 500),
-      }));
-      const { error: logError } = await supabase.from('email_logs').insert(rows);
-      if (logError) console.error('notifiche: registro email non scritto:', logError.message);
+      const result = await sendMailLogged(
+        supabase,
+        { to: delivery.target.emails, subject: built.subject, html: built.html },
+        { template: `notification_${built.type}`, notificationType: built.type, practiceId: built.practiceId, recipientName: delivery.target.name },
+      );
       if (result.success) {
         summary.emails += 1;
         for (const event of delivery.events) sentFor.add(event.id);
@@ -660,6 +653,6 @@ export async function sendNotificationSample(supabase: SupabaseClient, userId: s
     button: { label: copy.buttonMany, url: `${portalUrl()}/practices` },
     footer: copy.footer,
   });
-  const result = await sendMail({ to, subject, html });
+  const result = await sendMailLogged(supabase, { to, subject, html }, { template: 'notification_sample', recipientName: String(profile.full_name ?? '') });
   return result.success ? { sent: true, to } : { sent: false, reason: result.error ?? 'Invio non riuscito' };
 }

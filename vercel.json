@@ -33,6 +33,10 @@
       "destination": "/api/vies-connect?route=intake-status"
     },
     {
+      "source": "/api/resend-webhook",
+      "destination": "/api/vies-connect?route=resend-webhook"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
