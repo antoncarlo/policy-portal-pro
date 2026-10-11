@@ -6,7 +6,7 @@ import type { IncomingDocument } from './vies-documents.js';
 import { dispatchNotifications } from './notification-dispatch.js';
 import { emitPracticeEvent, type OutboundKind } from './vies-outbound.js';
 import { portalDocumentHosts, type ViesPortal } from './vies-orchestrator.js';
-import { applyWorkflowEvent, findPracticeForPortal, loadPractice, WorkflowError, type WorkflowEvent } from './vies-workflow.js';
+import { applyWorkflowEvent, findPracticeForPortal, loadPractice, parseInfoDueDate, WorkflowError, type WorkflowEvent } from './vies-workflow.js';
 
 /**
  * Answers from the company's portal: a practice received, more documents asked for, deliberated
@@ -44,6 +44,7 @@ export interface CallbackEvent {
   note?: string | null;
   reason?: string;
   message?: string;
+  dueDate?: string;
   policyNumber?: string | null;
   document?: IncomingDocument | null;
 }
@@ -51,6 +52,15 @@ export interface CallbackEvent {
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 const text = (value: unknown, max: number): string | undefined =>
   typeof value === 'string' && value.trim() ? value.trim().slice(0, max) : undefined;
+
+/** The company's due date when it is a real day that is not past; otherwise none (the default term applies). */
+function usableDueDate(value: string | undefined): string | null {
+  try {
+    return parseInfoDueDate(value);
+  } catch {
+    return null;
+  }
+}
 
 const isValidDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
 
@@ -103,6 +113,8 @@ export function parseCallbackEvent(body: unknown): { ok: true; event: CallbackEv
       case 'practice.info_requested':
         event.message = text(data.message, 2000);
         if (!event.message) throw new Error('data.message obbligatorio');
+        // Optional: the date the documents are due by; a missing or unusable one means the default term.
+        event.dueDate = text(data.due_date, 10);
         break;
       case 'practice.issued':
         event.policyNumber = text(data.policy_number, 100) ?? null;
@@ -261,7 +273,7 @@ export async function handlePortalCallback(
         return reply(200, { ok: true, event_id: event.eventId, practice_id: practice.id, practice_number: practice.practice_number });
       }
       case 'practice.info_requested':
-        workflowEvent = { type: 'info_requested', message: event.message ?? '' };
+        workflowEvent = { type: 'info_requested', message: event.message ?? '', dueDate: usableDueDate(event.dueDate) };
         break;
       case 'practice.deliberated':
         workflowEvent = { type: 'deliberated', at, paymentDueDate: event.paymentDueDate, note: event.note, draft: event.document, documentHosts: hosts };

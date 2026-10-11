@@ -56,7 +56,6 @@ export const shellMessages = defineMessages({
         { title: "Archivio Digitale", text: "Accedi a tutte le pratiche storiche con ricerca avanzata e filtri intelligenti" },
         { title: "Workflow Automatici", text: "Automatizza le operazioni ripetitive e velocizza l'elaborazione delle pratiche" },
       ],
-      stats: ["Pratiche Gestite", "Agenti Attivi", "Uptime Garantito", "Supporto Disponibile"],
       rights: "Tutti i diritti riservati.",
     },
     notFound: {
@@ -123,7 +122,6 @@ export const shellMessages = defineMessages({
         { title: "Digital Archive", text: "Access all past applications with advanced search and smart filters" },
         { title: "Automated Workflows", text: "Automate repetitive tasks and speed up application processing" },
       ],
-      stats: ["Applications Handled", "Active Agents", "Guaranteed Uptime", "Support Available"],
       rights: "All rights reserved.",
     },
     notFound: {
@@ -190,7 +188,6 @@ export const shellMessages = defineMessages({
         { title: "电子档案", text: "通过高级搜索和智能筛选查阅所有历史申请" },
         { title: "自动化流程", text: "自动完成重复性工作，加快申请处理速度" },
       ],
-      stats: ["已处理申请", "活跃代理人", "可用性保障", "全天候支持"],
       rights: "版权所有。",
     },
     notFound: {

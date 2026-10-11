@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Mail, Phone, Building2, MapPin, FileText, Pencil } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Building2, MapPin, FileText, Pencil, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
@@ -15,6 +15,8 @@ import { commonMessages } from "@/i18n/messages/common";
 import { practiceStatusLabel, practiceTypeLabel } from "@/i18n/messages/domain";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ClientForm } from "@/components/clients/ClientForm";
+import { clientDataMessages } from "@/i18n/messages/clientData";
+import { downloadJson, exportClientData } from "@/lib/clientsApi";
 
 const ClientDetail = () => {
   const { id } = useParams();
@@ -22,10 +24,26 @@ const ClientDetail = () => {
   const { toast } = useToast();
   const m = useMessages(clientsMessages).detail;
   const common = useMessages(commonMessages);
+  const dataText = useMessages(clientDataMessages).export;
+  const [exporting, setExporting] = useState(false);
   const [client, setClient] = useState<Tables<"clients"> | null>(null);
   const [practices, setPractices] = useState<Tables<"practices">[]>([]);
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+
+  const handleExport = async () => {
+    if (!client) return;
+    setExporting(true);
+    try {
+      const { export: data } = await exportClientData(client.id);
+      downloadJson(`cliente-${client.id}.json`, data);
+      toast({ title: dataText.doneTitle, description: dataText.doneText });
+    } catch (error) {
+      toast({ variant: "destructive", title: dataText.errorTitle, description: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const loadClientData = async () => {
     setLoading(true);
@@ -93,10 +111,16 @@ const ClientDetail = () => {
               )}
             </div>
           </div>
-          <Button onClick={() => setEditDialogOpen(true)}>
-            <Pencil className="mr-2 h-4 w-4" />
-            {m.edit}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => void handleExport()} disabled={exporting} title={dataText.hint} data-testid="export-client-data">
+              <Download className="mr-2 h-4 w-4" />
+              {dataText.button}
+            </Button>
+            <Button onClick={() => setEditDialogOpen(true)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              {m.edit}
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -22,6 +22,8 @@ La bozza deliberata e la polizza emessa viaggiano con il cambio di stato (nessun
 | Cambio di stato | il titolare della pratica e il suo **agente di riferimento**; anche gli amministratori, se a cambiare lo stato non è stato un amministratore (portale della compagnia, API, sistema) |
 | Nuova pratica | tutti gli **amministratori**, l'agente di riferimento di chi l'ha caricata, e le caselle fisse `ADMIN_NOTIFICATION_EMAILS` |
 | Documenti, note | amministratori, agente di riferimento e titolare |
+| Integrazioni in scadenza (2 giorni prima del termine) | il titolare della pratica e il suo agente di riferimento |
+| Integrazioni in ritardo (il giorno dopo il termine) | il titolare, l'agente di riferimento e gli **amministratori** |
 
 Chi ha causato l'evento non riceve mai l'email su di esso. Gli amministratori che hanno caricato documenti dopo un'integrazione richiesta ricevono il promemoria di segnare le integrazioni come fornite.
 
@@ -52,16 +54,25 @@ Impostazioni in `user_notification_settings` (solo l'amministratore le legge e l
 - **Ciclo giornaliero** (`/api/cron-vies-orchestrator`): invia quello che fosse rimasto. Il piano Hobby di Vercel consente solo un ciclo al giorno.
 - Se l'invio fallisce l'evento resta in coda e riprova (massimo 5 tentativi); gli eventi più vecchi di 3 giorni non vengono inviati.
 - Ogni email è registrata in `email_logs` (stato `sent` o `failed`, con il motivo).
+- **Termine delle integrazioni**: quando l'amministratore (o la compagnia) chiede integrazioni indica entro quando vanno fornite (di partenza 7 giorni). Il ciclo giornaliero accoda il promemoria (2 giorni prima, o il giorno stesso) e, passato il termine, l'avviso di ritardo anche agli amministratori; ognuno parte una volta per richiesta, e solo se la pratica è ancora in «integrazioni richieste». Seguono le impostazioni di ogni destinatario (quelle del «cambio di stato»).
 
 Il canale email è quello già configurato (`GMAIL_USER`/`GMAIL_APP_PASSWORD` oppure `RESEND_API_KEY`). `PORTAL_URL` fissa l'indirizzo dei link.
 
-## SECTION 05 — Variabili
+## SECTION 05 — Registro, recapito e avvisi agli amministratori
+
+- **Registro completo.** Ogni email del portale (accessi, notifiche, prove, avvisi) passa da un unico invio e finisce in `email_logs`: destinatario, oggetto, tipo (`template_used`), esito, canale e identificativo del messaggio presso il provider.
+- **Recapito (solo con Resend).** In Resend → Webhooks aggiungere `https://portale.tecnomga.com/api/resend-webhook` con gli eventi `email.delivered`, `email.delivery_delayed`, `email.bounced`, `email.complained` e salvare il segreto in `RESEND_WEBHOOK_SECRET` (Vercel, sola produzione). Lo stato dell'email passa a `delivered`, `delayed`, `bounced` o `complained`. Un rimbalzo definitivo o un reclamo mette l'indirizzo in `email_suppressions`: il portale non gli scrive più (promemoria di scadenza compresi) e gli amministratori ricevono un avviso con le pratiche interessate. Per riabilitare un indirizzo corretto basta cancellare la sua riga da `email_suppressions`. Con Gmail/SMTP non esistono rapporti di recapito: restano solo gli errori immediati dell'invio.
+- **Avvisi agli amministratori** (agli indirizzi scelti per ciascuno in Gestione Utenti e alle caselle `ADMIN_NOTIFICATION_EMAILS`, nella lingua del profilo): consegna verso un portale esterno fallita dopo l'ultimo tentativo (una volta sola), attività automatica interrotta con errore, indirizzo non raggiungibile.
+- **Riepilogo giornaliero** (nel ciclo delle 03:30 UTC): consegne ancora fallite, clienti con indirizzo non raggiungibile e scadenza entro 90 giorni, email non inviate nelle ultime 24 ore. Se non c'è nulla non parte niente.
+
+## SECTION 06 — Variabili
 
 | Variabile | Effetto |
 |---|---|
+| `RESEND_WEBHOOK_SECRET` | segreto del webhook Resend (`whsec_…`); senza, `/api/resend-webhook` risponde 503 |
 | `ADMIN_NOTIFICATION_EMAILS` | caselle fisse che ricevono **le nuove pratiche** (come prima: `info@tecnomga.com`, `antoncarlo@tecnomga.com`). `none` le disattiva. Non ricevono le email di chi ha caricato la pratica né duplicati degli indirizzi scelti dagli amministratori |
 
-## SECTION 06 — Limiti noti
+## SECTION 07 — Limiti noti
 
 - Una nuova deliberazione su una pratica già deliberata (nuova bozza, nuova scadenza) non cambia stato: non genera email; è comunque nello storico e viene comunicata alla compagnia o al partner.
 - Il cambio di stato in blocco dall'elenco pratiche avviene senza passare dal flusso (non avvisa compagnia e partner), ma genera le email come gli altri cambi.

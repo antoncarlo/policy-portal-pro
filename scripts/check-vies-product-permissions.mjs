@@ -13,20 +13,21 @@ const expectRegex = (source, regex, description) => {
 
 const inviteDialog = read('src/components/admin/users/InviteUserDialog.tsx');
 const editProductsDialog = read('src/components/admin/users/EditUserProductsDialog.tsx');
-const legacyAdminUsers = read('src/pages/AdminUsers.tsx');
+const usersMessages = read('src/i18n/messages/users.ts');
+const viesMessages = read('src/i18n/messages/vies.ts');
 const dashboardLayout = read('src/components/dashboard/DashboardLayout.tsx');
 const viesPage = read('src/pages/Vies.tsx');
 
+expectRegex(
+  usersMessages,
+  /export const ASSIGNABLE_PRODUCTS = \[[^\]]*"vies"/,
+  'La lista dei Prodotti Consentiti deve includere VIES',
+);
 for (const [name, source] of [
   ['InviteUserDialog', inviteDialog],
   ['EditUserProductsDialog', editProductsDialog],
-  ['AdminUsers legacy', legacyAdminUsers],
 ]) {
-  expectIncludes(
-    source,
-    'value: "vies", label: "VIES"',
-    `${name} deve includere VIES nella lista dei Prodotti Consentiti`,
-  );
+  expectIncludes(source, 'ASSIGNABLE_PRODUCTS', `${name} deve usare la lista condivisa dei Prodotti Consentiti`);
 }
 
 expectIncludes(
@@ -77,7 +78,7 @@ expectRegex(
   'La pagina VIES deve controllare esplicitamente il permesso practice_type = vies',
 );
 expectIncludes(
-  viesPage,
+  viesMessages,
   'Accesso VIES non autorizzato',
   'La pagina VIES deve mostrare un messaggio chiaro quando il permesso VIES manca',
 );

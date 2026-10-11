@@ -15,6 +15,7 @@ import { InviteUserDialog } from "@/components/admin/users/InviteUserDialog";
 import { EditUserProductsDialog } from "@/components/admin/users/EditUserProductsDialog";
 import { EditCommissionDialog } from "@/components/admin/users/EditCommissionDialog";
 import { EditNotificationsDialog } from "@/components/admin/users/EditNotificationsDialog";
+import { OffboardUserDialog } from "@/components/admin/users/OffboardUserDialog";
 import * as XLSX from "xlsx";
 import { callPortalAction } from "@/lib/portalActions";
 import { getMessages, useMessages } from "@/i18n";
@@ -52,6 +53,7 @@ const UserManagement = () => {
   const [editProductsDialogOpen, setEditProductsDialogOpen] = useState(false);
   const [editCommissionDialogOpen, setEditCommissionDialogOpen] = useState(false);
   const [editNotificationsDialogOpen, setEditNotificationsDialogOpen] = useState(false);
+  const [offboardDialogOpen, setOffboardDialogOpen] = useState(false);
   const [assignAgentDialogOpen, setAssignAgentDialogOpen] = useState(false);
   const [inviteUserDialogOpen, setInviteUserDialogOpen] = useState(false);
 
@@ -93,7 +95,12 @@ const UserManagement = () => {
 
       if (error) throw error;
 
-      setUsers(data || []);
+      setUsers(
+        (data ?? []).map((row) => ({
+          ...row,
+          commission_bonus_tiers: Array.isArray(row.commission_bonus_tiers) ? (row.commission_bonus_tiers as User["commission_bonus_tiers"]) : null,
+        })),
+      );
     } catch (error) {
       toast({
         variant: "destructive",
@@ -209,25 +216,9 @@ const UserManagement = () => {
     }
   };
 
-  const handleDeleteUser = async (user: User) => {
-    if (!confirm(getMessages(usersMessages).confirmDelete(user.full_name))) return;
-
-    try {
-      await callPortalAction("delete_user", { userId: user.id });
-
-      toast({
-        title: getMessages(commonMessages).success,
-        description: getMessages(usersMessages).deleted,
-      });
-
-      loadUsers();
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: getMessages(commonMessages).error,
-        description: error.message,
-      });
-    }
+  const handleDeleteUser = (user: User) => {
+    setSelectedUser(user);
+    setOffboardDialogOpen(true);
   };
 
   const handleExportUsers = () => {
@@ -336,6 +327,14 @@ const UserManagement = () => {
         open={inviteUserDialogOpen}
         onOpenChange={setInviteUserDialogOpen}
         onSuccess={loadUsers}
+      />
+
+      <OffboardUserDialog
+        open={offboardDialogOpen}
+        onOpenChange={setOffboardDialogOpen}
+        user={selectedUser}
+        candidates={users}
+        onDone={loadUsers}
       />
 
       <EditNotificationsDialog

@@ -13,6 +13,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { PRACTICE_TYPE_LABELS } from '../src/lib/practiceSummary.js';
 import { escapeHtml, getMailProvider, sendMail } from './_lib/mailer.js';
+import { bearerMatches } from './_lib/secrets.js';
+import { getSupabaseAdmin } from './_lib/auth-emails.js';
+import { findSuppressed } from './_lib/email-log.js';
+import { alertCronFailure } from './_lib/ops-alerts.js';
 
 // Configurazione
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
@@ -41,7 +45,7 @@ interface PendingNotification {
 // Vercel Cron sends "Authorization: Bearer <CRON_SECRET>" when the variable is set.
 // Without it the endpoint stays closed: no default secret, no trusted header.
 function verifyCronAuth(req: VercelRequest): boolean {
-  return Boolean(CRON_SECRET) && req.headers.authorization === `Bearer ${CRON_SECRET}`;
+  return bearerMatches(req.headers.authorization, [CRON_SECRET]);
 }
 
 /**
@@ -327,9 +331,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     let sent = 0;
     let failed = 0;
+    let skipped = 0;
+    // Addresses the provider reported as unreachable are not written to again (the daily digest lists them).
+    const unreachable = await findSuppressed(getSupabaseAdmin(), notifications.map((notification) => notification.client_email));
 
     // 2. Invia email una alla volta
     for (const notification of notifications) {
+      if (unreachable.has(notification.client_email.trim().toLowerCase())) {
+        skipped++;
+        continue;
+      }
       try {
         // Carica e renderizza template
         const template = getEmailTemplate(notification.notification_type);
@@ -360,7 +371,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    console.log(`✅ Cron job completed: ${sent} sent, ${failed} failed`);
+    console.log(`✅ Cron job completed: ${sent} sent, ${failed} failed, ${skipped} skipped (unreachable address)`);
 
     return res.status(200).json({
       success: true,
@@ -368,9 +379,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       total: notifications.length,
       sent,
       failed,
+      skipped,
     });
   } catch (error) {
     console.error('❌ Cron job error:', error);
+    await alertCronFailure(getSupabaseAdmin(), 'cron-send-emails', error);
     return res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

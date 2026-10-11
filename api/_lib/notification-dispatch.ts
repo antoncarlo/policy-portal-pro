@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { stageOf, type PracticeStage } from '../../src/lib/practiceStages.js';
 import { portalUrl } from './auth-emails.js';
-import { getMailProvider, sendMail } from './mailer.js';
+import { sendMailLogged } from './email-log.js';
+import { getMailProvider } from './mailer.js';
 import {
   copyFor,
   formatDate,
@@ -28,7 +29,7 @@ import {
  * Several events for the same person in one run become one email.
  */
 
-type EventType = 'practice_created' | 'status_changed' | 'documents_added' | 'note_changed';
+type EventType = 'practice_created' | 'status_changed' | 'documents_added' | 'note_changed' | 'info_reminder' | 'info_overdue';
 
 interface QueuedEvent {
   id: string;
@@ -78,6 +79,7 @@ interface WorkflowRow {
   payment_due_date: string | null;
   deliberation_note: string | null;
   rejection_reason: string | null;
+  info_due_date: string | null;
 }
 
 /** What is not sent any more: an email days late is worse than none. */
@@ -97,6 +99,8 @@ const RULES: Record<EventType, { setting: keyof Omit<SettingsRow, 'user_id' | 'n
   practice_created: { setting: 'new_practice', profile: 'new_practice' },
   documents_added: { setting: 'documents', profile: 'new_document' },
   note_changed: { setting: 'notes', profile: null },
+  info_reminder: { setting: 'status_change', profile: 'status_change' },
+  info_overdue: { setting: 'status_change', profile: 'status_change' },
 };
 
 const EMAIL_PATTERN = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
@@ -152,7 +156,7 @@ export interface DispatchSummary {
 }
 
 /** Fixed addresses that also hear about every new practice (the office mailboxes). */
-function extraAddresses(): string[] {
+export function extraAddresses(): string[] {
   const raw = process.env.ADMIN_NOTIFICATION_EMAILS ?? 'info@tecnomga.com,antoncarlo@tecnomga.com';
   if (raw.trim().toLowerCase() === 'none') return [];
   return unique(raw.split(',').map((address) => address.trim().toLowerCase()).filter(isEmailAddress));
@@ -188,11 +192,14 @@ async function loadContext(supabase: SupabaseClient, events: QueuedEvent[]): Pro
   const statusEvents = events.filter((event) => event.event_type === 'status_changed');
   const toStatus = (event: QueuedEvent) => String(event.payload?.new_status ?? '');
   const decidedIds = unique(statusEvents.filter((event) => ['approvata', 'rifiutata'].includes(toStatus(event))).map((event) => event.practice_id));
-  const infoIds = unique(statusEvents.filter((event) => toStatus(event) === 'integrazioni').map((event) => event.practice_id));
+  const infoIds = unique([
+    ...statusEvents.filter((event) => toStatus(event) === 'integrazioni').map((event) => event.practice_id),
+    ...events.filter((event) => event.event_type === 'info_reminder' || event.event_type === 'info_overdue').map((event) => event.practice_id),
+  ]);
   const documentIds = unique(events.filter((event) => event.event_type === 'documents_added').map((event) => event.practice_id));
 
   const [workflowRows, infoRows, adminRows, ownerRoleRows, creationRows] = await Promise.all([
-    selectIn<WorkflowRow>(supabase, 'practice_workflow', 'practice_id, payment_due_date, deliberation_note, rejection_reason', 'practice_id', decidedIds),
+    selectIn<WorkflowRow>(supabase, 'practice_workflow', 'practice_id, payment_due_date, deliberation_note, rejection_reason, info_due_date', 'practice_id', unique([...decidedIds, ...infoIds])),
     selectIn<{ practice_id: string; description: string | null; created_at: string }>(supabase, 'practice_events', 'practice_id, description, created_at', 'practice_id', infoIds, {
       column: 'event_type',
       value: 'workflow_info_requested',
@@ -273,6 +280,14 @@ function targetsFor(event: QueuedEvent, practice: PracticeRow, context: Context)
     case 'practice_created':
       people = [...context.adminIds, parentId];
       break;
+    case 'info_reminder':
+      // Whoever must provide the documents: the owner of the practice and their reference agent.
+      people = [practice.user_id, parentId];
+      break;
+    case 'info_overdue':
+      // Past the term the administrators hear about it too.
+      people = [practice.user_id, parentId, ...context.adminIds];
+      break;
     default:
       people = [...context.adminIds, parentId, practice.user_id];
   }
@@ -319,7 +334,7 @@ function statusDetails(stage: PracticeStage, practiceId: string, language: Langu
     case 'non_deliberata':
       return { reason: workflow?.rejection_reason?.trim() || null };
     case 'integrazioni':
-      return { info: context.infoRequests.get(practiceId) ?? null };
+      return { info: context.infoRequests.get(practiceId) ?? null, dueDate: formatDate(workflow?.info_due_date, language) };
     default:
       return {};
   }
@@ -390,6 +405,52 @@ function buildStatus(delivery: Delivery, context: Context): Built | null {
     }),
     practiceId: items[0].practice.id,
     type: 'status_changed',
+  };
+}
+
+function buildInfoDeadline(delivery: Delivery, context: Context): Built | null {
+  const { target, type } = delivery;
+  const copy = copyFor(target.language);
+  const section = copy.infoDeadline;
+  const overdue = type === 'info_overdue';
+  const entries = [...groupByPractice(delivery.events)]
+    .map(([practiceId]) => context.practices.get(practiceId))
+    // Only what is still waiting for the documents: a practice moved on since the event was queued is not news.
+    .filter((practice): practice is PracticeRow => Boolean(practice) && practice?.status === 'integrazioni');
+  if (entries.length === 0) return null;
+  const dueOf = (practice: PracticeRow) => formatDate(context.workflow.get(practice.id)?.info_due_date, target.language) ?? '—';
+  const closing = [section.action, ...(overdue && target.isAdmin ? [section.escalation] : [])];
+
+  if (entries.length === 1) {
+    const practice = entries[0];
+    const label = copy.label(infoFor(practice, target, context));
+    const request = context.infoRequests.get(practice.id) ?? null;
+    const subject = overdue ? section.overdueSubjectOne(practice.practice_number) : section.reminderSubjectOne(practice.practice_number, dueOf(practice));
+    const intro = overdue ? section.overdueIntroOne(label, dueOf(practice), request) : section.reminderIntroOne(label, dueOf(practice), request);
+    return {
+      subject,
+      html: renderEmail({ language: target.language, title: subject, paragraphs: [copy.greeting(target.name), intro, ...closing], button: { label: copy.buttonOne, url: linkFor(practice.id) }, footer: copy.footer }),
+      practiceId: practice.id,
+      type,
+    };
+  }
+
+  const subject = overdue ? section.overdueSubjectMany(entries.length) : section.reminderSubjectMany(entries.length);
+  const shown = entries.slice(0, MAX_LISTED_ITEMS);
+  return {
+    subject,
+    html: renderEmail({
+      language: target.language,
+      title: subject,
+      paragraphs: [copy.greeting(target.name), overdue ? section.overdueIntroMany(entries.length) : section.reminderIntroMany(entries.length)],
+      listing: shown.map((practice) => ({ text: `${copy.label(infoFor(practice, target, context))} — ${dueOf(practice)}`, url: linkFor(practice.id) })),
+      listingMore: entries.length - shown.length,
+      closing,
+      button: { label: copy.buttonMany, url: `${portalUrl()}/practices` },
+      footer: copy.footer,
+    }),
+    practiceId: entries[0].id,
+    type,
   };
 }
 
@@ -468,7 +529,12 @@ function planDeliveries(events: QueuedEvent[], context: Context): Delivery[] {
     if (event.event_type === 'documents_added' && belongsToCreation(event, context)) continue;
     for (const target of targetsFor(event, practice, context)) {
       // Status changes are one email per person; the rest one per person and author.
-      const key = event.event_type === 'status_changed' ? `${target.key}|status` : `${target.key}|${event.event_type}|${event.actor_id ?? ''}`;
+      const key =
+        event.event_type === 'status_changed'
+          ? `${target.key}|status`
+          : event.event_type === 'info_reminder' || event.event_type === 'info_overdue'
+            ? `${target.key}|${event.event_type}`
+            : `${target.key}|${event.event_type}|${event.actor_id ?? ''}`;
       const delivery = deliveries.get(key) ?? { target, type: event.event_type, actorId: event.actor_id, events: [] };
       delivery.events.push(event);
       deliveries.set(key, delivery);
@@ -530,21 +596,18 @@ async function sendAll(supabase: SupabaseClient, claimed: QueuedEvent[], summary
     const failedFor = new Map<string, string>();
 
     await inBatches(deliveries, SEND_CONCURRENCY, async (delivery) => {
-      const built = delivery.type === 'status_changed' ? buildStatus(delivery, context) : buildActivity(delivery, context);
+      const built =
+        delivery.type === 'status_changed'
+          ? buildStatus(delivery, context)
+          : delivery.type === 'info_reminder' || delivery.type === 'info_overdue'
+            ? buildInfoDeadline(delivery, context)
+            : buildActivity(delivery, context);
       if (!built) return;
-      const result = await sendMail({ to: delivery.target.emails, subject: built.subject, html: built.html });
-      const rows = delivery.target.emails.map((address) => ({
-        practice_id: built.practiceId,
-        recipient_email: address,
-        recipient_name: delivery.target.name || null,
-        subject: built.subject,
-        template_used: `notification_${built.type}`,
-        notification_type: built.type,
-        status: result.success ? 'sent' : 'failed',
-        error_message: result.success ? null : shorten(result.error ?? 'errore sconosciuto', 500),
-      }));
-      const { error: logError } = await supabase.from('email_logs').insert(rows);
-      if (logError) console.error('notifiche: registro email non scritto:', logError.message);
+      const result = await sendMailLogged(
+        supabase,
+        { to: delivery.target.emails, subject: built.subject, html: built.html },
+        { template: `notification_${built.type}`, notificationType: built.type, practiceId: built.practiceId, recipientName: delivery.target.name },
+      );
       if (result.success) {
         summary.emails += 1;
         for (const event of delivery.events) sentFor.add(event.id);
@@ -660,6 +723,6 @@ export async function sendNotificationSample(supabase: SupabaseClient, userId: s
     button: { label: copy.buttonMany, url: `${portalUrl()}/practices` },
     footer: copy.footer,
   });
-  const result = await sendMail({ to, subject, html });
+  const result = await sendMailLogged(supabase, { to, subject, html }, { template: 'notification_sample', recipientName: String(profile.full_name ?? '') });
   return result.success ? { sent: true, to } : { sent: false, reason: result.error ?? 'Invio non riuscito' };
 }

@@ -27,7 +27,6 @@ const Index = () => {
   }, []);
 
   const featureIcons = [Upload, Clock, Shield, Users, FileText, CheckCircle];
-  const statValues = ["10,000+", "500+", "99.9%", "24/7"];
 
   return (
     <div className="min-h-screen bg-background">
@@ -113,20 +112,6 @@ const Index = () => {
                 </div>
               );
             })}
-          </div>
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section className="py-16 px-4">
-        <div className="container mx-auto">
-          <div className="grid md:grid-cols-4 gap-8 text-center">
-            {m.stats.map((label, index) => (
-              <div key={label}>
-                <div className="text-4xl font-bold text-primary mb-2">{statValues[index]}</div>
-                <div className="text-muted-foreground">{label}</div>
-              </div>
-            ))}
           </div>
         </div>
       </section>

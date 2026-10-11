@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { escapeHtml, getMailProvider, sendMail } from './mailer.js';
+import { sendMailLogged } from './email-log.js';
+import { escapeHtml, getMailProvider } from './mailer.js';
 
 /**
  * Welcome and password-reset emails of the portal.
@@ -170,7 +171,7 @@ export async function sendAccessEmail(
 
   const link = `${portalUrl()}/reset-password?token_hash=${encodeURIComponent(tokenHash)}&type=recovery&kind=${params.kind}`;
   const { subject, html } = renderAccessEmail(params.kind, params.language, { name: params.name, email: params.email, link });
-  const result = await sendMail({ to: params.email, subject, html });
+  const result = await sendMailLogged(supabase, { to: params.email, subject, html }, { template: `access_${params.kind}`, recipientName: params.name });
   if (!result.success) return { sent: false, reason: `Invio email non riuscito: ${result.error ?? 'errore sconosciuto'}` };
   return { sent: true };
 }

@@ -20,7 +20,7 @@ interface Practice {
   practice_number: string;
   practice_type: string;
   client_name: string;
-  premium_amount: number | null;
+  premium_net: number | null;
   commission_percentage: number | null;
   commission_amount: number | null;
   financial_status: string;
@@ -112,7 +112,7 @@ export const FinancialPracticesTable = ({
                 </TableCell>
               )}
               <TableCell className="text-right">
-                {formatCurrency(practice.premium_amount)}
+                {formatCurrency(practice.premium_net)}
               </TableCell>
               <TableCell className="text-right">
                 {practice.commission_percentage ? `${practice.commission_percentage}%` : "-"}

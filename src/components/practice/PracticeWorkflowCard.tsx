@@ -35,6 +35,7 @@ interface WorkflowRow {
   rejected_at: string | null;
   rejection_reason: string | null;
   issued_at: string | null;
+  info_due_date: string | null;
 }
 
 interface FlowDocument {
@@ -82,6 +83,9 @@ const MAX_FILE_BYTES = 12 * 1024 * 1024;
 const BUCKET = "practice-documents";
 
 const today = () => new Date().toISOString().slice(0, 10);
+/** The term proposed for the information requested: a week from today. */
+const INFO_TERM_DAYS = 7;
+const defaultInfoTerm = () => new Date(Date.now() + INFO_TERM_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
 /** Whole days from today to a YYYY-MM-DD date (negative: already past). */
 const daysUntil = (date: string) => {
@@ -142,7 +146,7 @@ export const PracticeWorkflowCard = ({ practice, isAdmin, onChanged }: PracticeW
   }, [load, practice.status, practice.financial_status]);
 
   const openDialog = (kind: ActionKind) => {
-    setForm({ ...emptyForm, paymentDate: today() });
+    setForm({ ...emptyForm, paymentDate: today(), dueDate: kind === "requestInfo" ? defaultInfoTerm() : "" });
     setErrors({});
     setDialog(kind);
   };
@@ -174,7 +178,7 @@ export const PracticeWorkflowCard = ({ practice, isAdmin, onChanged }: PracticeW
     try {
       const payload: Record<string, unknown> = { practiceId: practice.id };
       if (dialog === "markSent") Object.assign(payload, { portalName: form.portal.trim() || undefined, reference: form.reference.trim() || undefined });
-      if (dialog === "requestInfo") payload.message = form.message.trim();
+      if (dialog === "requestInfo") Object.assign(payload, { message: form.message.trim(), dueDate: form.dueDate || undefined });
       if (dialog === "provideInfo") payload.message = form.message.trim() || undefined;
       if (dialog === "reject") payload.reason = form.reason.trim();
       if (dialog === "reopen") payload.reason = form.reason.trim() || undefined;
@@ -288,6 +292,14 @@ export const PracticeWorkflowCard = ({ practice, isAdmin, onChanged }: PracticeW
         <div className="mb-4 rounded-md border border-orange-500/30 bg-orange-500/10 p-3 text-sm">
           <p className="font-medium text-orange-600 dark:text-orange-400">{m.card.requestedInfo}</p>
           {requestedInfo && <p className="mt-1 text-foreground">{requestedInfo}</p>}
+          {workflow?.info_due_date && (
+            <p
+              className={cn("mt-1 text-xs font-medium", workflow.info_due_date < today() ? "text-destructive" : "text-muted-foreground")}
+              data-testid="info-due"
+            >
+              {workflow.info_due_date < today() ? m.card.infoOverdue(formatDate(workflow.info_due_date)) : m.card.infoDue(formatDate(workflow.info_due_date))}
+            </p>
+          )}
         </div>
       )}
       {stage === "non_deliberata" && (
@@ -408,6 +420,13 @@ export const PracticeWorkflowCard = ({ practice, isAdmin, onChanged }: PracticeW
                     <Label htmlFor="workflow-message">{dialog === "requestInfo" ? t.requestInfo.message : t.provideInfo.message}</Label>
                     <Textarea id="workflow-message" rows={4} {...field("message")} />
                     {errors.message && <p className="text-xs text-destructive">{errors.message}</p>}
+                  </div>
+                )}
+                {dialog === "requestInfo" && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="workflow-info-due">{t.requestInfo.dueDate}</Label>
+                    <Input id="workflow-info-due" type="date" min={today()} {...field("dueDate")} />
+                    <p className="text-xs text-muted-foreground">{t.requestInfo.dueHint}</p>
                   </div>
                 )}
                 {dialog === "deliberate" && (

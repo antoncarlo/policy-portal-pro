@@ -45,7 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(422).json({ error: 'Valore financial_status non valido.', valid_values: FINANCIAL_STATUSES });
   }
 
-  const select = 'id, practice_number, practice_type, status, financial_status, client_name, client_email, client_phone, beneficiary, owner_tax_code, pet_microchip, policy_number, policy_start_date, policy_end_date, premium_net, premium_taxable, premium_taxes, premium_gross, commission_percentage, commission_amount, payment_date, commission_received_date, notes, api_key_id, user_id, created_at, updated_at';
+  const select = 'id, practice_number, practice_type, status, financial_status, client_name, client_email, client_phone, beneficiary, owner_tax_code, pet_microchip, policy_number, policy_start_date, policy_end_date, premium_net, premium_taxable, premium_taxes, premium_gross, commission_percentage, commission_amount, payment_date, commission_received_date, notes, api_key_id, user_id, vies_batch_id, created_at, updated_at';
 
   let query = supabaseAdmin
     .from('practices')
@@ -82,6 +82,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     for (const d of docs ?? []) {
       docCounts[d.practice_id] = (docCounts[d.practice_id] ?? 0) + 1;
     }
+  }
+
+  // The lot a practice comes from (VIES lots): one query for all of them.
+  const lotsById = new Map<string, { id: string; number: number | null; name: string }>();
+  const batchIds = [...new Set(rows.map(p => p.vies_batch_id).filter((id): id is string => Boolean(id)))];
+  if (batchIds.length > 0) {
+    const { data: batches } = await supabaseAdmin.from('vies_batches').select('id, lot_number, name').in('id', batchIds);
+    for (const b of batches ?? []) lotsById.set(b.id, { id: b.id, number: b.lot_number ?? null, name: b.name });
   }
 
   const today = todayIsoDate();
@@ -122,6 +130,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       notes: textualNotes || null,
       specific_fields: specificFields,
       documents_count: docCounts[p.id] ?? 0,
+      lot: p.vies_batch_id ? lotsById.get(p.vies_batch_id) ?? null : null,
       created_at: p.created_at,
       updated_at: p.updated_at,
     };

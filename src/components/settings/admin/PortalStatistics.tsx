@@ -4,6 +4,7 @@ import { systemMessages } from "@/i18n/messages/system";
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Users, FileText, HardDrive, TrendingUp, Activity } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -122,8 +123,11 @@ export const PortalStatistics = () => {
         count: count as number,
       }));
 
-      // Storage (mock for now - would need actual file sizes)
-      const storageUsed = (documentsCount || 0) * 0.5; // Assume 0.5 MB per document
+      // Storage used: the sum of the stored files' real sizes.
+      const documentSizes = await fetchAllRows((from, to) =>
+        supabase.from("practice_documents").select("file_size").order("id").range(from, to),
+      );
+      const storageUsed = documentSizes.reduce((total, row) => total + (row.file_size ?? 0), 0) / (1024 * 1024);
 
       setStats({
         totalUsers: usersCount || 0,

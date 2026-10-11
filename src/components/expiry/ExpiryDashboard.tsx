@@ -8,7 +8,9 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDate, getMessages, useMessages } from "@/i18n";
 import { clientsMessages } from "@/i18n/messages/clients";
 import { practiceTypeLabel } from "@/i18n/messages/domain";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { RenewPracticeButton } from "@/components/practice/RenewPracticeButton";
+import { fetchPolicyStarts, fetchRenewals, fetchRenewalStats, type RenewalLink, type RenewalStats } from "@/lib/renewals";
 
 interface ExpiryPractice {
   practice_id: string;
@@ -34,6 +36,9 @@ export const ExpiryDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [expiries, setExpiries] = useState<ExpiryPractice[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [renewals, setRenewals] = useState<Map<string, RenewalLink>>(new Map());
+  const [stats, setStats] = useState<RenewalStats | null>(null);
+  const [starts, setStarts] = useState<Map<string, string | null>>(new Map());
 
   useEffect(() => {
     loadExpiries();
@@ -56,6 +61,16 @@ export const ExpiryDashboard = () => {
 
       if (error) throw error;
       setExpiries(data || []);
+      // Which of them were already renewed, and the renewal rate: a failure here only hides the extras.
+      const ids = (data || []).map((row: ExpiryPractice) => row.practice_id);
+      const [links, rate, policyStarts] = await Promise.all([
+        fetchRenewals(ids).catch(() => new Map<string, RenewalLink>()),
+        fetchRenewalStats().catch(() => null),
+        fetchPolicyStarts(ids).catch(() => new Map<string, string | null>()),
+      ]);
+      setRenewals(links);
+      setStats(rate);
+      setStarts(policyStarts);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -144,17 +159,37 @@ export const ExpiryDashboard = () => {
             {m.reminder(7)}
           </Badge>
         </div>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/practices/${expiry.practice_id}`);
-          }}
-        >
-          <FileText className="h-4 w-4 mr-1" />
-          {m.details}
-        </Button>
+        <div className="flex items-center gap-1">
+          {renewals.get(expiry.practice_id) ? (
+            <Link
+              to={`/practices/${renewals.get(expiry.practice_id)!.id}`}
+              onClick={(e) => e.stopPropagation()}
+              data-testid="renewed-link"
+              className="inline-flex items-center rounded-md bg-green-500/10 px-2 py-1 text-xs font-medium text-green-700 hover:underline dark:text-green-400"
+            >
+              {m.renewedAs(renewals.get(expiry.practice_id)!.practice_number)}
+            </Link>
+          ) : (
+            <RenewPracticeButton
+              practiceId={expiry.practice_id}
+              practiceNumber={expiry.practice_number}
+              policyStartDate={starts.get(expiry.practice_id) ?? null}
+              policyEndDate={expiry.policy_end_date}
+              onRenewed={(renewal) => setRenewals((current) => new Map(current).set(expiry.practice_id, renewal))}
+            />
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/practices/${expiry.practice_id}`);
+            }}
+          >
+            <FileText className="h-4 w-4 mr-1" />
+            {m.details}
+          </Button>
+        </div>
       </div>
     </Card>
   );
@@ -201,6 +236,30 @@ export const ExpiryDashboard = () => {
           </div>
         </Card>
       </div>
+
+      {stats && (
+        <Card className="p-4" data-testid="renewal-rate">
+          <p className="text-sm font-medium text-muted-foreground">{m.retention.title}</p>
+          <div className="mt-2 grid gap-4 sm:grid-cols-2">
+            {[
+              { label: m.retention.lastYear, renewed: stats.expiredRenewed, total: stats.expired },
+              { label: m.retention.upcoming, renewed: stats.upcomingRenewed, total: stats.upcoming },
+            ].map((row) => (
+              <div key={row.label}>
+                <p className="text-xs text-muted-foreground">{row.label}</p>
+                {row.total === 0 ? (
+                  <p className="text-sm text-muted-foreground">{m.retention.none}</p>
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold">{Math.round((row.renewed / row.total) * 100)}%</p>
+                    <p className="text-xs text-muted-foreground">{m.retention.renewedOf(row.renewed, row.total)}</p>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Urgent Expiries */}
       {groupedExpiries.urgent.length > 0 && (

@@ -409,7 +409,7 @@ export const UploadForm = () => {
 
         if (uploadError) throw uploadError;
 
-        const documentRecord: Record<string, unknown> = {
+        const documentRecord: TablesInsert<"practice_documents"> = {
           practice_id: practice.id,
           file_name: file.name,
           file_path: fileName,

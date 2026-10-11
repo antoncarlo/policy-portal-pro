@@ -25,7 +25,9 @@ if (!/setZipProcessingStatus\(/.test(handleZipUpload)) {
   failures.push('handleZipUpload deve aggiornare uno stato di avanzamento leggibile durante l’indicizzazione dei grandi batch.');
 }
 
-if (!/throw new Error\(`Errore lettura ZIP \$\{file\.name\}:/.test(handleZipUpload)) {
+const viesMessages = fs.readFileSync(new URL('../src/i18n/messages/vies.ts', import.meta.url), 'utf8');
+const zipReadMessages = viesMessages.match(/zipRead:\s*\(name: string, message: string\) =>[^\n]*\$\{name\}[^\n]*/g) ?? [];
+if (!/throw new Error\(viesText\(\)\.errors\.zipRead\(file\.name,/.test(handleZipUpload) || zipReadMessages.length < 3) {
   failures.push('Gli errori di lettura devono includere il nome dello ZIP che ha fallito.');
 }
 

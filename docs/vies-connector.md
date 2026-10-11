@@ -111,7 +111,7 @@ La firma copre i **byte esatti** del corpo: non ri-serializzare il JSON dopo ave
 | `event_type` | `data` | Effetto |
 |---|---|---|
 | `practice.received` | — (serve `practice.reference`) | Registra la presa in carico e il riferimento; lo stato non cambia |
-| `practice.info_requested` | `message` (obbligatorio) | → Integrazioni richieste; il titolare riceve notifica ed email |
+| `practice.info_requested` | `message` (obbligatorio), `due_date` (AAAA-MM-GG, facoltativo) | → Integrazioni richieste; il titolare riceve notifica ed email. Senza `due_date` (o se è nel passato) il termine è di 7 giorni |
 | `practice.deliberated` | `payment_due_date` (AAAA-MM-GG), `note`, `draft` | → Deliberate · da pagare; bozza allegata alla pratica |
 | `practice.rejected` | `reason` (obbligatorio) | → Non deliberate, con il motivo |
 | `practice.issued` | `policy_number`, `document` | → Emesse (richiede il pagamento già registrato) |
@@ -183,7 +183,7 @@ X-Signature: sha256=…               # HMAC-SHA256(segreto, X-Timestamp + "." +
 | `lot.processed` | L'amministratore ha caricato il lotto nel flusso e le pratiche sono state create | `practices`: riga, contraente, numero pratica, sezione |
 | `lot.rejected` | Lotto rifiutato | `reason` |
 | `practice.in_review` | Pratica inviata alla compagnia | — |
-| `practice.info_requested` | La compagnia chiede integrazioni | `message` |
+| `practice.info_requested` | La compagnia chiede integrazioni | `message`, `due_date` (termine per fornirle) |
 | `practice.info_provided` | Integrazioni inviate alla compagnia | `message` |
 | `practice.deliberated` | Deliberata: bozza da pagare | `payment_due_date`, `note`, `documents` (bozza) |
 | `practice.rejected` | Non deliberata | `reason` |

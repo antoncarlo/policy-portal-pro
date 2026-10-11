@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { stageOf } from '../../src/lib/practiceStages.js';
 import { getDocumentStorageReference, listSignedPracticeDocuments, type OutgoingDocument } from './vies-documents.js';
 import { readPortalRegistry } from './vies-portals.js';
+import { alertFailedDeliveries } from './ops-alerts.js';
 import { signCallback } from './vies-signature.js';
 
 /**
@@ -203,12 +204,14 @@ export async function processDueDeliveries(supabase: SupabaseClient, options: { 
       if (result.delivered) delivered += 1;
     }),
   );
+  // Whatever gave up in this run (or earlier, unseen) is reported to the administrators, once.
+  if (attempted > 0) await alertFailedDeliveries(supabase);
   return { attempted, delivered };
 }
 
 /** Puts failed (or one given) notifications back to be delivered now, and delivers them. */
 export async function retryDeliveries(supabase: SupabaseClient, options: { id?: string } = {}): Promise<{ attempted: number; delivered: number }> {
-  let query = supabase.from('outbound_deliveries').update({ status: 'pending', attempts: 0, next_attempt_at: nowIso() }).neq('status', 'delivered');
+  let query = supabase.from('outbound_deliveries').update({ status: 'pending', attempts: 0, next_attempt_at: nowIso(), alerted_at: null }).neq('status', 'delivered');
   if (options.id) query = query.eq('id', options.id);
   const { data } = await query.select('id');
   if (!data?.length) return { attempted: 0, delivered: 0 };
@@ -240,6 +243,7 @@ interface WorkflowInfo {
   payment_due_date: string | null;
   deliberation_note: string | null;
   rejection_reason: string | null;
+  info_due_date: string | null;
 }
 
 /** The practice's draft and policy, as links valid for a week. */
@@ -271,6 +275,7 @@ async function flowDocuments(supabase: SupabaseClient, practiceId: string): Prom
 interface EventDetails {
   message?: string | null;
   reason?: string | null;
+  dueDate?: string | null;
 }
 
 async function buildSourcePayload(
@@ -306,6 +311,7 @@ async function buildSourcePayload(
       note: kind === 'deliberated' ? workflow?.deliberation_note ?? null : undefined,
       reason: kind === 'rejected' ? details.reason ?? workflow?.rejection_reason ?? null : kind === 'reopened' ? details.reason ?? null : undefined,
       message: kind === 'info_requested' || kind === 'info_provided' ? details.message ?? null : undefined,
+      due_date: kind === 'info_requested' ? details.dueDate ?? workflow?.info_due_date ?? null : undefined,
       policy_number: kind === 'issued' ? practice.policy_number : undefined,
       documents: withDocuments ? await flowDocuments(supabase, practice.id) : undefined,
     },
@@ -364,7 +370,7 @@ export async function emitPracticeEvent(
     if (!practice) return { queued: 0, delivered: 0 };
     const { data: workflow } = await supabase
       .from('practice_workflow')
-      .select('source_portal, source_reference, target_portal, target_reference, payment_due_date, deliberation_note, rejection_reason')
+      .select('source_portal, source_reference, target_portal, target_reference, payment_due_date, deliberation_note, rejection_reason, info_due_date')
       .eq('practice_id', options.practiceId)
       .maybeSingle();
     const info = practice as PracticeInfo;

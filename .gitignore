@@ -29,3 +29,6 @@ dist-ssr
 *.sln
 *.sw?
 CREDENTIALS.md
+
+# Browser test screenshots
+e2e/artifacts/

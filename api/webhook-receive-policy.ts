@@ -4,7 +4,9 @@ import * as crypto from 'crypto';
 import { composeNotes, extractNotesSections, resolvePetCoverages, type SpecificFields } from '../src/lib/practiceSummary.js';
 import { computePetQuote } from '../src/lib/petQuoteEngine.js';
 import { attachPetQuoteDocument, type PetQuoteDocumentResult } from './_lib/pet-quote-document.js';
-import { DOCUMENT_TYPE_ALIASES, normalizeDocumentType, type AdminClient } from './_lib/partner-api.js';
+import { applyApiCors, checkRateLimit, DOCUMENT_TYPE_ALIASES, getClientIp, hitKeyRateLimit, normalizeDocumentType, type AdminClient } from './_lib/partner-api.js';
+import { RawBodyTooLargeError, readRawBody } from './_lib/raw-body.js';
+import { verifyWebhookSignature } from './_lib/webhook-signature.js';
 import { dispatchNotifications, labelQueuedEvents } from './_lib/notification-dispatch.js';
 
 // ---------------------------------------------------------------------------
@@ -92,62 +94,14 @@ const ALLOWED_MIME_TYPES = ['application/pdf', 'image/jpeg', 'image/png',
 const MAX_DOC_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB decoded
 
 // ---------------------------------------------------------------------------
-// In-memory rate limiter (sliding window, per IP)
+// Body and signature
 // ---------------------------------------------------------------------------
 
-interface RateLimitEntry {
-  count: number;
-  windowStart: number;
-}
+// The signature covers the exact bytes received, so the body is read here and not parsed by the platform.
+export const config = { api: { bodyParser: false } };
 
-const rateLimitMap = new Map<string, RateLimitEntry>();
-const RATE_LIMIT_MAX = 100;
-const RATE_LIMIT_WINDOW_MS = 60_000;
-
-function checkRateLimit(ip: string): { allowed: boolean; retryAfter: number } {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
-
-  if (!entry || now - entry.windowStart >= RATE_LIMIT_WINDOW_MS) {
-    rateLimitMap.set(ip, { count: 1, windowStart: now });
-    return { allowed: true, retryAfter: 0 };
-  }
-
-  if (entry.count >= RATE_LIMIT_MAX) {
-    const retryAfter = Math.ceil((entry.windowStart + RATE_LIMIT_WINDOW_MS - now) / 1000);
-    return { allowed: false, retryAfter };
-  }
-
-  entry.count += 1;
-  return { allowed: true, retryAfter: 0 };
-}
-
-// ---------------------------------------------------------------------------
-// HMAC helpers
-// ---------------------------------------------------------------------------
-
-function computeHmac(secret: string, body: string): Buffer {
-  return crypto.createHmac('sha256', secret).update(body, 'utf8').digest();
-}
-
-function validateSignature(secret: string, rawBody: string, signatureHeader: string): boolean {
-  const prefix = 'sha256=';
-  if (!signatureHeader.startsWith(prefix)) return false;
-  const provided = Buffer.from(signatureHeader.slice(prefix.length), 'hex');
-  const expected = computeHmac(secret, rawBody);
-  if (provided.length !== expected.length) return false;
-  return crypto.timingSafeEqual(provided, expected);
-}
-
-// ---------------------------------------------------------------------------
-// Practice-number generator (mirrors DB trigger format PR-YYYY-NNNN)
-// ---------------------------------------------------------------------------
-
-function generatePracticeNumber(): string {
-  const year = new Date().getFullYear();
-  const rand = Math.floor(Math.random() * 9000) + 1000;
-  return `PR-${year}-${rand}`;
-}
+/** The platform rejects larger bodies anyway (4.5 MB); this is the ceiling for the bytes read here. */
+const MAX_BODY_BYTES = 5 * 1024 * 1024;
 
 // ---------------------------------------------------------------------------
 // Logging helper
@@ -178,21 +132,13 @@ async function logRequest(
 // ---------------------------------------------------------------------------
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers',
-    'Content-Type, X-API-Key, X-Signature, X-Idempotency-Key');
+  applyApiCors(req, res, 'POST, OPTIONS', 'Content-Type, X-API-Key, X-Signature, X-Idempotency-Key');
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method === 'OPTIONS') return res.status(204).end();
 
   const endpoint = '/api/webhook-receive-policy';
   const method = req.method ?? 'UNKNOWN';
-  const ip = (
-    (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ||
-    (req as { socket?: { remoteAddress?: string } }).socket?.remoteAddress ||
-    'unknown'
-  );
+  const ip = getClientIp(req);
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL ?? '';
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
@@ -238,7 +184,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // 3. Rate limit
-  const { allowed, retryAfter } = checkRateLimit(ip);
+  const { allowed, retryAfter } = await checkRateLimit(ip, { scope: 'webhook-receive-policy', supabase: supabaseAdmin });
   if (!allowed) {
     res.setHeader('Retry-After', retryAfter.toString());
     return logAndRespond(429, { error: 'Troppe richieste. Riprova tra qualche secondo.', retry_after: retryAfter });
@@ -278,6 +224,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!legacyMatch) {
       return logAndRespond(401, { error: 'API Key non valida.' }, { error_message: 'Key not found in DB' });
     }
+    const legacyLimit = await hitKeyRateLimit(supabaseAdmin, 'legacy');
+    if (!legacyLimit.allowed) {
+      res.setHeader('Retry-After', legacyLimit.retryAfter.toString());
+      return logAndRespond(429, { error: 'Troppe richieste.', retry_after: legacyLimit.retryAfter }, { error_message: 'Key rate limit' });
+    }
   }
 
   if (keyRecord) {
@@ -287,6 +238,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (keyRecord.expires_at && new Date(keyRecord.expires_at) < new Date()) {
       return logAndRespond(401, { error: 'API Key scaduta.' }, { error_message: 'Key expired' });
     }
+    const keyLimit = await hitKeyRateLimit(supabaseAdmin, keyRecord.id);
+    if (!keyLimit.allowed) {
+      res.setHeader('Retry-After', keyLimit.retryAfter.toString());
+      return logAndRespond(429, { error: 'Troppe richieste.', retry_after: keyLimit.retryAfter }, { error_message: 'Key rate limit' });
+    }
     // Update last_used_at (fire-and-forget)
     supabaseAdmin
       .from('api_keys')
@@ -295,30 +251,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .then(() => {}, (err: unknown) => console.error('Failed to update last_used_at:', err));
   }
 
-  // 5. HMAC signature
+  // 5. HMAC signature, over the exact bytes received
   const webhookSecret = process.env.WEBHOOK_SECRET;
   if (!webhookSecret) {
-    const rawBody = JSON.stringify(req.body ?? {});
-    const bodySize = Buffer.byteLength(rawBody, 'utf8');
-    const source = typeof (req.body as Record<string, unknown>)?.source === 'string'
-      ? (req.body as Record<string, unknown>).source
-      : 'unknown';
-    return logAndRespond(503, { error: 'Configurazione server incompleta.' }, { source: source as string, error_message: 'WEBHOOK_SECRET not configured', size: bodySize });
+    return logAndRespond(503, { error: 'Configurazione server incompleta.' }, { error_message: 'WEBHOOK_SECRET not configured' });
   }
   const signatureHeader = req.headers['x-signature'] as string | undefined;
-  const rawBody = JSON.stringify(req.body ?? {});
-
   if (!signatureHeader) {
     return logAndRespond(401, { error: 'Header X-Signature mancante.' });
   }
-  if (!validateSignature(webhookSecret, rawBody, signatureHeader)) {
-    return logAndRespond(401, { error: 'Firma HMAC non valida.' }, { error_message: 'HMAC validation failed' });
+
+  let rawBody: string;
+  try {
+    rawBody = await readRawBody(req, MAX_BODY_BYTES);
+  } catch (error) {
+    if (error instanceof RawBodyTooLargeError) return logAndRespond(413, { error: 'Corpo della richiesta troppo grande.' }, { error_message: 'Body too large' });
+    throw error;
+  }
+
+  const verdict = verifyWebhookSignature({
+    secret: webhookSecret,
+    rawBody,
+    header: signatureHeader,
+    allowReencoded: process.env.WEBHOOK_REENCODED_SIGNATURE !== 'off',
+  });
+  if (verdict === 'invalid') {
+    return logAndRespond(401, { error: 'Firma HMAC non valida.' }, { error_message: 'HMAC validation failed', size: Buffer.byteLength(rawBody, 'utf8') });
+  }
+  if (verdict === 'reencoded') {
+    // Accepted for now, but the caller is told: the signature must cover the bytes it sends.
+    res.setHeader('Warning', '299 - "X-Signature computed on the re-serialised body; sign the exact bytes sent"');
+    console.warn('webhook-receive-policy: signature matches only the re-serialised body', apiKeyMasked);
   }
 
   // 6. JSON body
-  const body = req.body as Record<string, unknown> | null;
-  if (!body || typeof body !== 'object') {
-    return logAndRespond(400, { error: 'Corpo della richiesta non valido o non JSON.' });
+  let body: Record<string, unknown> | null = null;
+  try {
+    const parsed: unknown = JSON.parse(rawBody);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) body = parsed as Record<string, unknown>;
+  } catch {
+    body = null;
+  }
+  if (!body) {
+    return logAndRespond(400, { error: 'Corpo della richiesta non valido o non JSON.' }, { error_message: 'Invalid JSON', size: Buffer.byteLength(rawBody, 'utf8') });
   }
 
   const bodySize = Buffer.byteLength(rawBody, 'utf8');

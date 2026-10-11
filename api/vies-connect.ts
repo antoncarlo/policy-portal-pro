@@ -1,12 +1,18 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { authenticateApiKey, checkRateLimit, createAdminClient, getClientIp, logApiRequest } from './_lib/partner-api.js';
+import { applyApiCors, authenticateApiKey, checkRateLimit, createAdminClient, getClientIp, logApiRequest, rejectAuth } from './_lib/partner-api.js';
 import { handlePortalCallback, MAX_CALLBACK_BODY_BYTES } from './_lib/vies-callback.js';
 import { completeLot, createLot, IntakeError, lotStatus } from './_lib/vies-intake.js';
+import { checkEnv } from './_lib/env.js';
+import { captureServerError } from './_lib/monitoring.js';
+import { handleResendWebhook } from './_lib/resend-webhook.js';
+import { bearerMatches } from './_lib/secrets.js';
 import { readPortalRegistry } from './_lib/vies-orchestrator.js';
 
 /**
- * Connections with other portals, one function (the platform limits their number) behind three
+ * Connections with other portals, one function (the platform limits their number) behind a few
  * addresses, set in vercel.json:
+ *   GET  /api/health                 is the portal up; with the cron secret also what is configured (names only)
+ *   POST /api/resend-webhook         delivery reports from the email provider (signed by Svix, see resend-webhook.ts)
  *   POST /api/vies-portal-callback   answers from the company's portal (signed, see vies-callback.ts)
  *   POST /api/vies-intake            a portal sends in a lot: create_lot, complete_lot (X-API-Key)
  *   GET  /api/vies-intake-status     state of the lots sent in (X-API-Key)
@@ -39,12 +45,64 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (route === 'callback') return await handleCallback(req, res);
     if (route === 'intake') return await handleIntake(req, res);
     if (route === 'intake-status') return await handleIntakeStatus(req, res);
+    if (route === 'resend-webhook') return await handleResendDelivery(req, res);
+    if (route === 'health') return await handleHealth(req, res);
     return res.status(404).json({ error: 'not_found' });
   } catch (error) {
     if (error instanceof IntakeError) return res.status(error.status).json({ ok: false, error: error.code, message: error.message, ...error.extra });
     console.error('vies-connect:', error instanceof Error ? error.message : error);
+    await captureServerError(error, 'vies-connect', { tags: { route: String(route ?? '') } });
     return res.status(500).json({ ok: false, error: 'internal_error', message: 'Errore interno, riprovare.' });
   }
+}
+
+/**
+ * Public: `{ status, time }` and whether the database answers. With `Authorization: Bearer <CRON_SECRET>` also the
+ * environment report (which variables are missing or malformed, which features are on): never values.
+ */
+async function handleHealth(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    res.setHeader('Allow', 'GET, HEAD');
+    return res.status(405).json({ ok: false, error: 'method_not_allowed' });
+  }
+  res.setHeader('Cache-Control', 'no-store');
+  const report = checkEnv();
+  let database: 'ok' | 'down' | 'unconfigured' = 'unconfigured';
+  if (report.ok) {
+    try {
+      const { error } = await createAdminClient().from('system_settings').select('id', { head: true, count: 'exact' }).limit(1);
+      database = error ? 'down' : 'ok';
+    } catch {
+      database = 'down';
+    }
+  }
+  const status = database === 'ok' ? 'ok' : 'down';
+  const detailed = bearerMatches(req.headers.authorization, [process.env.CRON_SECRET]);
+  return res.status(status === 'ok' ? 200 : 503).json({
+    status,
+    database,
+    time: new Date().toISOString(),
+    ...(detailed ? { release: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ?? null, environment: report } : {}),
+  });
+}
+
+async function handleResendDelivery(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ ok: false, error: 'method_not_allowed', message: 'Utilizzare POST.' });
+  }
+  const supabase = createAdminClient();
+  const limit = await checkRateLimit(getClientIp(req), { scope: 'resend-webhook', supabase, limit: 600 });
+  if (!limit.allowed) {
+    res.setHeader('Retry-After', String(limit.retryAfter));
+    return res.status(429).json({ ok: false, error: 'rate_limited', retry_after: limit.retryAfter });
+  }
+  const rawBody = await readRawBody(req);
+  const result = await handleResendWebhook(supabase, process.env.RESEND_WEBHOOK_SECRET, {
+    headers: { 'svix-id': header(req, 'svix-id'), 'svix-timestamp': header(req, 'svix-timestamp'), 'svix-signature': header(req, 'svix-signature') },
+    rawBody,
+  });
+  return res.status(result.status).json(result.body);
 }
 
 async function handleCallback(req: VercelRequest, res: VercelResponse) {
@@ -53,14 +111,15 @@ async function handleCallback(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ ok: false, error: 'method_not_allowed', message: 'Utilizzare POST.' });
   }
   const ip = getClientIp(req);
-  const limit = checkRateLimit(ip);
+  const supabase = createAdminClient();
+  const limit = await checkRateLimit(ip, { scope: 'vies-callback', supabase });
   if (!limit.allowed) {
     res.setHeader('Retry-After', String(limit.retryAfter));
     return res.status(429).json({ ok: false, error: 'rate_limited', retry_after: limit.retryAfter });
   }
   const rawBody = await readRawBody(req);
   const result = await handlePortalCallback(
-    createAdminClient(),
+    supabase,
     readPortalRegistry(),
     {
       headers: { 'x-portal-id': header(req, 'x-portal-id'), 'x-timestamp': header(req, 'x-timestamp'), 'x-signature': header(req, 'x-signature') },
@@ -72,11 +131,9 @@ async function handleCallback(req: VercelRequest, res: VercelResponse) {
 
 /** Rate limit, X-API-Key and the log line every partner call leaves. */
 async function partnerCall(req: VercelRequest, res: VercelResponse, endpoint: string, method: 'GET' | 'POST') {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', `${method}, OPTIONS`);
-  res.setHeader('Access-Control-Allow-Headers', 'X-API-Key, Content-Type');
+  applyApiCors(req, res, `${method}, OPTIONS`, 'X-API-Key, Content-Type');
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
+    res.status(204).end();
     return null;
   }
   if (req.method !== method) {
@@ -85,16 +142,16 @@ async function partnerCall(req: VercelRequest, res: VercelResponse, endpoint: st
     return null;
   }
   const ip = getClientIp(req);
-  const limit = checkRateLimit(ip);
+  const supabase = createAdminClient();
+  const limit = await checkRateLimit(ip, { scope: endpoint, supabase });
   if (!limit.allowed) {
     res.setHeader('Retry-After', String(limit.retryAfter));
     res.status(429).json({ ok: false, error: 'rate_limited', retry_after: limit.retryAfter });
     return null;
   }
-  const supabase = createAdminClient();
   const auth = await authenticateApiKey(req, supabase);
   if (!auth.ok) {
-    res.status(auth.status).json(auth.body);
+    rejectAuth(res, auth);
     return null;
   }
   const log = (statusCode: number, errorMessage?: string, size = 0) =>

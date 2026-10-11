@@ -2,23 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-
-interface PracticeDetail {
-  practice_number: string;
-  practice_type: string;
-  status: string;
-  client_name: string;
-  client_email: string;
-  agent_name: string;
-  company_name: string;
-  annual_premium: number;
-  agent_commission: number;
-  policy_start_date: string;
-  policy_end_date: string;
-  created_at: string;
-  payment_frequency: string;
-  notes: string;
-}
+import type { ProductionDetailRow } from '@/lib/productionReport';
 
 interface ProductionStats {
   total_practices: number;
@@ -75,7 +59,7 @@ function getLastAutoTableFinalY(doc: jsPDF, fallback: number): number {
 }
 
 export async function exportToPDF(
-  practices: PracticeDetail[],
+  practices: ProductionDetailRow[],
   stats: ProductionStats | null,
   kpis: DashboardKPIs | null,
   options: ExportOptions
@@ -280,15 +264,15 @@ export async function exportToPDF(
       p.practice_number,
       p.practice_type,
       p.client_name,
-      p.agent_name,
-      formatCurrency(p.annual_premium),
-      formatCurrency(p.agent_commission),
+      p.policy_number || '-',
+      formatCurrency(p.premium_gross ?? 0),
+      formatCurrency(p.commission_amount ?? 0),
       p.status,
     ]);
 
     autoTable(doc, {
       startY: yPos,
-      head: [['N. Pratica', 'Tipo', 'Cliente', 'Agente', 'Premio', 'Provv.', 'Stato']],
+      head: [['N. Pratica', 'Tipo', 'Cliente', 'N. Polizza', 'Premio', 'Provv.', 'Stato']],
       body: practicesData,
       theme: 'grid',
       headStyles: { fillColor: [99, 102, 241] },

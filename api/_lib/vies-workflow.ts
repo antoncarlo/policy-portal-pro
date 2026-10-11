@@ -17,7 +17,7 @@ export type WorkflowEvent =
   | { type: 'sent'; portalId: string; portalName?: string; reference?: string | null; at?: string }
   | { type: 'deliberated'; at?: string; paymentDueDate?: string | null; note?: string | null; draft?: IncomingDocument | null; documentHosts?: string[] }
   | { type: 'rejected'; reason: string; at?: string }
-  | { type: 'info_requested'; message: string }
+  | { type: 'info_requested'; message: string; dueDate?: string | null }
   | { type: 'info_provided'; message?: string | null }
   | { type: 'issued'; at?: string; document?: IncomingDocument | null; documentHosts?: string[] }
   | { type: 'reopened'; reason?: string | null };
@@ -55,6 +55,28 @@ interface Plan {
   toStatus: Status;
   /** False: the practice is already in the target status. */
   moves: boolean;
+}
+
+/** Days given to answer a request for more documents when nobody sets a date. */
+export const INFO_REQUEST_DAYS = 7;
+const MAX_INFO_DAYS = 365;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export const defaultInfoDueDate = (from = new Date()): string => new Date(from.getTime() + INFO_REQUEST_DAYS * DAY_MS).toISOString().slice(0, 10);
+
+/** A date the documents are due by: a real day, not in the past, within a year. Empty: the default applies. */
+export function parseInfoDueDate(value: unknown, now = new Date()): string | null {
+  if (value === undefined || value === null || value === '') return null;
+  const text = typeof value === 'string' ? value.trim() : '';
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  const time = match ? Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : NaN;
+  if (!match || !Number.isFinite(time) || new Date(time).toISOString().slice(0, 10) !== text) {
+    throw new WorkflowError(422, 'invalid_payload', 'Termine non valido: usare il formato AAAA-MM-GG');
+  }
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  if (time < today) throw new WorkflowError(422, 'invalid_payload', 'Il termine non può essere nel passato');
+  if (time - today > MAX_INFO_DAYS * DAY_MS) throw new WorkflowError(422, 'invalid_payload', 'Il termine non può superare un anno');
+  return text;
 }
 
 const BLOCKED = (message: string) => new WorkflowError(409, 'invalid_transition', message);
@@ -160,10 +182,17 @@ function workflowColumns(event: WorkflowEvent): Record<string, unknown> {
       };
     case 'rejected':
       return { rejected_at: event.at ?? nowIso(), rejection_reason: event.reason };
-    // The request itself stays in the practice's history; the workflow row only records that it exists.
+    // The request itself stays in the practice's history; the workflow row records when it is due and
+    // which reminders have gone out (a new request starts again).
     case 'info_requested':
+      return {
+        info_requested_at: nowIso(),
+        info_due_date: event.dueDate || defaultInfoDueDate(),
+        info_reminded_at: null,
+        info_overdue_notified_at: null,
+      };
     case 'info_provided':
-      return {};
+      return { info_due_date: null, info_reminded_at: null, info_overdue_notified_at: null };
     case 'issued':
       return { issued_at: event.at ?? nowIso() };
     case 'reopened':

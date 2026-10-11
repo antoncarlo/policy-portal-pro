@@ -12,6 +12,16 @@ import { LANGUAGES, getMessages, useLanguage, useMessages, type Language } from 
 import { commonMessages } from "@/i18n/messages/common";
 import { preferencesMessages } from "@/i18n/messages/settings";
 
+const readEmailPreferences = (value: unknown) => {
+  const stored = typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  // A switch that was never saved is on.
+  return {
+    new_practice: stored.new_practice !== false,
+    status_change: stored.status_change !== false,
+    new_document: stored.new_document !== false,
+  };
+};
+
 export const PreferencesSettings = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -51,11 +61,7 @@ export const PreferencesSettings = () => {
           theme: data.theme || "auto",
           timezone: data.timezone || "Europe/Rome",
           date_format: data.date_format || "DD/MM/YYYY",
-          email_notifications: data.email_notifications || {
-            new_practice: true,
-            status_change: true,
-            new_document: true,
-          },
+          email_notifications: readEmailPreferences(data.email_notifications),
         });
       }
     } catch (error) {

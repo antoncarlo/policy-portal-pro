@@ -1,18 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, UserPlus } from "lucide-react";
+import { Copy, Search, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ClientsTable } from "@/components/clients/ClientsTable";
 import { ClientForm } from "@/components/clients/ClientForm";
 import { Tables } from "@/integrations/supabase/types";
 import { useMessages } from "@/i18n";
 import { clientsMessages } from "@/i18n/messages/clients";
+import { clientDataMessages } from "@/i18n/messages/clientData";
+import { DuplicateClientsDialog } from "@/components/clients/DuplicateClientsDialog";
+import { findDuplicateGroups } from "@/lib/clientDuplicates";
 
 const Clients = () => {
   const m = useMessages(clientsMessages);
+  const dataText = useMessages(clientDataMessages).duplicates;
+  const [duplicatesOpen, setDuplicatesOpen] = useState(false);
   const [clients, setClients] = useState<Tables<"clients">[]>([]);
   const [filteredClients, setFilteredClients] = useState<Tables<"clients">[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +63,8 @@ const Clients = () => {
     }
   }, [searchQuery, clients]);
 
+  const duplicateGroups = useMemo(() => findDuplicateGroups(clients), [clients]);
+
   const handleAddClient = () => {
     setSelectedClient(null);
     setDialogOpen(true);
@@ -84,10 +91,18 @@ const Clients = () => {
               {m.subtitle}
             </p>
           </div>
-          <Button onClick={handleAddClient} className="h-auto min-h-10 w-full whitespace-normal text-center md:w-auto">
-            <UserPlus className="mr-2 h-4 w-4 shrink-0" />
-            <span>{m.add}</span>
-          </Button>
+          <div className="flex flex-col gap-2 md:flex-row">
+            {duplicateGroups.length > 0 && (
+              <Button variant="outline" onClick={() => setDuplicatesOpen(true)} className="h-auto min-h-10 w-full whitespace-normal text-center md:w-auto" data-testid="duplicates-button">
+                <Copy className="mr-2 h-4 w-4 shrink-0" />
+                <span>{dataText.button(duplicateGroups.length)}</span>
+              </Button>
+            )}
+            <Button onClick={handleAddClient} className="h-auto min-h-10 w-full whitespace-normal text-center md:w-auto">
+              <UserPlus className="mr-2 h-4 w-4 shrink-0" />
+              <span>{m.add}</span>
+            </Button>
+          </div>
         </div>
 
         <div className="relative">
@@ -105,6 +120,15 @@ const Clients = () => {
           loading={loading}
           onClientUpdated={loadClients}
           onClientEdit={handleEditClient}
+        />
+
+        <DuplicateClientsDialog
+          open={duplicatesOpen}
+          onOpenChange={setDuplicatesOpen}
+          groups={duplicateGroups}
+          onMerged={() => {
+            void loadClients();
+          }}
         />
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

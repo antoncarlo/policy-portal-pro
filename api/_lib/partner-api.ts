@@ -4,6 +4,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import * as crypto from 'crypto';
+import { hitRateLimit, type RateLimitResult } from './rate-limit.js';
 
 // ---------------------------------------------------------------------------
 // Client Supabase (service role)
@@ -22,34 +23,39 @@ export function createAdminClient(): AdminClient {
 }
 
 // ---------------------------------------------------------------------------
-// IP e rate limiter (sliding window, per IP, in-memory per istanza)
+// IP e rate limit (contatori nel database, condivisi tra le istanze)
 // ---------------------------------------------------------------------------
 
+/**
+ * Indirizzo di chi chiama. Su Vercel gli header della piattaforma sono scritti dalla piattaforma
+ * (un client non puo' impostarli); x-forwarded-for resta come ripiego fuori da Vercel.
+ */
 export function getClientIp(req: VercelRequest): string {
+  const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value)?.split(',')[0]?.trim();
   return (
-    (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ||
+    first(req.headers['x-vercel-forwarded-for']) ||
+    first(req.headers['x-real-ip']) ||
+    first(req.headers['x-forwarded-for']) ||
     (req as { socket?: { remoteAddress?: string } }).socket?.remoteAddress ||
     'unknown'
   );
 }
 
-interface RateLimitEntry { count: number; windowStart: number; }
-const rateLimitMap = new Map<string, RateLimitEntry>();
+/** Per indirizzo: 100 chiamate al minuto per endpoint. Per chiave API: 300 al minuto in tutto. */
 export const RATE_LIMIT_MAX = 100;
-export const RATE_LIMIT_WINDOW_MS = 60_000;
+export const RATE_LIMIT_WINDOW_SECONDS = 60;
+export const RATE_LIMIT_KEY_MAX = 300;
 
-export function checkRateLimit(ip: string): { allowed: boolean; retryAfter: number } {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
-  if (!entry || now - entry.windowStart >= RATE_LIMIT_WINDOW_MS) {
-    rateLimitMap.set(ip, { count: 1, windowStart: now });
-    return { allowed: true, retryAfter: 0 };
-  }
-  if (entry.count >= RATE_LIMIT_MAX) {
-    return { allowed: false, retryAfter: Math.ceil((entry.windowStart + RATE_LIMIT_WINDOW_MS - now) / 1000) };
-  }
-  entry.count += 1;
-  return { allowed: true, retryAfter: 0 };
+export type { RateLimitResult } from './rate-limit.js';
+
+export function checkRateLimit(
+  ip: string,
+  options: { scope?: string; supabase?: AdminClient; limit?: number; windowSeconds?: number } = {}
+): Promise<RateLimitResult> {
+  return hitRateLimit(options.supabase ?? createAdminClient(), `ip:${options.scope ?? 'api'}:${ip}`, {
+    limit: options.limit ?? RATE_LIMIT_MAX,
+    windowSeconds: options.windowSeconds ?? RATE_LIMIT_WINDOW_SECONDS,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -97,12 +103,29 @@ export interface ApiKeyContext {
 
 export type AuthResult =
   | { ok: true; ctx: ApiKeyContext }
-  | { ok: false; status: number; body: { error: string } };
+  | { ok: false; status: number; body: { error: string; retry_after?: number }; retryAfter?: number };
+
+/** Risponde a una chiamata rifiutata dall'autenticazione (con Retry-After quando e' il limite). */
+export function rejectAuth(res: VercelResponse, auth: Extract<AuthResult, { ok: false }>): VercelResponse {
+  if (auth.retryAfter) res.setHeader('Retry-After', String(auth.retryAfter));
+  return res.status(auth.status).json(auth.body);
+}
 
 function timingSafeEqualString(a: string, b: string): boolean {
   const bufA = Buffer.from(a, 'utf8');
   const bufB = Buffer.from(b, 'utf8');
   return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
+}
+
+/** Per chiave API (o "legacy" per la chiave da variabile d'ambiente): 300 chiamate al minuto. */
+export function hitKeyRateLimit(supabaseAdmin: AdminClient, keyId: string): Promise<RateLimitResult> {
+  return hitRateLimit(supabaseAdmin, `key:${keyId}`, { limit: RATE_LIMIT_KEY_MAX, windowSeconds: RATE_LIMIT_WINDOW_SECONDS });
+}
+
+async function keyRateLimit(supabaseAdmin: AdminClient, keyId: string): Promise<Extract<AuthResult, { ok: false }> | null> {
+  const limit = await hitKeyRateLimit(supabaseAdmin, keyId);
+  if (limit.allowed) return null;
+  return { ok: false, status: 429, body: { error: 'Troppe richieste.', retry_after: limit.retryAfter }, retryAfter: limit.retryAfter };
 }
 
 /**
@@ -131,6 +154,8 @@ export async function authenticateApiKey(req: VercelRequest, supabaseAdmin: Admi
     const legacyKey = process.env.PORTAL_API_KEY;
     const legacyMatch = legacyKey ? timingSafeEqualString(legacyKey, apiKey) : false;
     if (!legacyMatch) return { ok: false, status: 401, body: { error: 'API Key non valida.' } };
+    const legacyLimit = await keyRateLimit(supabaseAdmin, 'legacy');
+    if (legacyLimit) return legacyLimit;
     return {
       ok: true,
       ctx: { keyRecord: null, keyId: undefined, apiKeyMasked, mappedUserId: null, isLegacy: true },
@@ -142,6 +167,9 @@ export async function authenticateApiKey(req: VercelRequest, supabaseAdmin: Admi
   if (keyRecord.expires_at && new Date(keyRecord.expires_at) < new Date()) {
     return { ok: false, status: 401, body: { error: 'API Key scaduta.' } };
   }
+
+  const limited = await keyRateLimit(supabaseAdmin, keyRecord.id);
+  if (limited) return limited;
 
   // last_used_at: fire-and-forget
   supabaseAdmin
@@ -184,12 +212,32 @@ export function practiceBelongsToTenant(
   return false;
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Filtro PostgREST equivalente a practiceBelongsToTenant, da usare con `.or()`. */
 export function tenantScopeFilter(ctx: ApiKeyContext): string {
   if (ctx.isLegacy) return 'api_key_id.is.null';
+  // The ids go into a filter string: anything that is not a UUID would change what the filter means.
+  if (!UUID_PATTERN.test(ctx.keyId ?? '') || (ctx.mappedUserId && !UUID_PATTERN.test(ctx.mappedUserId))) {
+    throw new Error('Identificativo di chiave non valido');
+  }
   const clauses = [`api_key_id.eq.${ctx.keyId}`];
   if (ctx.mappedUserId) clauses.push(`user_id.eq.${ctx.mappedUserId}`);
   return clauses.join(',');
+}
+
+/**
+ * CORS for the partner APIs. They are called server to server, so a browser on another site gets no
+ * access unless the operator lists its origin in API_CORS_ORIGINS (comma separated).
+ */
+export function applyApiCors(req: VercelRequest, res: VercelResponse, methods: string, headers: string): void {
+  const origin = typeof req.headers.origin === 'string' ? req.headers.origin : '';
+  const allowed = (process.env.API_CORS_ORIGINS ?? '').split(',').map((value) => value.trim()).filter(Boolean);
+  if (!origin || !allowed.includes(origin)) return;
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', methods);
+  res.setHeader('Access-Control-Allow-Headers', headers);
 }
 
 // ---------------------------------------------------------------------------
@@ -215,12 +263,10 @@ export async function prepareGetEndpoint(
   endpoint: string,
   allowedMethod: 'GET' | 'POST' = 'GET'
 ): Promise<GetEndpointContext | null> {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', `${allowedMethod}, OPTIONS`);
-  res.setHeader('Access-Control-Allow-Headers', 'X-API-Key, Content-Type');
+  applyApiCors(req, res, `${allowedMethod}, OPTIONS`, 'X-API-Key, Content-Type');
 
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
+    res.status(204).end();
     return null;
   }
 
@@ -231,17 +277,17 @@ export async function prepareGetEndpoint(
   }
 
   const ip = getClientIp(req);
-  const { allowed, retryAfter } = checkRateLimit(ip);
+  const supabaseAdmin = createAdminClient();
+  const { allowed, retryAfter } = await checkRateLimit(ip, { scope: endpoint, supabase: supabaseAdmin });
   if (!allowed) {
     res.setHeader('Retry-After', retryAfter.toString());
     res.status(429).json({ error: 'Troppe richieste.', retry_after: retryAfter });
     return null;
   }
 
-  const supabaseAdmin = createAdminClient();
   const auth = await authenticateApiKey(req, supabaseAdmin);
   if (!auth.ok) {
-    res.status(auth.status).json(auth.body);
+    rejectAuth(res, auth);
     return null;
   }
 

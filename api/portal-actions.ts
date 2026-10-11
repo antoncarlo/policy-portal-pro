@@ -1,10 +1,16 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { escapeHtml, getMailProvider, getSenderAddress, sendMail } from './_lib/mailer.js';
+import { sendMailLogged } from './_lib/email-log.js';
+import { escapeHtml, getMailProvider, getSenderAddress } from './_lib/mailer.js';
 import { assertSecondFactor, MfaRequiredError } from './_lib/mfa.js';
 import { getSupabaseAnon, normalizeLanguage, sendAccessEmail, type AccessEmailResult } from './_lib/auth-emails.js';
 import { checkPassword } from '../src/lib/passwordPolicy.js';
 import { dispatchNotifications, sendNotificationSample } from './_lib/notification-dispatch.js';
+import { assertCanDelete, getUserFootprint, OffboardingError, reassignUserData } from './_lib/offboarding.js';
+import { logActivity } from './_lib/audit.js';
+import { RenewalError, renewPractice } from './_lib/renewals.js';
+import { ClientError, exportClientData, mergeClients } from './_lib/clients.js';
+import { captureServerError } from './_lib/monitoring.js';
 
 /**
  * Portal actions that need the service role, called by signed-in users with their session token.
@@ -19,6 +25,11 @@ import { dispatchNotifications, sendNotificationSample } from './_lib/notificati
  *   checked and set by the server, so the change cannot be skipped from the browser.
  * - resend_access_email: administrators only. Welcome email (user never signed in) or reset link.
  * - send_test_notification: administrators only. A sample notification to the addresses chosen for a user.
+ * - user_footprint, reassign_user_data: administrators only. What a user still owns, and handing it all to another user
+ *   (so an account can be disabled or deleted without losing its practices).
+ * - merge_clients: the owner of the clients (or an administrator). Unites duplicates in the address book.
+ * - export_client_data: the owner, their agent or an administrator. Everything held about one client (JSON).
+ * - renew_practice: whoever can see the practice. Creates the renewal (a new practice linked to the expiring one).
  * - reset_mfa: administrators only. Removes the user's authenticator-app factors (lost phone).
  * - email_status, send_test_email: administrators only. Which channel sends the portal's emails
  *   and a real test message to the administrator's own address.
@@ -28,6 +39,12 @@ type Action =
   | 'create_user'
   | 'disable_user'
   | 'delete_user'
+  | 'user_footprint'
+  | 'log_session_event'
+  | 'reassign_user_data'
+  | 'renew_practice'
+  | 'merge_clients'
+  | 'export_client_data'
   | 'flush_notifications'
   | 'notify_new_practice'
   | 'send_test_notification'
@@ -212,6 +229,8 @@ async function disableOrDeleteUser(supabase: SupabaseClient, callerId: string, b
   if (userId === callerId) throw new HttpError(400, 'Non puoi disattivare o eliminare il tuo stesso account');
 
   if (remove) {
+    // Deleting an account must never take its practices and clients with it.
+    await assertCanDelete(supabase, userId);
     const { error } = await supabase.auth.admin.deleteUser(userId);
     if (error) throw new HttpError(400, error.message);
   } else {
@@ -268,13 +287,13 @@ async function sendTestEmail(supabase: SupabaseClient, callerId: string, callerE
     return { sent: false, ...status, reason: 'Nessun servizio email configurato su Vercel (GMAIL_USER e GMAIL_APP_PASSWORD oppure RESEND_API_KEY)' };
   }
   const when = new Date().toLocaleString('it-IT', { timeZone: 'Europe/Rome' });
-  const result = await sendMail({
+  const result = await sendMailLogged(supabase, {
     to: callerEmail,
     subject: 'Prova invio email — Portale Tecno Advance MGA',
     html: `<p>Questa è un'email di prova inviata dal portale il ${escapeHtml(when)}.</p>
 <p>Canale: <strong>${escapeHtml(status.provider === 'gmail' ? 'Gmail / Google Workspace' : 'Resend')}</strong><br>Mittente: <strong>${escapeHtml(status.sender)}</strong></p>
 <p>Se la ricevi, i promemoria di scadenza e le notifiche agli amministratori partiranno correttamente.</p>`,
-  });
+  }, { template: 'smtp_test', recipientName: null });
   if (!result.success) return { sent: false, ...status, reason: result.error ?? 'Errore sconosciuto' };
   return { sent: true, ...status, to: callerEmail };
 }
@@ -290,14 +309,78 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const caller = await resolveCaller(req, supabase);
     const body = (req.body ?? {}) as Record<string, unknown>;
     const action = body.action as Action | undefined;
+    // What an administrator did to an account goes in the audit log, with who, when and from where.
+    const audit = (name: string, targetId: string | null, details?: Record<string, unknown>) =>
+      logActivity(supabase, { actorId: caller.id, action: name, target: { table: 'profiles', id: targetId }, details, req });
+    const targetUserId = typeof body.userId === 'string' ? body.userId : null;
 
     switch (action) {
-      case 'create_user':
-        return res.status(200).json({ success: true, ...(await createUser(supabase, caller.id, body)) });
-      case 'disable_user':
-        return res.status(200).json({ success: true, ...(await disableOrDeleteUser(supabase, caller.id, body, false)) });
-      case 'delete_user':
-        return res.status(200).json({ success: true, ...(await disableOrDeleteUser(supabase, caller.id, body, true)) });
+      case 'create_user': {
+        const created = await createUser(supabase, caller.id, body);
+        await audit('user.create', created.user.id, { email: created.user.email, full_name: created.user.full_name, role: body.role, welcome_sent: created.welcome?.sent ?? null });
+        return res.status(200).json({ success: true, ...created });
+      }
+      case 'disable_user': {
+        const result = await disableOrDeleteUser(supabase, caller.id, body, false);
+        await audit('user.disable', targetUserId);
+        return res.status(200).json({ success: true, ...result });
+      }
+      case 'delete_user': {
+        // The person's name and email are noted first: after the deletion they cannot be looked up.
+        const { data: gone } = targetUserId ? await supabase.from('profiles').select('full_name, email').eq('id', targetUserId).maybeSingle() : { data: null };
+        const result = await disableOrDeleteUser(supabase, caller.id, body, true);
+        await audit('user.delete', targetUserId, { full_name: gone?.full_name ?? null, email: gone?.email ?? null });
+        return res.status(200).json({ success: true, ...result });
+      }
+      case 'user_footprint': {
+        await requireAdmin(supabase, caller.id);
+        const userId = typeof body.userId === 'string' ? body.userId : '';
+        if (!userId) throw new HttpError(400, 'Utente mancante');
+        return res.status(200).json({ success: true, footprint: await getUserFootprint(supabase, userId) });
+      }
+      case 'reassign_user_data': {
+        await requireAdmin(supabase, caller.id);
+        const fromUserId = typeof body.fromUserId === 'string' ? body.fromUserId : '';
+        const toUserId = typeof body.toUserId === 'string' ? body.toUserId : '';
+        if (!fromUserId || !toUserId) throw new HttpError(400, 'Utenti mancanti');
+        const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', caller.id).maybeSingle();
+        const result = await reassignUserData(supabase, {
+          fromUserId,
+          toUserId,
+          actorId: caller.id,
+          actorLabel: (profile?.full_name as string | undefined)?.trim() || 'Amministratore',
+        });
+        await audit('user.reassign', fromUserId, { to_user_id: toUserId, practices: result.moved, clients: result.clients, collaborators: result.collaborators, lots: result.batches, api_keys: result.apiKeys });
+        return res.status(200).json({ success: true, ...result });
+      }
+      case 'renew_practice': {
+        const practiceId = typeof body.practiceId === 'string' ? body.practiceId : '';
+        if (!practiceId) throw new HttpError(400, 'Pratica mancante');
+        const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', caller.id).maybeSingle();
+        const renewal = await renewPractice(supabase, {
+          practiceId,
+          actorId: caller.id,
+          actorLabel: (profile?.full_name as string | undefined)?.trim() || 'Utente',
+        });
+        await logActivity(supabase, { actorId: caller.id, action: 'practice.renew', target: { table: 'practices', id: practiceId }, details: { renewal_id: renewal.practiceId, renewal_number: renewal.practiceNumber }, req });
+        // The administrators hear about the new practice like about any other.
+        await dispatchNotifications(supabase).catch((error: unknown) => console.error('rinnovo: notifiche non inviate:', error));
+        return res.status(200).json({ success: true, ...renewal });
+      }
+      case 'merge_clients': {
+        const keepId = typeof body.keepId === 'string' ? body.keepId : '';
+        const mergeIds = Array.isArray(body.mergeIds) ? body.mergeIds.filter((id): id is string => typeof id === 'string') : [];
+        const result = await mergeClients(supabase, { keepId, mergeIds, actorId: caller.id });
+        await logActivity(supabase, { actorId: caller.id, action: 'client.merge', target: { table: 'clients', id: result.keptId }, details: { merged: result.merged, practices_moved: result.practicesMoved, filled: result.filled }, req });
+        return res.status(200).json({ success: true, ...result });
+      }
+      case 'export_client_data': {
+        const clientId = typeof body.clientId === 'string' ? body.clientId : '';
+        if (!clientId) throw new HttpError(400, 'Cliente mancante');
+        const data = await exportClientData(supabase, { clientId, actorId: caller.id });
+        await logActivity(supabase, { actorId: caller.id, action: 'client.export', target: { table: 'clients', id: clientId }, details: { practices: data.practices.length, emails: data.emails_sent.length }, req });
+        return res.status(200).json({ success: true, export: data });
+      }
       // 'notify_new_practice' is the name the previous version of the browser app uses.
       case 'flush_notifications':
       case 'notify_new_practice':
@@ -308,12 +391,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!userId) throw new HttpError(400, 'Utente mancante');
         return res.status(200).json({ success: true, ...(await sendNotificationSample(supabase, userId)) });
       }
-      case 'set_password':
-        return res.status(200).json({ success: true, ...(await setPassword(supabase, caller, body)) });
-      case 'resend_access_email':
-        return res.status(200).json({ success: true, ...(await resendAccessEmail(supabase, caller.id, body)) });
-      case 'reset_mfa':
-        return res.status(200).json({ success: true, ...(await resetMfa(supabase, caller.id, body)) });
+      case 'set_password': {
+        const result = await setPassword(supabase, caller, body);
+        await audit('user.password_changed', caller.id);
+        return res.status(200).json({ success: true, ...result });
+      }
+      case 'resend_access_email': {
+        const result = await resendAccessEmail(supabase, caller.id, body);
+        await audit('user.access_email', targetUserId, { sent: result.sent });
+        return res.status(200).json({ success: true, ...result });
+      }
+      case 'reset_mfa': {
+        const result = await resetMfa(supabase, caller.id, body);
+        await audit('user.reset_mfa', targetUserId, { factors_removed: result.removed });
+        return res.status(200).json({ success: true, ...result });
+      }
+      case 'log_session_event': {
+        // The browser says a person signed in or out: only those two events, only for the caller.
+        const event = body.event === 'logout' ? 'session.logout' : body.event === 'login' ? 'session.login' : null;
+        if (!event) throw new HttpError(400, 'Evento non valido');
+        await logActivity(supabase, { actorId: caller.id, action: event, target: { table: 'profiles', id: caller.id }, req });
+        return res.status(200).json({ success: true });
+      }
       case 'email_status':
         await requireAdmin(supabase, caller.id);
         return res.status(200).json({ success: true, ...emailStatus() });
@@ -323,10 +422,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'Azione non supportata' });
     }
   } catch (error) {
-    const status = error instanceof HttpError ? error.status : 500;
+    const status = error instanceof HttpError || error instanceof OffboardingError || error instanceof RenewalError || error instanceof ClientError ? error.status : 500;
+    // Expected refusals carry their own status; anything else is an unexpected failure worth knowing about.
+    if (status >= 500) await captureServerError(error, 'portal-actions', { tags: { action: String((req.body as Record<string, unknown> | undefined)?.action ?? '') } });
     return res.status(status).json({
       error: error instanceof Error ? error.message : 'Errore imprevisto',
       ...(error instanceof HttpError && error.code ? { code: error.code } : {}),
+      ...(error instanceof OffboardingError || error instanceof RenewalError || error instanceof ClientError ? { code: error.code } : {}),
     });
   }
 }
