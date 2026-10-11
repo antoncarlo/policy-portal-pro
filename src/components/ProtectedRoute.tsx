@@ -10,9 +10,11 @@ interface ProtectedRouteProps {
   children: React.ReactNode;
   /** Pagina per cambiare la password provvisoria: non puo' rimandare a se stessa. */
   skipPasswordGate?: boolean;
+  /** Pagina riservata agli amministratori: gli altri tornano alla dashboard. */
+  adminOnly?: boolean;
 }
 
-export const ProtectedRoute = ({ children, skipPasswordGate = false }: ProtectedRouteProps) => {
+export const ProtectedRoute = ({ children, skipPasswordGate = false, adminOnly = false }: ProtectedRouteProps) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const common = useMessages(commonMessages);
@@ -50,6 +52,21 @@ export const ProtectedRoute = ({ children, skipPasswordGate = false }: Protected
         setLoading(false);
         return;
       }
+      if (adminOnly) {
+        // Senza una risposta chiara la pagina non si mostra.
+        const { data: role, error } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", session.user.id)
+          .eq("role", "admin")
+          .maybeSingle();
+        if (!active) return;
+        if (error || role?.role !== "admin") {
+          navigate("/dashboard");
+          setLoading(false);
+          return;
+        }
+      }
       setAuthenticated(true);
       setLoading(false);
     };
@@ -66,7 +83,7 @@ export const ProtectedRoute = ({ children, skipPasswordGate = false }: Protected
       active = false;
       subscription.unsubscribe();
     };
-  }, [navigate, skipPasswordGate]);
+  }, [navigate, skipPasswordGate, adminOnly]);
 
   if (loading) {
     return (

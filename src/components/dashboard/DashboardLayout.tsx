@@ -118,7 +118,10 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { path: "/settings", icon: Settings, label: m.nav.settings },
   ];
 
-  const visibleNavItems = navItems.filter((item) => item.path !== "/vies" || canAccessVies);
+  // VIES solo a chi ha il prodotto; Questionari solo agli amministratori.
+  const visibleNavItems = navItems.filter(
+    (item) => (item.path !== "/vies" || canAccessVies) && (item.path !== "/questionnaires" || isAdmin),
+  );
 
   const adminNavItems = [
     { path: "/user-management", icon: UserCog, label: m.nav.userManagement },
