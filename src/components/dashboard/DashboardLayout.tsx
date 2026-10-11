@@ -25,6 +25,7 @@ import { commonMessages } from "@/i18n/messages/common";
 import { shellMessages } from "@/i18n/messages/shell";
 import { workflowMessages } from "@/i18n/messages/workflow";
 import { usePracticeStageCounts } from "@/hooks/usePracticeStageCounts";
+import { PracticeLotsMenu } from "@/components/dashboard/PracticeLotsMenu";
 import { PRACTICE_STAGES, isPracticeStage } from "@/lib/practiceStages";
 import { cn } from "@/lib/utils";
 
@@ -193,6 +194,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                           </Link>
                         );
                       })}
+                      <PracticeLotsMenu open={practicesOpen} />
                     </div>
                   )}
                 </div>

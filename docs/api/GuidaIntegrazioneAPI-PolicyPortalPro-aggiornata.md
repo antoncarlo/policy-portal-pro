@@ -601,6 +601,7 @@ curl "https://policy-portal-pro.vercel.app/api/get-practices?status=in_lavorazio
       "notes": "Fonte: portale-mariano",
       "specific_fields": { "pet_name": "Fido", "...": "..." },
       "documents_count": 2,
+      "lot": null,
       "created_at": "2026-09-07T10:00:00Z",
       "updated_at": "2026-09-07T10:30:00Z",
       "summary": { "...": "presente solo con include_summary=true" }

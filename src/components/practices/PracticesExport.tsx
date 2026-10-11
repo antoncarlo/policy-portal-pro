@@ -24,6 +24,9 @@ interface Practice {
   policy_number: string | null;
   status: PracticeStatus;
   created_at: string;
+  /** The VIES lot the practice comes from, when it comes from one. */
+  lotNumber?: number | null;
+  lotRepresentative?: string | null;
 }
 
 interface PracticesExportProps {
@@ -48,6 +51,8 @@ export const PracticesExport = ({ practices }: PracticesExportProps) => {
         practice.policy_number || "-",
         practiceStatusLabel(practice.status, language),
         formatDate(practice.created_at),
+        practice.lotNumber ?? "-",
+        practice.lotRepresentative || "-",
       ];
       return Object.fromEntries(labels.columns.map((column, index) => [column, values[index]]));
     });
@@ -65,6 +70,8 @@ export const PracticesExport = ({ practices }: PracticesExportProps) => {
       { wch: 15 }, // Polizza
       { wch: 15 }, // Stato
       { wch: 12 }, // Data
+      { wch: 8 }, // Lotto
+      { wch: 30 }, // Rappresentante fiscale
     ];
     ws["!cols"] = colWidths;
 
@@ -94,6 +101,7 @@ export const PracticesExport = ({ practices }: PracticesExportProps) => {
       practice.policy_number || "-",
       practiceStatusLabel(practice.status, language),
       date(practice.created_at),
+      practice.lotNumber ?? "-",
     ]);
 
     // Add table

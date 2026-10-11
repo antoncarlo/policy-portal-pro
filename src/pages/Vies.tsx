@@ -2346,6 +2346,8 @@ const Vies = () => {
 
         return {
           user_id: userId,
+          // The lot the practice comes from: the practices list groups by it.
+          vies_batch_id: batchId,
           practice_number: practiceNumber,
           practice_type: "vies" as const,
           status: "in_lavorazione" as const,

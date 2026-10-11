@@ -747,6 +747,7 @@ export type Database = {
           status: Database["public"]["Enums"]["practice_status"]
           updated_at: string
           user_id: string
+          vies_batch_id: string | null
         }
         Insert: {
           api_key_id?: string | null
@@ -779,6 +780,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["practice_status"]
           updated_at?: string
           user_id: string
+          vies_batch_id?: string | null
         }
         Update: {
           api_key_id?: string | null
@@ -811,6 +813,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["practice_status"]
           updated_at?: string
           user_id?: string
+          vies_batch_id?: string | null
         }
         Relationships: [
           {
@@ -1952,6 +1955,17 @@ export type Database = {
         }[]
       }
       get_practice_id_from_path: { Args: { path: string }; Returns: string }
+      get_practice_lots: {
+        Args: { p_batch_ids?: string[]; p_limit?: number }
+        Returns: {
+          batch_id: string
+          created_at: string
+          fiscal_representative_name: string
+          lot_number: number
+          name: string
+          practice_count: number
+        }[]
+      }
       get_production_details: {
         Args: {
           p_agent_id?: string

@@ -18,6 +18,7 @@ import { formatPolicyDuration } from "@/lib/practiceSummary";
 import { formatDate, getMessages, useMessages } from "@/i18n";
 import { practiceDetailMessages } from "@/i18n/messages/practiceDetail";
 import { practiceStatusLabel, practiceTypeLabel } from "@/i18n/messages/domain";
+import { PracticeLotBreadcrumb } from "@/components/practice/PracticeLotBreadcrumb";
 import { translateDuration } from "@/i18n/summaryText";
 
 
@@ -49,6 +50,7 @@ interface Practice {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  vies_batch_id: string | null;
 }
 
 const PracticeDetail = () => {
@@ -152,6 +154,7 @@ const PracticeDetail = () => {
             <ArrowLeft className="h-4 w-4 mr-2" />
             {m.back}
           </Button>
+          <PracticeLotBreadcrumb batchId={practice.vies_batch_id} practiceId={practice.id} practiceNumber={practice.practice_number} />
         </div>
 
         <Card className="p-6">

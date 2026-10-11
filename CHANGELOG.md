@@ -12,6 +12,9 @@ Prima versione numerata. Riepilogo di ciò che il portale fa oggi:
 - Autenticazione con verifica a due fattori facoltativa, password robuste, reset sicuro, interfaccia in italiano, inglese e cinese.
 - Controllo dei tipi nella build, CI su ogni modifica, `docs/` come unica cartella di documentazione.
 
+### Aggiunto
+- Pratiche per lotto VIES: nel menu «Pratiche» i lotti si aprono sulle loro pratiche (ognuna col proprio numero); nell'elenco una riga per lotto con conteggio, rappresentante fiscale e riepilogo per sezione, vista «Per lotto / Elenco» ricordata, filtro sul lotto, ricerca per lotto, esportazione con le colonne del lotto; nel dettaglio il percorso «Pratiche › Lotto › numero» con pratica precedente/successiva. `practices.vies_batch_id`, `get_practice_lots()`; `/api/get-practices` espone `lot`.
+
 ### Corretto
 - Amministrazione: premio ed esportazione leggevano un campo che non esiste più (`premium_amount`, ora `premium_net`); il salvataggio delle modifiche contabili veniva rifiutato.
 - Report: le colonne premio/provvigione dell'esportazione Excel/PDF erano vuote; i grafici per mese e la classifica agenti non ricevevano i campi attesi.

@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Fragment, useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Eye, Download, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { ChevronRight, Eye, Download, Layers, List, MoreVertical, Pencil, Trash2, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,7 +42,10 @@ import { formatDate, getMessages, useMessages } from "@/i18n";
 import { practicesMessages } from "@/i18n/messages/practices";
 import { commonMessages } from "@/i18n/messages/common";
 import { PRACTICE_STATUSES, practiceStatusLabel, practiceTypeLabel } from "@/i18n/messages/domain";
-import { applyStageFilter, type PracticeStage, type StageFilterable } from "@/lib/practiceStages";
+import { applyStageFilter, stageOf, type PracticeStage, type StageFilterable } from "@/lib/practiceStages";
+import { fetchPracticeLots, lotTitle, type PracticeLot } from "@/lib/practiceLots";
+import { workflowMessages } from "@/i18n/messages/workflow";
+import { cn } from "@/lib/utils";
 
 interface PracticesTableProps {
   searchQuery: string;
@@ -63,7 +66,21 @@ interface Practice {
   beneficiary: string | null;
   status: PracticeStatus;
   created_at: string;
+  user_id: string;
+  financial_status: string | null;
+  /** The VIES lot the practice comes from, when it comes from one. */
+  vies_batch_id: string | null;
 }
+
+type ListView = "lots" | "flat";
+const VIEW_STORAGE_KEY = "practices-list-view";
+const readStoredView = (): ListView => {
+  try {
+    return localStorage.getItem(VIEW_STORAGE_KEY) === "flat" ? "flat" : "lots";
+  } catch {
+    return "lots";
+  }
+};
 
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : getMessages(practicesMessages).table.unexpectedError;
@@ -90,8 +107,15 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
   const navigate = useNavigate();
   const { toast } = useToast();
   const m = useMessages(practicesMessages).table;
+  const lotText = useMessages(practicesMessages).lots;
+  const flow = useMessages(workflowMessages);
   const common = useMessages(commonMessages);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const lotId = searchParams.get("lot");
   const [practices, setPractices] = useState<Practice[]>([]);
+  const [lots, setLots] = useState<Map<string, PracticeLot>>(new Map());
+  const [expandedLots, setExpandedLots] = useState<Set<string>>(new Set());
+  const [viewPreference, setViewPreference] = useState<ListView>(readStoredView);
   const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [practiceToDelete, setPracticeToDelete] = useState<Practice | null>(null);
@@ -143,7 +167,7 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
     const buildQuery = () => {
       let query = supabase
         .from("practices")
-        .select("id, practice_number, practice_type, client_name, beneficiary, policy_number, status, created_at, user_id");
+        .select("id, practice_number, practice_type, client_name, beneficiary, policy_number, status, created_at, user_id, financial_status, vies_batch_id");
 
       if (allowedTypes) {
         query = query.in("practice_type", allowedTypes);
@@ -176,11 +200,20 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
         query = query.eq("user_id", filters.userId);
       }
 
+      if (lotId) {
+        query = query.eq("vies_batch_id", lotId);
+      }
+
       return query.order("created_at", { ascending: false }).order("id");
     };
 
     try {
-      setPractices(await fetchAllRows((from, to) => buildQuery().range(from, to)));
+      const rows = (await fetchAllRows((from, to) => buildQuery().range(from, to))) as Practice[];
+      // The lots the practices come from: one question for all of them.
+      const batchIds = [...new Set(rows.map((row) => row.vies_batch_id).filter((id): id is string => Boolean(id)))];
+      const lotRows = batchIds.length > 0 ? await fetchPracticeLots({ batchIds }).catch(() => []) : [];
+      setLots(new Map(lotRows.map((lot) => [lot.batchId, lot])));
+      setPractices(rows);
       setSelectedPracticeIds(new Set());
     } catch (error) {
       console.error("Error loading practices:", error);
@@ -192,7 +225,7 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
   useEffect(() => {
     loadPractices();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
-  }, [filters, stage]);
+  }, [filters, stage, lotId]);
 
   const handleDownloadDocuments = async (practice: Practice) => {
     try {
@@ -293,9 +326,17 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
 
   const getPracticeTypeLabel = (type: PracticeType) => practiceTypeLabel(type);
 
+  const lotLabelOf = (batchId: string | null) => {
+    const lot = batchId ? lots.get(batchId) : undefined;
+    return lot ? lotTitle(lot, lotText.lotName) : "";
+  };
+
   const filteredPractices = practices.filter((practice) => {
     const query = searchQuery.toLowerCase();
+    const lot = practice.vies_batch_id ? lots.get(practice.vies_batch_id) : undefined;
     return (
+      lotLabelOf(practice.vies_batch_id).toLowerCase().includes(query) ||
+      (lot?.representative && lot.representative.toLowerCase().includes(query)) ||
       practice.practice_number.toLowerCase().includes(query) ||
       practice.client_name.toLowerCase().includes(query) ||
       (practice.beneficiary && practice.beneficiary.toLowerCase().includes(query)) ||
@@ -305,6 +346,58 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
   });
 
   const selectedPractices = filteredPractices.filter((practice) => selectedPracticeIds.has(practice.id));
+
+  // Grouping by lot: the practices of a lot together, the others as single rows below.
+  const lotGroups = [...lots.values()]
+    .map((lot) => ({ lot, practices: filteredPractices.filter((practice) => practice.vies_batch_id === lot.batchId) }))
+    .filter((group) => group.practices.length > 0)
+    .sort((a, b) => (a.lot.createdAt < b.lot.createdAt ? 1 : a.lot.createdAt > b.lot.createdAt ? -1 : 0));
+  const singles = filteredPractices.filter((practice) => !practice.vies_batch_id || !lots.has(practice.vies_batch_id));
+  const viewParam = searchParams.get("view");
+  const view: ListView = lots.size === 0 ? "flat" : viewParam === "lots" ? "lots" : viewParam === "flat" ? "flat" : viewPreference;
+  const filtering = Boolean(searchQuery) || stage !== "all" || Boolean(lotId) || filters.practiceType !== "all" || filters.status !== "all" || filters.userId !== "all" || Boolean(filters.dateFrom) || Boolean(filters.dateTo);
+
+  const changeView = (next: ListView) => {
+    setViewPreference(next);
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, next);
+    } catch {
+      // The choice is only a convenience.
+    }
+    if (searchParams.has("view")) {
+      const params = new URLSearchParams(searchParams);
+      params.delete("view");
+      setSearchParams(params, { replace: true });
+    }
+  };
+
+  // With a filter on, the lots that match are open: the user sees what matched, inside its lot.
+  const lotKey = lotGroups.map((group) => group.lot.batchId).join(",");
+  useEffect(() => {
+    if (filtering) setExpandedLots(new Set(lotKey ? lotKey.split(",") : []));
+  }, [filtering, searchQuery, stage, lotId, lotKey]);
+
+  const toggleLot = (batchId: string) =>
+    setExpandedLots((current) => {
+      const next = new Set(current);
+      if (next.has(batchId)) next.delete(batchId);
+      else next.add(batchId);
+      return next;
+    });
+
+  const toggleLotSelection = (group: { practices: Practice[] }) =>
+    setSelectedPracticeIds((current) => {
+      const ids = group.practices.map((practice) => practice.id);
+      const allSelected = ids.every((id) => current.has(id));
+      if (allSelected) return new Set([...current].filter((id) => !ids.includes(id)));
+      return new Set([...current, ...ids]);
+    });
+
+  const clearLotFilter = () => {
+    const params = new URLSearchParams(searchParams);
+    params.delete("lot");
+    setSearchParams(params);
+  };
 
   const togglePracticeSelection = (practiceId: string) => {
     setSelectedPracticeIds((current) => {
@@ -353,6 +446,155 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
     }
   };
 
+  const renderPracticeRow = (practice: Practice, nested = false) => (
+    <TableRow key={practice.id} data-testid="practice-row" className={nested ? "bg-muted/20" : undefined}>
+      <TableCell>
+        <Checkbox
+          aria-label={m.selectOne(practice.practice_number)}
+          checked={selectedPracticeIds.has(practice.id)}
+          onCheckedChange={() => togglePracticeSelection(practice.id)}
+        />
+      </TableCell>
+      <TableCell className={cn("font-medium whitespace-nowrap", nested && "pl-10")}>{practice.practice_number}</TableCell>
+      <TableCell className="max-w-[220px] break-words">{practice.client_name}</TableCell>
+      <TableCell className="max-w-[220px] break-words text-muted-foreground">{practice.beneficiary || "-"}</TableCell>
+      <TableCell className="whitespace-nowrap">{getPracticeTypeLabel(practice.practice_type)}</TableCell>
+      <TableCell className="max-w-[180px] break-words text-muted-foreground">
+        {practice.policy_number || "-"}
+      </TableCell>
+      <TableCell className="text-muted-foreground">
+        {formatDate(practice.created_at)}
+      </TableCell>
+      <TableCell>
+        <Badge variant="outline" className={getStatusColor(practice.status)}>
+          {getStatusLabel(practice.status)}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex justify-end gap-2">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => navigate(`/practices/${practice.id}`)}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => handleDownloadDocuments(practice)}
+            title={m.downloadDocuments}
+          >
+            <Download className="h-4 w-4" />
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => navigate(`/practices/${practice.id}`)}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                {m.edit}
+              </DropdownMenuItem>
+              {/* Deleting changes lots, statements and accounting: administrators only. */}
+              {canChangeStatus && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => {
+                      setPracticeToDelete(practice);
+                      setDeleteDialogOpen(true);
+                    }}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    {m.delete}
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </TableCell>
+    </TableRow>
+
+  );
+
+  const renderLotRows = () => (
+    <>
+      {lotGroups.map((group) => {
+        const { lot } = group;
+        const open = expandedLots.has(lot.batchId);
+        const title = lotTitle(lot, lotText.lotName);
+        const allSelected = group.practices.every((practice) => selectedPracticeIds.has(practice.id));
+        const someSelected = group.practices.some((practice) => selectedPracticeIds.has(practice.id));
+        const stageCounts = new Map<PracticeStage, number>();
+        for (const practice of group.practices) {
+          const key = stageOf({ status: practice.status, financial_status: practice.financial_status });
+          stageCounts.set(key, (stageCounts.get(key) ?? 0) + 1);
+        }
+        return (
+          <Fragment key={lot.batchId}>
+            <TableRow className="bg-muted/40 hover:bg-muted/60" data-testid="lot-row" data-lot-id={lot.batchId}>
+              <TableCell>
+                <Checkbox
+                  aria-label={lotText.selectLot(title)}
+                  checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                  onCheckedChange={() => toggleLotSelection(group)}
+                />
+              </TableCell>
+              <TableCell colSpan={7}>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 text-left font-semibold"
+                    aria-expanded={open}
+                    aria-label={`${open ? lotText.collapse : lotText.expand}: ${title}`}
+                    onClick={() => toggleLot(lot.batchId)}
+                    data-testid="lot-toggle"
+                  >
+                    <ChevronRight className={cn("h-4 w-4 shrink-0 transition-transform", open && "rotate-90")} />
+                    {title}
+                  </button>
+                  <Badge variant="secondary" data-testid="lot-count">
+                    {group.practices.length < lot.practiceCount ? lotText.shownOf(group.practices.length, lot.practiceCount) : lotText.count(lot.practiceCount)}
+                  </Badge>
+                  {lot.representative && <span className="text-sm text-muted-foreground">{lot.representative}</span>}
+                  <span className="text-sm text-muted-foreground">{formatDate(lot.createdAt)}</span>
+                  <span className="flex flex-wrap gap-1.5">
+                    {[...stageCounts.entries()].map(([key, count]) => (
+                      <span key={key} className="rounded-full border border-border bg-background px-2 py-0.5 text-xs">
+                        {count} · {flow.stages[key]}
+                      </span>
+                    ))}
+                  </span>
+                </div>
+              </TableCell>
+              <TableCell className="text-right">
+                <Button variant="ghost" size="sm" onClick={() => navigate(`/practices?lot=${lot.batchId}`)}>
+                  {lotText.openLot}
+                </Button>
+              </TableCell>
+            </TableRow>
+            {open && group.practices.map((practice) => renderPracticeRow(practice, true))}
+          </Fragment>
+        );
+      })}
+      {singles.length > 0 && lotGroups.length > 0 && (
+        <TableRow className="hover:bg-transparent">
+          <TableCell colSpan={9} className="pb-1 pt-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            {lotText.others}
+          </TableCell>
+        </TableRow>
+      )}
+      {singles.map((practice) => renderPracticeRow(practice))}
+    </>
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -380,8 +622,37 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
             {m.statusByOffice}
           </p>
         )}
-        <PracticesExport practices={filteredPractices} />
+        <PracticesExport
+          practices={filteredPractices.map((practice) => {
+            const lot = practice.vies_batch_id ? lots.get(practice.vies_batch_id) : undefined;
+            return { ...practice, lotNumber: lot?.number ?? null, lotRepresentative: lot?.representative ?? null };
+          })}
+        />
       </div>
+      {(lotId || lots.size > 0) && (
+        <div className="flex flex-wrap items-center gap-3">
+          {lotId && lots.get(lotId) && (
+            <Badge variant="secondary" className="gap-2 py-1 text-sm" data-testid="lot-chip">
+              {lotText.filterChip(lotTitle(lots.get(lotId) as PracticeLot, lotText.lotName))}
+              <button type="button" aria-label={lotText.clearLot} onClick={clearLotFilter}>
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </Badge>
+          )}
+          {lots.size > 0 && (
+            <div className="ml-auto inline-flex rounded-md border border-border p-0.5" role="group" aria-label={lotText.viewLabel}>
+              <Button type="button" size="sm" variant={view === "lots" ? "secondary" : "ghost"} className="h-8 gap-1.5" aria-pressed={view === "lots"} onClick={() => changeView("lots")} data-testid="view-lots">
+                <Layers className="h-4 w-4" />
+                {lotText.viewByLot}
+              </Button>
+              <Button type="button" size="sm" variant={view === "flat" ? "secondary" : "ghost"} className="h-8 gap-1.5" aria-pressed={view === "flat"} onClick={() => changeView("flat")} data-testid="view-flat">
+                <List className="h-4 w-4" />
+                {lotText.viewFlat}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
       <Card className="overflow-hidden">
         <div className="w-full overflow-x-auto">
         <Table className="min-w-[1050px]">
@@ -418,82 +689,7 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
               </TableCell>
             </TableRow>
           ) : (
-            filteredPractices.map((practice) => (
-              <TableRow key={practice.id}>
-                <TableCell>
-                  <Checkbox
-                    aria-label={m.selectOne(practice.practice_number)}
-                    checked={selectedPracticeIds.has(practice.id)}
-                    onCheckedChange={() => togglePracticeSelection(practice.id)}
-                  />
-                </TableCell>
-                <TableCell className="font-medium whitespace-nowrap">{practice.practice_number}</TableCell>
-                <TableCell className="max-w-[220px] break-words">{practice.client_name}</TableCell>
-                <TableCell className="max-w-[220px] break-words text-muted-foreground">{practice.beneficiary || "-"}</TableCell>
-                <TableCell className="whitespace-nowrap">{getPracticeTypeLabel(practice.practice_type)}</TableCell>
-                <TableCell className="max-w-[180px] break-words text-muted-foreground">
-                  {practice.policy_number || "-"}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {formatDate(practice.created_at)}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={getStatusColor(practice.status)}>
-                    {getStatusLabel(practice.status)}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => navigate(`/practices/${practice.id}`)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => handleDownloadDocuments(practice)}
-                      title={m.downloadDocuments}
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => navigate(`/practices/${practice.id}`)}
-                        >
-                          <Pencil className="mr-2 h-4 w-4" />
-                          {m.edit}
-                        </DropdownMenuItem>
-                        {/* Deleting changes lots, statements and accounting: administrators only. */}
-                        {canChangeStatus && (
-                          <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => {
-                                setPracticeToDelete(practice);
-                                setDeleteDialogOpen(true);
-                              }}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              {m.delete}
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))
+            view === "lots" ? renderLotRows() : filteredPractices.map((practice) => renderPracticeRow(practice))
           )}
         </TableBody>
         </Table>
