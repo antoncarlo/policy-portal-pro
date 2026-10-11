@@ -33,3 +33,13 @@ curl -s -H "Authorization: Bearer $CRON_SECRET" https://portale.tecnomga.com/api
 ## SECTION 05 — Cosa viene controllato
 
 Bloccanti: indirizzo del database (https) e chiave di servizio. Avvisi: nessun canale email (Gmail o Resend), `CRON_SECRET` e `WEBHOOK_SECRET` mancanti o corti (< 16 caratteri), `WEBHOOK_DEFAULT_USER_ID` non UUID, `PORTAL_URL` non https, `VIES_PORTALS` non JSON, `ADMIN_NOTIFICATION_EMAILS` con indirizzi non validi, `RESEND_WEBHOOK_SECRET` mancante con Resend, `SENTRY_DSN` malformato. Le regole sono in `api/_lib/env.ts` (zod).
+
+## SECTION 06 — Accessi falliti
+
+Quando la schermata di accesso del portale respinge un indirizzo o una password, il browser lo segnala a `/api/login-failure`: nel registro di audit (Impostazioni › Log, azione «Accesso non riuscito») compare una riga con l'indirizzo digitato, l'indirizzo IP, il browser e se l'indirizzo corrisponde a un account. **La password non viene mai inviata al portale.** Se lo stesso indirizzo fallisce cinque volte in dieci minuti gli amministratori ricevono un avviso (una volta l'ora per indirizzo, al massimo dieci avvisi l'ora in tutto).
+
+Limiti da conoscere:
+
+- L'accesso lo fa Supabase direttamente dal browser: un tentativo fatto contro l'indirizzo di autenticazione di Supabase senza passare dalla schermata del portale non viene segnalato e resta solo nel registro di autenticazione di Supabase (Dashboard › Logs › Auth). Il controllo a livello di Supabase («Password verification hook») è disponibile solo nei piani Teams ed Enterprise.
+- La segnalazione è pubblica, quindi falsificabile: serve a leggere e a farsi avvisare, mai a bloccare un account. Si accettano 30 segnalazioni ogni dieci minuti per indirizzo IP e si scrivono al massimo 20 righe ogni dieci minuti per indirizzo.
+- Gli accessi riusciti e le uscite sono già nel registro (azioni «Accesso» e «Uscita»).

@@ -43,7 +43,7 @@ interface Person {
 type LogTexts = (typeof systemMessages)["it"]["logs"];
 
 const ACTION_FILTERS = [
-  "insert", "update", "delete", "session.login", "session.logout", "user.create", "user.disable", "user.delete", "user.reassign", "user.reset_mfa",
+  "insert", "update", "delete", "session.login", "session.login_failed", "session.logout", "user.create", "user.disable", "user.delete", "user.reassign", "user.reset_mfa",
   "user.password_changed", "practice.deliberate", "practice.reject", "practice.request_info", "practice.issue", "practice.reopen", "practice.register_payment",
 ];
 const TABLE_FILTERS = [
@@ -57,7 +57,7 @@ const valueText = (value: Json | undefined) => (value === undefined || value ===
 const asRecord = (value: Json | null): Record<string, Json> => (value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, Json>) : {});
 
 const actionColor = (action: string) =>
-  action === "delete" || action === "user.delete"
+  action === "delete" || action === "user.delete" || action === "session.login_failed"
     ? "bg-red-100 text-red-800"
     : action === "insert" || action === "user.create"
       ? "bg-blue-100 text-blue-800"

@@ -37,6 +37,7 @@ export const WORKFLOW_ACTIONS = [
   'workflow_reopen',
   'workflow_mark_sent',
   'workflow_register_payment',
+  'workflow_bulk_status',
   'portal_status',
   'intake_link',
   'intake_reject',
@@ -77,6 +78,119 @@ function parseDraft(value: unknown): IncomingDocument | null {
   const content = typeof value.content_base64 === 'string' ? value.content_base64 : undefined;
   if (!storagePath && !content) throw new WorkflowError(422, 'invalid_payload', 'draft: indicare storage_path oppure content_base64');
   return { file_name: fileName, mime_type: text(value.mime_type, 100), content_base64: storagePath ? undefined : content, storage_path: storagePath };
+}
+
+export const BULK_STATUSES = ['in_lavorazione', 'in_attesa', 'integrazioni', 'approvata', 'rifiutata', 'completata'] as const;
+export type BulkStatus = (typeof BULK_STATUSES)[number];
+/** Practices handled in one call: each one goes through the whole engine (history, flow, partners). */
+export const BULK_MAX = 50;
+
+export type BulkOutcome = 'changed' | 'unchanged' | 'blocked' | 'missing' | 'error';
+export interface BulkResultRow {
+  practiceId: string;
+  practiceNumber: string | null;
+  outcome: BulkOutcome;
+  /** Why it was not changed (blocked and error) or the stage reached (changed). */
+  message?: string;
+  to?: string;
+}
+
+interface BulkPlan {
+  event: WorkflowEvent;
+  announce: { kind: OutboundKind; details?: { message?: string | null; reason?: string | null; dueDate?: string | null } };
+}
+
+/**
+ * The company-flow event a bulk change to `target` stands for. The same events the single-practice buttons
+ * use, so the flow row, the history, the partners' notifications and the emails come out the same.
+ */
+function bulkPlanFor(target: BulkStatus, current: string, note: string | null): BulkPlan {
+  switch (target) {
+    case 'in_lavorazione':
+      return { event: { type: 'reopened', reason: note }, announce: { kind: 'reopened', details: { reason: note } } };
+    case 'in_attesa':
+      // Back to the company's evaluation: it answers a request for more documents, or it is sent by hand.
+      return current === 'integrazioni'
+        ? { event: { type: 'info_provided', message: note }, announce: { kind: 'info_provided', details: { message: note } } }
+        : { event: { type: 'sent', portalId: 'manuale', portalName: 'invio manuale', reference: null }, announce: { kind: 'sent' } };
+    case 'integrazioni': {
+      const dueDate = defaultInfoDueDate();
+      return { event: { type: 'info_requested', message: note ?? '', dueDate }, announce: { kind: 'info_requested', details: { message: note, dueDate } } };
+    }
+    case 'approvata':
+      return { event: { type: 'deliberated', note }, announce: { kind: 'deliberated' } };
+    case 'rifiutata':
+      return { event: { type: 'rejected', reason: note ?? '' }, announce: { kind: 'rejected', details: { reason: note } } };
+    case 'completata':
+      return { event: { type: 'issued' }, announce: { kind: 'issued' } };
+  }
+}
+
+/**
+ * Changes the status of several practices through the company-flow engine, one by one. A practice that
+ * cannot make the passage (already issued, not yet paid...) is left as it is and reported with the reason;
+ * the others go ahead. The partners hear of each change and the people concerned get one email per practice
+ * group, as with a single change.
+ */
+async function runBulkStatus(supabase: SupabaseClient, userId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const target = body.status;
+  if (typeof target !== 'string' || !(BULK_STATUSES as readonly string[]).includes(target)) {
+    throw new WorkflowError(422, 'invalid_payload', 'Stato non valido');
+  }
+  const status = target as BulkStatus;
+  const ids = Array.isArray(body.practiceIds) ? [...new Set(body.practiceIds.filter((id): id is string => typeof id === 'string' && id.trim() !== '').map((id) => id.trim()))] : [];
+  if (ids.length === 0) throw new WorkflowError(422, 'invalid_payload', 'Nessuna pratica selezionata');
+  if (ids.length > BULK_MAX) throw new WorkflowError(422, 'invalid_payload', `Al massimo ${BULK_MAX} pratiche per volta`);
+  const note = text(body.note, status === 'rifiutata' || status === 'integrazioni' ? 2000 : 1000) ?? null;
+  if (status === 'rifiutata' && !note) throw new WorkflowError(422, 'invalid_payload', 'Indicare il motivo');
+  if (status === 'integrazioni' && !note) throw new WorkflowError(422, 'invalid_payload', 'Indicare cosa serve');
+
+  const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', userId).maybeSingle();
+  const context = { actor: { label: (profile?.full_name as string | undefined)?.trim() || 'Amministratore', userId } };
+
+  const results: BulkResultRow[] = [];
+  const announce: Array<{ practiceId: string; plan: BulkPlan }> = [];
+  for (const practiceId of ids) {
+    let practiceNumber: string | null = null;
+    try {
+      const practice = await loadPractice(supabase, practiceId);
+      practiceNumber = practice.practice_number;
+      // Already there: nothing to record (and a second "sent" would overwrite the portal it really went to).
+      if (practice.status === status) {
+        results.push({ practiceId, practiceNumber, outcome: 'unchanged' });
+        continue;
+      }
+      const plan = bulkPlanFor(status, practice.status, note);
+      const done = await applyWorkflowEvent(supabase, practiceId, plan.event, context);
+      results.push({ practiceId, practiceNumber, outcome: done.changed ? 'changed' : 'unchanged', to: done.to });
+      if (done.changed) announce.push({ practiceId, plan });
+    } catch (error) {
+      if (error instanceof WorkflowError) {
+        const outcome: BulkOutcome = error.code === 'practice_not_found' ? 'missing' : error.code === 'invalid_transition' || error.code === 'conflict' ? 'blocked' : 'error';
+        results.push({ practiceId, practiceNumber, outcome, message: error.message });
+      } else {
+        results.push({ practiceId, practiceNumber, outcome: 'error', message: error instanceof Error ? error.message : 'Errore imprevisto' });
+      }
+    }
+  }
+
+  // The representatives' portals, then the emails (the database queued them as each status moved).
+  await Promise.all([
+    ...announce.map(({ practiceId, plan }) => emitPracticeEvent(supabase, { practiceId, kind: plan.announce.kind, origin: 'admin', details: plan.announce.details })),
+  ]);
+  await dispatchNotifications(supabase);
+
+  const count = (outcome: BulkOutcome) => results.filter((row) => row.outcome === outcome).length;
+  return {
+    ok: true,
+    status,
+    requested: ids.length,
+    changed: count('changed'),
+    unchanged: count('unchanged'),
+    blocked: count('blocked'),
+    failed: count('error') + count('missing'),
+    results,
+  };
 }
 
 async function runWorkflowActionInner(
@@ -262,6 +376,8 @@ async function runWorkflowActionInner(
     return { ok: true, ...result };
   }
 
+  if (action === 'workflow_bulk_status') return runBulkStatus(supabase, userId, body);
+
   const practiceId = required(body.practiceId, 64, 'practiceId obbligatorio');
   const force = body.force === true;
   const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', userId).maybeSingle();
@@ -373,7 +489,15 @@ export async function runWorkflowAction(
 ): Promise<Record<string, unknown>> {
   const result = await runWorkflowActionInner(supabase, userId, action, body);
   const id = (key: string) => (typeof body[key] === 'string' ? (body[key] as string) : null);
-  if (PRACTICE_ACTIONS.has(action)) {
+  if (action === 'workflow_bulk_status') {
+    // One line for the operation (the database's own audit rows carry each practice's change).
+    await logActivity(supabase, {
+      actorId: userId,
+      action: 'practice.bulk_status',
+      target: { table: 'practices', id: null },
+      details: { status: result.status, requested: result.requested, changed: result.changed, unchanged: result.unchanged, blocked: result.blocked, failed: result.failed },
+    });
+  } else if (PRACTICE_ACTIONS.has(action)) {
     await logActivity(supabase, {
       actorId: userId,
       action: `practice.${action.replace('workflow_', '')}`,

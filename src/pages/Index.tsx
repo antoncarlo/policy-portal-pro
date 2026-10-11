@@ -12,7 +12,7 @@ import { shellMessages } from "@/i18n/messages/shell";
 const Index = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loginOpen, setLoginOpen] = useState(false);
-  const { landing: m, nav } = useMessages(shellMessages);
+  const { landing: m } = useMessages(shellMessages);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -39,14 +39,9 @@ const Index = () => {
           <nav className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
             <LanguageSwitcher variant="compact" />
             {user ? (
-              <>
-                <Link to="/dashboard">
-                  <Button variant="ghost">{nav.dashboard}</Button>
-                </Link>
-                <Link to="/dashboard">
-                  <Button>{m.goToPortal}</Button>
-                </Link>
-              </>
+              <Link to="/dashboard">
+                <Button>{m.goToPortal}</Button>
+              </Link>
             ) : (
               <Button onClick={() => setLoginOpen(true)}>{m.signIn}</Button>
             )}

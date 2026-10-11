@@ -9,6 +9,7 @@ export type WorkflowActionName =
   | "workflow_reopen"
   | "workflow_mark_sent"
   | "workflow_register_payment"
+  | "workflow_bulk_status"
   | "portal_status"
   | "intake_link"
   | "intake_reject"
@@ -37,6 +38,50 @@ export async function callWorkflow<T = Record<string, unknown>>(action: Workflow
     throw Object.assign(new Error(data?.error || `Errore ${response.status}`), { code: data?.code as string | undefined });
   }
   return data as T;
+}
+
+export type BulkOutcome = "changed" | "unchanged" | "blocked" | "missing" | "error";
+
+export interface BulkStatusRow {
+  practiceId: string;
+  practiceNumber: string | null;
+  outcome: BulkOutcome;
+  message?: string;
+  to?: string;
+}
+
+export interface BulkStatusSummary {
+  requested: number;
+  changed: number;
+  unchanged: number;
+  blocked: number;
+  failed: number;
+  results: BulkStatusRow[];
+}
+
+/** The server takes this many practices per call. */
+export const BULK_CHUNK = 25;
+
+/**
+ * Changes the status of several practices through the company flow (history, partners, emails), a few at a
+ * time. `note` is the reason or the request text, needed for "rifiutata" and "integrazioni".
+ */
+export async function bulkChangeStatus(practiceIds: string[], status: string, note?: string): Promise<BulkStatusSummary> {
+  const summary: BulkStatusSummary = { requested: 0, changed: 0, unchanged: 0, blocked: 0, failed: 0, results: [] };
+  for (let start = 0; start < practiceIds.length; start += BULK_CHUNK) {
+    const part = await callWorkflow<BulkStatusSummary & { ok: true }>("workflow_bulk_status", {
+      practiceIds: practiceIds.slice(start, start + BULK_CHUNK),
+      status,
+      ...(note ? { note } : {}),
+    });
+    summary.requested += part.requested;
+    summary.changed += part.changed;
+    summary.unchanged += part.unchanged;
+    summary.blocked += part.blocked;
+    summary.failed += part.failed;
+    summary.results.push(...part.results);
+  }
+  return summary;
 }
 
 export interface PortalStatus {

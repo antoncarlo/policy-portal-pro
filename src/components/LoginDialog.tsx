@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { isInvalidCredentials, reportLoginFailure } from "@/lib/loginFailure";
 import { useToast } from "@/hooks/use-toast";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { getMessages, useMessages } from "@/i18n";
@@ -45,6 +46,7 @@ export const LoginDialog = ({ open, onOpenChange }: LoginDialogProps) => {
 
     const login = getMessages(shellMessages).login;
     if (error) {
+      if (isInvalidCredentials(error)) reportLoginFailure(email);
       toast({
         variant: "destructive",
         title: login.errorTitle,

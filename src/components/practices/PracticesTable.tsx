@@ -15,8 +15,9 @@ import { ChevronRight, Eye, Download, Layers, List, MoreVertical, Pencil, Trash2
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { requestNotificationFlush } from "@/lib/portalActions";
 import { fetchAllRows } from "@/lib/fetchAllRows";
+import { bulkChangeStatus } from "@/lib/workflowApi";
+import { Input } from "@/components/ui/input";
 import type { Enums } from "@/integrations/supabase/types";
 import { PracticesExport } from "./PracticesExport";
 import { PracticeFilters } from "./PracticesFilters";
@@ -122,6 +123,9 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
   const [selectedPracticeIds, setSelectedPracticeIds] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<PracticeStatus>("in_lavorazione");
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  // Reason or request text: the company flow asks for it when a practice is rejected or more documents are needed.
+  const [bulkNote, setBulkNote] = useState("");
+  const bulkNeedsNote = bulkStatus === "rifiutata" || bulkStatus === "integrazioni";
   // Solo gli amministratori possono cambiare lo stato delle pratiche
   const [canChangeStatus, setCanChangeStatus] = useState(false);
 
@@ -419,21 +423,37 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
 
   const handleBulkStatusUpdate = async () => {
     if (!canChangeStatus || selectedPracticeIds.size === 0) return;
+    const note = bulkNote.trim();
+    if (bulkNeedsNote && !note) {
+      toast({ variant: "destructive", title: m.bulkReasonRequiredTitle, description: m.bulkReasonRequiredText });
+      return;
+    }
     setBulkUpdating(true);
     try {
-      const { error } = await supabase
-        .from("practices")
-        .update({ status: bulkStatus })
-        .in("id", Array.from(selectedPracticeIds));
+      // Through the company flow, as the single-practice buttons do: history, partners' notifications, emails,
+      // and only the passages the flow allows. What cannot pass is left as it is and reported.
+      const outcome = await bulkChangeStatus(Array.from(selectedPracticeIds), bulkStatus, bulkNeedsNote ? note : undefined);
+      const notChanged = outcome.results.filter((row) => row.outcome === "blocked" || row.outcome === "error" || row.outcome === "missing");
+      const reasons = notChanged
+        .slice(0, 3)
+        .map((row) => m.bulkBlockedLine(row.practiceNumber ?? row.practiceId.slice(0, 8), row.message ?? ""))
+        .join("\n");
+      const more = notChanged.length > 3 ? `\n${m.bulkBlockedMore(notChanged.length - 3)}` : "";
 
-      if (error) throw error;
-
-      toast({
-        title: m.statusUpdatedTitle,
-        description: m.statusUpdatedText(selectedPracticeIds.size, getStatusLabel(bulkStatus)),
-      });
+      if (outcome.changed === 0 && notChanged.length > 0) {
+        toast({ variant: "destructive", title: m.bulkNothingTitle, description: reasons + more });
+      } else if (notChanged.length > 0) {
+        toast({ title: m.bulkPartialTitle, description: `${m.bulkPartialText(outcome.changed, notChanged.length)}\n${reasons}${more}` });
+      } else if (outcome.changed === 0) {
+        toast({ title: m.bulkNothingTitle, description: m.bulkUnchangedText(outcome.unchanged) });
+      } else {
+        toast({
+          title: m.statusUpdatedTitle,
+          description: m.statusUpdatedText(outcome.changed, getStatusLabel(bulkStatus)),
+        });
+      }
       setSelectedPracticeIds(new Set());
-      requestNotificationFlush();
+      setBulkNote("");
       await loadPractices();
     } catch (error: unknown) {
       toast({
@@ -613,6 +633,17 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
                 ))}
               </SelectContent>
             </Select>
+            {bulkNeedsNote && (
+              <Input
+                value={bulkNote}
+                onChange={(event) => setBulkNote(event.target.value)}
+                placeholder={bulkStatus === "rifiutata" ? m.bulkReasonRejected : m.bulkReasonInfo}
+                aria-label={bulkStatus === "rifiutata" ? m.bulkReasonRejected : m.bulkReasonInfo}
+                className="w-full md:w-[320px]"
+                maxLength={1000}
+                data-testid="bulk-note"
+              />
+            )}
             <Button onClick={handleBulkStatusUpdate} disabled={selectedPractices.length === 0 || bulkUpdating}>
               {m.changeStatus}
             </Button>

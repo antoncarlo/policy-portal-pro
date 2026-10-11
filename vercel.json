@@ -41,6 +41,10 @@
       "destination": "/api/vies-connect?route=health"
     },
     {
+      "source": "/api/login-failure",
+      "destination": "/api/vies-connect?route=login-failure"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
