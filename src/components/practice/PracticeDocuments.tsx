@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, FileArchive, FileText, Trash2, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { requestNotificationFlush } from "@/lib/portalActions";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate, getMessages, useMessages } from "@/i18n";
 import { practiceDetailMessages } from "@/i18n/messages/practiceDetail";
@@ -149,6 +150,7 @@ export const PracticeDocuments = ({ practiceId, refreshToken = 0, canDelete = fa
       });
 
       loadDocuments();
+      requestNotificationFlush();
     } catch (error) {
       if (insertedDocumentIds.length) {
         await supabase.from("practice_documents").delete().in("id", insertedDocumentIds);

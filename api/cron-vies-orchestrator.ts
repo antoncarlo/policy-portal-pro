@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabaseAdmin, processViesQueue, sendMethodNotAllowed, verifyCronOrWorkerAuth } from './_lib/vies-orchestrator.js';
+import { dispatchNotifications } from './_lib/notification-dispatch.js';
 import { processDueDeliveries } from './_lib/vies-outbound.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -28,11 +29,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       error: error instanceof Error ? error.message : 'errore sconosciuto',
     }));
 
+    // Emails waiting in the queue: whatever the immediate sending (right after each action) missed.
+    const notifications = await dispatchNotifications(getSupabaseAdmin());
+
     return res.status(200).json({
       ok: true,
       message: 'Ciclo orchestratore VIES completato.',
       summary,
       deliveries,
+      notifications,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Errore sconosciuto durante il ciclo orchestratore VIES.';

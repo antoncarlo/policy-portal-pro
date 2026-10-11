@@ -15,6 +15,7 @@ import { Eye, Download, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { requestNotificationFlush } from "@/lib/portalActions";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 import type { Enums } from "@/integrations/supabase/types";
 import { PracticesExport } from "./PracticesExport";
@@ -339,6 +340,7 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
         description: m.statusUpdatedText(selectedPracticeIds.size, getStatusLabel(bulkStatus)),
       });
       setSelectedPracticeIds(new Set());
+      requestNotificationFlush();
       await loadPractices();
     } catch (error: unknown) {
       toast({

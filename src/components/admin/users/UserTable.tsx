@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MoreVertical, Edit, Link2, BarChart3, Ban, Trash2, Package, Percent, ShieldOff, MailPlus } from "lucide-react";
+import { MoreVertical, Edit, Link2, BarChart3, Ban, Trash2, Package, Percent, ShieldOff, MailPlus, Mail } from "lucide-react";
 
 interface User {
   id: string;
@@ -41,6 +41,7 @@ interface UserTableProps {
   onEditRole: (user: User) => void;
   onEditProducts: (user: User) => void;
   onEditCommission: (user: User) => void;
+  onEditNotifications: (user: User) => void;
   onAssignAgent: (user: User) => void;
   onViewPractices: (user: User) => void;
   onResetMfa: (user: User) => void;
@@ -54,6 +55,7 @@ export const UserTable = ({
   onEditRole,
   onEditProducts,
   onEditCommission,
+  onEditNotifications,
   onAssignAgent,
   onViewPractices,
   onResetMfa,
@@ -177,6 +179,10 @@ export const UserTable = ({
                           {m.assignAgent}
                         </DropdownMenuItem>
                       )}
+                      <DropdownMenuItem onClick={() => onEditNotifications(user)}>
+                        <Mail className="h-4 w-4 mr-2" />
+                        {m.editNotifications}
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onViewPractices(user)}>
                         <BarChart3 className="h-4 w-4 mr-2" />
                         {m.viewPractices}

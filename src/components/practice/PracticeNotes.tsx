@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { requestNotificationFlush } from "@/lib/portalActions";
 import { useToast } from "@/hooks/use-toast";
 import { composeNotes, extractNotesSections } from "@/lib/practiceSummary";
 import { getMessages, useMessages } from "@/i18n";
@@ -53,6 +54,7 @@ export const PracticeNotes = ({ practiceId, initialNotes, onNotesSaved }: Practi
         description: getMessages(practiceDetailMessages).notes.savedText,
       });
       onNotesSaved?.(composed);
+      requestNotificationFlush();
     } catch (error) {
       toast({
         variant: "destructive",

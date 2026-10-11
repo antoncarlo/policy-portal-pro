@@ -967,6 +967,47 @@ export type Database = {
         }
         Relationships: []
       }
+      user_notification_settings: {
+        Row: {
+          documents: boolean
+          new_practice: boolean
+          notes: boolean
+          notification_emails: string[]
+          status_change: boolean
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          documents?: boolean
+          new_practice?: boolean
+          notes?: boolean
+          notification_emails?: string[]
+          status_change?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          documents?: boolean
+          new_practice?: boolean
+          notes?: boolean
+          notification_emails?: string[]
+          status_change?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_notification_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_product_permissions: {
         Row: {
           created_at: string

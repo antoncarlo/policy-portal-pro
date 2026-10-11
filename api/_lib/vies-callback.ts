@@ -3,7 +3,7 @@ import { SIGNATURE_TOLERANCE_SECONDS, signCallback, verifyCallbackSignature } fr
 export { SIGNATURE_TOLERANCE_SECONDS, signCallback, verifyCallbackSignature };
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { IncomingDocument } from './vies-documents.js';
-import { notifyPracticeOwner, type NotifyKind } from './vies-notify.js';
+import { dispatchNotifications } from './notification-dispatch.js';
 import { emitPracticeEvent, type OutboundKind } from './vies-outbound.js';
 import { portalDocumentHosts, type ViesPortal } from './vies-orchestrator.js';
 import { applyWorkflowEvent, findPracticeForPortal, loadPractice, WorkflowError, type WorkflowEvent } from './vies-workflow.js';
@@ -281,25 +281,23 @@ export async function handlePortalCallback(
       await supabase.from('practices').update({ policy_number: event.policyNumber }).eq('id', practiceId).is('policy_number', null);
     }
     await settle(result.changed ? 'processed' : 'ignored', practiceId);
-    const kind: Record<string, NotifyKind> = {
+    const kind: Record<string, OutboundKind> = {
       'practice.deliberated': 'deliberated',
       'practice.info_requested': 'info_requested',
       'practice.rejected': 'rejected',
       'practice.issued': 'issued',
     };
     if (result.changed || event.type === 'practice.deliberated') {
-      // The owner by email, the representative who sent the practice in by notification.
+      // The representative who sent the practice in by notification; the people concerned by email
+      // (the database queued the status change).
       await Promise.all([
-        notifyPracticeOwner(supabase, practiceId, kind[event.type], {
-          dueDate: event.paymentDueDate,
-          note: event.note ?? event.reason ?? event.message,
-        }),
         emitPracticeEvent(supabase, {
           practiceId,
-          kind: kind[event.type] as OutboundKind,
+          kind: kind[event.type],
           origin: 'portal',
           details: { message: event.message, reason: event.reason },
         }),
+        dispatchNotifications(supabase),
       ]);
     }
     return reply(200, {

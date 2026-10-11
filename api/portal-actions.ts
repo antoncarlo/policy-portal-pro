@@ -4,18 +4,21 @@ import { escapeHtml, getMailProvider, getSenderAddress, sendMail } from './_lib/
 import { assertSecondFactor, MfaRequiredError } from './_lib/mfa.js';
 import { getSupabaseAnon, normalizeLanguage, sendAccessEmail, type AccessEmailResult } from './_lib/auth-emails.js';
 import { checkPassword } from '../src/lib/passwordPolicy.js';
+import { dispatchNotifications, sendNotificationSample } from './_lib/notification-dispatch.js';
 
 /**
  * Portal actions that need the service role, called by signed-in users with their session token.
  *
  * - create_user, disable_user, delete_user: administrators only.
- * - notify_new_practice: any user, for a practice of their own. The email goes out from the
- *   server, so the email provider key never reaches the browser.
+ * - flush_notifications: any user. Sends the notification emails waiting in the queue (the database
+ *   queues them when a practice is uploaded, changes status, gets documents or notes). The email goes out
+ *   from the server, so the email provider key never reaches the browser.
  * - create_user also sends the welcome email and flags the account: the temporary password must be
  *   replaced at the first sign-in (app_metadata.must_change_password).
  * - set_password: any user, for their own account. The only way to clear that flag: the new password is
  *   checked and set by the server, so the change cannot be skipped from the browser.
  * - resend_access_email: administrators only. Welcome email (user never signed in) or reset link.
+ * - send_test_notification: administrators only. A sample notification to the addresses chosen for a user.
  * - reset_mfa: administrators only. Removes the user's authenticator-app factors (lost phone).
  * - email_status, send_test_email: administrators only. Which channel sends the portal's emails
  *   and a real test message to the administrator's own address.
@@ -25,7 +28,9 @@ type Action =
   | 'create_user'
   | 'disable_user'
   | 'delete_user'
+  | 'flush_notifications'
   | 'notify_new_practice'
+  | 'send_test_notification'
   | 'email_status'
   | 'send_test_email'
   | 'reset_mfa'
@@ -233,70 +238,22 @@ async function resetMfa(supabase: SupabaseClient, callerId: string, body: Record
   return { removed: factors.length };
 }
 
-async function notifyNewPractice(supabase: SupabaseClient, callerId: string, callerEmail: string, body: Record<string, unknown>) {
-  const practiceId = typeof body.practiceId === 'string' ? body.practiceId : '';
-  if (!practiceId) throw new HttpError(400, 'Pratica mancante');
+/** Gap between two runs asked by the same person: the queue is shared, a second run would find it empty. */
+const FLUSH_COOLDOWN_MS = 1500;
+const lastFlush = new Map<string, number>();
 
-  const { data: practice, error } = await supabase
-    .from('practices')
-    .select('practice_number, practice_type, client_name, client_email, user_id')
-    .eq('id', practiceId)
-    .maybeSingle();
-  if (error) throw new HttpError(500, error.message);
-  if (!practice || practice.user_id !== callerId) throw new HttpError(404, 'Pratica non trovata');
-
-  if (getMailProvider() === 'none') return { sent: false, reason: 'Nessun servizio email configurato' };
-
-  const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', callerId).maybeSingle();
-  const adminEmails = (process.env.ADMIN_NOTIFICATION_EMAILS || 'info@tecnomga.com,antoncarlo@tecnomga.com')
-    .split(',')
-    .map((address) => address.trim())
-    .filter(Boolean);
-  const dateStr = new Date().toLocaleString('it-IT', { timeZone: 'Europe/Rome' });
-
-  const rows: Array<[string, unknown]> = [
-    ['Numero Pratica', practice.practice_number],
-    ['Tipo Polizza', practice.practice_type],
-    ['Cliente', practice.client_name],
-    ['Email Cliente', practice.client_email],
-    ['Caricata da', profile?.full_name || callerEmail],
-    ['Email Agente', callerEmail],
-    ['Data/Ora', dateStr],
-  ];
-  const html = `<!DOCTYPE html>
-<html lang="it"><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f4f6f8">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:24px 0"><tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden">
-      <tr><td style="background:#1a2744;padding:24px 32px">
-        <h1 style="margin:0;color:#fff;font-size:20px">Nuova Pratica Caricata</h1>
-        <p style="margin:4px 0 0;color:#a8b8d8;font-size:14px">Portale Tecno Advance MGA</p>
-      </td></tr>
-      <tr><td style="padding:32px">
-        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:14px">
-          <tr style="background:#1a2744;color:#fff"><th style="padding:10px 14px;text-align:left">Campo</th><th style="padding:10px 14px;text-align:left">Valore</th></tr>
-          ${rows
-            .map(
-              ([label, value], index) =>
-                `<tr${index % 2 === 0 ? ' style="background:#f9fafb"' : ''}><td style="padding:10px 14px;font-weight:600;color:#374151">${escapeHtml(label)}</td><td style="padding:10px 14px;color:#111827">${escapeHtml(value)}</td></tr>`,
-            )
-            .join('')}
-        </table>
-      </td></tr>
-      <tr><td style="background:#f4f6f8;padding:16px 32px;text-align:center">
-        <p style="margin:0;font-size:12px;color:#6b7280">Portale Tecno Advance MGA — Notifica automatica</p>
-      </td></tr>
-    </table>
-  </td></tr></table>
-</body></html>`;
-
-  const result = await sendMail({
-    to: adminEmails,
-    subject: `Nuova Pratica Caricata: ${practice.practice_number} — ${practice.practice_type}`,
-    html,
-  });
-  if (!result.success) return { sent: false, reason: `Invio email non riuscito: ${result.error ?? 'errore sconosciuto'}` };
-  return { sent: true };
+/**
+ * Sends the notification emails waiting in the queue (new practice, documents, notes...). The browser calls
+ * this right after the user's action, so the people concerned hear about it at once; the daily run
+ * catches whatever was missed. The queue is filled by the database, never by the caller.
+ */
+async function flushNotifications(supabase: SupabaseClient, callerId: string) {
+  const now = Date.now();
+  if (now - (lastFlush.get(callerId) ?? 0) < FLUSH_COOLDOWN_MS) return { flushed: false };
+  lastFlush.set(callerId, now);
+  if (lastFlush.size > 500) for (const [key, at] of lastFlush) if (now - at > 60_000) lastFlush.delete(key);
+  const summary = await dispatchNotifications(supabase);
+  return { flushed: true, ...summary };
 }
 
 function emailStatus() {
@@ -341,8 +298,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ success: true, ...(await disableOrDeleteUser(supabase, caller.id, body, false)) });
       case 'delete_user':
         return res.status(200).json({ success: true, ...(await disableOrDeleteUser(supabase, caller.id, body, true)) });
+      // 'notify_new_practice' is the name the previous version of the browser app uses.
+      case 'flush_notifications':
       case 'notify_new_practice':
-        return res.status(200).json({ success: true, ...(await notifyNewPractice(supabase, caller.id, caller.email ?? '', body)) });
+        return res.status(200).json({ success: true, ...(await flushNotifications(supabase, caller.id)) });
+      case 'send_test_notification': {
+        await requireAdmin(supabase, caller.id);
+        const userId = typeof body.userId === 'string' ? body.userId : '';
+        if (!userId) throw new HttpError(400, 'Utente mancante');
+        return res.status(200).json({ success: true, ...(await sendNotificationSample(supabase, userId)) });
+      }
       case 'set_password':
         return res.status(200).json({ success: true, ...(await setPassword(supabase, caller, body)) });
       case 'resend_access_email':
