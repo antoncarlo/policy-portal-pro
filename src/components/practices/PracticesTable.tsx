@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ChevronRight, Eye, Download, Layers, List, MoreVertical, Pencil, Trash2, X } from "lucide-react";
+import { ChevronRight, Download, Eye, Layers, List, Loader2, MoreVertical, Pencil, Trash2, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,6 +46,7 @@ import { commonMessages } from "@/i18n/messages/common";
 import { PRACTICE_STATUSES, practiceStatusLabel, practiceTypeLabel } from "@/i18n/messages/domain";
 import { applyStageFilter, stageOf, type PracticeStage, type StageFilterable } from "@/lib/practiceStages";
 import { fetchPracticeLots, lotTitle, type PracticeLot } from "@/lib/practiceLots";
+import { downloadLotDocuments, LotZipTooLargeError } from "@/lib/lotDocuments";
 import { workflowMessages } from "@/i18n/messages/workflow";
 import { cn } from "@/lib/utils";
 
@@ -126,6 +127,7 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
   const [selectedPracticeIds, setSelectedPracticeIds] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<PracticeStatus>("in_lavorazione");
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [downloadingLot, setDownloadingLot] = useState<string | null>(null);
   // Reason or request text: the company flow asks for it when a practice is rejected or more documents are needed.
   const [bulkNote, setBulkNote] = useState("");
   const bulkNeedsNote = bulkStatus === "rifiutata" || bulkStatus === "integrazioni";
@@ -284,6 +286,44 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
         title: m.downloadErrorTitle,
         description: getErrorMessage(error),
       });
+    }
+  };
+
+  /** Everything of the lot in one ZIP: the documents of all its practices and the files of the lot itself. */
+  const handleDownloadLot = async (lot: PracticeLot, title: string) => {
+    if (downloadingLot) return;
+    setDownloadingLot(lot.batchId);
+    const progress = toast({ title: lotText.downloadPreparing(title), duration: 600_000 });
+    try {
+      const result = await downloadLotDocuments({
+        batchId: lot.batchId,
+        fileLabel: lotText.zipName(title),
+        labels: lotText.zipFolders,
+        onProgress: (done, total) =>
+          progress.update({ id: progress.id, title: lotText.downloadPreparing(title), description: lotText.downloadProgress(done, total), duration: 600_000 }),
+      });
+      if (result.files === 0) {
+        progress.update({ id: progress.id, title: m.noDocumentsTitle, description: lotText.downloadNone, duration: 8000 });
+      } else if (result.downloaded === 0) {
+        throw new Error(lotText.downloadPartial(result.failed.length).trim());
+      } else {
+        progress.update({
+          id: progress.id,
+          title: lotText.downloadDoneTitle,
+          description: lotText.downloadDone(result.downloaded, result.practices) + (result.failed.length > 0 ? lotText.downloadPartial(result.failed.length) : ""),
+          duration: 8000,
+        });
+      }
+    } catch (error: unknown) {
+      progress.update({
+        id: progress.id,
+        variant: "destructive",
+        title: lotText.downloadErrorTitle,
+        description: error instanceof LotZipTooLargeError ? lotText.downloadTooLarge((error.bytes / 1024 ** 3).toFixed(1)) : getErrorMessage(error),
+        duration: 12000,
+      });
+    } finally {
+      setDownloadingLot(null);
     }
   };
 
@@ -580,6 +620,30 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
     </div>
   );
 
+  const lotActions = (lot: PracticeLot, title: string) => {
+    const busy = downloadingLot === lot.batchId;
+    return (
+      <div className="flex items-center justify-end gap-1">
+        <Button variant="ghost" size="sm" onClick={() => navigate(`/practices?lot=${lot.batchId}`)}>
+          {lotText.openLot}
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" aria-label={lotText.actions} disabled={busy} data-testid="lot-menu">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => void handleDownloadLot(lot, title)} data-testid="lot-download-all">
+              <Download className="mr-2 h-4 w-4" />
+              {lotText.downloadAll}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    );
+  };
+
   const lotSummary = (group: LotGroup, title: string, open: boolean, stageCounts: Map<PracticeStage, number>) => {
     const { lot } = group;
     return (
@@ -640,11 +704,7 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
                 />
                 <div className="min-w-0 flex-1">{lotSummary(group, title, open, stageCountsOf(group))}</div>
               </div>
-              <div className="mt-1 flex justify-end">
-                <Button variant="ghost" size="sm" onClick={() => navigate(`/practices?lot=${lot.batchId}`)}>
-                  {lotText.openLot}
-                </Button>
-              </div>
+              <div className="mt-1">{lotActions(lot, title)}</div>
             </div>
             {open && group.practices.map((practice) => renderPracticeCard(practice, true))}
           </div>
@@ -679,11 +739,7 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
               <TableCell colSpan={7}>
                 {lotSummary(group, title, open, stageCounts)}
               </TableCell>
-              <TableCell className="text-right">
-                <Button variant="ghost" size="sm" onClick={() => navigate(`/practices?lot=${lot.batchId}`)}>
-                  {lotText.openLot}
-                </Button>
-              </TableCell>
+              <TableCell className="text-right">{lotActions(lot, title)}</TableCell>
             </TableRow>
             {open && group.practices.map((practice) => renderPracticeRow(practice, true))}
           </Fragment>
@@ -754,6 +810,20 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
                 <X className="h-3.5 w-3.5" />
               </button>
             </Badge>
+          )}
+          {lotId && lots.get(lotId) && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5"
+              disabled={downloadingLot === lotId}
+              onClick={() => void handleDownloadLot(lots.get(lotId) as PracticeLot, lotTitle(lots.get(lotId) as PracticeLot, lotText.lotName))}
+              data-testid="lot-download-chip"
+            >
+              {downloadingLot === lotId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {lotText.downloadAll}
+            </Button>
           )}
           {lots.size > 0 && (
             <div className="ml-auto inline-flex rounded-md border border-border p-0.5" role="group" aria-label={lotText.viewLabel}>
