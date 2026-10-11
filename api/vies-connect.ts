@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { applyApiCors, authenticateApiKey, checkRateLimit, createAdminClient, getClientIp, logApiRequest } from './_lib/partner-api.js';
+import { applyApiCors, authenticateApiKey, checkRateLimit, createAdminClient, getClientIp, logApiRequest, rejectAuth } from './_lib/partner-api.js';
 import { handlePortalCallback, MAX_CALLBACK_BODY_BYTES } from './_lib/vies-callback.js';
 import { completeLot, createLot, IntakeError, lotStatus } from './_lib/vies-intake.js';
 import { readPortalRegistry } from './_lib/vies-orchestrator.js';
@@ -53,14 +53,15 @@ async function handleCallback(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ ok: false, error: 'method_not_allowed', message: 'Utilizzare POST.' });
   }
   const ip = getClientIp(req);
-  const limit = checkRateLimit(ip);
+  const supabase = createAdminClient();
+  const limit = await checkRateLimit(ip, { scope: 'vies-callback', supabase });
   if (!limit.allowed) {
     res.setHeader('Retry-After', String(limit.retryAfter));
     return res.status(429).json({ ok: false, error: 'rate_limited', retry_after: limit.retryAfter });
   }
   const rawBody = await readRawBody(req);
   const result = await handlePortalCallback(
-    createAdminClient(),
+    supabase,
     readPortalRegistry(),
     {
       headers: { 'x-portal-id': header(req, 'x-portal-id'), 'x-timestamp': header(req, 'x-timestamp'), 'x-signature': header(req, 'x-signature') },
@@ -83,16 +84,16 @@ async function partnerCall(req: VercelRequest, res: VercelResponse, endpoint: st
     return null;
   }
   const ip = getClientIp(req);
-  const limit = checkRateLimit(ip);
+  const supabase = createAdminClient();
+  const limit = await checkRateLimit(ip, { scope: endpoint, supabase });
   if (!limit.allowed) {
     res.setHeader('Retry-After', String(limit.retryAfter));
     res.status(429).json({ ok: false, error: 'rate_limited', retry_after: limit.retryAfter });
     return null;
   }
-  const supabase = createAdminClient();
   const auth = await authenticateApiKey(req, supabase);
   if (!auth.ok) {
-    res.status(auth.status).json(auth.body);
+    rejectAuth(res, auth);
     return null;
   }
   const log = (statusCode: number, errorMessage?: string, size = 0) =>

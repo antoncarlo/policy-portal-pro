@@ -89,7 +89,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 async function handleAttach(req: VercelRequest, res: VercelResponse) {
   applyApiCors(req, res, 'POST, OPTIONS', 'Authorization, Content-Type');
 
-  const { allowed, retryAfter } = checkRateLimit(getClientIp(req));
+  const supabaseAdmin = createAdminClient();
+  const { allowed, retryAfter } = await checkRateLimit(getClientIp(req), { scope: 'pet-quote-attach', supabase: supabaseAdmin });
   if (!allowed) {
     res.setHeader('Retry-After', retryAfter.toString());
     return res.status(429).json({ error: 'Troppe richieste.', retry_after: retryAfter });
@@ -99,7 +100,6 @@ async function handleAttach(req: VercelRequest, res: VercelResponse) {
   const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
   if (!token) return res.status(401).json({ error: 'Autenticazione richiesta.' });
 
-  const supabaseAdmin = createAdminClient();
   const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
   if (userError || !userData?.user) return res.status(401).json({ error: 'Sessione non valida.' });
   const userId = userData.user.id as string;

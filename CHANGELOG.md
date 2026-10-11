@@ -18,9 +18,13 @@ Prima versione numerata. Riepilogo di ciò che il portale fa oggi:
 - Uscita sicura degli utenti: prima di eliminare un account il portale mostra cosa possiede (pratiche, clienti, collaboratori, lotti, chiavi API) e lo passa a un altro utente con una riga nello storico di ogni pratica; un account che possiede ancora dati non si può eliminare (trigger sul database, 409 dall'API). `supabase/migrations/20261016_offboarding_guard.sql`, `api/_lib/offboarding.ts`.
 - Registro di audit append-only (`audit_log`): trigger su pratiche, clienti, utenti, ruoli, permessi, chiavi API, webhook, documenti, impostazioni, rappresentanti fiscali e lotti registrano chi, quando, da dove e quali campi sono cambiati (valori prima/dopo; segreti mai registrati); azioni del portale (eliminazione utente, reset password, azioni del flusso, accessi/uscite) registrate dal server. Consultazione per l'amministratore in Impostazioni › Log, con filtri ed esportazione. Retention: 10 anni per pratiche, clienti e documenti, 2 anni per il resto (`purge_old_audit_log()`).
 
+- Rate limit condiviso tra le istanze: i contatori sono nel database (`rate_limit_hit`, incremento atomico) e valgono per indirizzo e per endpoint (100/min), per chiave API (300/min) e per il recupero password (5 ogni 10 min per IP, 3 l'ora per indirizzo). Se il database non risponde si ripiega sul contatore dell'istanza. Indirizzo del chiamante dagli header della piattaforma (`x-vercel-forwarded-for`, `x-real-ip`).
+
 ### Corretto
 - Amministrazione: premio ed esportazione leggevano un campo che non esiste più (`premium_amount`, ora `premium_net`); il salvataggio delle modifiche contabili veniva rifiutato.
 - Report: le colonne premio/provvigione dell'esportazione Excel/PDF erano vuote; i grafici per mese e la classifica agenti non ricevevano i campi attesi.
+
+- Webhook di creazione pratica: la firma HMAC è verificata sui byte esatti ricevuti (non più sul JSON riserializzato), quindi qualunque formattazione del JSON firmato come inviato è accettata. Per la transizione la firma sul JSON compatto riserializzato è ancora accettata con header `Warning: 299`; si disattiva con `WEBHOOK_REENCODED_SIGNATURE=off`.
 
 ### Rimosso
 - Funzioni segnaposto: sessioni finte, backup automatico e ripristino finti, statistiche inventate nella pagina pubblica, stima dello spazio a 0,5 MB per documento.

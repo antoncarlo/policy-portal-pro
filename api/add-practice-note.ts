@@ -3,6 +3,7 @@ import {
   applyApiCors,
   authenticateApiKey,
   checkRateLimit,
+  rejectAuth,
   createAdminClient,
   getClientIp,
   logApiRequest,
@@ -28,15 +29,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Rate limit
-  const { allowed, retryAfter } = checkRateLimit(ip);
+  const supabaseAdmin = createAdminClient();
+  const { allowed, retryAfter } = await checkRateLimit(ip, { scope: 'add-practice-note', supabase: supabaseAdmin });
   if (!allowed) {
     res.setHeader('Retry-After', retryAfter.toString());
     return res.status(429).json({ error: 'Troppe richieste.', retry_after: retryAfter });
   }
 
-  const supabaseAdmin = createAdminClient();
   const auth = await authenticateApiKey(req, supabaseAdmin);
-  if (!auth.ok) return res.status(auth.status).json(auth.body);
+  if (!auth.ok) return rejectAuth(res, auth);
   const { ctx } = auth;
 
   const body = (req.body ?? {}) as Record<string, unknown>;

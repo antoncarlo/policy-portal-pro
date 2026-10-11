@@ -10,7 +10,7 @@ Questa guida documenta tutti gli endpoint disponibili per l'integrazione con Pol
 
 - **Base URL:** `https://policy-portal-pro.vercel.app`
 - **Autenticazione:** Header `X-API-Key` (tutti gli endpoint). La creazione pratica richiede anche la firma HMAC `X-Signature`.
-- **Rate Limit:** 100 richieste al minuto per IP (header `Retry-After` in caso di 429)
+- **Rate Limit:** 100 richieste al minuto per IP e per endpoint, 300 al minuto per chiave API; i contatori sono condivisi tra tutte le istanze del server (header `Retry-After` in caso di 429)
 - **Formato Dati:** JSON (`Content-Type: application/json`)
 - **Perimetro dati (tenant isolation):** ogni API Key vede esclusivamente le pratiche create con la chiave stessa e, se la chiave e' associata a un utente del portale, anche le pratiche di quell'utente. In questo modo il partner ha una dashboard completa delle proprie pratiche.
 - **Chiamate solo da backend:** le credenziali non devono mai essere esposte in frontend o script lato client.
@@ -22,12 +22,13 @@ Questa guida documenta tutti gli endpoint disponibili per l'integrazione con Pol
 
 Tutte le chiamate richiedono l'header `X-API-Key`. La sola creazione pratica (`POST /api/webhook-receive-policy`) richiede anche `X-Signature`, calcolata come HMAC-SHA256 del body JSON con il `WEBHOOK_SECRET`, in esadecimale, con prefisso `sha256=`.
 
-**Regola fondamentale:** il server ricalcola la firma sul JSON che riceve, riserializzato in forma compatta (equivalente a `JSON.stringify` di JavaScript). Per far coincidere le firme il body inviato deve essere:
+**Regola fondamentale:** il server verifica la firma sui **byte esatti** del body che riceve, senza riserializzarlo. Firma la stessa stringa che invii:
 
-- JSON compatto: nessuno spazio o a capo tra chiavi e valori;
-- senza escape di `/` e dei caratteri non ASCII (es. `è`, non `\u00e8`);
-- numeri senza zeri decimali finali (`318`, non `318.0`; `26.5` va bene);
-- inviato esattamente come firmato (stessa stringa, stesso ordine delle chiavi), con `Content-Type: application/json`.
+- puoi usare qualunque formattazione del JSON (compatto o con spazi e a capo, `\/` o `/`, `\u00e8` o `è`, numeri come `318` o `318.0`): conta solo che il body inviato sia identico a quello firmato;
+- codifica UTF-8, `Content-Type: application/json`;
+- non modificare il body dopo averlo firmato (nessun middleware o proxy che lo riformatti).
+
+**Periodo di transizione:** fino a nuovo avviso il server accetta ancora una firma calcolata sul JSON compatto riserializzato (la regola precedente) e, in quel caso, risponde con l'header `Warning: 299 - "X-Signature computed on the re-serialised body..."`. Chi riceve questo avviso deve passare a firmare i byte inviati: la tolleranza verrà disattivata (`WEBHOOK_REENCODED_SIGNATURE=off`) e le firme sul body riserializzato daranno `401`.
 
 **PHP**
 ```php
@@ -178,7 +179,7 @@ Crea una nuova pratica nel portale con i dati del cliente, della polizza, **tutt
 **Headers:**
 - `Content-Type: application/json`
 - `X-API-Key: <chiave>`
-- `X-Signature: sha256=<hmac-sha256 hex del body>` (calcolata con il `WEBHOOK_SECRET` sul body JSON esatto inviato)
+- `X-Signature: sha256=<hmac-sha256 hex del body>` (calcolata con il `WEBHOOK_SECRET` sui byte esatti del body inviato)
 - `X-Idempotency-Key: <chiave stabile>` (consigliato, alternativa al campo `idempotency_key` nel body)
 
 **Campi del body:**
@@ -1176,7 +1177,7 @@ Il cambio di `status` e' riservato agli amministratori del portale: non esiste u
 | 404 | Non trovato | Pratica non esistente |
 | 405 | Metodo non consentito | Metodo HTTP errato |
 | 422 | Validazione fallita | Campi obbligatori mancanti, tipologia non valida, `specific_fields` non oggetto, importi non numerici, documenti mancanti (`missing_required_documents`, con `missing`), selezione coperture Pet non valida (`pet_quote_invalid`, con `message`), parametri di filtro non validi |
-| 429 | Troppe richieste | Rate limit superato (100 req/min). Rispettare header `Retry-After` |
+| 429 | Troppe richieste | Rate limit superato (100 req/min per IP, 300 req/min per chiave). Rispettare header `Retry-After` |
 | 500 | Errore interno | Errore durante il salvataggio (ritentare con la stessa idempotency key) |
 | 503 | Servizio non disponibile | Errore temporaneo di connessione al database |
 

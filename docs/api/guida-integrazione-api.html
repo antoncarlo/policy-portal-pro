@@ -379,7 +379,7 @@ X-Idempotency-Key: MRN-2026-000123
       <p>La firma garantisce autenticità e integrità del payload. Si calcola come <code>HMAC-SHA256</code> sul <strong>body JSON esatto</strong> della richiesta, usando il <code>WEBHOOK_SECRET</code> come chiave, e si invia in formato esadecimale con prefisso <code>sha256=</code> nell'header <code>X-Signature</code>.</p>
       <ul>
         <li>La firma copre <strong>solo il body</strong>: nessun timestamp, nessun header aggiuntivo nella stringa firmata.</li>
-        <li>Il server ricalcola la firma su <code>JSON.stringify(body)</code>: firma e invia la <strong>stessa identica stringa JSON compatta</strong> (senza spazi superflui, stesso ordine dei campi) per garantire la corrispondenza.</li>
+        <li>Il server verifica la firma sui <strong>byte esatti</strong> del body ricevuto: firma e invia la stessa identica stringa (qualunque formattazione JSON va bene, purché il body non cambi dopo la firma). Per un periodo di transizione è ancora accettata la firma sul JSON compatto riserializzato, con header <code>Warning: 299</code> in risposta.</li>
         <li>Il confronto lato server avviene in <em>constant time</em>; una firma non valida restituisce <code>401</code>.</li>
       </ul>
 
@@ -403,7 +403,7 @@ const payload = {
   client_phone: '+39 333 1234567',
 };
 
-// Firma la STESSA stringa che invii nel body (JSON compatto)
+// Firma la STESSA stringa che invii nel body
 const rawBody = JSON.stringify(payload);
 const signature = 'sha256=' + crypto
   .createHmac('sha256', WEBHOOK_SECRET)
@@ -441,7 +441,7 @@ payload = {
     "client_phone": "+39 333 1234567",
 }
 
-# Firma la STESSA stringa che invii nel body (JSON compatto)
+# Firma la STESSA stringa che invii nel body
 raw_body = json.dumps(payload, separators=(",", ":"))
 signature = "sha256=" + hmac.new(
     WEBHOOK_SECRET.encode("utf-8"),
