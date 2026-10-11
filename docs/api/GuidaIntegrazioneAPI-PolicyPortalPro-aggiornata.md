@@ -1,6 +1,6 @@
 # Guida all'Integrazione API - Policy Portal Pro
 
-**Versione:** 2.7
+**Versione:** 2.8
 
 Questa guida documenta tutti gli endpoint disponibili per l'integrazione con Policy Portal Pro: **preventivatore Pet** (catalogo coperture e calcolo), creazione pratica con **tutti i dati della quotazione**, **Ricapitolo Richiesta** generato automaticamente (ZIP con preventivo PDF e documentazione contrattuale), stato completo della pratica con **riepilogo**, documenti, messaggistica e gli endpoint di **dashboard** (elenco pratiche, scadenzario, report produzione, amministrazione).
 
@@ -1190,6 +1190,12 @@ Il cambio di `status` e' riservato agli amministratori del portale: non esiste u
 - Il questionario Pet (`questionario_pet`) e' stato rimosso: per Pet sono richiesti solo documento d'identita' e libretto sanitario/microchip.
 - `get-practice-status` restituisce i nuovi campi `summary`, `pet`, `client.tax_code`, `policy.days_until_expiry`, `payment`, `missing_documents`, `documents_complete`.
 - Nuovi endpoint: `get-practices`, `get-expiries`, `get-reports`, `get-administration`.
+
+## Note versione 2.8
+
+- **Firma HMAC sui byte esatti.** `POST /api/webhook-receive-policy` verifica `X-Signature` sul body esattamente come lo riceve, senza riserializzarlo: qualunque formattazione del JSON è valida purché il body inviato sia identico a quello firmato. Per un periodo di transizione è ancora accettata la firma sul JSON compatto riserializzato (la regola precedente), con l'header di risposta `Warning: 299`; chi lo riceve deve passare a firmare i byte inviati, perché la tolleranza verrà disattivata e quelle firme daranno `401`.
+- **Rate limit condiviso.** I limiti (100 richieste al minuto per IP e per endpoint, 300 al minuto per chiave API) sono contati nel database e valgono per tutte le istanze del server; l'header `Retry-After` indica quando riprovare dopo un `429`.
+- `get-practices` restituisce `lot` (`id`, `number`, `name`) per le pratiche che arrivano da un lotto VIES, altrimenti `null`.
 
 ## Note versione 2.7
 
