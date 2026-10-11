@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Enums } from "@/integrations/supabase/types";
-import { applyStageFilter, PRACTICE_STAGES, type PracticeStage, type StageFilterable } from "@/lib/practiceStages";
+import { applyStageFilter, PRACTICE_STAGES, type FilterableQuery, type PracticeStage } from "@/lib/practiceStages";
 
 // The few methods of the query builder used here, so the types stay shallow.
-interface CountQuery extends StageFilterable, PromiseLike<{ count: number | null }> {}
+interface CountQuery extends FilterableQuery<CountQuery>, PromiseLike<{ count: number | null }> {}
 
 export interface StageCounts {
   total: number;

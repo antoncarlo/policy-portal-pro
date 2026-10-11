@@ -315,7 +315,7 @@ export default function ApiDocs() {
       </div>
 
       <nav style={styles.nav}>
-        {['Introduzione','Autenticazione','Endpoint','Documenti','Risposte','Idempotency','Esempi','Contatti'].map(s => (
+        {['Introduzione','Autenticazione','Endpoint','Documenti','Risposte','Idempotency','Esempi','Lotti','Contatti'].map(s => (
           <a
             key={s}
             href={`#${s.toLowerCase()}`}
@@ -651,8 +651,82 @@ X-API-Key: tmga_a1b2c3d4...
         </section>
 
         {/* 8. Contatti */}
+        <section id="lotti" style={styles.section}>
+          <h2 style={styles.h2}>8. Lotti VIES da altri portali</h2>
+          <p style={styles.p}>
+            Un portale collegato può inviare un <strong>lotto VIES</strong> (l&apos;Excel del modello, uno ZIP per azienda ed
+            eventualmente la visura del rappresentante fiscale) senza passare dalla pagina VIES. Il lotto resta
+            «ricevuto» finché un amministratore lo carica nel flusso: da lì le pratiche seguono il percorso di tutte le altre
+            (da lavorare, in valutazione, deliberate da pagare, pagate, emesse) e il portale mittente ne legge lo stato.
+          </p>
+          <p style={styles.p}>
+            Si usa la stessa intestazione <code style={styles.inlineCode}>X-API-Key</code>. La chiave deve essere
+            <strong> associata a un utente del portale</strong> (Impostazioni → Mappatura API): senza associazione la
+            risposta è 403 <code style={styles.inlineCode}>key_not_mapped</code>. I file non passano dall&apos;API ma vanno
+            direttamente nell&apos;archivio, con indirizzi di caricamento validi due ore: così nessun limite di dimensione
+            della richiesta.
+          </p>
+
+          <h3 style={styles.h3}>1. POST /api/vies-intake — create_lot</h3>
+          <pre style={styles.code}>{`POST /api/vies-intake
+X-API-Key: tmga_a1b2c3d4...
+Content-Type: application/json
+
+{
+  "action": "create_lot",
+  "source_reference": "LOTTO-2026-10-A",     // il vostro identificativo, unico per chiave
+  "fiscal_representative": { "name": "Rappresentante Srl", "tax_code": "01234567890" },
+  "expected_rows": 12,
+  "notes": "facoltativo",
+  "files": [
+    { "kind": "excel",  "file_name": "lotto.xlsx", "size": 48213 },
+    { "kind": "zip",    "file_name": "1.zip" },
+    { "kind": "zip",    "file_name": "2.zip" },
+    { "kind": "visura", "file_name": "visura.pdf" }
+  ]
+}
+
+200 { "ok": true, "lot_id": "…", "status": "uploading",
+      "uploads": [ { "kind": "excel", "file_name": "lotto.xlsx",
+                     "storage_path": "…", "upload_url": "https://…", "method": "PUT" }, … ] }`}</pre>
+          <p style={styles.p}>
+            Esattamente un file <code style={styles.inlineCode}>excel</code> (.xlsx/.xls), al più una
+            <code style={styles.inlineCode}> visura</code> (.pdf) e gli <code style={styles.inlineCode}>zip</code> con i nomi
+            richiesti dal modello (1.zip, 2.zip, …). I nomi vengono normalizzati (gli spazi diventano «_»): fa fede il
+            <code style={styles.inlineCode}> file_name</code> restituito. Se indicate <code style={styles.inlineCode}>size</code>,
+            il file caricato deve avere esattamente quella dimensione. Ripetere la chiamata con lo stesso
+            <code style={styles.inlineCode}> source_reference</code> mentre il lotto è ancora «uploading» rilascia nuovi indirizzi.
+          </p>
+
+          <h3 style={styles.h3}>2. Caricare i file</h3>
+          <pre style={styles.code}>{`curl -X PUT --data-binary @lotto.xlsx \
+  -H "Content-Type: application/octet-stream" "<upload_url del file>"`}</pre>
+
+          <h3 style={styles.h3}>3. POST /api/vies-intake — complete_lot</h3>
+          <pre style={styles.code}>{`{ "action": "complete_lot", "lot_id": "…" }
+
+200 { "ok": true, "lot_id": "…", "status": "received", "files": 4 }
+422 { "ok": false, "error": "files_missing", "missing": ["2.zip"] }   // caricamento incompleto`}</pre>
+
+          <h3 style={styles.h3}>4. GET /api/vies-intake-status</h3>
+          <pre style={styles.code}>{`GET /api/vies-intake-status?lot_id=…            (oppure ?source_reference=LOTTO-2026-10-A)
+GET /api/vies-intake-status                      (gli ultimi 50 lotti della chiave)
+
+200 { "ok": true,
+      "lot": { "lot_id": "…", "status": "received|processing|processed|rejected", "rejected_reason": null, … },
+      "practices": [ { "row_number": 1, "contraente": "Azienda Uno", "practice_number": "VIES-2026-0001-ab12cd34",
+                       "stage": "da_lavorare|in_valutazione|integrazioni|deliberata|da_emettere|emessa|non_deliberata",
+                       "payment_due_date": "2026-11-30", "note": null }, … ] }`}</pre>
+          <p style={styles.p}>
+            <code style={styles.inlineCode}>practices</code> compare quando il lotto è «processed». Il documento della bozza
+            deliberata si scarica con <code style={styles.inlineCode}>GET /api/get-practice-documents</code> usando
+            <code style={styles.inlineCode}> practice_number</code>. Stati della pratica nelle altre API:
+            <code style={styles.inlineCode}> in_lavorazione, in_attesa, integrazioni, approvata, rifiutata, completata</code>.
+          </p>
+        </section>
+
         <section id="contatti" style={styles.section}>
-          <h2 style={styles.h2}>8. Contatti</h2>
+          <h2 style={styles.h2}>9. Contatti</h2>
           <p style={styles.p}>
             Per richiedere le credenziali API o per supporto tecnico:
           </p>

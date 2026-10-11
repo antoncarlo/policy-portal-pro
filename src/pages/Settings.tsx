@@ -15,15 +15,18 @@ import { SMTPSettings } from "@/components/settings/admin/SMTPSettings";
 import { ApiLogsSettings } from "@/components/settings/admin/ApiLogsSettings";
 import { ApiKeysSettings } from "@/components/settings/admin/ApiKeysSettings";
 import { ApiKeyMappingSettings } from "@/components/settings/admin/ApiKeyMappingSettings";
+import { ConnectionsSettings } from "@/components/settings/admin/ConnectionsSettings";
 import { SessionsSettings } from "@/components/settings/SessionsSettings";
-import { User, Lock, Settings2, Users, FileText, Shield, BarChart3, Activity, Database, Mail, Monitor, Webhook, Key, Link2 } from "lucide-react";
+import { User, Lock, Settings2, Users, FileText, Shield, BarChart3, Activity, Database, Mail, Monitor, Webhook, Key, Link2, Cable } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMessages } from "@/i18n";
 import { settingsMessages } from "@/i18n/messages/settings";
+import { connectionsMessages } from "@/i18n/messages/connections";
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState("profile");
   const m = useMessages(settingsMessages);
+  const connections = useMessages(connectionsMessages).settings;
   const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
@@ -129,6 +132,10 @@ const Settings = () => {
                   <Link2 className="h-4 w-4" />
                   <span className="hidden sm:inline">{m.tabs.apiMapping}</span>
                 </TabsTrigger>
+                <TabsTrigger value="connections" className="h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
+                  <Cable className="h-4 w-4" />
+                  <span className="hidden sm:inline">{connections.title}</span>
+                </TabsTrigger>
               </>
             )}
           </TabsList>
@@ -194,6 +201,10 @@ const Settings = () => {
 
               <TabsContent value="api-mapping" className="space-y-4">
                 <ApiKeyMappingSettings />
+              </TabsContent>
+
+              <TabsContent value="connections" className="space-y-4">
+                <ConnectionsSettings />
               </TabsContent>
             </>
           )}

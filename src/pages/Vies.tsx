@@ -17,6 +17,9 @@ import {
   XCircle,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { ReceivedLotsPanel, type IntakeLot } from "@/components/vies/ReceivedLotsPanel";
+import { connectionsMessages } from "@/i18n/messages/connections";
+import { callWorkflow } from "@/lib/workflowApi";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1210,6 +1213,7 @@ const Vies = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const m = useMessages(viesMessages);
+  const intakeText = useMessages(connectionsMessages).intake;
   const locale = useLocale();
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [zipFiles, setZipFiles] = useState<File[]>([]);
@@ -1235,6 +1239,9 @@ const Vies = () => {
   const [batchUploadStatus, setBatchUploadStatus] = useState<string | null>(null);
   const [batchUploadProgress, setBatchUploadProgress] = useState(0);
   const [persistedBatchId, setPersistedBatchId] = useState<string | null>(null);
+  // Lot received from another portal whose files are loaded in the flow, and the list's refresh counter.
+  const [activeIntakeLot, setActiveIntakeLot] = useState<IntakeLot | null>(null);
+  const [intakeRefresh, setIntakeRefresh] = useState(0);
   const [lastCreatedPracticeIds, setLastCreatedPracticeIds] = useState<string[]>([]);
   // VIES practices already in the portal for the companies of the sheet.
   const [existingPractices, setExistingPractices] = useState<ExistingViesPractice[]>([]);
@@ -1481,6 +1488,7 @@ const Vies = () => {
 
   // New Excel or new ZIPs: a new batch, to be checked again for duplicates.
   const startNewLot = () => {
+    setActiveIntakeLot(null);
     setPersistedBatchId(null);
     setLastCreatedPracticeIds([]);
     setDuplicateCheckRun((run) => run + 1);
@@ -1498,6 +1506,31 @@ const Vies = () => {
       amministratoreRappresentante: admin?.name ?? current.amministratoreRappresentante,
       codiceFiscaleAmministratore: admin?.taxCode ?? current.codiceFiscaleAmministratore,
     }));
+  };
+
+  // Files of a lot received through the API go through the same readers as files chosen by hand.
+  const loadReceivedLot = async (lot: IntakeLot) => {
+    const download = async (entry: IntakeLot["files"][number], type: string) => {
+      const { data, error } = await supabase.storage.from(VIES_STORAGE_BUCKET).download(entry.storage_path);
+      if (error || !data) throw new Error(intakeText.fileMissing(entry.file_name));
+      return new File([data], entry.file_name, { type });
+    };
+    const excel = lot.files.find((file) => file.kind === "excel");
+    if (!excel) throw new Error(intakeText.fileMissing("Excel"));
+    const excelFile = await download(excel, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    const visuraEntry = lot.files.find((file) => file.kind === "visura");
+    const visuraDownload = visuraEntry ? await download(visuraEntry, "application/pdf") : undefined;
+    const zipDownloads = await Promise.all(lot.files.filter((file) => file.kind === "zip").map((file) => download(file, "application/zip")));
+
+    startNewLot();
+    setActiveIntakeLot(lot);
+    await handleExcelUpload(excelFile);
+    await handleVisuraUpload(visuraDownload);
+    await handleZipUpload(zipDownloads);
+    if (lot.status === "received") {
+      await supabase.from("vies_intake_lots").update({ status: "processing" }).eq("id", lot.id).eq("status", "received");
+    }
+    setIntakeRefresh((value) => value + 1);
   };
 
   // The visura of the representation company fills the whole fiscal
@@ -2548,6 +2581,16 @@ const Vies = () => {
       setBatchUploadStatus(status.created(formatDurationSeconds(batchStartedAt)));
       setPersistedBatchId(batchId);
       setLastCreatedPracticeIds(createdPractices?.map((practice) => practice.id) ?? []);
+      // A lot received from another portal: its practices record where they came from and the lot is closed.
+      if (activeIntakeLot) {
+        try {
+          await callWorkflow("intake_link", { lotId: activeIntakeLot.id, batchId });
+          setActiveIntakeLot(null);
+          setIntakeRefresh((value) => value + 1);
+        } catch (linkError) {
+          console.error("Received lot not linked:", linkError);
+        }
+      }
       setDuplicateCheckRun((run) => run + 1);
       await refreshBatchMonitor(batchId);
       toast({
@@ -2668,6 +2711,8 @@ const Vies = () => {
             </p>
           </div>
         )}
+
+        <ReceivedLotsPanel activeLotId={activeIntakeLot?.id ?? null} onLoad={loadReceivedLot} refreshKey={intakeRefresh} />
 
         <div className="grid gap-4 md:grid-cols-4">
           <Card>

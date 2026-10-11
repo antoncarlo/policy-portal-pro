@@ -27,6 +27,7 @@ export const WORKFLOW_ACTIONS = [
   'workflow_mark_sent',
   'workflow_register_payment',
   'portal_status',
+  'intake_link',
 ] as const;
 export type WorkflowActionName = (typeof WORKFLOW_ACTIONS)[number];
 
@@ -95,6 +96,31 @@ export async function runWorkflowAction(
           };
         }),
     };
+  }
+
+  // A received lot, once its practices exist: they record where they came from, the lot is closed.
+  if (action === 'intake_link') {
+    const lotId = required(body.lotId, 64, 'lotId obbligatorio');
+    const batchId = required(body.batchId, 64, 'batchId obbligatorio');
+    const { data: lot } = await supabase.from('vies_intake_lots').select('id, status, source_portal, source_reference').eq('id', lotId).maybeSingle();
+    if (!lot) throw new WorkflowError(404, 'lot_not_found', 'Lotto non trovato');
+    if (lot.status !== 'received' && lot.status !== 'processing') throw new WorkflowError(409, 'invalid_transition', 'Il lotto è già stato chiuso');
+    const { data: batch } = await supabase.from('vies_batches').select('id').eq('id', batchId).maybeSingle();
+    if (!batch) throw new WorkflowError(404, 'batch_not_found', 'Lotto VIES non trovato');
+    const { data: jobs, error: jobsError } = await supabase.from('vies_jobs').select('external_reference').eq('batch_id', batchId).limit(5000);
+    if (jobsError) throw new WorkflowError(500, 'database', jobsError.message);
+    const practiceIds = (jobs ?? []).map((job) => job.external_reference as string | null).filter((id): id is string => Boolean(id));
+    for (let start = 0; start < practiceIds.length; start += 200) {
+      const rows = practiceIds.slice(start, start + 200).map((id) => ({ practice_id: id, source_portal: lot.source_portal, source_reference: lot.source_reference }));
+      const { error } = await supabase.from('practice_workflow').upsert(rows, { onConflict: 'practice_id' });
+      if (error) throw new WorkflowError(500, 'database', `Origine delle pratiche non registrata: ${error.message}`);
+    }
+    const { error: closeError } = await supabase
+      .from('vies_intake_lots')
+      .update({ status: 'processed', batch_id: batchId, processed_at: new Date().toISOString() })
+      .eq('id', lot.id);
+    if (closeError) throw new WorkflowError(500, 'database', closeError.message);
+    return { ok: true, linked: practiceIds.length };
   }
 
   const practiceId = required(body.practiceId, 64, 'practiceId obbligatorio');

@@ -9,7 +9,8 @@ export type WorkflowActionName =
   | "workflow_reopen"
   | "workflow_mark_sent"
   | "workflow_register_payment"
-  | "portal_status";
+  | "portal_status"
+  | "intake_link";
 
 /** Calls /api/vies-control with the user's session: the practice flow with the company, for administrators. */
 export async function callWorkflow<T = Record<string, unknown>>(action: WorkflowActionName, payload: Record<string, unknown> = {}): Promise<T> {
