@@ -26,6 +26,8 @@ Prima versione numerata. Riepilogo di ciò che il portale fa oggi:
 
 - Rinnovo delle polizze: azione «Rinnova» nello scadenzario e nel dettaglio pratica; crea una pratica collegata (`practices.renewal_of`, una sola per pratica) con i dati del cliente e il periodo che parte dalla scadenza e dura quanto il precedente, con una riga nello storico di entrambe; la pratica rinnovata esce dai promemoria di scadenza. Tasso di rinnovo (ultimi 12 mesi e prossimi 90 giorni) nello scadenzario.
 
+- Conservazione dei registri (`docs/data-retention.md`): ogni notte (pg_cron) `run_retention()` tronca gli IP dopo 30 giorni (api_logs) o 12 mesi (audit), cancella i registri oltre le durate stabilite (api_logs 12 mesi, email 24 mesi, eventi di integrazione 12 mesi, consegne 6/12 mesi, coda notifiche 30 giorni, audit 10 anni per pratiche, clienti e documenti e 2 anni per il resto). L'audit resta append-only.
+
 ### Corretto
 - Amministrazione: premio ed esportazione leggevano un campo che non esiste più (`premium_amount`, ora `premium_net`); il salvataggio delle modifiche contabili veniva rifiutato.
 - Report: le colonne premio/provvigione dell'esportazione Excel/PDF erano vuote; i grafici per mese e la classifica agenti non ricevevano i campi attesi.
