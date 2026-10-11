@@ -20,6 +20,8 @@ export interface IncomingDocument {
   content_base64?: string;
   /** Address to download it from (https, only the portal's own hosts). */
   url?: string;
+  /** A file already uploaded to the practice's folder (by an administrator's browser). */
+  storage_path?: string;
 }
 
 export class DocumentError extends Error {
@@ -91,10 +93,15 @@ export async function readIncomingDocument(
   } else {
     throw new DocumentError('Il documento non ha contenuto né indirizzo');
   }
+  return checkDocumentBytes(bytes, document.mime_type, fileName);
+}
+
+/** Size, declared type and the file's own header must agree. */
+function checkDocumentBytes(bytes: Buffer, declaredType: string | undefined, fileName: string) {
   if (!bytes.length) throw new DocumentError('Il documento è vuoto');
   if (bytes.length > MAX_DOCUMENT_BYTES) throw new DocumentError('Documento troppo grande (massimo 12 MB)');
 
-  const mimeType = (document.mime_type ?? '').toLowerCase().split(';')[0].trim() || guessMime(fileName);
+  const mimeType = (declaredType ?? '').toLowerCase().split(';')[0].trim() || guessMime(fileName);
   const check = ALLOWED_TYPES[mimeType];
   if (!check) throw new DocumentError(`Tipo di documento non consentito: ${mimeType}`);
   if (!check(bytes)) throw new DocumentError('Il contenuto del documento non corrisponde al tipo dichiarato');
@@ -109,11 +116,32 @@ export async function attachPracticeDocument(
   documentType: StoredDocumentType,
   options: { documentHosts?: string[]; uploadedBy?: string | null } = {},
 ): Promise<{ id: string; file_name: string; file_path: string }> {
-  const { bytes, mimeType, fileName } = await readIncomingDocument(document, options);
-  const path = `${practice.id}/${documentType}-${Date.now()}-${fileName}`;
+  let bytes: Buffer;
+  let mimeType: string;
+  let fileName: string;
+  let path: string;
 
-  const { error: uploadError } = await supabase.storage.from(PRACTICE_DOCUMENTS_BUCKET).upload(path, bytes, { contentType: mimeType, upsert: false });
-  if (uploadError) throw new DocumentError(`Salvataggio del documento non riuscito: ${uploadError.message}`);
+  if (document.storage_path) {
+    // Uploaded straight to the practice's folder by an administrator: the file is checked where it is.
+    path = document.storage_path;
+    if (!path.startsWith(`${practice.id}/`) || path.split('/').some((part) => part === '..' || part === '')) {
+      throw new DocumentError('Percorso del documento non valido');
+    }
+    const { data, error } = await supabase.storage.from(PRACTICE_DOCUMENTS_BUCKET).download(path);
+    if (error || !data) throw new DocumentError('Il documento caricato non è stato trovato');
+    try {
+      ({ bytes, mimeType, fileName } = checkDocumentBytes(Buffer.from(await data.arrayBuffer()), document.mime_type, safeFileName(document.file_name || path.split('/').pop() || 'documento.pdf')));
+    } catch (checkError) {
+      // A file that fails the checks is not kept in the practice's folder.
+      await supabase.storage.from(PRACTICE_DOCUMENTS_BUCKET).remove([path]);
+      throw checkError;
+    }
+  } else {
+    ({ bytes, mimeType, fileName } = await readIncomingDocument(document, options));
+    path = `${practice.id}/${documentType}-${Date.now()}-${fileName}`;
+    const { error: uploadError } = await supabase.storage.from(PRACTICE_DOCUMENTS_BUCKET).upload(path, bytes, { contentType: mimeType, upsert: false });
+    if (uploadError) throw new DocumentError(`Salvataggio del documento non riuscito: ${uploadError.message}`);
+  }
 
   const { data, error } = await supabase
     .from('practice_documents')

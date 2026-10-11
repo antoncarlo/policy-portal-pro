@@ -13,6 +13,7 @@ import { PetQuoteDocumentCard } from "@/components/practice/PetQuoteDocumentCard
 import { PracticeStatusForm } from "@/components/practice/PracticeStatusForm";
 import { PracticeNotes } from "@/components/practice/PracticeNotes";
 import { PracticeSummaryCard } from "@/components/practice/PracticeSummaryCard";
+import { PracticeWorkflowCard } from "@/components/practice/PracticeWorkflowCard";
 import { ViesPolicyDocumentCard } from "@/components/practice/ViesPolicyDocumentCard";
 import { formatPolicyDuration } from "@/lib/practiceSummary";
 import { formatDate, getMessages, useMessages } from "@/i18n";
@@ -33,6 +34,8 @@ interface Practice {
   client_phone: string;
   client_email: string;
   policy_number: string | null;
+  financial_status: string | null;
+  payment_date: string | null;
   beneficiary: string | null;
   owner_tax_code: string | null;
   pet_microchip: string | null;
@@ -256,6 +259,15 @@ const PracticeDetail = () => {
             </div>
           </div>
         </Card>
+
+        <PracticeWorkflowCard
+          practice={practice}
+          isAdmin={userRole === "admin"}
+          onChanged={() => {
+            void loadPractice();
+            setDocumentsRefreshToken((t) => t + 1);
+          }}
+        />
 
         <PracticeSummaryCard practice={practice} />
 

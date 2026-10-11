@@ -2,6 +2,8 @@ import { useState } from "react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { PracticesTable } from "@/components/practices/PracticesTable";
 import { PracticesFilters, PracticeFilters } from "@/components/practices/PracticesFilters";
+import { PracticeStageTabs } from "@/components/practices/PracticeStageTabs";
+import { isPracticeStage, type PracticeStage } from "@/lib/practiceStages";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
@@ -10,7 +12,7 @@ import { useMessages } from "@/i18n";
 import { practicesMessages } from "@/i18n/messages/practices";
 
 const Practices = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const m = useMessages(practicesMessages);
   const [filters, setFilters] = useState<PracticeFilters>({
@@ -20,6 +22,16 @@ const Practices = () => {
     dateTo: undefined,
     userId: "all",
   });
+
+  // The section lives in the address (?stage=…) so the menu, links and back button agree with the page.
+  const stageParam = searchParams.get("stage");
+  const stage: PracticeStage | "all" = isPracticeStage(stageParam) ? stageParam : "all";
+  const handleStageChange = (next: PracticeStage | "all") => {
+    const params = new URLSearchParams(searchParams);
+    if (next === "all") params.delete("stage");
+    else params.set("stage", next);
+    setSearchParams(params);
+  };
 
   const handleClearFilters = () => {
     setFilters({
@@ -46,6 +58,8 @@ const Practices = () => {
           </Link>
         </div>
 
+        <PracticeStageTabs value={stage} onChange={handleStageChange} />
+
         <div className="flex flex-col gap-4 md:flex-row">
           <div className="relative min-w-0 flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -63,7 +77,7 @@ const Practices = () => {
           />
         </div>
 
-        <PracticesTable searchQuery={searchQuery} filters={filters} />
+        <PracticesTable searchQuery={searchQuery} filters={filters} stage={stage} />
       </div>
     </DashboardLayout>
   );

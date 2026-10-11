@@ -15,6 +15,7 @@ import {
   BarChart3,
   ClipboardList,
   ShieldCheck,
+  ChevronDown,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +23,10 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useMessages } from "@/i18n";
 import { commonMessages } from "@/i18n/messages/common";
 import { shellMessages } from "@/i18n/messages/shell";
+import { workflowMessages } from "@/i18n/messages/workflow";
+import { usePracticeStageCounts } from "@/hooks/usePracticeStageCounts";
+import { PRACTICE_STAGES, isPracticeStage } from "@/lib/practiceStages";
+import { cn } from "@/lib/utils";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -33,6 +38,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { toast } = useToast();
   const m = useMessages(shellMessages);
   const common = useMessages(commonMessages);
+  const flow = useMessages(workflowMessages);
+  const { data: stageCounts } = usePracticeStageCounts();
   const [isAdmin, setIsAdmin] = useState(false);
   const [canAccessVies, setCanAccessVies] = useState(false);
 
@@ -89,6 +96,15 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   const isActive = (path: string) => location.pathname === path;
 
+  // "Pratiche" opens into its sections; the section in use comes from the address.
+  const onPractices = location.pathname === "/practices" || location.pathname.startsWith("/practices/");
+  const [practicesOpen, setPracticesOpen] = useState(onPractices);
+  useEffect(() => {
+    if (onPractices) setPracticesOpen(true);
+  }, [onPractices]);
+  const stageParam = new URLSearchParams(location.search).get("stage");
+  const activeStage = location.pathname === "/practices" && isPracticeStage(stageParam) ? stageParam : null;
+
   const navItems = [
     { path: "/dashboard", icon: LayoutDashboard, label: m.nav.dashboard },
     { path: "/practices", icon: FileText, label: m.nav.practices },
@@ -121,6 +137,64 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         <nav className="space-y-2 p-4 pb-36">
           {visibleNavItems.map((item) => {
             const Icon = item.icon;
+            if (item.path === "/practices") {
+              return (
+                <div key={item.path}>
+                  <div className="flex items-stretch gap-1">
+                    <Link to={item.path} className="min-w-0 flex-1">
+                      <Button
+                        variant={onPractices && !activeStage ? "secondary" : "ghost"}
+                        className="h-auto min-h-10 w-full justify-start whitespace-normal text-left leading-snug"
+                      >
+                        <Icon className="mr-2 h-4 w-4 shrink-0" />
+                        <span className="min-w-0 break-words">{item.label}</span>
+                        {stageCounts && <span className="ml-auto pl-2 text-xs tabular-nums text-muted-foreground">{stageCounts.total}</span>}
+                      </Button>
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-auto min-h-10 w-9 shrink-0"
+                      aria-label={flow.tabs.menuLabel}
+                      aria-expanded={practicesOpen}
+                      onClick={() => setPracticesOpen((open) => !open)}
+                    >
+                      <ChevronDown className={cn("h-4 w-4 transition-transform", practicesOpen && "rotate-180")} />
+                    </Button>
+                  </div>
+                  {practicesOpen && (
+                    <div role="group" aria-label={flow.tabs.menuLabel} className="ml-5 mt-1 space-y-0.5 border-l border-border pl-2">
+                      {PRACTICE_STAGES.map((stage) => {
+                        const count = stageCounts?.counts[stage];
+                        const dueSoon = stage === "deliberata" ? stageCounts?.dueSoon ?? 0 : 0;
+                        return (
+                          <Link key={stage} to={`/practices?stage=${stage}`}>
+                            <Button
+                              variant={activeStage === stage ? "secondary" : "ghost"}
+                              size="sm"
+                              className="h-auto min-h-8 w-full justify-start whitespace-normal py-1.5 text-left text-[13px] font-normal leading-snug"
+                            >
+                              <span className="min-w-0 break-words">{flow.stages[stage]}</span>
+                              <span className="ml-auto flex shrink-0 items-center gap-1.5 pl-2">
+                                {dueSoon > 0 && (
+                                  <span
+                                    className="rounded-full bg-amber-500/20 px-1.5 text-[11px] font-semibold tabular-nums text-amber-600 dark:text-amber-400"
+                                    title={flow.tabs.dueSoon(dueSoon)}
+                                  >
+                                    {dueSoon}
+                                  </span>
+                                )}
+                                {count !== undefined && <span className="text-xs tabular-nums text-muted-foreground">{count}</span>}
+                              </span>
+                            </Button>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
             return (
               <Link key={item.path} to={item.path}>
                 <Button

@@ -41,10 +41,13 @@ import { formatDate, getMessages, useMessages } from "@/i18n";
 import { practicesMessages } from "@/i18n/messages/practices";
 import { commonMessages } from "@/i18n/messages/common";
 import { PRACTICE_STATUSES, practiceStatusLabel, practiceTypeLabel } from "@/i18n/messages/domain";
+import { applyStageFilter, type PracticeStage, type StageFilterable } from "@/lib/practiceStages";
 
 interface PracticesTableProps {
   searchQuery: string;
   filters: PracticeFilters;
+  /** Section of the flow ("all" shows every practice). */
+  stage?: PracticeStage | "all";
 }
 
 type PracticeStatus = "in_lavorazione" | "in_attesa" | "integrazioni" | "approvata" | "rifiutata" | "completata";
@@ -82,7 +85,7 @@ const getDocumentStorageReference = (filePath: string) => {
   };
 };
 
-export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) => {
+export const PracticesTable = ({ searchQuery, filters, stage = "all" }: PracticesTableProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const m = useMessages(practicesMessages).table;
@@ -154,6 +157,10 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
         query = query.eq("status", filters.status as PracticeStatus);
       }
 
+      if (stage !== "all") {
+        query = applyStageFilter(query as unknown as StageFilterable, stage) as unknown as typeof query;
+      }
+
       if (filters.dateFrom) {
         query = query.gte("created_at", filters.dateFrom.toISOString());
       }
@@ -184,7 +191,7 @@ export const PracticesTable = ({ searchQuery, filters }: PracticesTableProps) =>
   useEffect(() => {
     loadPractices();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
-  }, [filters]);
+  }, [filters, stage]);
 
   const handleDownloadDocuments = async (practice: Practice) => {
     try {

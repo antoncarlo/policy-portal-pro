@@ -13,7 +13,8 @@ import type { IncomingDocument } from './vies-documents.js';
  * callbacks applies them, so the history reads the same either way.
  *
  * Large files are not sent here (the platform limits a request to 4.5 MB): the browser stores the
- * draft in the practice's folder first, and a small one may still come as `draft.content_base64`.
+ * draft in the practice's folder first and names it as `draft.storage_path`; the server checks and
+ * links it. A small one may still come as `draft.content_base64`.
  */
 
 export const WORKFLOW_ACTIONS = [
@@ -52,9 +53,10 @@ function parseDraft(value: unknown): IncomingDocument | null {
   if (value === undefined || value === null) return null;
   if (!isRecord(value)) throw new WorkflowError(422, 'invalid_payload', 'draft: formato non valido');
   const fileName = required(value.file_name, 200, 'draft.file_name obbligatorio');
+  const storagePath = text(value.storage_path, 500);
   const content = typeof value.content_base64 === 'string' ? value.content_base64 : undefined;
-  if (!content) throw new WorkflowError(422, 'invalid_payload', 'draft.content_base64 obbligatorio');
-  return { file_name: fileName, mime_type: text(value.mime_type, 100), content_base64: content };
+  if (!storagePath && !content) throw new WorkflowError(422, 'invalid_payload', 'draft: indicare storage_path oppure content_base64');
+  return { file_name: fileName, mime_type: text(value.mime_type, 100), content_base64: storagePath ? undefined : content, storage_path: storagePath };
 }
 
 export async function runWorkflowAction(
@@ -130,10 +132,19 @@ export async function runWorkflowAction(
     case 'workflow_provide_info':
       event = { type: 'info_provided', message: text(body.message, 1000) ?? null };
       break;
-    case 'workflow_issue':
+    case 'workflow_issue': {
       event = { type: 'issued', document: parseDraft(body.document) };
       notify = 'issued';
+      const policyNumber = text(body.policyNumber, 100);
+      if (policyNumber) {
+        const result = await applyWorkflowEvent(supabase, practiceId, event, context);
+        // The number is recorded only where the practice has none yet.
+        await supabase.from('practices').update({ policy_number: policyNumber }).eq('id', practiceId).is('policy_number', null);
+        if (result.changed) await notifyPracticeOwner(supabase, practiceId, 'issued');
+        return { ok: true, ...result };
+      }
       break;
+    }
     case 'workflow_reopen':
       event = { type: 'reopened', reason: text(body.reason, 500) ?? null };
       break;

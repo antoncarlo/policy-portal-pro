@@ -52,11 +52,14 @@ export const isPracticeStage = (value: unknown): value is PracticeStage =>
   typeof value === "string" && (PRACTICE_STAGES as readonly string[]).includes(value);
 
 // Minimo comune del costruttore di query di Supabase usato dai filtri.
-interface FilterableQuery<T> {
+export interface FilterableQuery<T> {
   eq(column: string, value: string): T;
   in(column: string, values: string[]): T;
   or(filter: string): T;
 }
+
+/** Query su `practices` vista con i soli metodi dei filtri: tiene bassa la profondita' dei tipi. */
+export interface StageFilterable extends FilterableQuery<StageFilterable> {}
 
 /** Applica a una query su `practices` il filtro della sezione. */
 export function applyStageFilter<T extends FilterableQuery<T>>(query: T, stage: PracticeStage): T {
