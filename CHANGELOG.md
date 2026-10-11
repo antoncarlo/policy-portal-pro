@@ -28,6 +28,8 @@ Prima versione numerata. Riepilogo di ciò che il portale fa oggi:
 
 - Conservazione dei registri (`docs/data-retention.md`): ogni notte (pg_cron) `run_retention()` tronca gli IP dopo 30 giorni (api_logs) o 12 mesi (audit), cancella i registri oltre le durate stabilite (api_logs 12 mesi, email 24 mesi, eventi di integrazione 12 mesi, consegne 6/12 mesi, coda notifiche 30 giorni, audit 10 anni per pratiche, clienti e documenti e 2 anni per il resto). L'audit resta append-only.
 
+- Monitoraggio (`docs/monitoring.md`): pagina di errore al posto dello schermo bianco (con riferimento e ripristino al cambio pagina), errori del browser e delle funzioni verso Sentry se è impostato un DSN (nessuna dipendenza nuova), avviso agli amministratori quando un cron si interrompe, `/api/health` pubblico (database) e dettagliato con `CRON_SECRET` (variabili mancanti o malformate, funzioni attive; mai valori), controllo dell'ambiente con zod nel riepilogo giornaliero.
+
 ### Corretto
 - Amministrazione: premio ed esportazione leggevano un campo che non esiste più (`premium_amount`, ora `premium_net`); il salvataggio delle modifiche contabili veniva rifiutato.
 - Report: le colonne premio/provvigione dell'esportazione Excel/PDF erano vuote; i grafici per mese e la classifica agenti non ricevevano i campi attesi.

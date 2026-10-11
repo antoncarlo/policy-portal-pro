@@ -1,7 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { alertAdmins } from './admin-alerts.js';
+import { captureServerError } from './monitoring.js';
 import { alertCopy, type AlertDelivery } from './alert-copy.js';
 import { portalUrl } from './auth-emails.js';
+import { checkEnv, type EnvIssue } from './env.js';
 
 /**
  * What the administrators hear about without having to look:
@@ -107,11 +109,12 @@ export interface DigestSummary {
   failedDeliveries: number;
   unreachableClients: number;
   emailFailures: number;
+  configIssues: number;
 }
 
 /** The daily summary of what is still open. Nothing to report, nothing sent. */
 export async function sendDailyDigest(supabase: SupabaseClient, now = new Date()): Promise<DigestSummary> {
-  const summary: DigestSummary = { sent: false, failedDeliveries: 0, unreachableClients: 0, emailFailures: 0 };
+  const summary: DigestSummary = { sent: false, failedDeliveries: 0, unreachableClients: 0, emailFailures: 0, configIssues: 0 };
   try {
     const { data: failedRows, count } = await supabase
       .from('outbound_deliveries')
@@ -153,7 +156,15 @@ export async function sendDailyDigest(supabase: SupabaseClient, now = new Date()
     summary.emailFailures = failedMailCount ?? (failedMail ?? []).length;
     const sample = [...new Set(((failedMail ?? []) as Array<{ error_message: string | null }>).map((row) => shorten(row.error_message ?? '—', 120)))];
 
-    if (summary.failedDeliveries === 0 && unreachableClients.length === 0 && summary.emailFailures === 0) return summary;
+    // Blocking configuration problems every day; the softer warnings only on Mondays (they do not change from day to day).
+    const env = checkEnv();
+    const configIssues: Array<EnvIssue & { blocking: boolean }> = [
+      ...env.errors.map((issue) => ({ ...issue, blocking: true })),
+      ...(now.getUTCDay() === 1 ? env.warnings.map((issue) => ({ ...issue, blocking: false })) : []),
+    ];
+    summary.configIssues = configIssues.length;
+
+    if (summary.failedDeliveries === 0 && unreachableClients.length === 0 && summary.emailFailures === 0 && configIssues.length === 0) return summary;
 
     const result = await alertAdmins(
       supabase,
@@ -162,10 +173,12 @@ export async function sendDailyDigest(supabase: SupabaseClient, now = new Date()
         const listing = [
           ...failedDeliveries.map((item) => ({ text: copy.deliveryFailed.line(item), url: `${portalUrl()}/settings` })),
           ...unreachableClients.slice(0, MAX_LISTED).map((item) => ({ text: `${item.address} · ${item.practices.slice(0, 5).join(', ')}`, url: `${portalUrl()}/expiry` })),
+          ...configIssues.slice(0, MAX_LISTED).map((issue) => ({ text: `${issue.name} — ${issue.message}`, url: `${portalUrl()}/settings` })),
         ];
         const sections: string[] = [];
         if (summary.failedDeliveries > 0) sections.push(copy.digest.deliveries(failedDeliveries.length, summary.failedDeliveries));
         if (unreachableClients.length > 0) sections.push(`${copy.digest.unreachable}: ${unreachableClients.length}`);
+        if (configIssues.length > 0) sections.push(copy.digest.config(env.errors.length, configIssues.length - env.errors.length));
         if (summary.emailFailures > 0) sections.push(`${copy.digest.emailFailures(summary.emailFailures)}${sample.length > 0 ? ` (${sample.join(' | ')})` : ''}`);
         return {
           subject: copy.digest.subject,
@@ -186,6 +199,7 @@ export async function sendDailyDigest(supabase: SupabaseClient, now = new Date()
 /** An automatic task stopped with an error: say so, instead of leaving it to the Vercel log. */
 export async function alertCronFailure(supabase: SupabaseClient, job: string, error: unknown): Promise<void> {
   const message = shorten(error instanceof Error ? error.message : String(error), 300);
+  await captureServerError(error, job, { tags: { kind: 'cron' } });
   await alertAdmins(
     supabase,
     (language) => {

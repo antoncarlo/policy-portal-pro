@@ -2,12 +2,16 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyApiCors, authenticateApiKey, checkRateLimit, createAdminClient, getClientIp, logApiRequest, rejectAuth } from './_lib/partner-api.js';
 import { handlePortalCallback, MAX_CALLBACK_BODY_BYTES } from './_lib/vies-callback.js';
 import { completeLot, createLot, IntakeError, lotStatus } from './_lib/vies-intake.js';
+import { checkEnv } from './_lib/env.js';
+import { captureServerError } from './_lib/monitoring.js';
 import { handleResendWebhook } from './_lib/resend-webhook.js';
+import { bearerMatches } from './_lib/secrets.js';
 import { readPortalRegistry } from './_lib/vies-orchestrator.js';
 
 /**
  * Connections with other portals, one function (the platform limits their number) behind a few
  * addresses, set in vercel.json:
+ *   GET  /api/health                 is the portal up; with the cron secret also what is configured (names only)
  *   POST /api/resend-webhook         delivery reports from the email provider (signed by Svix, see resend-webhook.ts)
  *   POST /api/vies-portal-callback   answers from the company's portal (signed, see vies-callback.ts)
  *   POST /api/vies-intake            a portal sends in a lot: create_lot, complete_lot (X-API-Key)
@@ -42,12 +46,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (route === 'intake') return await handleIntake(req, res);
     if (route === 'intake-status') return await handleIntakeStatus(req, res);
     if (route === 'resend-webhook') return await handleResendDelivery(req, res);
+    if (route === 'health') return await handleHealth(req, res);
     return res.status(404).json({ error: 'not_found' });
   } catch (error) {
     if (error instanceof IntakeError) return res.status(error.status).json({ ok: false, error: error.code, message: error.message, ...error.extra });
     console.error('vies-connect:', error instanceof Error ? error.message : error);
+    await captureServerError(error, 'vies-connect', { tags: { route: String(route ?? '') } });
     return res.status(500).json({ ok: false, error: 'internal_error', message: 'Errore interno, riprovare.' });
   }
+}
+
+/**
+ * Public: `{ status, time }` and whether the database answers. With `Authorization: Bearer <CRON_SECRET>` also the
+ * environment report (which variables are missing or malformed, which features are on): never values.
+ */
+async function handleHealth(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    res.setHeader('Allow', 'GET, HEAD');
+    return res.status(405).json({ ok: false, error: 'method_not_allowed' });
+  }
+  res.setHeader('Cache-Control', 'no-store');
+  const report = checkEnv();
+  let database: 'ok' | 'down' | 'unconfigured' = 'unconfigured';
+  if (report.ok) {
+    try {
+      const { error } = await createAdminClient().from('system_settings').select('id', { head: true, count: 'exact' }).limit(1);
+      database = error ? 'down' : 'ok';
+    } catch {
+      database = 'down';
+    }
+  }
+  const status = database === 'ok' ? 'ok' : 'down';
+  const detailed = bearerMatches(req.headers.authorization, [process.env.CRON_SECRET]);
+  return res.status(status === 'ok' ? 200 : 503).json({
+    status,
+    database,
+    time: new Date().toISOString(),
+    ...(detailed ? { release: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ?? null, environment: report } : {}),
+  });
 }
 
 async function handleResendDelivery(req: VercelRequest, res: VercelResponse) {

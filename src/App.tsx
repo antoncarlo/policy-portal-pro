@@ -2,7 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { UpdateNotifier } from "./components/UpdateNotifier";
 import Index from "./pages/Index";
@@ -28,6 +29,39 @@ import Vies from "./pages/Vies";
 
 const queryClient = new QueryClient();
 
+const AppRoutes = () => {
+  const { pathname } = useLocation();
+  return (
+    <ErrorBoundary resetKey={pathname}>
+      <Routes>
+        <Route path="/" element={<Index />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/change-password" element={<ProtectedRoute skipPasswordGate><ChangePassword /></ProtectedRoute>} />
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/upload" element={<ProtectedRoute><UploadPractice /></ProtectedRoute>} />
+        <Route path="/practices" element={<ProtectedRoute><Practices /></ProtectedRoute>} />
+        <Route path="/practices/:id" element={<ProtectedRoute><PracticeDetail /></ProtectedRoute>} />
+        <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
+        <Route path="/clients/:id" element={<ProtectedRoute><ClientDetail /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        {/* Old address of user management: the page created users from the browser. */}
+        <Route path="/admin/users" element={<Navigate to="/user-management" replace />} />
+        <Route path="/user-management" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
+        <Route path="/administration" element={<ProtectedRoute><Administration /></ProtectedRoute>} />
+        <Route path="/expiry" element={<ProtectedRoute><Expiry /></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+        <Route path="/questionnaires" element={<ProtectedRoute adminOnly><Questionnaires /></ProtectedRoute>} />
+        <Route path="/vies" element={<ProtectedRoute><Vies /></ProtectedRoute>} />
+        <Route path="/api-docs" element={<ApiDocs />} />
+        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </ErrorBoundary>
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -35,31 +69,7 @@ const App = () => (
       <Sonner />
       <UpdateNotifier />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/change-password" element={<ProtectedRoute skipPasswordGate><ChangePassword /></ProtectedRoute>} />
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/upload" element={<ProtectedRoute><UploadPractice /></ProtectedRoute>} />
-          <Route path="/practices" element={<ProtectedRoute><Practices /></ProtectedRoute>} />
-          <Route path="/practices/:id" element={<ProtectedRoute><PracticeDetail /></ProtectedRoute>} />
-          <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
-          <Route path="/clients/:id" element={<ProtectedRoute><ClientDetail /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-          {/* Old address of user management: the page created users from the browser. */}
-          <Route path="/admin/users" element={<Navigate to="/user-management" replace />} />
-          <Route path="/user-management" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
-          <Route path="/administration" element={<ProtectedRoute><Administration /></ProtectedRoute>} />
-          <Route path="/expiry" element={<ProtectedRoute><Expiry /></ProtectedRoute>} />
-          <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-          <Route path="/questionnaires" element={<ProtectedRoute adminOnly><Questionnaires /></ProtectedRoute>} />
-          <Route path="/vies" element={<ProtectedRoute><Vies /></ProtectedRoute>} />
-          <Route path="/api-docs" element={<ApiDocs />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AppRoutes />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

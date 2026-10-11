@@ -43,6 +43,7 @@ interface AlertCopy {
     deliveries: (shown: number, total: number) => string;
     unreachable: string;
     emailFailures: (total: number) => string;
+    config: (errors: number, warnings: number) => string;
     action: string;
   };
   cronFailed: {
@@ -80,6 +81,7 @@ const COPY: Record<Language, AlertCopy> = {
       deliveries: (shown, total) => `Consegne verso portali esterni non riuscite (${total}${total > shown ? `, prime ${shown}` : ''})`,
       unreachable: 'Clienti con indirizzo non raggiungibile e scadenza entro 90 giorni',
       emailFailures: (total) => `Email non inviate nelle ultime 24 ore: ${total}`,
+      config: (errors, warnings) => `Configurazione del server da correggere (${errors} bloccanti, ${warnings} avvisi)`,
       action: 'Apri il portale per i dettagli.',
     },
     cronFailed: {
@@ -115,6 +117,7 @@ const COPY: Record<Language, AlertCopy> = {
       deliveries: (shown, total) => `Failed deliveries to external portals (${total}${total > shown ? `, first ${shown}` : ''})`,
       unreachable: 'Clients with an unreachable address and a policy expiring within 90 days',
       emailFailures: (total) => `Emails not sent in the last 24 hours: ${total}`,
+      config: (errors, warnings) => `Server configuration to fix (${errors} blocking, ${warnings} warnings)`,
       action: 'Open the portal for the details.',
     },
     cronFailed: {
@@ -147,6 +150,7 @@ const COPY: Record<Language, AlertCopy> = {
       deliveries: (shown, total) => `发送至外部门户失败的通知（${total}${total > shown ? `，前 ${shown} 条` : ''}）`,
       unreachable: '邮箱不可达且保单 90 天内到期的客户',
       emailFailures: (total) => `过去 24 小时内未发出的邮件：${total}`,
+      config: (errors, warnings) => `需要修正的服务器配置（${errors} 项阻断，${warnings} 项提示）`,
       action: '请打开门户查看详情。',
     },
     cronFailed: {

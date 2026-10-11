@@ -9,6 +9,7 @@ import { dispatchNotifications, sendNotificationSample } from './_lib/notificati
 import { assertCanDelete, getUserFootprint, OffboardingError, reassignUserData } from './_lib/offboarding.js';
 import { logActivity } from './_lib/audit.js';
 import { RenewalError, renewPractice } from './_lib/renewals.js';
+import { captureServerError } from './_lib/monitoring.js';
 
 /**
  * Portal actions that need the service role, called by signed-in users with their session token.
@@ -403,6 +404,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   } catch (error) {
     const status = error instanceof HttpError || error instanceof OffboardingError || error instanceof RenewalError ? error.status : 500;
+    // Expected refusals carry their own status; anything else is an unexpected failure worth knowing about.
+    if (status >= 500) await captureServerError(error, 'portal-actions', { tags: { action: String((req.body as Record<string, unknown> | undefined)?.action ?? '') } });
     return res.status(status).json({
       error: error instanceof Error ? error.message : 'Errore imprevisto',
       ...(error instanceof HttpError && error.code ? { code: error.code } : {}),
