@@ -48,22 +48,22 @@ export const PracticeLotBreadcrumb = ({ batchId, practiceId, practiceNumber }: P
 
   return (
     <nav aria-label={title} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground" data-testid="lot-breadcrumb">
-      <Link to="/practices" className="hover:text-foreground hover:underline">
+      <Link to="/practices" className="inline-flex min-h-8 items-center hover:text-foreground hover:underline">
         {m.title}
       </Link>
       <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-      <Link to={`/practices?lot=${lot.batchId}`} className="font-medium text-foreground hover:underline" title={lot.representative ?? undefined}>
+      <Link to={`/practices?lot=${lot.batchId}`} className="inline-flex min-h-8 items-center font-medium text-foreground hover:underline" title={lot.representative ?? undefined}>
         {title}
       </Link>
       <ChevronRight className="h-3.5 w-3.5" aria-hidden />
       <span className="font-mono text-foreground">{practiceNumber}</span>
       {siblings.length > 1 && index >= 0 && (
         <span className="ml-2 inline-flex items-center gap-1">
-          <Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={!previous} aria-label={previous?.practice_number ?? ""} onClick={() => previous && navigate(`/practices/${previous.id}`)} data-testid="lot-prev">
+          <Button type="button" variant="ghost" size="icon" className="h-9 w-9" disabled={!previous} aria-label={previous?.practice_number ?? ""} onClick={() => previous && navigate(`/practices/${previous.id}`)} data-testid="lot-prev">
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="tabular-nums">{index + 1} / {siblings.length}</span>
-          <Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={!next} aria-label={next?.practice_number ?? ""} onClick={() => next && navigate(`/practices/${next.id}`)} data-testid="lot-next">
+          <Button type="button" variant="ghost" size="icon" className="h-9 w-9" disabled={!next} aria-label={next?.practice_number ?? ""} onClick={() => next && navigate(`/practices/${next.id}`)} data-testid="lot-next">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </span>

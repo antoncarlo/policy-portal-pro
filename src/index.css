@@ -170,3 +170,28 @@ Accent: Bronze/Gold (#B08968 / #C9A882)
     @apply bg-background text-foreground;
   }
 }
+
+/* Adattamento a telefono, iPad e PC */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  /* Un indirizzo email o un codice lungo va a capo invece di allargare la pagina. */
+  body {
+    overflow-wrap: break-word;
+  }
+  /* Gli elementi di una griglia possono restringersi sotto la larghezza del loro contenuto: senza questo,
+     un nome lungo allarga l'intera colonna e la pagina scorre in orizzontale. */
+  .grid > * {
+    min-width: 0;
+  }
+  /* Sul telefono i campi sono a 16 px: sotto, iOS ingrandisce la pagina quando si tocca un campo. */
+  @media (max-width: 767px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+}

@@ -115,9 +115,9 @@ export const ExpiryDashboard = () => {
       onClick={() => navigate(`/practices/${expiry.practice_id}`)}
     >
       <div className="flex items-start justify-between mb-3">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <h4 className="font-semibold">{expiry.client_name}</h4>
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h4 className="min-w-0 break-words font-semibold">{expiry.client_name}</h4>
             <Badge variant={getUrgencyColor(expiry.days_until_expiry)}>
               {getUrgencyIcon(expiry.days_until_expiry)}
               <span className="ml-1">{m.days(expiry.days_until_expiry)}</span>
@@ -131,21 +131,21 @@ export const ExpiryDashboard = () => {
 
       <div className="space-y-2 text-sm">
         <div className="flex items-center gap-2 text-muted-foreground">
-          <Calendar className="h-4 w-4" />
+          <Calendar className="h-4 w-4 shrink-0" />
           <span>{m.expiresOn(formatDate(expiry.policy_end_date))}</span>
         </div>
         <div className="flex items-center gap-2 text-muted-foreground">
-          <Mail className="h-4 w-4" />
-          <span>{expiry.client_email}</span>
+          <Mail className="h-4 w-4 shrink-0" />
+          <span className="min-w-0 break-all">{expiry.client_email}</span>
         </div>
         <div className="flex items-center gap-2 text-muted-foreground">
-          <Phone className="h-4 w-4" />
+          <Phone className="h-4 w-4 shrink-0" />
           <span>{expiry.client_phone}</span>
         </div>
       </div>
 
-      <div className="mt-3 pt-3 border-t flex items-center justify-between">
-        <div className="flex gap-1">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+        <div className="flex flex-wrap gap-1">
           <Badge variant={expiry.notification_90_sent ? "default" : "outline"} className="text-xs">
             {m.reminder(90)}
           </Badge>
@@ -159,7 +159,7 @@ export const ExpiryDashboard = () => {
             {m.reminder(7)}
           </Badge>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           {renewals.get(expiry.practice_id) ? (
             <Link
               to={`/practices/${renewals.get(expiry.practice_id)!.id}`}

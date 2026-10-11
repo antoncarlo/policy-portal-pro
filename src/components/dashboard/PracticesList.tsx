@@ -130,8 +130,8 @@ export const PracticesList = ({ searchQuery, onSearchChange }: PracticesListProp
   };
 
   return (
-    <Card className="p-6">
-      <div className="flex items-center justify-between mb-6">
+    <Card className="p-4 sm:p-6">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-xl font-semibold text-foreground">{m.title}</h2>
         <Link to="/practices">
           <Button variant="ghost" size="sm">
@@ -163,26 +163,26 @@ export const PracticesList = ({ searchQuery, onSearchChange }: PracticesListProp
           practices.map((practice) => (
             <div
               key={practice.id}
-              className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors"
+              className="flex items-start justify-between gap-2 rounded-lg border border-border p-3 transition-colors hover:bg-accent/50 sm:items-center sm:p-4"
             >
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-1">
-                  <span className="font-semibold text-foreground">{practice.practice_number}</span>
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span className="break-all font-semibold text-foreground">{practice.practice_number}</span>
                   <Badge variant="outline" className={getStatusColor(practice.status)}>
                     {practiceStatusLabel(practice.status)}
                   </Badge>
                 </div>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <span>{practice.client_name}</span>
-                  <span>•</span>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-muted-foreground">
+                  <span className="min-w-0 break-words">{practice.client_name}</span>
+                  <span aria-hidden="true" className="hidden sm:inline">•</span>
                   <span>{practiceTypeLabel(practice.practice_type)}</span>
-                  <span>•</span>
+                  <span aria-hidden="true" className="hidden sm:inline">•</span>
                   <span>{formatDate(practice.created_at)}</span>
                 </div>
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0" aria-label={m.viewDetail}>
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
