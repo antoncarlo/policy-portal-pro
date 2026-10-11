@@ -42,6 +42,14 @@ beforeEach(() => {
   mail.sent = [];
   mail.next = { success: true, id: "m1" };
   vi.stubEnv("ADMIN_NOTIFICATION_EMAILS", "none");
+  // A healthy server configuration: the summary then reports only what happened.
+  vi.stubEnv("VITE_SUPABASE_URL", "https://abc.supabase.co");
+  vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "k".repeat(40));
+  vi.stubEnv("CRON_SECRET", "c".repeat(24));
+  vi.stubEnv("WEBHOOK_SECRET", "w".repeat(24));
+  vi.stubEnv("WEBHOOK_DEFAULT_USER_ID", "a0000000-0000-4000-8000-000000000001");
+  vi.stubEnv("GMAIL_USER", "portale@tecnomga.com");
+  vi.stubEnv("GMAIL_APP_PASSWORD", "abcdefghijklmnop");
   vi.spyOn(console, "error").mockImplementation(() => undefined);
 });
 afterEach(() => {
@@ -133,7 +141,7 @@ describe("daily summary", () => {
     db.seed("email_logs", { recipient_email: "c@x.it", status: "failed", error_message: "old", created_at: "2026-10-01T01:00:00Z" });
 
     const summary = await sendDailyDigest(sb(db), NOW);
-    assert.deepEqual(summary, { sent: true, failedDeliveries: 1, unreachableClients: 1, emailFailures: 1 });
+    assert.deepEqual(summary, { sent: true, failedDeliveries: 1, unreachableClients: 1, emailFailures: 1, configIssues: 0 });
     const italian = mail.sent.find((m) => /Riepilogo giornaliero/.test(m.subject));
     assert.ok(italian);
     assert.match(italian.html, /Portale Compagnia/);
@@ -141,6 +149,33 @@ describe("daily summary", () => {
     assert.match(italian.html, /PR-2026-0100/);
     assert.doesNotMatch(italian.html, /PR-2026-0101|PR-2026-0102/);
     assert.match(italian.html, /550 no such user/);
+  });
+});
+
+describe("daily summary and the server configuration", () => {
+  it("a blocking problem is reported every day, in the language of each administrator", async () => {
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
+    const summary = await sendDailyDigest(sb(world()), new Date("2026-10-11T04:00:00Z")); // a Sunday
+    assert.equal(summary.sent, true);
+    assert.equal(summary.configIssues, 1);
+    const italian = mail.sent.find((m) => /Riepilogo giornaliero/.test(m.subject));
+    const english = mail.sent.find((m) => /Daily summary/.test(m.subject));
+    assert.ok(italian && english);
+    assert.match(italian.html, /Configurazione del server da correggere \(1 bloccanti/);
+    assert.match(italian.html, /SUPABASE_SERVICE_ROLE_KEY/);
+    assert.match(english.html, /Server configuration to fix/);
+  });
+
+  it("warnings wait for Monday, and the values of the variables never appear", async () => {
+    vi.stubEnv("CRON_SECRET", "short-secret");
+    const sunday = await sendDailyDigest(sb(world()), new Date("2026-10-11T04:00:00Z"));
+    assert.deepEqual({ sent: sunday.sent, configIssues: sunday.configIssues }, { sent: false, configIssues: 0 });
+    const monday = await sendDailyDigest(sb(world()), new Date("2026-10-12T04:00:00Z"));
+    assert.equal(monday.sent, true);
+    assert.equal(monday.configIssues, 1);
+    const html = mail.sent.map((m) => m.html).join("");
+    assert.match(html, /CRON_SECRET/);
+    assert.doesNotMatch(html, /short-secret/);
   });
 });
 
