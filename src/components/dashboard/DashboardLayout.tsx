@@ -26,6 +26,7 @@ import { shellMessages } from "@/i18n/messages/shell";
 import { workflowMessages } from "@/i18n/messages/workflow";
 import { usePracticeStageCounts } from "@/hooks/usePracticeStageCounts";
 import { PracticeLotsMenu } from "@/components/dashboard/PracticeLotsMenu";
+import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { recordSessionEvent } from "@/lib/audit";
 import { PRACTICE_STAGES, isPracticeStage } from "@/lib/practiceStages";
 import { cn } from "@/lib/utils";
@@ -135,10 +136,13 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     <div className="flex min-h-screen bg-background">
       {/* Sidebar */}
       <aside className="fixed h-full w-64 overflow-y-auto border-r border-border bg-card">
-        <div className="p-6 border-b border-border">
+        <div className="relative border-b border-border p-6">
           <Link to="/" className="flex items-center justify-center">
             <img src="/logo.svg" alt="Tecno Advance MGA" className="h-12" />
           </Link>
+          <div className="absolute right-2 top-2">
+            <NotificationBell />
+          </div>
         </div>
 
         <nav className="space-y-2 p-4 pb-36">
