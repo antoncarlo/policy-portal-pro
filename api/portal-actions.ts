@@ -180,7 +180,7 @@ async function resendAccessEmail(supabase: SupabaseClient, callerId: string, bod
 async function setPassword(supabase: SupabaseClient, caller: { id: string; email?: string | null }, body: Record<string, unknown>) {
   const password = typeof body.password === 'string' ? body.password : '';
   const problem = checkPassword(password);
-  if (problem) throw new HttpError(400, 'La password non rispetta le regole: almeno 12 caratteri, una maiuscola e un numero', 'weak_password');
+  if (problem) throw new HttpError(400, 'La password non rispetta le regole: almeno 6 caratteri, una maiuscola e un numero o carattere speciale', 'weak_password');
   if (!caller.email) throw new HttpError(400, 'Il tuo account non ha un indirizzo email');
 
   // The new password must differ from the current one (the temporary one): if signing in with it works, it is the same.

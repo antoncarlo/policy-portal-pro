@@ -15,7 +15,7 @@ interface NewPasswordFormProps {
   externalError?: string | null;
 }
 
-/** Nuova password con conferma e regole del portale (minimo 12 caratteri, una maiuscola, un numero). */
+/** Nuova password con conferma e regole del portale (minimo 6 caratteri, una maiuscola, un numero o carattere speciale). */
 export const NewPasswordForm = ({ onSubmit, externalError = null }: NewPasswordFormProps) => {
   const m = useMessages(passwordMessages).form;
   const [password, setPassword] = useState("");

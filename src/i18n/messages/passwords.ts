@@ -19,7 +19,7 @@ export const passwordMessages = defineMessages({
     form: {
       newPassword: "Nuova password",
       confirmPassword: "Conferma password",
-      rules: "Minimo 12 caratteri, 1 maiuscola, 1 numero",
+      rules: "Minimo 6 caratteri, 1 maiuscola, 1 numero o carattere speciale",
       show: "Mostra la password",
       hide: "Nascondi la password",
       submit: "Salva la password",
@@ -74,7 +74,7 @@ export const passwordMessages = defineMessages({
     form: {
       newPassword: "New password",
       confirmPassword: "Confirm password",
-      rules: "At least 12 characters, 1 uppercase letter, 1 number",
+      rules: "At least 6 characters, 1 uppercase letter, 1 number or special character",
       show: "Show password",
       hide: "Hide password",
       submit: "Save password",
@@ -129,7 +129,7 @@ export const passwordMessages = defineMessages({
     form: {
       newPassword: "新密码",
       confirmPassword: "确认密码",
-      rules: "至少 12 个字符，含 1 个大写字母和 1 个数字",
+      rules: "至少 6 个字符，含 1 个大写字母和 1 个数字或特殊字符",
       show: "显示密码",
       hide: "隐藏密码",
       submit: "保存密码",
