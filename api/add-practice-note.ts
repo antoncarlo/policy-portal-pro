@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
+  applyApiCors,
   authenticateApiKey,
   checkRateLimit,
   createAdminClient,
@@ -14,12 +15,9 @@ import {
 // ---------------------------------------------------------------------------
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'X-API-Key, Content-Type');
+  applyApiCors(req, res, 'POST, OPTIONS', 'X-API-Key, Content-Type');
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method === 'OPTIONS') return res.status(204).end();
 
   const endpoint = '/api/add-practice-note';
   const method = req.method ?? 'UNKNOWN';

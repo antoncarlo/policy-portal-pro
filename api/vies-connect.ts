@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { authenticateApiKey, checkRateLimit, createAdminClient, getClientIp, logApiRequest } from './_lib/partner-api.js';
+import { applyApiCors, authenticateApiKey, checkRateLimit, createAdminClient, getClientIp, logApiRequest } from './_lib/partner-api.js';
 import { handlePortalCallback, MAX_CALLBACK_BODY_BYTES } from './_lib/vies-callback.js';
 import { completeLot, createLot, IntakeError, lotStatus } from './_lib/vies-intake.js';
 import { readPortalRegistry } from './_lib/vies-orchestrator.js';
@@ -72,11 +72,9 @@ async function handleCallback(req: VercelRequest, res: VercelResponse) {
 
 /** Rate limit, X-API-Key and the log line every partner call leaves. */
 async function partnerCall(req: VercelRequest, res: VercelResponse, endpoint: string, method: 'GET' | 'POST') {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', `${method}, OPTIONS`);
-  res.setHeader('Access-Control-Allow-Headers', 'X-API-Key, Content-Type');
+  applyApiCors(req, res, `${method}, OPTIONS`, 'X-API-Key, Content-Type');
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
+    res.status(204).end();
     return null;
   }
   if (req.method !== method) {

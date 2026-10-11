@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { ControllerReport } from '../../src/lib/viesController.js';
 import { runBatchController } from './vies-controller-data.js';
 import { assertSecondFactor } from './mfa.js';
+import { bearerMatches } from './secrets.js';
 import { listSignedPracticeDocuments } from './vies-documents.js';
 import { getConfiguredPortals, getPublicBaseUrl, type ViesPortal } from './vies-portals.js';
 
@@ -72,9 +73,7 @@ export function getSupabaseAdmin(): SupabaseClient {
 // Vercel Cron sends "Authorization: Bearer <CRON_SECRET>"; the x-vercel-cron header
 // is not proof of anything, anyone can send it.
 export function verifyCronOrWorkerAuth(req: VercelRequest): boolean {
-  const authHeader = req.headers.authorization;
-  const acceptedSecrets = [VIES_WORKER_SECRET, CRON_SECRET].filter(Boolean);
-  return acceptedSecrets.some((secret) => authHeader === `Bearer ${secret}`);
+  return bearerMatches(req.headers.authorization, [VIES_WORKER_SECRET, CRON_SECRET]);
 }
 
 export async function resolveUserFromRequest(req: VercelRequest, supabase = getSupabaseAdmin()): Promise<string> {

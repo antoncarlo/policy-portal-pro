@@ -4,7 +4,7 @@ import * as crypto from 'crypto';
 import { composeNotes, extractNotesSections, resolvePetCoverages, type SpecificFields } from '../src/lib/practiceSummary.js';
 import { computePetQuote } from '../src/lib/petQuoteEngine.js';
 import { attachPetQuoteDocument, type PetQuoteDocumentResult } from './_lib/pet-quote-document.js';
-import { DOCUMENT_TYPE_ALIASES, normalizeDocumentType, type AdminClient } from './_lib/partner-api.js';
+import { applyApiCors, DOCUMENT_TYPE_ALIASES, normalizeDocumentType, type AdminClient } from './_lib/partner-api.js';
 import { dispatchNotifications, labelQueuedEvents } from './_lib/notification-dispatch.js';
 
 // ---------------------------------------------------------------------------
@@ -140,16 +140,6 @@ function validateSignature(secret: string, rawBody: string, signatureHeader: str
 }
 
 // ---------------------------------------------------------------------------
-// Practice-number generator (mirrors DB trigger format PR-YYYY-NNNN)
-// ---------------------------------------------------------------------------
-
-function generatePracticeNumber(): string {
-  const year = new Date().getFullYear();
-  const rand = Math.floor(Math.random() * 9000) + 1000;
-  return `PR-${year}-${rand}`;
-}
-
-// ---------------------------------------------------------------------------
 // Logging helper
 // ---------------------------------------------------------------------------
 
@@ -178,13 +168,9 @@ async function logRequest(
 // ---------------------------------------------------------------------------
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers',
-    'Content-Type, X-API-Key, X-Signature, X-Idempotency-Key');
+  applyApiCors(req, res, 'POST, OPTIONS', 'Content-Type, X-API-Key, X-Signature, X-Idempotency-Key');
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method === 'OPTIONS') return res.status(204).end();
 
   const endpoint = '/api/webhook-receive-policy';
   const method = req.method ?? 'UNKNOWN';

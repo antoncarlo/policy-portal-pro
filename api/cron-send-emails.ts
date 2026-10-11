@@ -13,6 +13,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { PRACTICE_TYPE_LABELS } from '../src/lib/practiceSummary.js';
 import { escapeHtml, getMailProvider, sendMail } from './_lib/mailer.js';
+import { bearerMatches } from './_lib/secrets.js';
 
 // Configurazione
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
@@ -41,7 +42,7 @@ interface PendingNotification {
 // Vercel Cron sends "Authorization: Bearer <CRON_SECRET>" when the variable is set.
 // Without it the endpoint stays closed: no default secret, no trusted header.
 function verifyCronAuth(req: VercelRequest): boolean {
-  return Boolean(CRON_SECRET) && req.headers.authorization === `Bearer ${CRON_SECRET}`;
+  return bearerMatches(req.headers.authorization, [CRON_SECRET]);
 }
 
 /**

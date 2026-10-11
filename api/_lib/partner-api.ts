@@ -184,12 +184,32 @@ export function practiceBelongsToTenant(
   return false;
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Filtro PostgREST equivalente a practiceBelongsToTenant, da usare con `.or()`. */
 export function tenantScopeFilter(ctx: ApiKeyContext): string {
   if (ctx.isLegacy) return 'api_key_id.is.null';
+  // The ids go into a filter string: anything that is not a UUID would change what the filter means.
+  if (!UUID_PATTERN.test(ctx.keyId ?? '') || (ctx.mappedUserId && !UUID_PATTERN.test(ctx.mappedUserId))) {
+    throw new Error('Identificativo di chiave non valido');
+  }
   const clauses = [`api_key_id.eq.${ctx.keyId}`];
   if (ctx.mappedUserId) clauses.push(`user_id.eq.${ctx.mappedUserId}`);
   return clauses.join(',');
+}
+
+/**
+ * CORS for the partner APIs. They are called server to server, so a browser on another site gets no
+ * access unless the operator lists its origin in API_CORS_ORIGINS (comma separated).
+ */
+export function applyApiCors(req: VercelRequest, res: VercelResponse, methods: string, headers: string): void {
+  const origin = typeof req.headers.origin === 'string' ? req.headers.origin : '';
+  const allowed = (process.env.API_CORS_ORIGINS ?? '').split(',').map((value) => value.trim()).filter(Boolean);
+  if (!origin || !allowed.includes(origin)) return;
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', methods);
+  res.setHeader('Access-Control-Allow-Headers', headers);
 }
 
 // ---------------------------------------------------------------------------
@@ -215,12 +235,10 @@ export async function prepareGetEndpoint(
   endpoint: string,
   allowedMethod: 'GET' | 'POST' = 'GET'
 ): Promise<GetEndpointContext | null> {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', `${allowedMethod}, OPTIONS`);
-  res.setHeader('Access-Control-Allow-Headers', 'X-API-Key, Content-Type');
+  applyApiCors(req, res, `${allowedMethod}, OPTIONS`, 'X-API-Key, Content-Type');
 
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
+    res.status(204).end();
     return null;
   }
 

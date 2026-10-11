@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -6,7 +6,7 @@ import { formatDateTime, getMessages, useMessages } from "@/i18n";
 import { commonMessages } from "@/i18n/messages/common";
 import { settingsMessages } from "@/i18n/messages/settings";
 import { supabase } from "@/integrations/supabase/client";
-import { Monitor, Smartphone, Tablet, LogOut, Shield } from "lucide-react";
+import { Monitor, Smartphone, Tablet, LogOut, Loader2, Shield } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,197 +18,114 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-interface Session {
-  id: string;
-  user_agent: string;
-  ip_address: string;
-  last_active: string;
-  is_current: boolean;
-}
-
+/**
+ * The account's sessions. The browser only knows about its own, so that is what is shown; ending the
+ * ones on other devices is done by the authentication service (signOut with scope "others"), not faked.
+ */
 export const SessionsSettings = () => {
   const { toast } = useToast();
   const m = useMessages(settingsMessages).sessions;
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [signedInAt, setSignedInAt] = useState<string | null>(null);
   const [showLogoutAll, setShowLogoutAll] = useState(false);
+  const [working, setWorking] = useState(false);
+  const userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent;
 
   useEffect(() => {
-    loadSessions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- legacy loader intentionally runs only for the dependency list below
+    void supabase.auth.getUser().then(({ data }) => setSignedInAt(data.user?.last_sign_in_at ?? null));
   }, []);
 
-  const loadSessions = async () => {
-    setLoading(true);
-    try {
-      // Get current session
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      
-      // In a real implementation, you would fetch sessions from a sessions table
-      // For now, we'll show the current session as an example
-      const mockSessions: Session[] = [
-        {
-          id: "current",
-          user_agent: navigator.userAgent,
-          ip_address: getMessages(settingsMessages).sessions.currentDevice,
-          last_active: new Date().toISOString(),
-          is_current: true,
-        },
-      ];
-
-      setSessions(mockSessions);
-    } catch (error) {
-      console.error("Error loading sessions:", error);
-      toast({
-        variant: "destructive",
-        title: getMessages(commonMessages).error,
-        description: getMessages(settingsMessages).sessions.loadError,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getDeviceIcon = (userAgent: string) => {
-    const ua = userAgent.toLowerCase();
-    if (ua.includes("mobile") || ua.includes("android") || ua.includes("iphone")) {
-      return <Smartphone className="h-5 w-5" />;
-    } else if (ua.includes("tablet") || ua.includes("ipad")) {
-      return <Tablet className="h-5 w-5" />;
-    }
+  const getDeviceIcon = (agent: string) => {
+    const ua = agent.toLowerCase();
+    if (ua.includes("ipad") || ua.includes("tablet")) return <Tablet className="h-5 w-5" />;
+    if (ua.includes("mobile") || ua.includes("android") || ua.includes("iphone")) return <Smartphone className="h-5 w-5" />;
     return <Monitor className="h-5 w-5" />;
   };
 
-  const getDeviceName = (userAgent: string) => {
-    const ua = userAgent.toLowerCase();
-    if (ua.includes("chrome")) return "Chrome Browser";
-    if (ua.includes("firefox")) return "Firefox Browser";
-    if (ua.includes("safari")) return "Safari Browser";
-    if (ua.includes("edge")) return "Edge Browser";
+  const getDeviceName = (agent: string) => {
+    const ua = agent.toLowerCase();
+    // Edge and Chrome both say "chrome": the more specific names come first.
+    if (ua.includes("edg/") || ua.includes("edge")) return "Edge";
+    if (ua.includes("firefox")) return "Firefox";
+    if (ua.includes("chrome")) return "Chrome";
+    if (ua.includes("safari")) return "Safari";
     return m.unknownBrowser;
   };
 
-  const getOS = (userAgent: string) => {
-    const ua = userAgent.toLowerCase();
+  const getOS = (agent: string) => {
+    const ua = agent.toLowerCase();
     if (ua.includes("windows")) return "Windows";
+    if (ua.includes("android")) return "Android";
+    if (ua.includes("iphone") || ua.includes("ipad") || ua.includes("ios")) return "iOS";
     if (ua.includes("mac")) return "macOS";
     if (ua.includes("linux")) return "Linux";
-    if (ua.includes("android")) return "Android";
-    if (ua.includes("ios") || ua.includes("iphone") || ua.includes("ipad")) return "iOS";
     return m.unknownSystem;
   };
 
-  const handleLogoutSession = async (sessionId: string) => {
+  const run = async (scope: "local" | "others" | "global", done?: () => void) => {
+    setWorking(true);
     try {
-      if (sessionId === "current") {
-        // Logout current session
-        await supabase.auth.signOut();
-        window.location.href = "/";
-      } else {
-        // In a real implementation, you would revoke the specific session
-        toast({
-          title: getMessages(commonMessages).success,
-          description: getMessages(settingsMessages).sessions.ended,
-        });
-        loadSessions();
-      }
+      const { error } = await supabase.auth.signOut({ scope });
+      if (error) throw error;
+      if (done) done();
+      else window.location.href = "/";
     } catch (error) {
       toast({
         variant: "destructive",
         title: getMessages(commonMessages).error,
-        description: error.message,
+        description: error instanceof Error ? error.message : getMessages(settingsMessages).sessions.loadError,
       });
-    }
-  };
-
-  const handleLogoutAll = async () => {
-    try {
-      await supabase.auth.signOut();
-      window.location.href = "/";
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: getMessages(commonMessages).error,
-        description: error.message,
-      });
+    } finally {
+      setWorking(false);
     }
   };
 
   return (
     <>
       <Card className="p-6">
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Shield className="h-5 w-5" />
             <h2 className="text-xl font-semibold">{m.title}</h2>
           </div>
-          {sessions.length > 1 && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => setShowLogoutAll(true)}
-            >
-              <LogOut className="h-4 w-4 mr-2" />
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" disabled={working} onClick={() => void run("others", () => toast({ title: getMessages(commonMessages).success, description: getMessages(settingsMessages).sessions.othersEnded }))} data-testid="sessions-end-others">
+              {working ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />}
+              {m.endOthers}
+            </Button>
+            <Button variant="destructive" size="sm" disabled={working} onClick={() => setShowLogoutAll(true)}>
+              <LogOut className="mr-2 h-4 w-4" />
               {m.endAll}
             </Button>
-          )}
+          </div>
         </div>
 
-        <p className="text-sm text-muted-foreground mb-6">
-          {m.intro}
-        </p>
+        <p className="mb-6 text-sm text-muted-foreground">{m.intro}</p>
 
-        <div className="space-y-4">
-          {loading ? (
-            <div className="text-center py-8 text-muted-foreground">
-              {m.loading}
-            </div>
-          ) : sessions.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              {m.empty}
-            </div>
-          ) : (
-            sessions.map((session) => (
-              <Card key={session.id} className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex gap-4">
-                    <div className="p-3 bg-muted rounded-lg">
-                      {getDeviceIcon(session.user_agent)}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold">{getDeviceName(session.user_agent)}</h3>
-                        {session.is_current && (
-                          <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full font-medium">
-                            {m.current}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {getOS(session.user_agent)} • {session.ip_address}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {m.lastActive(formatDateTime(session.last_active))}
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleLogoutSession(session.id)}
-                  >
-                    <LogOut className="h-4 w-4 mr-2" />
-                    {session.is_current ? m.logout : m.end}
-                  </Button>
+        <Card className="p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex gap-4">
+              <div className="rounded-lg bg-muted p-3">{getDeviceIcon(userAgent)}</div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold">{getDeviceName(userAgent)}</h3>
+                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">{m.current}</span>
                 </div>
-              </Card>
-            ))
-          )}
-        </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {getOS(userAgent)} • {m.currentDevice}
+                </p>
+                {signedInAt && <p className="mt-1 text-xs text-muted-foreground">{m.signedInAt(formatDateTime(signedInAt))}</p>}
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" disabled={working} onClick={() => void run("local")}>
+              <LogOut className="mr-2 h-4 w-4" />
+              {m.logout}
+            </Button>
+          </div>
+        </Card>
 
-        <div className="mt-6 p-4 bg-muted rounded-lg">
-          <h3 className="font-semibold mb-2">{m.tipsTitle}</h3>
-          <ul className="text-sm text-muted-foreground space-y-1">
+        <div className="mt-6 rounded-lg bg-muted p-4">
+          <h3 className="mb-2 font-semibold">{m.tipsTitle}</h3>
+          <ul className="space-y-1 text-sm text-muted-foreground">
             {m.tips.map((tip) => (
               <li key={tip}>• {tip}</li>
             ))}
@@ -220,13 +137,11 @@ export const SessionsSettings = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{m.confirmTitle}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {m.confirmText}
-            </AlertDialogDescription>
+            <AlertDialogDescription>{m.confirmText}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{m.cancel}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleLogoutAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction onClick={() => void run("global")} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {m.endAll}
             </AlertDialogAction>
           </AlertDialogFooter>

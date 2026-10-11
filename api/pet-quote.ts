@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { checkRateLimit, createAdminClient, getClientIp, prepareGetEndpoint } from './_lib/partner-api.js';
+import { applyApiCors, checkRateLimit, createAdminClient, getClientIp, prepareGetEndpoint } from './_lib/partner-api.js';
 import { attachPetQuoteDocument, type PetQuotePracticeRow } from './_lib/pet-quote-document.js';
 import { assertSecondFactor, MfaRequiredError } from './_lib/mfa.js';
 import { buildPetQuoteCatalog, computePetQuote, type PetQuoteRequest } from '../src/lib/petQuoteEngine.js';
@@ -87,9 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 }
 
 async function handleAttach(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  applyApiCors(req, res, 'POST, OPTIONS', 'Authorization, Content-Type');
 
   const { allowed, retryAfter } = checkRateLimit(getClientIp(req));
   if (!allowed) {
