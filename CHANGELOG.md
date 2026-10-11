@@ -41,6 +41,7 @@ Prima versione numerata. Riepilogo di ciò che il portale fa oggi:
 - Report: le colonne premio/provvigione dell'esportazione Excel/PDF erano vuote; i grafici per mese e la classifica agenti non ricevevano i campi attesi.
 
 - Webhook di creazione pratica: la firma HMAC è verificata sui byte esatti ricevuti (non più sul JSON riserializzato), quindi qualunque formattazione del JSON firmato come inviato è accettata. Per la transizione la firma sul JSON compatto riserializzato è ancora accettata con header `Warning: 299`; si disattiva con `WEBHOOK_REENCODED_SIGNATURE=off`.
+- Cambio stato in blocco (elenco pratiche): passa dal flusso con la compagnia (`workflow_bulk_status`, 50 pratiche per chiamata, il browser le invia a gruppi di 25) invece di scrivere lo stato sulla riga. Ora ogni pratica aggiorna il flusso (date, motivo, termine delle integrazioni), lascia la riga nello storico, avvisa il rappresentante fiscale che l'ha inviata e dà le email di sempre; i passaggi non consentiti (per esempio emettere una polizza non pagata) non avvengono e sono elencati con il motivo, le altre pratiche proseguono. «Rifiutata» e «Integrazioni richieste» chiedono il testo. Una riga nel registro di audit (`practice.bulk_status`) per ogni operazione.
 
 ### Rimosso
 - Funzioni segnaposto: sessioni finte, backup automatico e ripristino finti, statistiche inventate nella pagina pubblica, stima dello spazio a 0,5 MB per documento.
