@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isPaid } from '../../src/lib/practiceStages.js';
 import { getMailProvider } from './mailer.js';
-import { notifyPracticeOwner, type NotifyKind } from './vies-notify.js';
+import { attributeQueuedEvents, dispatchNotifications } from './notification-dispatch.js';
 import {
   assertPublicHttpsUrl,
   emitLotEvent,
@@ -267,8 +267,6 @@ export async function runWorkflowAction(
   const context = { actor: { label: (profile?.full_name as string | undefined)?.trim() || 'Amministratore', userId }, force };
 
   let event: WorkflowEvent;
-  let notify: NotifyKind | null = null;
-  let notifyDetails: { dueDate?: string | null; note?: string | null } = {};
   let announce: { kind: OutboundKind; details?: { message?: string | null; reason?: string | null } } | null = null;
   let policyNumber: string | undefined;
 
@@ -277,24 +275,18 @@ export async function runWorkflowAction(
       const paymentDueDate = optionalDate(body.paymentDueDate, 'paymentDueDate');
       const note = text(body.note, 1000) ?? null;
       event = { type: 'deliberated', paymentDueDate, note, draft: parseDraft(body.draft) };
-      notify = 'deliberated';
-      notifyDetails = { dueDate: paymentDueDate, note };
       announce = { kind: 'deliberated' };
       break;
     }
     case 'workflow_reject': {
       const reason = required(body.reason, 1000, 'Indicare il motivo');
       event = { type: 'rejected', reason };
-      notify = 'rejected';
-      notifyDetails = { note: reason };
       announce = { kind: 'rejected', details: { reason } };
       break;
     }
     case 'workflow_request_info': {
       const message = required(body.message, 2000, 'Indicare cosa serve');
       event = { type: 'info_requested', message };
-      notify = 'info_requested';
-      notifyDetails = { note: message };
       announce = { kind: 'info_requested', details: { message } };
       break;
     }
@@ -306,7 +298,6 @@ export async function runWorkflowAction(
     }
     case 'workflow_issue':
       event = { type: 'issued', document: parseDraft(body.document) };
-      notify = 'issued';
       announce = { kind: 'issued' };
       policyNumber = text(body.policyNumber, 100);
       break;
@@ -321,6 +312,7 @@ export async function runWorkflowAction(
       announce = { kind: 'sent' };
       break;
     case 'workflow_register_payment': {
+      const startedAt = new Date();
       const practice = await loadPractice(supabase, practiceId);
       if (practice.status !== 'approvata') throw new WorkflowError(409, 'invalid_transition', 'Il pagamento si registra su una pratica deliberata');
       const paidAt = optionalDate(body.paymentDate, 'paymentDate') ?? new Date().toISOString().slice(0, 10);
@@ -339,8 +331,9 @@ export async function runWorkflowAction(
         description: `Pagamento registrato (${paidAt.split('-').reverse().join('/')}) · ${context.actor.label}`,
         created_by: userId,
       });
+      await attributeQueuedEvents(supabase, practice.id, userId, startedAt);
       // The company learns that the payment is in: it can issue the policy.
-      await emitPracticeEvent(supabase, { practiceId: practice.id, kind: 'paid', origin: 'admin' });
+      await Promise.all([emitPracticeEvent(supabase, { practiceId: practice.id, kind: 'paid', origin: 'admin' }), dispatchNotifications(supabase)]);
       return { ok: true, changed: true, practiceId: practice.id, stage: 'da_emettere' };
     }
     default:
@@ -352,10 +345,12 @@ export async function runWorkflowAction(
     // The number is recorded only where the practice has none yet.
     await supabase.from('practices').update({ policy_number: policyNumber }).eq('id', practiceId).is('policy_number', null);
   }
-  const changed = result.changed || notify === 'deliberated';
+  // A second answer for a practice already deliberated (new draft, new date) is passed on to the company too.
+  const changed = result.changed || action === 'workflow_deliberate';
   await Promise.all([
-    notify && changed ? notifyPracticeOwner(supabase, practiceId, notify, notifyDetails) : null,
     announce && changed ? emitPracticeEvent(supabase, { practiceId, kind: announce.kind, origin: 'admin', details: announce.details }) : null,
+    // The people concerned by email: the queue was filled by the database when the status changed.
+    dispatchNotifications(supabase),
   ]);
   return { ok: true, ...result };
 }

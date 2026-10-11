@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Download, FileText, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { requestNotificationFlush } from "@/lib/portalActions";
 import {
   VIES_POLICY_MIME_TYPE,
   buildViesPolicyFileName,
@@ -74,6 +75,7 @@ export const ViesPolicyDocumentCard = ({ practice, onDocumentCreated }: ViesPoli
       const text = getMessages(practiceDetailMessages).viesPolicy;
       toast({ title: text.attachedTitle, description: text.attachedText(fileName) });
       onDocumentCreated?.();
+      requestNotificationFlush();
     } catch (error) {
       toast({
         variant: "destructive",

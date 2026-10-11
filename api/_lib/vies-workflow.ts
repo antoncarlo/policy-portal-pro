@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isPaid, stageOf, type PracticeStage } from '../../src/lib/practiceStages.js';
 import { attachPracticeDocument, DocumentError, type IncomingDocument } from './vies-documents.js';
+import { attributeQueuedEvents } from './notification-dispatch.js';
 
 /**
  * Passages of a practice through the company flow:
@@ -202,6 +203,7 @@ export async function applyWorkflowEvent(
   event: WorkflowEvent,
   context: WorkflowContext,
 ): Promise<WorkflowResult> {
+  const startedAt = new Date();
   const practice = await loadPractice(supabase, practiceId);
   const paid = isPaid(practice.financial_status);
   const from = stageOf(practice);
@@ -233,6 +235,8 @@ export async function applyWorkflowEvent(
     if (error) throw new WorkflowError(500, 'database', `Aggiornamento dello stato non riuscito: ${error.message}`);
     // Somebody else changed the practice in the meantime.
     if (!data?.length) throw new WorkflowError(409, 'conflict', 'La pratica è stata modificata nel frattempo: riprova');
+    // The change reaches the database with the service role: say who made it, for the emails.
+    await attributeQueuedEvents(supabase, practice.id, context.actor.userId, startedAt);
   }
 
   const { error: workflowError } = await supabase

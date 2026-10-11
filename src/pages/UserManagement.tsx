@@ -14,6 +14,7 @@ import { AssignAgentDialog } from "@/components/admin/users/AssignAgentDialog";
 import { InviteUserDialog } from "@/components/admin/users/InviteUserDialog";
 import { EditUserProductsDialog } from "@/components/admin/users/EditUserProductsDialog";
 import { EditCommissionDialog } from "@/components/admin/users/EditCommissionDialog";
+import { EditNotificationsDialog } from "@/components/admin/users/EditNotificationsDialog";
 import * as XLSX from "xlsx";
 import { callPortalAction } from "@/lib/portalActions";
 import { getMessages, useMessages } from "@/i18n";
@@ -50,6 +51,7 @@ const UserManagement = () => {
   const [editRoleDialogOpen, setEditRoleDialogOpen] = useState(false);
   const [editProductsDialogOpen, setEditProductsDialogOpen] = useState(false);
   const [editCommissionDialogOpen, setEditCommissionDialogOpen] = useState(false);
+  const [editNotificationsDialogOpen, setEditNotificationsDialogOpen] = useState(false);
   const [assignAgentDialogOpen, setAssignAgentDialogOpen] = useState(false);
   const [inviteUserDialogOpen, setInviteUserDialogOpen] = useState(false);
 
@@ -134,6 +136,11 @@ const UserManagement = () => {
   const handleEditProducts = (user: User) => {
     setSelectedUser(user);
     setEditProductsDialogOpen(true);
+  };
+
+  const handleEditNotifications = (user: User) => {
+    setSelectedUser(user);
+    setEditNotificationsDialogOpen(true);
   };
 
   const handleEditCommission = (user: User) => {
@@ -299,6 +306,7 @@ const UserManagement = () => {
           onEditRole={handleEditRole}
           onEditProducts={handleEditProducts}
           onEditCommission={handleEditCommission}
+          onEditNotifications={handleEditNotifications}
           onAssignAgent={handleAssignAgent}
           onViewPractices={handleViewPractices}
           onResetMfa={handleResetMfa}
@@ -328,6 +336,12 @@ const UserManagement = () => {
         open={inviteUserDialogOpen}
         onOpenChange={setInviteUserDialogOpen}
         onSuccess={loadUsers}
+      />
+
+      <EditNotificationsDialog
+        open={editNotificationsDialogOpen}
+        onOpenChange={setEditNotificationsDialogOpen}
+        user={selectedUser}
       />
 
       <EditCommissionDialog

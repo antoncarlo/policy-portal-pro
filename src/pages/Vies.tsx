@@ -29,6 +29,7 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { requestNotificationFlush } from "@/lib/portalActions";
 import { formatDateTime, useLocale, useMessages } from "@/i18n";
 import { viesMessages } from "@/i18n/messages/vies";
 import { getDocumentTypeLabel, translateViesText, viesText } from "@/i18n/viesText";
@@ -2592,6 +2593,7 @@ const Vies = () => {
         }
       }
       setDuplicateCheckRun((run) => run + 1);
+      requestNotificationFlush();
       await refreshBatchMonitor(batchId);
       toast({
         title: viesText().toast.lotCreatedTitle(lotNumber),

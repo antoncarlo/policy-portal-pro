@@ -18,7 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { PetInsuranceCalculator } from "@/components/pet/PetInsuranceCalculator";
 import { DynamicPolicyFields } from "@/components/upload/DynamicPolicyFields";
 import { mapPracticeTypeToEnum } from "@/utils/practiceTypeMapping";
-import { notifyAdminNewPractice } from "@/lib/portalActions";
+import { requestNotificationFlush } from "@/lib/portalActions";
 import { DocumentUploadSection } from "@/components/upload/DocumentUploadSection";
 import { requiredDocumentsConfig } from "@/config/requiredDocuments";
 import { composeNotes } from "@/lib/practiceSummary";
@@ -443,8 +443,8 @@ export const UploadForm = () => {
         description: getMessages(uploadMessages).successText(practice.practice_number, documentFiles.length, quoteAttached),
       });
 
-      // Fire-and-forget admin notification
-      notifyAdminNewPractice(practice.id).catch(err => console.error('Admin notification failed:', err));
+      // The database queued the event; the server sends the emails (fire-and-forget)
+      requestNotificationFlush();
 
       // Reset form
       if (formRef.current) {

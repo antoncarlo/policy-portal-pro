@@ -17,8 +17,13 @@ export async function callPortalAction<T = Record<string, unknown>>(action: stri
   return data as T;
 }
 
-/** Emails the administrators about a new practice. The email is sent by the server. */
-export const notifyAdminNewPractice = (practiceId: string) => callPortalAction("notify_new_practice", { practiceId });
+/**
+ * Asks the server to send the notification emails waiting in the queue (new practice, documents, notes,
+ * status changes). Call it right after the user's action; it never throws: the daily run catches up.
+ */
+export const requestNotificationFlush = () => {
+  void callPortalAction("flush_notifications").catch((error) => console.error("Notification flush failed:", error));
+};
 
 export interface EmailStatus {
   provider: "gmail" | "resend" | "none";

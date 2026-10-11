@@ -4,6 +4,13 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "vite",
+  "functions": {
+    "api/portal-actions.ts": { "maxDuration": 60 },
+    "api/vies-control.ts": { "maxDuration": 60 },
+    "api/vies-connect.ts": { "maxDuration": 60 },
+    "api/webhook-receive-policy.ts": { "maxDuration": 60 },
+    "api/cron-vies-orchestrator.ts": { "maxDuration": 60 }
+  },
   "rewrites": [
     {
       "source": "/api/pet-quote-catalog",
