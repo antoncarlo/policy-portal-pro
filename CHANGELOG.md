@@ -46,6 +46,7 @@ Prima versione numerata. Riepilogo di ciò che il portale fa oggi:
 - Guida all'integrazione API versione 2.8 (firma sui byte esatti e periodo di transizione, rate limit condiviso, campo `lot`) e PDF rigenerato: `npm run docs:api-pdf` lo produce dal Markdown su carta intestata (`scripts/api-guide/build.mjs`; dipendenza di sviluppo `marked`).
 
 ### Modificato
+- Database (migrazione `20261023_rls_initplan_and_trigger_grants.sql`, già applicata in produzione): quindici regole di accesso ai dati (agent_settings, practice_documents, user_product_permissions, system_settings, activity_logs, expiry_notifications, api_logs) calcolano `auth.uid()` una volta per richiesta invece che per ogni riga, con lo stesso comportamento; sette funzioni che servono solo ai trigger non sono più richiamabili da `anon` e `authenticated`.
 - Pagina iniziale: dopo l'accesso resta un solo pulsante verso il portale nell'intestazione («Vai al portale»); «Dashboard» faceva la stessa cosa.
 
 ### Rimosso
