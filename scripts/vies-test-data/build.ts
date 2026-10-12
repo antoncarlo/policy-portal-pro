@@ -6,7 +6,7 @@
 //
 //   npm run build:vies-test-data [cartella]      (predefinita: test-data/vies)
 //
-// Tutto è deterministico: rilanciando lo script escono gli stessi file. Società, persone, codici (con cifra di
+// Rilanciando lo script escono gli stessi contenuti (stesse società, codici e documenti). Società, persone, codici (con cifra di
 // controllo valida), indirizzi e documenti sono inventati; ogni PDF porta la scritta «DOCUMENTO FITTIZIO DI PROVA».
 // I documenti sono PDF con testo: il portale li riconosce dal titolo, come i veri, senza bisogno dell'agent.
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -409,6 +409,8 @@ async function writeExcel(plan: LotPlan, path: string) {
     [11, rep.name], [12, rep.taxCode], [13, rep.adminName], [14, rep.adminTaxCode], [15, rep.address], [16, rep.pec],
   ];
   for (const [rowNumber, value] of sheetData) data.getCell(rowNumber, 2).value = value;
+  workbook.created = FIXED_DATE;
+  workbook.modified = FIXED_DATE;
   await workbook.xlsx.writeFile(path);
 }
 
@@ -459,7 +461,7 @@ const plans: LotPlan[] = [
     faults: new Map([
       [3, { kind: "missing_ubo", expected: "manca la Dichiarazione del titolare effettivo (UBO)" }],
       [7, { kind: "other_company", expected: "i documenti dello ZIP sono di un'altra società" }],
-      [11, { kind: "bad_uscc", expected: "Codice di credito sociale non valido" }],
+      [11, { kind: "bad_uscc", expected: "Codice di credito sociale non valido (e, di conseguenza, «i documenti dello ZIP sono di un'altra società»: nei documenti il codice è quello giusto)" }],
       [15, { kind: "no_zip", expected: "ZIP 15.zip non caricato" }],
     ]),
     opaqueNames: new Set(),
@@ -526,6 +528,8 @@ ${repBlock(repB)}
 ${faultLines.join("\n")}
 
 Le altre 16 righe del lotto 1 sono corrette: se prosegui, diventano pratiche e le 4 bloccate restano fuori dal lotto con il motivo.
+
+Questo esito è stato verificato caricando i file nella pagina VIES del portale (16 pronte, 4 bloccate per i motivi sopra; lotto 2 e lotto 3: 20 pronte su 20).
 
 ## Contenuto di ogni ZIP di pratica (9 documenti)
 
