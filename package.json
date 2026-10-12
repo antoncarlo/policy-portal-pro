@@ -16,6 +16,7 @@
     "test": "vitest run",
     "test:e2e": "node e2e/run.mjs",
     "test:api-imports": "node scripts/check-vercel-api-relative-imports.mjs",
+    "test:csp-hosts": "node scripts/check-csp-connect-hosts.mjs",
     "test:vies-practices": "node scripts/check-vies-practice-materialization.mjs",
     "test:vies-zip-upload": "node scripts/check-vies-zip-sequential-processing.mjs",
     "test:vies-schema": "node scripts/check-vies-schema-safety.mjs",
@@ -23,7 +24,7 @@
     "test:vies-resumable-upload": "node scripts/check-vies-resumable-upload.mjs",
     "test:vies-practice-documents": "node scripts/check-vies-practice-document-downloads.mjs",
     "test:vies-product-permissions": "node scripts/check-vies-product-permissions.mjs",
-    "test:checks": "npm run test:api-imports && npm run test:vies-practices && npm run test:vies-zip-upload && npm run test:vies-schema && npm run test:vies-batch-consistency && npm run test:vies-resumable-upload && npm run test:vies-practice-documents && npm run test:vies-product-permissions",
+    "test:checks": "npm run test:api-imports && npm run test:csp-hosts && npm run test:vies-practices && npm run test:vies-zip-upload && npm run test:vies-schema && npm run test:vies-batch-consistency && npm run test:vies-resumable-upload && npm run test:vies-practice-documents && npm run test:vies-product-permissions",
     "preview": "vite preview"
   },
   "dependencies": {

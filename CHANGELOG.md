@@ -38,6 +38,7 @@ Prima versione numerata. Riepilogo di ciò che il portale fa oggi:
 - Rubrica clienti: «Possibili doppioni» (stesso codice fiscale, partita IVA o email, anche a catena) con scelta di quale tenere e unione guidata: le pratiche passano al cliente scelto, i campi vuoti si completano, resta traccia nel registro di audit. Dal dettaglio cliente «Esporta dati (GDPR)»: file JSON con anagrafica, pratiche, storico, elenco documenti ed email inviate (art. 15 e 20).
 
 ### Corretto
+- Creazione del lotto VIES: falliva con «upload ... caused by ProgressEvent» perché la regola di sicurezza introdotta con le intestazioni HTTP (CSP) ammetteva solo l'indirizzo `<progetto>.supabase.co` e bloccava `<progetto>.storage.supabase.co`, quello del caricamento resumable dei file. `connect-src` in `vercel.json` ora lo ammette; il nuovo controllo `npm run test:csp-hosts` (dentro `test:checks`) fallisce se il codice contatta un indirizzo Supabase non ammesso dalla CSP.
 - Amministrazione: premio ed esportazione leggevano un campo che non esiste più (`premium_amount`, ora `premium_net`); il salvataggio delle modifiche contabili veniva rifiutato.
 - Report: le colonne premio/provvigione dell'esportazione Excel/PDF erano vuote; i grafici per mese e la classifica agenti non ricevevano i campi attesi.
 
