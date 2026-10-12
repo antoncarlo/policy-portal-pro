@@ -83,7 +83,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://nesblhtjqiavdfsrtfom.supabase.co; font-src 'self' data:; connect-src 'self' blob: https://nesblhtjqiavdfsrtfom.supabase.co wss://nesblhtjqiavdfsrtfom.supabase.co https://*.ingest.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io; worker-src 'self' blob:; frame-src 'self' blob: https://nesblhtjqiavdfsrtfom.supabase.co; object-src 'self' blob:; media-src 'self' blob:; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+          "value": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://nesblhtjqiavdfsrtfom.supabase.co; font-src 'self' data:; connect-src 'self' blob: https://nesblhtjqiavdfsrtfom.supabase.co https://nesblhtjqiavdfsrtfom.storage.supabase.co wss://nesblhtjqiavdfsrtfom.supabase.co https://*.ingest.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io; worker-src 'self' blob:; frame-src 'self' blob: https://nesblhtjqiavdfsrtfom.supabase.co; object-src 'self' blob:; media-src 'self' blob:; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
         }
       ]
     },

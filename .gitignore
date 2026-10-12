@@ -32,3 +32,6 @@ CREDENTIALS.md
 
 # Browser test screenshots
 e2e/artifacts/
+
+# VIES test files (npm run build:vies-test-data)
+test-data/
