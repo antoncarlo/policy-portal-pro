@@ -12,6 +12,7 @@
     "build:vies-template": "node scripts/vies-template/build.mjs",
     "build:vies-test-data": "tsx scripts/vies-test-data/build.ts",
     "docs:api-pdf": "node scripts/api-guide/build.mjs",
+    "docs:signing-templates": "node scripts/signing-templates/build.mjs",
     "lint": "eslint .",
     "test": "vitest run",
     "test:e2e": "node e2e/run.mjs",
