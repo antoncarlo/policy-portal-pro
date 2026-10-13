@@ -1,18 +1,19 @@
 // Genera i modelli dei documenti da firmare su carta intestata Tecno Advance MGA Broker Srl:
 // informativa privacy e consensi, MUP (Allegato 3 al Reg. IVASS 40/2018) e questionario antiriciclaggio.
 //
-//   node scripts/signing-templates/build.mjs [cartella-di-uscita]     (predefinita: docs/modelli-firma)
+//   node scripts/signing-templates/build.mjs [cartella-di-uscita]     (predefinita: public/modelli-firma)
 //
 // I testi stanno in questo file: si modificano qui e si rigenerano i PDF. I file prodotti si caricano in
 // Impostazioni > Documenti da firmare (nomi: privacy.pdf, mup.pdf, antiriciclaggio.pdf).
 // Richiede Chromium di Playwright.
-import { readFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFString } from "pdf-lib";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const OUT_DIR = resolve(process.argv[2] ?? resolve(HERE, "../../docs/modelli-firma"));
+const OUT_DIR = resolve(process.argv[2] ?? resolve(HERE, "../../public/modelli-firma"));
 const LOGO = `data:image/png;base64,${readFileSync(resolve(HERE, "../vies-template/logo.png")).toString("base64")}`;
 const NAVY = "#1a2547";
 
@@ -45,6 +46,7 @@ const CSS = `
   .row > * { flex: 1; }
   .fld { display: block; }
   .fld small { display: block; font-size: 7.2pt; color: #6b7280; text-transform: uppercase; letter-spacing: .02em; }
+  a.k { display: block; text-decoration: none; color: inherit; }
   .fld i { display: block; border-bottom: 1px solid #1f2733; min-height: 15px; }
   .w2 { flex: 2; } .w3 { flex: 3; } .w05 { flex: .5; }
   .cb { display: inline-block; width: 9px; height: 9px; border: 1px solid #1f2733; margin-right: 5px; vertical-align: -1px; }
@@ -60,12 +62,15 @@ const CSS = `
   td { padding: 3px 6px; border-bottom: 1px solid #dfe5ef; vertical-align: top; }
 `;
 
-const f = (label, cls = "") => `<span class="fld ${cls}"><small>${label}</small><i></i></span>`;
+// Un campo con `key` e' precompilabile: il suo riquadro viene registrato in fields.json (vedi piu' sotto).
+const KEY_URL = "https://prefill.invalid/";
+const f = (label, cls = "", key = "") =>
+  `<span class="fld ${cls}"><small>${label}</small>${key ? `<a class="k" href="${KEY_URL}${key}"><i></i></a>` : "<i></i>"}</span>`;
 const row = (...cells) => `<div class="row">${cells.join("")}</div>`;
 const cb = (text) => `<span class="opt"><span class="cb"></span>${text}</span>`;
 const opts = (...items) => `<div class="opts">${items.map(cb).join("")}</div>`;
 const stack = (...items) => `<div class="opts">${items.map(cb).join("")}</div>`.replace(/class="opts"/, 'class="opts" style="display:block"');
-const policyLine = row(f("Pratica / Polizza n.", "w2"), f("Contraente", "w3"), f("Codice fiscale / P.IVA", "w2"));
+const policyLine = row(f("Pratica / Polizza n.", "w2", "pratica"), f("Contraente", "w3", "contraente"), f("Codice fiscale / P.IVA", "w2", "cf"));
 const sign = (...captions) => `<div class="sig">${captions.map((c) => `<div>${c}</div>`).join("")}</div>`;
 const placeDate = row(f("Luogo"), f("Data"));
 
@@ -133,8 +138,8 @@ ${policyLine}
 <h1>Dichiarazione di presa visione e consensi</h1>
 <p class="sub">Da compilare e firmare dal Contraente o dal suo rappresentante munito di procura</p>
 ${policyLine}
-<div class="row">${f("Il/La sottoscritto/a (cognome e nome)", "w3")}${f("Codice fiscale", "w2")}</div>
-<div class="row">${f("in qualità di (rappresentante legale / procuratore speciale / altro)", "w3")}${f("della società", "w3")}</div>
+<div class="row">${f("Il/La sottoscritto/a (cognome e nome)", "w3", "firmatario")}${f("Codice fiscale", "w2", "firmatario_cf")}</div>
+<div class="row">${f("in qualità di (rappresentante legale / procuratore speciale / altro)", "w3", "qualita")}${f("della società", "w3", "contraente")}</div>
 <p>dichiara di aver ricevuto e letto l’informativa che precede, resa da ${CO.name} ai sensi degli artt. 13 e 14 del GDPR, anche per conto delle persone di cui ha fornito i dati.</p>
 
 <h3>A. Dati di categorie particolari (art. 9 GDPR) · finalità a) e b)</h3>
@@ -217,7 +222,7 @@ ${stack("commissione inclusa nel premio assicurativo", "onorario corrisposto dir
 <h2>Presa visione</h2>
 <p>Il sottoscritto dichiara di aver ricevuto, prima della sottoscrizione della proposta o del contratto, il presente Modulo Unico Precontrattuale, di averne preso visione e di averne compreso il contenuto.</p>
 ${policyLine}
-<div class="row">${f("Firmatario (cognome e nome)", "w3")}${f("in qualità di (contraente / rappresentante fiscale con procura speciale)", "w3")}</div>
+<div class="row">${f("Firmatario (cognome e nome)", "w3", "firmatario")}${f("in qualità di (contraente / rappresentante fiscale con procura speciale)", "w3", "qualita")}</div>
 ${placeDate}
 ${sign("Firma del Contraente o del rappresentante con procura (leggibile) e timbro", "Firma dell’intermediario o dell’incaricato")}
 `;
@@ -225,26 +230,29 @@ ${sign("Firma del Contraente o del rappresentante con procura (leggibile) e timb
 // ---------------------------------------------------------------------------------------------------
 // 3. QUESTIONARIO ANTIRICICLAGGIO
 // ---------------------------------------------------------------------------------------------------
-const person = (title, extra = "") => `
+const person = (title, extra = "", p = "") => {
+  const k = (name) => (p ? p + name : "");
+  return `
 <h3>${title}</h3>
-${row(f("Cognome e nome", "w3"), f("Codice fiscale", "w2"), f("Sesso"), f("Data di nascita"))}
-${row(f("Comune di nascita", "w2"), f("Prov."), f("Nazione"), f("Cittadinanza"), f("Seconda cittadinanza"))}
-${row(f("Residenza: indirizzo e n. civico", "w3"), f("CAP"), f("Comune"), f("Prov."), f("Nazione"))}
-${row(f("Settore e professione", "w2"), f("Paese attività prevalente"))}
+${row(f("Cognome e nome", "w3", k("nome")), f("Codice fiscale", "w2", k("cf")), f("Sesso", "", k("sesso")), f("Data di nascita", "", k("nascita")))}
+${row(f("Comune di nascita", "w2", k("luogo")), f("Prov."), f("Nazione", "", k("nazione_nascita")), f("Cittadinanza", "", k("cittadinanza")), f("Seconda cittadinanza"))}
+${row(f("Residenza: indirizzo e n. civico", "w3", k("residenza")), f("CAP"), f("Comune"), f("Prov."), f("Nazione", "", k("residenza_nazione")))}
+${row(f("Settore e professione", "w2", k("professione")), f("Paese attività prevalente", "", k("paese_attivita")))}
 <div class="opts"><b>Persona politicamente esposta (PEP):</b> ${cb("NO")} ${cb("SI")} · altre cariche pubbliche: ${cb("nessuna")} ${cb("amministratore locale")} ${cb("ruolo apicale in P.A. / consorzio pubblico / associazione di natura pubblica")} ${cb("altro: ____________")}</div>
-${row(f("Documento: " + "carta d’identità / passaporto / patente", "w2"), f("Numero"), f("Rilasciato il"), f("Scadenza"), f("Ente e località di rilascio", "w2"))}
+${row(f("Documento: carta d’identità / passaporto / patente", "w2", k("doc_tipo")), f("Numero", "", k("doc_numero")), f("Rilasciato il", "", k("doc_rilascio")), f("Scadenza", "", k("doc_scadenza")), f("Ente e località di rilascio", "w2", k("doc_ente")))}
 ${extra}`;
+};
 
 const aml = `
 <h1>Modulo per l’identificazione e l’adeguata verifica della clientela</h1>
 <p class="sub">Questionario antiriciclaggio · artt. 15 e seguenti del D.Lgs. 231/2007 e s.m.i. · Da compilare in ogni sua parte, in stampatello</p>
-${row(f("Polizza / Contratto / Pratica n.", "w2"), f("Impresa di assicurazione", "w2"), f("Prodotto", "w2"))}
+${row(f("Polizza / Contratto / Pratica n.", "w2", "pratica"), f("Impresa di assicurazione", "w2"), f("Prodotto", "w2", "prodotto"))}
 
 <h2>1. Contraente (persona giuridica)</h2>
-${row(f("Denominazione", "w3"), f("Forma giuridica"), f("Codice fiscale / P.IVA", "w2"))}
-${row(f("Sede legale: indirizzo e n. civico", "w3"), f("CAP"), f("Comune"), f("Prov."), f("Nazione"))}
-${row(f("Recapito (se diverso dalla sede legale)", "w3"), f("SAE / ATECO"), f("Data di costituzione"), f("Registro e n. di iscrizione", "w2"))}
-${row(f("Paese sede attività economica prevalente"), f("Paese sede legale della capogruppo"), f("Paesi esteri con cui intrattiene relazioni commerciali", "w2"))}
+${row(f("Denominazione", "w3", "contraente"), f("Forma giuridica", "w2", "forma"), f("Codice fiscale / P.IVA", "w2", "cf"))}
+${row(f("Sede legale: indirizzo e n. civico", "w3", "sede"), f("CAP"), f("Comune"), f("Prov."), f("Nazione", "", "sede_nazione"))}
+${row(f("Recapito (se diverso dalla sede legale)", "w3"), f("SAE / ATECO"), f("Data di costituzione", "", "costituzione"), f("Registro e n. di iscrizione", "w2", "registro"))}
+${row(f("Paese sede attività economica prevalente", "", "paese_attivita"), f("Paese sede legale della capogruppo"), f("Paesi esteri con cui intrattiene relazioni commerciali", "w2"))}
 <div class="opts"><b>Catena partecipativa complessa:</b> ${cb("NO")} ${cb("SI (allegare organigramma)")} · <b>Ente no profit:</b> ${cb("NO")} ${cb("SI · categoria dei beneficiari: ____________")}</div>
 <p class="lead"><b>Fatturato annuo:</b></p>
 ${opts("fino a € 250.000", "da € 250.000,01 a € 1.000.000", "da € 1.000.000,01 a € 10.000.000", "da € 10.000.000,01 a € 50.000.000", "oltre € 50.000.000")}
@@ -257,18 +265,18 @@ ${person("Dati del contraente persona fisica", row(f("Reddito annuo"), f("Patrim
 <h2>2. Legale rappresentante / esecutore</h2>
 ${person("Dati del legale rappresentante o di chi agisce per il contraente (es. rappresentante fiscale con procura speciale)", `
 <div class="opts"><b>Rapporto con il contraente:</b> ${cb("legale rappresentante")} ${cb("procuratore speciale (rappresentante fiscale)")} ${cb("rapporto di lavoro/affari")} ${cb("altro: ____________")}</div>
-<div class="opts"><b>Poteri di rappresentanza comprovati da (allegare):</b> ${cb("statuto")} ${cb("delibera di nomina")} ${cb("procura / delega")} ${cb("visura camerale")} ${cb("altro: ____________")}</div>`)}
+<div class="opts"><b>Poteri di rappresentanza comprovati da (allegare):</b> ${cb("statuto")} ${cb("delibera di nomina")} ${cb("procura / delega")} ${cb("visura camerale")} ${cb("altro: ____________")}</div>`, "lr_")}
 
 <h2>3. Titolare effettivo</h2>
 <p><b>Dichiarazione resa ai sensi del D.Lgs. 231/2007.</b> Il sottoscritto, consapevole delle responsabilità anche penali in caso di omessa o falsa dichiarazione in tema di titolarità effettiva, dichiara che i titolari effettivi sono n. ____ ${cb("coincidenti con il legale rappresentante / esecutore (non compilare le schede)")} ${cb("diversi, indicati di seguito")}.</p>
 <p class="note">Titolare effettivo è la persona fisica cui, in ultima istanza, è attribuibile la proprietà diretta o indiretta dell’ente (partecipazione superiore al 25% del capitale) o il relativo controllo; se non è individuabile, coincide con chi detiene poteri di rappresentanza legale, amministrazione o direzione (art. 20 D.Lgs. 231/2007).</p>
-${person("Titolare effettivo n. 1", row(f("Quota di partecipazione / controllo (%)"), f("Natura del controllo", "w2")))}
-${person("Titolare effettivo n. 2", row(f("Quota di partecipazione / controllo (%)"), f("Natura del controllo", "w2")))}
-${person("Titolare effettivo n. 3", row(f("Quota di partecipazione / controllo (%)"), f("Natura del controllo", "w2")))}
+${person("Titolare effettivo n. 1", row(f("Quota di partecipazione / controllo (%)", "", "te1_quota"), f("Natura del controllo", "w2", "te1_controllo")), "te1_")}
+${person("Titolare effettivo n. 2", row(f("Quota di partecipazione / controllo (%)", "", "te2_quota"), f("Natura del controllo", "w2", "te2_controllo")), "te2_")}
+${person("Titolare effettivo n. 3", row(f("Quota di partecipazione / controllo (%)", "", "te3_quota"), f("Natura del controllo", "w2", "te3_controllo")), "te3_")}
 
 <h2>4. Assicurato, beneficiario e soggetto che effettua il pagamento</h2>
 ${row(f("Assicurato (se diverso dal contraente): cognome e nome / denominazione", "w3"), f("Codice fiscale / P.IVA", "w2"), f("Motivo e rapporto con il contraente", "w2"))}
-${row(f("Beneficiario della garanzia (denominazione)", "w3"), f("Codice fiscale / P.IVA", "w2"), f("Rapporto con il contraente", "w2"))}
+${row(f("Beneficiario della garanzia (denominazione)", "w3", "beneficiario"), f("Codice fiscale / P.IVA", "w2", "beneficiario_cf"), f("Rapporto con il contraente", "w2"))}
 ${row(f("Soggetto che effettua il pagamento del premio, se diverso dal contraente", "w3"), f("Codice fiscale / P.IVA", "w2"), f("Rapporto con il contraente", "w2"))}
 <div class="opts"><b>Il soggetto pagante è PEP:</b> ${cb("NO")} ${cb("SI")}</div>
 
@@ -328,14 +336,39 @@ const footer = (title) => `<div style="width:100%;padding:0 16mm;font-family:Hel
   <div style="display:flex;justify-content:space-between"><span><b>${CO.name}</b> · Iscr. IVASS (RUI) n. ${CO.rui} · P.IVA ${CO.vat} · ${CO.web}</span><span>${title} · pag. <span class="pageNumber"></span>/<span class="totalPages"></span></span></div>
   <div>Sede legale: ${CO.legal} · Sede operativa: ${CO.office} · Tel. ${CO.tel} · PEC: ${CO.pec}</div></div>`;
 
+/**
+ * I campi con chiave sono link verso un indirizzo finto: Chromium li scrive come annotazioni con il loro
+ * riquadro. Qui si leggono (pagina, posizione, misura), si salvano in fields.json e si tolgono dal PDF.
+ */
+async function extractFields(bytes) {
+  const pdf = await PDFDocument.load(bytes);
+  const fields = [];
+  pdf.getPages().forEach((page, pageIndex) => {
+    const annots = page.node.lookupMaybe(PDFName.of("Annots"), PDFArray);
+    if (!annots) return;
+    for (let i = 0; i < annots.size(); i += 1) {
+      const annot = annots.lookupMaybe(i, PDFDict);
+      const action = annot?.lookupMaybe(PDFName.of("A"), PDFDict);
+      const uri = action?.lookupMaybe(PDFName.of("URI"), PDFString);
+      const text = uri?.decodeText();
+      if (!text?.startsWith(KEY_URL)) continue;
+      const rect = annot.lookup(PDFName.of("Rect"), PDFArray).asRectangle();
+      fields.push({ key: text.slice(KEY_URL.length), page: pageIndex, x: round(rect.x), y: round(rect.y), w: round(rect.width), h: round(rect.height) });
+    }
+    page.node.delete(PDFName.of("Annots"));
+  });
+  return { fields, bytes: await pdf.save() };
+}
+const round = (value) => Math.round(value * 10) / 10;
+
 mkdirSync(OUT_DIR, { recursive: true });
 const browser = await chromium.launch();
+const map = {};
 try {
   for (const doc of docs) {
     const tab = await browser.newPage();
     await tab.setContent(page(doc.title, doc.body), { waitUntil: "load" });
-    await tab.pdf({
-      path: join(OUT_DIR, doc.file),
+    const raw = await tab.pdf({
       format: "A4",
       printBackground: true,
       displayHeaderFooter: true,
@@ -344,8 +377,12 @@ try {
       margin: { top: "27mm", bottom: "21mm", left: "16mm", right: "16mm" },
     });
     await tab.close();
-    console.log(`PDF scritto: ${join(OUT_DIR, doc.file)}`);
+    const { fields, bytes } = await extractFields(raw);
+    writeFileSync(join(OUT_DIR, doc.file), bytes);
+    map[doc.file.replace(/\.pdf$/, "")] = fields;
+    console.log(`PDF scritto: ${join(OUT_DIR, doc.file)} (${fields.length} campi precompilabili)`);
   }
+  writeFileSync(join(OUT_DIR, "fields.json"), `${JSON.stringify(map, null, 1)}\n`);
 } finally {
   await browser.close();
 }

@@ -16,6 +16,7 @@ import {
 import * as crypto from 'crypto';
 import { getPublicBaseUrl, isAdmin, readPortalRegistry } from './vies-orchestrator.js';
 import { applyWorkflowEvent, defaultInfoDueDate, loadPractice, parseInfoDueDate, WorkflowError, type WorkflowEvent } from './vies-workflow.js';
+import { recordPolicyNumber } from './policy-number.js';
 import type { IncomingDocument } from './vies-documents.js';
 
 /**
@@ -39,6 +40,7 @@ export const WORKFLOW_ACTIONS = [
   'workflow_mark_sent',
   'workflow_register_payment',
   'workflow_send_signed',
+  'workflow_set_policy_number',
   'workflow_bulk_status',
   'portal_status',
   'intake_link',
@@ -399,6 +401,7 @@ async function runWorkflowActionInner(
       // draft: the company's draft (to check); companyCopy: the policy copy for the company (to sign)
       event = { type: 'deliberated', paymentDueDate, note, draft: parseDraft(body.draft), companyCopy: parseDraft(body.companyCopy) };
       announce = { kind: 'deliberated' };
+      policyNumber = text(body.policyNumber, 100);
       break;
     }
     case 'workflow_reject': {
@@ -439,6 +442,22 @@ async function runWorkflowActionInner(
       event = { type: 'sent', portalId: 'manuale', portalName: text(body.portalName, 100) ?? 'invio manuale', reference: text(body.reference, 128) ?? null };
       announce = { kind: 'sent' };
       break;
+    case 'workflow_set_policy_number': {
+      // The insurer's number arrives after the approval, with the copy to sign: the office records it here.
+      const number = required(body.policyNumber, 100, 'Indicare il numero di polizza');
+      const practice = await loadPractice(supabase, practiceId);
+      const { data: current } = await supabase.from('practices').select('policy_number').eq('id', practice.id).maybeSingle();
+      if ((current?.policy_number as string | null | undefined) === number) return { ok: true, changed: false, practiceId: practice.id, policyNumber: number };
+      const { error } = await supabase.from('practices').update({ policy_number: number }).eq('id', practice.id);
+      if (error) throw new WorkflowError(500, 'database', `Salvataggio del numero di polizza non riuscito: ${error.message}`);
+      await supabase.from('practice_events').insert({
+        practice_id: practice.id,
+        event_type: 'workflow_policy_number',
+        description: `Numero di polizza registrato: ${number} · ${context.actor.label}`,
+        created_by: userId,
+      });
+      return { ok: true, changed: true, practiceId: practice.id, policyNumber: number };
+    }
     case 'workflow_register_payment': {
       const startedAt = new Date();
       const practice = await loadPractice(supabase, practiceId);
@@ -469,10 +488,7 @@ async function runWorkflowActionInner(
   }
 
   const result = await applyWorkflowEvent(supabase, practiceId, event, context);
-  if (policyNumber) {
-    // The number is recorded only where the practice has none yet.
-    await supabase.from('practices').update({ policy_number: policyNumber }).eq('id', practiceId).is('policy_number', null);
-  }
+  await recordPolicyNumber(supabase, practiceId, policyNumber);
   // A second answer for a practice already deliberated (new draft, new date) is passed on to the company too.
   const changed = result.changed || action === 'workflow_deliberate';
   await Promise.all([
@@ -530,7 +546,7 @@ async function sendSignedCopies(supabase: SupabaseClient, userId: string, admin:
 }
 
 const PRACTICE_ACTIONS = new Set<WorkflowActionName>([
-  'workflow_deliberate', 'workflow_reject', 'workflow_request_info', 'workflow_provide_info', 'workflow_issue', 'workflow_reopen', 'workflow_mark_sent', 'workflow_register_payment', 'workflow_send_signed',
+  'workflow_deliberate', 'workflow_reject', 'workflow_request_info', 'workflow_provide_info', 'workflow_issue', 'workflow_reopen', 'workflow_mark_sent', 'workflow_register_payment', 'workflow_send_signed', 'workflow_set_policy_number',
 ]);
 
 /**

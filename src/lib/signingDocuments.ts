@@ -52,6 +52,8 @@ export interface SigningSlot {
   sourceType: string | null;
   /** Parole chiave nel nome file per riconoscere una copia firmata caricata in blocco. */
   keywords: RegExp[];
+  /** Il modello e' integrato nel portale (public/modelli-firma) e viene compilato con i dati della pratica. */
+  builtIn: boolean;
 }
 
 export const SIGNING_SLOTS: SigningSlot[] = [
@@ -62,6 +64,7 @@ export const SIGNING_SLOTS: SigningSlot[] = [
     description: "La polizza nella copia per la Compagnia, firmata dal rappresentante fiscale con la procura speciale del contraente. La bozza non si firma.",
     signedType: "polizza_firmata",
     hasTemplate: false,
+    builtIn: false,
     sourceType: COMPANY_COPY_DOCUMENT_TYPE,
     keywords: [/polizza/i, /policy/i, /copia[ _-]?compagnia/i, /accettazion/i, /fideius/i],
   },
@@ -72,6 +75,7 @@ export const SIGNING_SLOTS: SigningSlot[] = [
     description: "Informativa sul trattamento dei dati personali e consensi, firmata dal rappresentante con procura.",
     signedType: "privacy_firmata",
     hasTemplate: true,
+    builtIn: true,
     sourceType: null,
     keywords: [/privacy/i, /gdpr/i, /consens/i, /trattamento[ _-]?dati/i],
   },
@@ -82,6 +86,7 @@ export const SIGNING_SLOTS: SigningSlot[] = [
     description: "Informativa precontrattuale dell'intermediario (allegati 3, 4 e 4-ter IVASS), firmata per presa visione.",
     signedType: "mup_firmato",
     hasTemplate: true,
+    builtIn: true,
     sourceType: null,
     keywords: [/(^|[^a-z])mup(?![a-z])/i, /precontrattual/i, /allegat[oi][ _-]?(3|4)/i],
   },
@@ -92,6 +97,7 @@ export const SIGNING_SLOTS: SigningSlot[] = [
     description: "Adeguata verifica della clientela (D.Lgs. 231/2007) e dichiarazione di avvenuta identificazione del rappresentante fiscale.",
     signedType: "antiriciclaggio_firmato",
     hasTemplate: true,
+    builtIn: true,
     sourceType: null,
     keywords: [/antiricicl/i, /(^|[^a-z])aml(?![a-z])/i, /adeguata[ _-]?verifica/i, /kyc/i, /231/],
   },

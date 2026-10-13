@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { SIGNING_SLOTS, SIGNING_TEMPLATES_BUCKET, signingTemplatePath, type SigningSlotId } from "@/lib/signingDocuments";
 import { downloadSigningTemplate, listSigningTemplates, saveBlob, type TemplateInfo } from "@/lib/signingTemplates";
+import { generateSigningDocument } from "@/lib/signingPrefillData";
 import { formatDate, getMessages, useMessages } from "@/i18n";
 import { signingMessages } from "@/i18n/messages/signing";
 
@@ -65,7 +66,8 @@ export const SigningTemplatesSettings = () => {
 
   const download = async (slot: SigningSlotId) => {
     try {
-      saveBlob(await downloadSigningTemplate(slot), `${slot}.pdf`);
+      const builtIn = SIGNING_SLOTS.find((entry) => entry.id === slot)?.builtIn;
+      saveBlob(builtIn ? await generateSigningDocument(slot) : await downloadSigningTemplate(slot), `${slot}.pdf`);
     } catch (error) {
       fail(error);
     }
@@ -88,7 +90,9 @@ export const SigningTemplatesSettings = () => {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-medium text-foreground">{m.slots[slot.id].label}</p>
-                  {slot.hasTemplate ? (
+                  {slot.builtIn ? (
+                    <Badge variant="outline" className="border-green-500/40 text-green-700 dark:text-green-400">{m.settings.builtIn}</Badge>
+                  ) : slot.hasTemplate ? (
                     template ? (
                       <Badge variant="outline" className="border-green-500/40 text-green-700 dark:text-green-400">{m.settings.uploadedOn(formatDate(template.updatedAt ?? ""))}</Badge>
                     ) : (
@@ -100,7 +104,15 @@ export const SigningTemplatesSettings = () => {
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">{m.slots[slot.id].description}</p>
               </div>
-              {slot.hasTemplate && (
+              {slot.builtIn && (
+                <div className="flex flex-wrap gap-2 md:justify-end">
+                  <Button variant="outline" size="sm" onClick={() => void download(slot.id)}>
+                    <Download className="mr-1.5 h-4 w-4" />
+                    {m.settings.downloadBlank}
+                  </Button>
+                </div>
+              )}
+              {slot.hasTemplate && !slot.builtIn && (
                 <div className="flex flex-wrap gap-2 md:justify-end">
                   {template && (
                     <>

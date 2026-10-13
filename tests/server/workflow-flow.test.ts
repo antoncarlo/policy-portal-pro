@@ -668,6 +668,31 @@ await check("signed copies: the owner sends them once every signature is in; the
   // audit: one line per transmission
   assert.ok(db.rows("audit_log").some((row) => row.action === "practice.send_signed" && row.row_id === p.id), JSON.stringify(db.rows("audit_log").map((r) => r.action)));
 });
+await check("policy number: arrives after the approval; the portal's own VIES reference counts as none; the insurer's number is not overwritten by a callback", async () => {
+  const { db, practice } = sentWorld();
+  const p = practice("in_attesa");
+  db.rows("practices").find((x) => x.id === p.id)!.policy_number = "VIES-0001";
+  const admin = (a: any, body: any = {}) => runWorkflowAction(sb(db), ADMIN, a, { practiceId: p.id, ...body });
+  await admin("workflow_deliberate", { draft: pdfDoc("bozza.pdf"), companyCopy: pdfDoc("copia.pdf") });
+  assert.equal(db.rows("practices").find((x) => x.id === p.id)!.policy_number, "VIES-0001", "nothing at the approval");
+  // after the approval the office records the number printed on the insurer's copy
+  const saved: any = await admin("workflow_set_policy_number", { policyNumber: "  FID-2026-445  " });
+  assert.equal(saved.changed, true); assert.equal(saved.policyNumber, "FID-2026-445");
+  assert.equal(db.rows("practices").find((x) => x.id === p.id)!.policy_number, "FID-2026-445");
+  assert.match(events(db, p.id, "workflow_policy_number")[0].description, /FID-2026-445 · Mario Admin/);
+  assert.equal((await admin("workflow_set_policy_number", { policyNumber: "FID-2026-445" })).changed, false, "same number: nothing to do");
+  await rejects(() => admin("workflow_set_policy_number", { policyNumber: "" }), "invalid_payload", 422);
+  // only administrators
+  await rejects(() => runWorkflowAction(sb(db), OWNER, "workflow_set_policy_number", { practiceId: p.id, policyNumber: "X-1" }), "forbidden", 403);
+  assert.ok(db.rows("audit_log").some((row) => row.action === "practice.set_policy_number" && row.row_id === p.id), JSON.stringify(db.rows("audit_log").map((r) => r.action)));
+  // a number sent by the company with a repeated approval replaces the portal's reference, never a real number
+  const q = practice("in_attesa");
+  db.rows("practices").find((x) => x.id === q.id)!.policy_number = "VIES-0002";
+  await handlePortalCallback(sb(db), portals, signed({ event_id: "pn1", event_type: "practice.deliberated", practice: { id: q.id }, data: { policy_number: "POL-A", draft: pdfDoc("bozza.pdf") } }));
+  assert.equal(db.rows("practices").find((x) => x.id === q.id)!.policy_number, "POL-A");
+  await handlePortalCallback(sb(db), portals, signed({ event_id: "pn2", event_type: "practice.deliberated", practice: { id: q.id }, data: { policy_number: "POL-B", draft: pdfDoc("bozza2.pdf") } }));
+  assert.equal(db.rows("practices").find((x) => x.id === q.id)!.policy_number, "POL-A", "an existing number stays");
+});
 await check("validation of what the administrator sends", async () => {
   const { db, practice } = world();
   const p = practice("in_attesa");

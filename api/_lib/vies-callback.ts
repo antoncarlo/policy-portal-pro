@@ -7,6 +7,7 @@ import { dispatchNotifications } from './notification-dispatch.js';
 import { emitPracticeEvent, type OutboundKind } from './vies-outbound.js';
 import { portalDocumentHosts, type ViesPortal } from './vies-orchestrator.js';
 import { applyWorkflowEvent, findPracticeForPortal, loadPractice, parseInfoDueDate, WorkflowError, type WorkflowEvent } from './vies-workflow.js';
+import { recordPolicyNumber } from './policy-number.js';
 
 /**
  * Answers from the company's portal: a practice received, more documents asked for, deliberated
@@ -109,6 +110,8 @@ export function parseCallbackEvent(body: unknown): { ok: true; event: CallbackEv
         if (due && !isValidDate(due)) throw new Error('data.payment_due_date deve essere AAAA-MM-GG');
         event.paymentDueDate = due ?? null;
         event.note = text(data.note, 1000) ?? null;
+        // The policy number comes with the copy to sign: the documents to sign are filled in with it.
+        event.policyNumber = text(data.policy_number, 100) ?? null;
         event.document = parseDocument(data.draft, 'data.draft');
         event.companyCopy = parseDocument(data.policy_copy, 'data.policy_copy');
         break;
@@ -301,10 +304,7 @@ export async function handlePortalCallback(
     if (!workflowEvent) throw new WorkflowError(400, 'invalid_payload', 'Evento non gestito');
 
     const result = await applyWorkflowEvent(supabase, practiceId, workflowEvent, context);
-    if (event.type === 'practice.issued' && event.policyNumber) {
-      // The company's policy number, only where the practice has none yet.
-      await supabase.from('practices').update({ policy_number: event.policyNumber }).eq('id', practiceId).is('policy_number', null);
-    }
+    if (event.type === 'practice.issued' || event.type === 'practice.deliberated') await recordPolicyNumber(supabase, practiceId, event.policyNumber);
     await settle(result.changed ? 'processed' : 'ignored', practiceId);
     const kind: Record<string, OutboundKind> = {
       'practice.deliberated': 'deliberated',

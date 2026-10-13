@@ -150,7 +150,12 @@ const text = async (page) => (await page.locator("body").innerText()).replace(/\
   check("2 ordine di firma: polizza copia Compagnia, privacy, MUP, antiriciclaggio", JSON.stringify(order) === JSON.stringify(["polizza_firmata", "privacy", "mup", "antiriciclaggio"]), JSON.stringify(order));
   check("2 documenti da firmare: 1 di 4, MUP firmato il 06/10/2026", (await page.getByTestId("signing-progress").innerText()).includes("1 di 4") && /Firmato il 06\/10\/2026/.test(await page.getByTestId("signing-slot-mup").innerText()));
   check("2 la copia per la Compagnia si scarica; la bozza non e' tra i documenti da firmare", !(await page.getByTestId("signing-company-copy-download").isDisabled()) && !/bozza-compagnia\.pdf/.test(await page.getByTestId("signing-card").innerText()));
-  check("2 modello privacy scaricabile, antiriciclaggio senza modello", !(await page.getByTestId("signing-slot-privacy").getByRole("button", { name: /Scarica il modello/ }).isDisabled()) && /Modello non ancora disponibile/.test(await page.getByTestId("signing-slot-antiriciclaggio").innerText()));
+  check("2 il rappresentante non vede il campo del numero di polizza", (await page.getByTestId("signing-policy-number").count()) === 0);
+  check("2 privacy, MUP e antiriciclaggio: modello sempre disponibile (integrato nel portale)", !(await page.getByTestId("signing-slot-privacy").getByRole("button", { name: /Scarica il modello/ }).isDisabled()) && !(await page.getByTestId("signing-slot-antiriciclaggio").getByRole("button", { name: /Scarica il modello/ }).isDisabled()) && !/Modello non ancora disponibile/.test(await page.getByTestId("signing-card").innerText()));
+  const [download] = await Promise.all([page.waitForEvent("download", { timeout: 15000 }), page.getByTestId("signing-slot-antiriciclaggio").getByRole("button", { name: /Scarica il modello/ }).click()]);
+  const downloadedPath = await download.path();
+  const downloaded = downloadedPath ? (await import("node:fs")).readFileSync(downloadedPath) : Buffer.alloc(0);
+  check("2 il download e' il PDF dell'antiriciclaggio compilato per la pratica, nome con ordine e numero", /^4_antiriciclaggio_VIES-2026-0002\.pdf$/.test(download.suggestedFilename()) && downloaded.subarray(0, 5).toString() === "%PDF-" && downloaded.length > 150000, `${download.suggestedFilename()} ${downloaded.length}`);
   await page.locator(`#signing-upload-${PRACTICES[1].id}-privacy`).setInputFiles({ name: "privacy firmata.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 firmato") });
   await page.waitForTimeout(900);
   const insert = log.inserts.find((i) => i.table === "practice_documents");
@@ -176,7 +181,7 @@ const text = async (page) => (await page.locator("body").innerText()).replace(/\
 
 // 4) amministratore: modulo visibile con etichetta; copia per la Compagnia caricabile; Impostazioni → Documenti da firmare
 {
-  const { ctx, page, pageErrors } = await open({ admin: true });
+  const { ctx, page, log, pageErrors } = await open({ admin: true });
   await page.goto(`${BASE}/practices/${PRACTICES[0].id}`, { waitUntil: "networkidle" });
   await page.waitForSelector("[data-testid=signing-card]", { timeout: 10000 });
   await page.waitForTimeout(600);
@@ -186,6 +191,11 @@ const text = async (page) => (await page.locator("body").innerText()).replace(/\
   await page.goto(`${BASE}/practices/${PRACTICES[1].id}`, { waitUntil: "networkidle" });
   await page.waitForSelector("[data-testid=signing-card]", { timeout: 10000 });
   check("4 amministratore: può allegare la copia per la Compagnia dalla sezione firme", (await page.getByTestId("signing-company-copy-upload").count()) === 1);
+  await page.locator("#signing-policy-input").fill("FID-2026-445");
+  await page.getByTestId("signing-policy-save").click();
+  await page.waitForTimeout(500);
+  const policyCall = log.api.find((c) => c.body.action === "workflow_set_policy_number");
+  check("4 amministratore: registra il numero di polizza della compagnia (dopo la delibera)", !!policyCall && policyCall.body.practiceId === PRACTICES[1].id && policyCall.body.policyNumber === "FID-2026-445", JSON.stringify(policyCall));
   await page.getByTestId("workflow-action-reopen").waitFor({ timeout: 5000 }).catch(() => {});
   await page.getByTestId("workflow-action-registerPayment").click();
   await page.waitForTimeout(300);
@@ -195,7 +205,7 @@ const text = async (page) => (await page.locator("body").innerText()).replace(/\
   await page.getByTestId("settings-tab-signing").click();
   await page.waitForTimeout(700);
   const settings = await text(page);
-  check("4 Impostazioni → Documenti da firmare: modelli caricati e mancanti, polizza senza modello", /Modelli dei documenti da firmare/.test(settings) && /Caricato il 30\/09\/2026/.test(await page.getByTestId("signing-template-mup").innerText()) && /Nessun modello caricato/.test(await page.getByTestId("signing-template-antiriciclaggio").innerText()) && /si firma la copia per la Compagnia/.test(await page.getByTestId("signing-template-polizza_firmata").innerText()));
+  check("4 Impostazioni → Documenti da firmare: privacy, MUP e antiriciclaggio integrati (nessun caricamento), polizza senza modello", /Modelli dei documenti da firmare/.test(settings) && /Modello integrato/.test(await page.getByTestId("signing-template-mup").innerText()) && /Modello integrato/.test(await page.getByTestId("signing-template-antiriciclaggio").innerText()) && (await page.locator("[id^=signing-template-]").count()) === 0 && /si firma la copia per la Compagnia/.test(await page.getByTestId("signing-template-polizza_firmata").innerText()));
   check("4 nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
   await ctx.close();
 }

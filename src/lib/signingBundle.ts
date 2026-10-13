@@ -14,7 +14,8 @@ import {
   signedDocumentPath,
   storageReferenceOf,
 } from "@/lib/signingDocuments";
-import { downloadSigningTemplate, listSigningTemplates, saveBlob } from "@/lib/signingTemplates";
+import { saveBlob } from "@/lib/signingTemplates";
+import { generateSigningDocument, loadPrefillInputs } from "@/lib/signingPrefillData";
 
 /**
  * Documenti da firmare di un intero lotto VIES, in blocco:
@@ -88,11 +89,10 @@ export async function downloadSigningBundle(options: {
 }): Promise<SigningBundleResult> {
   const fileName = `${safeName(options.fileLabel, "lotto")}.zip`;
   const practices = (await fetchLotPracticesWithStage(options.batchId)).filter((practice) => isSigningStage(stageOf(practice)));
-  const templates = await listSigningTemplates();
   const documents = practices.length > 0 ? await fetchFlowDocuments(practices.map((practice) => practice.id)) : new Map<string, StoredDocument[]>();
 
-  const templateBlobs = new Map<string, Blob>();
-  for (const [slot] of templates) templateBlobs.set(slot, await downloadSigningTemplate(slot));
+  // I tre documenti da firmare sono compilati per ogni pratica con i dati che il portale ha.
+  const prefill = await loadPrefillInputs(practices.map((practice) => practice.id));
 
   // Per ogni pratica deliberata, i documenti da firmare nell'ordine di firma.
   const entries: Array<{ zipPath: string; blob?: Blob; storagePath?: string }> = [];
@@ -100,8 +100,8 @@ export async function downloadSigningBundle(options: {
     const folder = safeName(practice.practice_number, "pratica");
     for (const slot of [...SIGNING_SLOTS].sort((a, b) => a.order - b.order)) {
       if (slot.hasTemplate) {
-        const blob = templateBlobs.get(slot.id);
-        if (blob) entries.push({ zipPath: `${folder}/${slot.order}_${slot.id}.pdf`, blob });
+        const blob = await generateSigningDocument(slot.id, prefill.get(practice.id) ?? null);
+        entries.push({ zipPath: `${folder}/${slot.order}_${slot.id}.pdf`, blob });
       } else {
         const copy = (documents.get(practice.id) ?? []).find((document) => document.document_type === slot.sourceType);
         if (copy) entries.push({ zipPath: `${folder}/${slot.order}_${COMPANY_COPY_DOCUMENT_TYPE}_${safeName(copy.file_name, "polizza.pdf")}`, storagePath: copy.file_path });

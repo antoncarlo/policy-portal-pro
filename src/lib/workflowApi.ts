@@ -10,6 +10,7 @@ export type WorkflowActionName =
   | "workflow_mark_sent"
   | "workflow_register_payment"
   | "workflow_send_signed"
+  | "workflow_set_policy_number"
   | "workflow_bulk_status"
   | "portal_status"
   | "intake_link"

@@ -205,7 +205,14 @@ class Query implements PromiseLike<any> {
     const clauses = expression.split(",").map((clause) => {
       const [col, op, ...rest] = clause.split(".");
       const value = rest.join(".");
-      return (r: Row) => (op === "eq" ? String(r[col]) === value : op === "is" && value === "null" ? r[col] == null : false);
+      return (r: Row) =>
+        op === "eq"
+          ? String(r[col]) === value
+          : op === "is" && value === "null"
+            ? r[col] == null
+            : op === "like"
+              ? new RegExp(`^${value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*")}$`).test(String(r[col] ?? ""))
+              : false;
     });
     this.filters.push((r) => clauses.some((c) => c(r)));
     return this;

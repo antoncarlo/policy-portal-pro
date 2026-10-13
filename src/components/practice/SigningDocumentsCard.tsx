@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { CheckCircle2, Clock, Download, FileSignature, Loader2, Send, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -22,7 +24,8 @@ import {
   type SigningSlot,
   type SigningSlotId,
 } from "@/lib/signingDocuments";
-import { downloadSigningTemplate, listSigningTemplates, saveBlob, type TemplateInfo } from "@/lib/signingTemplates";
+import { listSigningTemplates, saveBlob, type TemplateInfo } from "@/lib/signingTemplates";
+import { generateSigningDocument, loadPrefillInputs } from "@/lib/signingPrefillData";
 import { formatDate, getMessages, useMessages } from "@/i18n";
 import { signingMessages } from "@/i18n/messages/signing";
 
@@ -58,11 +61,14 @@ export const SigningDocumentsCard = ({ practice, isAdmin, refreshToken = 0, onCh
   const [documents, setDocuments] = useState<FlowDocument[]>([]);
   const [templates, setTemplates] = useState<Map<SigningSlotId, TemplateInfo>>(new Map());
   const [sentAt, setSentAt] = useState<string | null>(null);
-  const [busy, setBusy] = useState<SigningSlotId | "company_copy" | "send" | null>(null);
+  const [busy, setBusy] = useState<SigningSlotId | "company_copy" | "send" | "policy" | null>(null);
   const sendingRef = useRef(false);
+  // Numero di polizza della compagnia: arriva dopo la delibera, con la copia per la Compagnia.
+  const [policyNumber, setPolicyNumber] = useState<string>("");
+  const [policyDraft, setPolicyDraft] = useState<string>("");
 
   const load = useCallback(async () => {
-    const [{ data: rows }, { data: flow }, found] = await Promise.all([
+    const [{ data: rows }, { data: flow }, found, { data: practiceRow }] = await Promise.all([
       supabase
         .from("practice_documents")
         .select("id, file_name, file_path, document_type, created_at")
@@ -71,7 +77,13 @@ export const SigningDocumentsCard = ({ practice, isAdmin, refreshToken = 0, onCh
         .order("created_at", { ascending: false }),
       supabase.from("practice_workflow").select("signed_sent_at").eq("practice_id", practice.id).maybeSingle(),
       listSigningTemplates(),
+      supabase.from("practices").select("policy_number").eq("id", practice.id).maybeSingle(),
     ]);
+    const saved = ((practiceRow as { policy_number?: string | null } | null)?.policy_number ?? "").trim();
+    // "VIES-<n>" e' il riferimento interno del portale, non il numero della compagnia.
+    const real = /^VIES-/i.test(saved) ? "" : saved;
+    setPolicyNumber(real);
+    setPolicyDraft((current) => current || real);
     const wanted = new Set([...SIGNED_DOCUMENT_TYPES, COMPANY_COPY_DOCUMENT_TYPE]);
     setDocuments(((rows as FlowDocument[] | null) ?? []).filter((row) => wanted.has(row.document_type ?? "")));
     setSentAt(((flow as { signed_sent_at?: string | null } | null)?.signed_sent_at as string | null | undefined) ?? null);
@@ -125,9 +137,27 @@ export const SigningDocumentsCard = ({ practice, isAdmin, refreshToken = 0, onCh
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when the set of signatures becomes complete
   }, [complete, sentAt, practice.id]);
 
+  const savePolicyNumber = async () => {
+    const value = policyDraft.trim();
+    if (!value) return;
+    setBusy("policy");
+    const text = getMessages(signingMessages).card;
+    try {
+      await callWorkflow("workflow_set_policy_number", { practiceId: practice.id, policyNumber: value });
+      setPolicyNumber(value);
+      toast({ title: text.policyNumberSaved, description: value });
+      onChanged?.();
+    } catch (error) {
+      fail(text.policyNumberError, error);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const downloadTemplate = async (slot: SigningSlot) => {
     try {
-      saveBlob(await downloadSigningTemplate(slot.id), `${slot.order}_${slot.id}_${practice.practice_number}.pdf`);
+      const input = (await loadPrefillInputs([practice.id])).get(practice.id) ?? null;
+      saveBlob(await generateSigningDocument(slot.id, input), `${slot.order}_${slot.id}_${practice.practice_number}.pdf`);
     } catch (error) {
       fail(getMessages(signingMessages).card.downloadErrorTitle, error);
     }
@@ -248,12 +278,26 @@ export const SigningDocumentsCard = ({ practice, isAdmin, refreshToken = 0, onCh
         </div>
       )}
 
+      {signing && isAdmin && (
+        <div className="mb-4 rounded-md border p-3" data-testid="signing-policy-number">
+          <Label htmlFor="signing-policy-input" className="text-sm font-medium">{m.card.policyNumber}</Label>
+          <p className="mt-0.5 text-xs text-muted-foreground">{m.card.policyNumberHint}</p>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+            <Input id="signing-policy-input" value={policyDraft} maxLength={100} onChange={(event) => setPolicyDraft(event.target.value)} className="sm:max-w-sm" />
+            <Button size="sm" variant="outline" disabled={busy !== null || !policyDraft.trim() || policyDraft.trim() === policyNumber} onClick={() => void savePolicyNumber()} data-testid="signing-policy-save">
+              {busy === "policy" ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+              {m.card.policyNumberSave}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {signing && (
         <ol className="space-y-3">
           {status.map(({ slot, source, signed }) => {
             const template = templates.get(slot.id);
             const slotText = m.slots[slot.id];
-            const canDownload = slot.hasTemplate ? Boolean(template) : Boolean(source);
+            const canDownload = slot.hasTemplate ? slot.builtIn || Boolean(template) : Boolean(source);
             return (
               <li
                 key={slot.id}
@@ -274,7 +318,7 @@ export const SigningDocumentsCard = ({ practice, isAdmin, refreshToken = 0, onCh
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">{slotText.description}</p>
                     {signed && <p className="mt-1 truncate text-xs text-muted-foreground">{signed.file_name}</p>}
-                    {slot.hasTemplate && !template && (
+                    {slot.hasTemplate && !slot.builtIn && !template && (
                       <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">{isAdmin ? m.card.templateMissingAdmin : m.card.templateMissing}</p>
                     )}
                     {!slot.hasTemplate && !source && (
