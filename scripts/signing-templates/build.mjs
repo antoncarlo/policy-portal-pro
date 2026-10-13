@@ -51,6 +51,7 @@ const CSS = `
   a.k { display: block; text-decoration: none; color: inherit; }
   .fld i { display: block; border-bottom: 1px solid #1f2733; min-height: 15px; }
   .w2 { flex: 2; } .w3 { flex: 3; } .w05 { flex: .5; }
+  .cb.on { background: #1a2547; box-shadow: inset 0 0 0 1.6px #fff; }
   .cb { display: inline-block; width: 9px; height: 9px; border: 1px solid #1f2733; margin-right: 5px; vertical-align: -1px; }
   .opt { display: block; margin: 2px 0 2px 0; padding-left: 15px; text-indent: -15px; }
   .opts { margin: 3px 0 6px; }
@@ -69,7 +70,8 @@ const KEY_URL = "https://prefill.invalid/";
 const f = (label, cls = "", key = "") =>
   `<span class="fld ${cls}"><small>${label}</small>${key ? `<a class="k" href="${KEY_URL}${key}"><i></i></a>` : "<i></i>"}</span>`;
 const row = (...cells) => `<div class="row">${cells.join("")}</div>`;
-const cb = (text) => `<span class="opt"><span class="cb"></span>${text}</span>`;
+const cb = (item) => (typeof item === "string" ? `<span class="opt"><span class="cb"></span>${item}</span>` : `<span class="opt"><span class="cb on"></span>${item.text}</span>`);
+const on = (text) => ({ on: true, text });
 const opts = (...items) => `<div class="opts">${items.map(cb).join("")}</div>`;
 const stack = (...items) => `<div class="opts">${items.map(cb).join("")}</div>`.replace(/class="opts"/, 'class="opts" style="display:block"');
 const policyLine = row(f("Pratica / Polizza n.", "w2", "pratica"), f("Contraente", "w3", "contraente"), f("Codice fiscale / P.IVA", "w2", "cf"));
@@ -175,58 +177,63 @@ ${sign("Firma del Contraente o del rappresentante con procura (leggibile) e timb
 // 2. MUP - ALLEGATO 3 AL REGOLAMENTO IVASS N. 40/2018
 // ---------------------------------------------------------------------------------------------------
 const mup = `
-<h1>Allegato 3 · Modulo Unico Precontrattuale (MUP) per i prodotti assicurativi</h1>
-<p class="sub">Regolamento IVASS n. 40 del 2 agosto 2018 · art. 120-quater del Codice delle Assicurazioni Private</p>
-<div class="box"><p style="margin:0">Il distributore ha l’obbligo di consegnare o trasmettere al contraente il presente Modulo prima della sottoscrizione della proposta o del contratto di assicurazione. Il documento può essere fornito con modalità non cartacea se appropriato e il contraente lo consente.</p></div>
+<h1>Modulo Unico Precontrattuale (MUP) per i prodotti assicurativi</h1>
+<p class="sub">Allegato 3 al Regolamento IVASS n. 40 del 2 agosto 2018 · art. 120-quater del Codice delle Assicurazioni Private</p>
+<div class="box"><p style="margin:0">Il distributore ha l’obbligo di consegnare o trasmettere al contraente il presente Modulo prima della sottoscrizione della proposta o del contratto di assicurazione. Il documento può essere fornito con modalità non cartacea se appropriato rispetto alle modalità di distribuzione del prodotto assicurativo e il contraente lo consente.</p></div>
 ${policyLine}
 
 <h2>Sezione I · Informazioni generali sul distributore che entra in contatto con il contraente</h2>
-<div class="box"><b>Gli estremi identificativi e di iscrizione dell’intermediario possono essere verificati consultando il Registro Unico degli Intermediari (RUI) sul sito internet dell’IVASS: www.ivass.it.</b></div>
+<h3>Identificazione dell’intermediario</h3>
 <table>
-<tr><td style="width:36%"><b>Denominazione</b></td><td>${CO.name} · società di intermediazione assicurativa</td></tr>
-<tr><td><b>Iscrizione al RUI</b></td><td>n. ${CO.rui} · sezione B (Broker) · iscritta il 29/02/2024 · attività assicurativa · operativa</td></tr>
-<tr><td><b>Legale rappresentante e responsabile dell’attività di intermediazione</b></td><td>Barbara Santoro · RUI n. B000614489, sezione B (Broker), iscritta dal 20/11/2018 · in carica dal 29/02/2024</td></tr>
-<tr><td><b>Sede legale</b></td><td>${CO.legal}</td></tr>
+<tr><td style="width:36%"><b>Cognome e nome</b></td><td>SANTORO BARBARA · legale rappresentante</td></tr>
+<tr><td><b>N. iscrizione</b></td><td>B000614489 · data 20/11/2018 · sezione RUI: B (Broker)</td></tr>
+<tr><td><b>Responsabile dell’attività di distribuzione della</b></td><td>${CO.name.toUpperCase()}</td></tr>
+<tr><td><b>N. iscrizione</b></td><td>${CO.rui} · data 29/02/2024 · sezione RUI: B (Broker) · attività assicurativa · operativa</td></tr>
+<tr><td><b>Indirizzo sede legale</b></td><td>${CO.legal}</td></tr>
 <tr><td><b>Sede operativa</b></td><td>${CO.office}</td></tr>
-<tr><td><b>Recapiti</b></td><td>Tel. ${CO.tel} · PEC ${CO.pec}</td></tr>
-<tr><td><b>Sito internet</b></td><td>${CO.web}</td></tr>
-<tr><td><b>Autorità di vigilanza</b></td><td>Istituto per la Vigilanza sulle Assicurazioni (IVASS), competente a vigilare sull’attività dell’intermediario</td></tr>
+<tr><td><b>Recapito telefonico</b></td><td>${CO.tel}</td></tr>
+<tr><td><b>PEC</b></td><td>${CO.pec}</td></tr>
+<tr><td><b>Sito web per promozione e/o collocamento</b></td><td>${CO.web}</td></tr>
 <tr><td><b>P. IVA</b></td><td>${CO.vat}</td></tr>
 </table>
+<div class="box"><b>IVASS è l’Istituto competente alla vigilanza sull’attività di distribuzione svolta. Gli estremi identificativi e di iscrizione dell’intermediario possono essere verificati consultando il RUI sul sito internet dell’IVASS (www.ivass.it).</b></div>
 
 <h2>Sezione II · Informazioni sul modello di distribuzione</h2>
-<p>L’intermediario dichiara di operare:</p>
-${stack("su incarico del cliente (mediazione, art. 109 comma 2 lett. b) del Codice delle Assicurazioni Private)", "in nome e per conto dell’impresa di assicurazione: ______________________________ (denominazione dell’impresa di cui distribuisce il prodotto)", "sulla base di un accordo di collaborazione orizzontale con altri intermediari: ______________________________ (identità, sezione RUI e ruolo svolto)")}
+<p>L’intermediario indica di agire:</p>
+${stack(on("su incarico del cliente"), "in nome e per conto dell’impresa di assicurazione: ______________________________", "distribuisce il contratto in qualità di intermediario proponente sulla base di un accordo di collaborazione orizzontale con l’intermediario emittente ______________________, n. iscrizione ____________ sezione ____")}
 <p class="note">Art. 22, comma 10, D.L. 18 ottobre 2012 n. 179, convertito in L. 17 dicembre 2012 n. 221.</p>
 
-<h2>Sezione III · Situazioni di potenziale conflitto d’interesse</h2>
-${stack("l’intermediario NON detiene una partecipazione diretta o indiretta pari o superiore al 10% del capitale sociale o dei diritti di voto di un’impresa di assicurazione", "l’intermediario detiene tale partecipazione nell’impresa: ______________________________", "nessuna impresa di assicurazione, né impresa controllante un’impresa di assicurazione, detiene una partecipazione diretta o indiretta pari o superiore al 10% del capitale sociale o dei diritti di voto dell’intermediario", "tale partecipazione è detenuta da: ______________________________")}
+<h2>Sezione III · Informazioni relative a situazioni di potenziale conflitto d’interesse</h2>
+<p>L’intermediario assicurativo informa:</p>
+${stack(on("di non detenere una partecipazione diretta o indiretta pari o superiore al 10% del capitale sociale o dei diritti di voto di una impresa di assicurazione"), on("che nessuna impresa di assicurazione, né impresa controllante un’impresa di assicurazione, detiene una partecipazione diretta o indiretta pari o superiore al 10% del capitale sociale o dei diritti di voto dell’intermediario assicurativo"))}
 
 <h2>Sezione IV · Informazioni sull’attività di distribuzione e consulenza</h2>
-${stack("fornisce consulenza ai sensi dell’art. 119-ter, comma 3, del Codice delle Assicurazioni Private (raccomandazione personalizzata)", "fornisce consulenza fondata su un’analisi imparziale e personale (art. 119-ter, comma 4), su un numero sufficiente di prodotti disponibili sul mercato", "distribuisce in modo esclusivo i contratti di una o più imprese di assicurazione: ______________________________", "distribuisce contratti in assenza di obblighi che gli impongano di offrire esclusivamente contratti di una o più imprese e non fornisce consulenza fondata su analisi imparziale e personale: l’elenco delle imprese con cui ha o potrebbe avere rapporti d’affari è pubblicato sul sito internet dell’intermediario o disponibile su richiesta del contraente")}
-${row(f("Attività prestate nell’ambito della consulenza, caratteristiche e contenuto delle prestazioni", "w3"))}
+<p>L’intermediario assicurativo informa:</p>
+${stack(on("di non fornire consulenza ai sensi dell’art. 119-ter comma 3 del Codice delle Assicurazioni Private"), on("di non fornire consulenza fondata su un’analisi imparziale e personale ai sensi dell’art. 119-ter comma 4 del Codice delle Assicurazioni Private"), on("di distribuire contratti in assenza di obblighi contrattuali che gli impongano di offrire esclusivamente i contratti di una o più imprese di assicurazione e di non fornire una consulenza fondata su un’analisi imparziale e personale; l’elenco delle imprese con cui ha o potrebbe avere rapporti d’affari è disponibile su richiesta del contraente"), on("che in relazione al contratto intermediato, in caso di esistenza di conflitti di interesse, è stata data opportuna informazione sulla natura e fonte del conflitto come previsto dall’art. 119-bis, comma 7, del Codice delle Assicurazioni Private"))}
 
 <h2>Sezione V · Informazioni sulle remunerazioni</h2>
-<p>La natura del compenso percepito in relazione al contratto proposto è:</p>
-${stack("commissione inclusa nel premio assicurativo", "onorario corrisposto direttamente dal cliente · importo o metodo di calcolo: ______________________________", "altro tipo di compenso, compresi i benefici economici di qualsiasi tipo offerti o ricevuti in virtù dell’intermediazione: ______________________________", "combinazione delle diverse tipologie di compensi indicate")}
-<p class="note">Nel caso di collaborazioni orizzontali o con altri intermediari iscritti nella sezione E del RUI, l’informativa è complessivamente relativa ai compensi percepiti dagli intermediari coinvolti nella distribuzione del prodotto.</p>
+<p>L’intermediario assicurativo informa di essere remunerato:</p>
+${stack("con commissione inclusa nel premio assicurativo", "con onorario corrisposto direttamente dal cliente · importo o metodo di calcolo: ______________________________", "con altro tipo di compenso, compresi i benefici economici di qualsiasi tipo offerti o ricevuti in virtù dell’intermediazione: ______________________________", "con una combinazione delle diverse tipologie di compensi indicate")}
+<p class="note">Nel caso di onorario corrisposto direttamente dal cliente, è indicato l’importo del compenso o, se non è possibile, il metodo per calcolarlo. Nel caso di collaborazioni orizzontali o con altri intermediari iscritti nella sezione E del RUI, l’informativa è complessivamente relativa ai compensi percepiti dagli intermediari coinvolti nella distribuzione del prodotto assicurativo.</p>
 
 <h2>Sezione VI · Informazioni sul pagamento dei premi</h2>
-<ul>
-<li>I premi pagati dal contraente all’intermediario e le somme destinate ai risarcimenti o ai pagamenti dovuti dalle imprese, se regolati per il tramite dell’intermediario, costituiscono patrimonio autonomo e separato dal patrimonio dell’intermediario stesso. ${cb("oppure: l’intermediario ha stipulato una fideiussione bancaria idonea a garantire una capacità finanziaria pari al 4% dei premi incassati, con un minimo di euro 18.750")}</li>
-<li>Modalità di pagamento dei premi ammesse:
-  <br>1. assegni bancari, postali o circolari, muniti della clausola di non trasferibilità, intestati o girati all’impresa di assicurazione oppure all’intermediario, espressamente in tale qualità;
-  <br>2. ordini di bonifico, altri mezzi di pagamento bancario o postale, inclusi gli strumenti di pagamento elettronici, anche on line, che abbiano come beneficiario uno dei soggetti indicati al punto 1;
-  <br>3. denaro contante, esclusivamente per i contratti di assicurazione contro i danni del ramo responsabilità civile auto e relative garanzie accessorie, nonché per i contratti degli altri rami danni con il limite di settecentocinquanta euro annui per ciascun contratto.</li>
-<li>Se l’intermediario non è autorizzato all’incasso ai sensi dell’accordo sottoscritto o ratificato dall’impresa, il pagamento dei premi all’intermediario o a un suo collaboratore non è liberatorio ai sensi dell’art. 118 del Codice delle Assicurazioni Private.</li>
+<p>L’intermediario assicurativo informa:</p>
+${stack(on("che i premi pagati dal contraente all’intermediario e le somme destinate ai risarcimenti o ai pagamenti dovuti dalle imprese, se regolati per il tramite dell’intermediario, costituiscono patrimonio autonomo e separato dal patrimonio dell’intermediario stesso"), on("di aver stipulato una fideiussione bancaria idonea a garantire una capacità finanziaria pari al 4 per cento dei premi incassati, con un minimo di euro 23.480. Tale importo è soggetto ad aggiornamento annuale, tenuto conto delle variazioni dell’indice dei prezzi al consumo pubblicato da Eurostat"))}
+<p>che le modalità di pagamento dei premi ammesse sono:</p>
+<ul style="list-style:none;padding-left:6px">
+<li>1. assegni bancari, postali o circolari, muniti della clausola di non trasferibilità, intestati o girati all’impresa di assicurazione oppure all’intermediario, espressamente in tale qualità;</li>
+<li>2. ordini di bonifico, altri mezzi di pagamento bancario o postale, inclusi gli strumenti di pagamento elettronici, anche nella forma on line, che abbiano quale beneficiario uno dei soggetti indicati al precedente punto 1;</li>
+<li>3. denaro contante, esclusivamente per i contratti di assicurazione contro i danni del ramo responsabilità civile auto e relative garanzie accessorie (se ed in quanto riferite allo stesso veicolo assicurato per la responsabilità civile auto), nonché per i contratti degli altri rami danni con il limite di settecentocinquanta euro annui per ciascun contratto.</li>
 </ul>
+<p><b>che i premi pagati all’iscritto nella Sezione B del RUI si considerano pagati direttamente all’impresa e attivano la garanzia solo se espressamente previsto nell’accordo sottoscritto o ratificato dall’impresa stessa con l’intermediario, ai sensi dell’art. 118 del Codice delle Assicurazioni Private.</b></p>
 
 <h2>Sezione VII · Informazioni sugli strumenti di tutela del contraente</h2>
+<p>L’intermediario assicurativo informa che:</p>
 <ul>
-<li>L’attività di distribuzione è garantita da un contratto di assicurazione della responsabilità civile, che copre i danni arrecati ai contraenti da negligenze ed errori professionali dell’intermediario o da negligenze, errori professionali ed infedeltà dei dipendenti, dei collaboratori o delle persone del cui operato l’intermediario deve rispondere a norma di legge.</li>
-<li>Il contraente, ferma restando la possibilità di rivolgersi all’Autorità Giudiziaria, può inoltrare reclamo per iscritto all’intermediario: <b>${CO.name}</b>, ${CO.legal}, PEC <b>${CO.pec}</b>; oppure all’impresa preponente, secondo le modalità e i recapiti indicati nel DIP aggiuntivo.</li>
-<li>Se non si ritiene soddisfatto dall’esito del reclamo o in caso di assenza di riscontro entro il termine di legge (45 giorni), il contraente può rivolgersi all’IVASS, Servizio Tutela degli Utenti, Via del Quirinale 21, 00187 Roma, secondo quanto previsto nei DIP aggiuntivi (www.ivass.it).</li>
-<li>Il contraente può avvalersi degli altri sistemi alternativi di risoluzione delle controversie previsti dalla normativa vigente e indicati nei DIP aggiuntivi.</li>
+<li>l’attività di distribuzione è garantita da un contratto di assicurazione della responsabilità civile che copre i danni arrecati ai contraenti da negligenze ed errori professionali dell’intermediario o da negligenze, errori professionali ed infedeltà dei dipendenti, dei collaboratori o delle persone del cui operato l’intermediario deve rispondere a norma di legge;</li>
+<li>il contraente ha facoltà, ferma restando la possibilità di rivolgersi all’Autorità Giudiziaria, di inoltrare reclamo per iscritto all’intermediario (<b>${CO.name}</b>, ${CO.legal}, PEC <b>${CO.pec}</b>) o all’impresa preponente secondo le modalità previste dalla sezione Reclami del DIP Aggiuntivo, nonché la possibilità per il contraente, qualora non si ritenga soddisfatto dall’esito del reclamo o in caso di assenza di riscontro da parte dell’intermediario o dell’impresa entro il termine di legge, di rivolgersi all’IVASS (Servizio Tutela degli Utenti, Via del Quirinale 21, 00187 Roma) secondo quanto indicato nei DIP aggiuntivi;</li>
+<li>il contraente ha facoltà di avvalersi di altri eventuali sistemi alternativi di risoluzione delle controversie previsti dalla normativa vigente indicati nei DIP aggiuntivi;</li>
+<li>gli assicurati hanno la possibilità di rivolgersi al Fondo di garanzia per l’attività dei mediatori di assicurazione e di riassicurazione (c/o Consap Spa, via Yser 14 – 00198 Roma – consap@pec.consap.it), per chiedere il risarcimento del danno patrimoniale loro causato dall’esercizio dell’attività di intermediazione, che non sia stato risarcito dall’intermediario stesso o non sia stato indennizzato attraverso il contratto di assicurazione della responsabilità civile.</li>
 </ul>
 
 <h2>Presa visione</h2>
