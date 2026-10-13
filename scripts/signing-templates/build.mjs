@@ -168,8 +168,8 @@ ${policyLine}
 <div class="box"><b>Gli estremi identificativi e di iscrizione dell’intermediario possono essere verificati consultando il Registro Unico degli Intermediari (RUI) sul sito internet dell’IVASS: www.ivass.it.</b></div>
 <table>
 <tr><td style="width:36%"><b>Denominazione</b></td><td>${CO.name} · società di intermediazione assicurativa</td></tr>
-<tr><td><b>Iscrizione al RUI</b></td><td>n. ${CO.rui} · sezione B · data di iscrizione: ______________</td></tr>
-<tr><td><b>Responsabile dell’attività di intermediazione</b></td><td>cognome e nome ____________________________ ruolo ____________________</td></tr>
+<tr><td><b>Iscrizione al RUI</b></td><td>n. ${CO.rui} · sezione B (Broker) · iscritta il 29/02/2024 · attività assicurativa · operativa</td></tr>
+<tr><td><b>Legale rappresentante e responsabile dell’attività di intermediazione</b></td><td>Barbara Santoro · RUI n. B000614489, sezione B (Broker), iscritta dal 20/11/2018 · in carica dal 29/02/2024</td></tr>
 <tr><td><b>Sede legale</b></td><td>${CO.legal}</td></tr>
 <tr><td><b>Sede operativa</b></td><td>${CO.office}</td></tr>
 <tr><td><b>Recapiti</b></td><td>Tel. ${CO.tel} · PEC ${CO.pec} · e-mail ____________________</td></tr>
