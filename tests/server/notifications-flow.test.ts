@@ -131,7 +131,7 @@ await check("personal text: practice number, deliberated, what to do, link, in t
   assert.equal(coll.subject, `Pratica n. ${p.practice_number}: deliberata`);
   assert.match(coll.text, /Gentile Carlo Collaboratore,/);
   assert.match(coll.text, new RegExp(`La pratica n\\. ${p.practice_number} \\(Auto · Cliente \\d+\\) è stata deliberata\\.`));
-  assert.match(coll.text, /Entra nel portale per controllare le azioni da fare: scarica la bozza e procedi al pagamento entro il 20\/12\/2026\./);
+  assert.match(coll.text, /Entra nel portale per controllare le azioni da fare: scarica la bozza, firma i documenti nella sezione «Documenti da firmare» e procedi al pagamento entro il 20\/12\/2026\./);
   assert.match(coll.text, /Nota: Premio da versare in unica soluzione/);
   assert.match(coll.raw, /tecno-mga-logo/);
   assert.ok(coll.html.includes(`https://portale.example.test/practices/${p.id}`));

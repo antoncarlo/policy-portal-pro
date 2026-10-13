@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ChevronRight, Download, Eye, Layers, List, Loader2, MoreVertical, Pencil, Trash2, X } from "lucide-react";
+import { ChevronRight, Download, Eye, FileSignature, Layers, List, Loader2, MoreVertical, Pencil, Trash2, Upload, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,6 +47,8 @@ import { PRACTICE_STATUSES, practiceStatusLabel, practiceTypeLabel } from "@/i18
 import { applyStageFilter, stageOf, type PracticeStage, type StageFilterable } from "@/lib/practiceStages";
 import { fetchPracticeLots, lotTitle, type PracticeLot } from "@/lib/practiceLots";
 import { downloadLotDocuments, LotZipTooLargeError } from "@/lib/lotDocuments";
+import { downloadSigningBundle, uploadSignedBundle } from "@/lib/signingBundle";
+import { signingMessages } from "@/i18n/messages/signing";
 import { workflowMessages } from "@/i18n/messages/workflow";
 import { cn } from "@/lib/utils";
 
@@ -112,6 +114,7 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
   const { toast } = useToast();
   const m = useMessages(practicesMessages).table;
   const lotText = useMessages(practicesMessages).lots;
+  const signingText = useMessages(signingMessages);
   const flow = useMessages(workflowMessages);
   const common = useMessages(commonMessages);
   const compact = !useMediaQuery(TABLE_QUERY);
@@ -299,6 +302,7 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
         batchId: lot.batchId,
         fileLabel: lotText.zipName(title),
         labels: lotText.zipFolders,
+        includeInternal: canChangeStatus,
         onProgress: (done, total) =>
           progress.update({ id: progress.id, title: lotText.downloadPreparing(title), description: lotText.downloadProgress(done, total), duration: 600_000 }),
       });
@@ -322,6 +326,62 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
         description: error instanceof LotZipTooLargeError ? lotText.downloadTooLarge((error.bytes / 1024 ** 3).toFixed(1)) : getErrorMessage(error),
         duration: 12000,
       });
+    } finally {
+      setDownloadingLot(null);
+    }
+  };
+
+  /** The documents to sign of every practice of the lot, one folder per practice, to sign in bulk. */
+  const handleDownloadSigning = async (lot: PracticeLot, title: string) => {
+    if (downloadingLot) return;
+    setDownloadingLot(lot.batchId);
+    const text = getMessages(signingMessages).bundle;
+    const progress = toast({ title: text.preparing(title), duration: 600_000 });
+    try {
+      const result = await downloadSigningBundle({
+        batchId: lot.batchId,
+        fileLabel: text.zipName(title),
+        labels: { readme: text.readme, readmeText: text.readmeText },
+        onProgress: (done, total) => progress.update({ id: progress.id, title: text.preparing(title), description: text.progress(done, total), duration: 600_000 }),
+      });
+      if (result.files === 0) progress.update({ id: progress.id, title: text.downloadDoneTitle, description: text.nothingToSign, duration: 10000 });
+      else progress.update({ id: progress.id, title: text.downloadDoneTitle, description: text.downloadDone(result.practices, result.files), duration: 8000 });
+    } catch (error: unknown) {
+      progress.update({ id: progress.id, variant: "destructive", title: text.errorTitle, description: getErrorMessage(error), duration: 12000 });
+    } finally {
+      setDownloadingLot(null);
+    }
+  };
+
+  /** The same ZIP, signed: each file goes into the practice of its folder. */
+  const handleUploadSigned = async (lot: PracticeLot, title: string, file: File) => {
+    if (downloadingLot) return;
+    const text = getMessages(signingMessages).bundle;
+    if (!(/\.zip$/i.test(file.name) || file.type.includes("zip"))) {
+      toast({ variant: "destructive", title: text.errorTitle, description: text.notZip });
+      return;
+    }
+    setDownloadingLot(lot.batchId);
+    const progress = toast({ title: text.uploadPreparing(title), duration: 600_000 });
+    try {
+      const result = await uploadSignedBundle({
+        batchId: lot.batchId,
+        file,
+        onProgress: (done, total) => progress.update({ id: progress.id, title: text.uploadPreparing(title), description: text.uploadProgress(done, total), duration: 600_000 }),
+      });
+      if (result.uploaded === 0) {
+        progress.update({ id: progress.id, variant: "destructive", title: text.errorTitle, description: text.uploadNone, duration: 12000 });
+      } else {
+        progress.update({
+          id: progress.id,
+          title: text.uploadDoneTitle,
+          description: text.uploadDone(result.uploaded, result.practices) + (result.skipped.length > 0 ? text.uploadSkipped(result.skipped.length) : ""),
+          duration: 10000,
+        });
+        void loadPractices();
+      }
+    } catch (error: unknown) {
+      progress.update({ id: progress.id, variant: "destructive", title: text.errorTitle, description: getErrorMessage(error), duration: 12000 });
     } finally {
       setDownloadingLot(null);
     }
@@ -620,6 +680,22 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
     </div>
   );
 
+  const signedInputId = (lot: PracticeLot) => `signed-upload-${lot.batchId}`;
+  /** Hidden file input for the signed ZIP of a lot (one per place the action is offered). */
+  const signedInput = (lot: PracticeLot, title: string) => (
+    <input
+      id={signedInputId(lot)}
+      type="file"
+      accept=".zip,application/zip,application/x-zip-compressed"
+      className="hidden"
+      onChange={(event) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        if (file) void handleUploadSigned(lot, title, file);
+      }}
+    />
+  );
+
   const lotActions = (lot: PracticeLot, title: string) => {
     const busy = downloadingLot === lot.batchId;
     return (
@@ -638,8 +714,17 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
               <Download className="mr-2 h-4 w-4" />
               {lotText.downloadAll}
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => void handleDownloadSigning(lot, title)} data-testid="lot-download-signing">
+              <FileSignature className="mr-2 h-4 w-4" />
+              {signingText.bundle.downloadAction}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => document.getElementById(signedInputId(lot))?.click()} data-testid="lot-upload-signed">
+              <Upload className="mr-2 h-4 w-4" />
+              {signingText.bundle.uploadAction}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        {signedInput(lot, title)}
       </div>
     );
   };
@@ -824,6 +909,45 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
               {downloadingLot === lotId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
               {lotText.downloadAll}
             </Button>
+          )}
+          {lotId && lots.get(lotId) && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5"
+                disabled={downloadingLot === lotId}
+                onClick={() => void handleDownloadSigning(lots.get(lotId) as PracticeLot, lotTitle(lots.get(lotId) as PracticeLot, lotText.lotName))}
+                data-testid="lot-download-signing-chip"
+              >
+                <FileSignature className="h-4 w-4" />
+                {signingText.bundle.downloadAction}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5"
+                disabled={downloadingLot === lotId}
+                onClick={() => document.getElementById(`${signedInputId(lots.get(lotId) as PracticeLot)}-chip`)?.click()}
+                data-testid="lot-upload-signed-chip"
+              >
+                <Upload className="h-4 w-4" />
+                {signingText.bundle.uploadAction}
+              </Button>
+              <input
+                id={`${signedInputId(lots.get(lotId) as PracticeLot)}-chip`}
+                type="file"
+                accept=".zip,application/zip,application/x-zip-compressed"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (file) void handleUploadSigned(lots.get(lotId) as PracticeLot, lotTitle(lots.get(lotId) as PracticeLot, lotText.lotName), file);
+                }}
+              />
+            </>
           )}
           {lots.size > 0 && (
             <div className="ml-auto inline-flex rounded-md border border-border p-0.5" role="group" aria-label={lotText.viewLabel}>

@@ -7,6 +7,9 @@ import { requestNotificationFlush } from "@/lib/portalActions";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate, getMessages, useMessages } from "@/i18n";
 import { practiceDetailMessages } from "@/i18n/messages/practiceDetail";
+import { getSigningSlotBySignedType, isPrefilledPolicyModule, visibleToPartner } from "@/lib/signingDocuments";
+import { signingMessages } from "@/i18n/messages/signing";
+import { Badge } from "@/components/ui/badge";
 
 interface Document {
   id: string;
@@ -14,6 +17,7 @@ interface Document {
   file_path: string;
   file_size: number;
   mime_type: string;
+  document_type: string | null;
   created_at: string;
 }
 
@@ -23,6 +27,8 @@ interface PracticeDocumentsProps {
   refreshToken?: number;
   /** Removing a document changes the practice's record: administrators only. */
   canDelete?: boolean;
+  /** Mostra anche i documenti interni (il modulo di polizza precompilato per la compagnia): amministratori. */
+  showInternal?: boolean;
 }
 
 const buildDocumentStoragePath = (practiceId: string, file: File, index: number) => {
@@ -67,10 +73,13 @@ const getDocumentStorageReference = (filePath: string) => {
   };
 };
 
-export const PracticeDocuments = ({ practiceId, refreshToken = 0, canDelete = false }: PracticeDocumentsProps) => {
+export const PracticeDocuments = ({ practiceId, refreshToken = 0, canDelete = false, showInternal = false }: PracticeDocumentsProps) => {
   const { toast } = useToast();
   const m = useMessages(practiceDetailMessages).documents;
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const signingText = useMessages(signingMessages);
+  const [allDocuments, setDocuments] = useState<Document[]>([]);
+  // Il modulo precompilato per la compagnia non e' una bozza: chi non e' amministratore non lo vede.
+  const documents = showInternal ? allDocuments : visibleToPartner(allDocuments);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
@@ -283,8 +292,14 @@ export const PracticeDocuments = ({ practiceId, refreshToken = 0, canDelete = fa
                   <p className="text-sm font-medium text-foreground truncate">
                     {doc.file_name}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {(doc.file_size / 1024).toFixed(2)} KB • {formatDate(doc.created_at)}
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    <span>{(doc.file_size / 1024).toFixed(2)} KB • {formatDate(doc.created_at)}</span>
+                    {isPrefilledPolicyModule(doc) && <Badge variant="outline" className="text-[10px]">{m.internalModule}</Badge>}
+                    {getSigningSlotBySignedType(doc.document_type) && (
+                      <Badge variant="outline" className="border-green-500/40 text-[10px] text-green-700 dark:text-green-400">
+                        {signingText.slots[getSigningSlotBySignedType(doc.document_type)!.id].label}
+                      </Badge>
+                    )}
                   </p>
                 </div>
               </div>

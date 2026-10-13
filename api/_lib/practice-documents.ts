@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { practiceBelongsToTenant, prepareGetEndpoint, queryString } from './partner-api.js';
 import { getDocumentStorageReference } from './vies-documents.js';
+import { visibleToPartner } from '../../src/lib/signingDocuments.js';
 
 const SIGNED_URL_EXPIRY_SECONDS = 3600; // 1 hour
 
@@ -50,11 +51,12 @@ export async function handlePracticeDocuments(req: VercelRequest, res: VercelRes
     return respond(503, { error: 'Errore caricamento documenti.' }, { practice_id: practice.id, error_message: docsError.message });
   }
 
-  // Generate signed URLs
+  // Generate signed URLs. The pre-filled policy module is an internal form for the insurer, not a draft:
+  // the partner never sees it.
   const expiresAt = new Date(Date.now() + SIGNED_URL_EXPIRY_SECONDS * 1000).toISOString();
 
   const documentsWithUrls = await Promise.all(
-    (docs ?? []).map(async (doc) => {
+    visibleToPartner(docs ?? []).map(async (doc) => {
       const storageReference = getDocumentStorageReference(doc.file_path);
       const { data: signed, error: signedError } = await supabaseAdmin.storage
         .from(storageReference.bucket)

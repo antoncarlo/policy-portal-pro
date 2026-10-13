@@ -312,6 +312,48 @@ export const PracticeWorkflowCard = ({ practice, isAdmin, onChanged }: PracticeW
           )}
         </div>
       )}
+      {/* Al rappresentante fiscale: prima della deliberazione nessuna bozza; dopo, la bozza ricevuta con i passi successivi. */}
+      {(stage === "da_lavorare" || stage === "in_valutazione" || stage === "integrazioni") && !isAdmin && (
+        <div className="mb-4 rounded-md border border-blue-500/30 bg-blue-500/10 p-3 text-sm" data-testid="draft-waiting">
+          <p className="font-medium text-blue-700 dark:text-blue-300">{m.card.waitingTitle}</p>
+          <p className="mt-1 text-foreground">{m.card.waitingText}</p>
+        </div>
+      )}
+      {(stage === "deliberata" || stage === "da_emettere" || stage === "emessa") && (() => {
+        const draft = documents.find((document) => document.document_type === "bozza_deliberata") ?? null;
+        return (
+          <div
+            className={cn("mb-4 rounded-md border p-3 text-sm", draft ? "border-green-500/40 bg-green-500/10" : "border-blue-500/30 bg-blue-500/10")}
+            data-testid={draft ? "draft-received" : "draft-pending"}
+          >
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <p className={cn("font-medium", draft ? "text-green-700 dark:text-green-400" : "text-blue-700 dark:text-blue-300")}>
+                  {draft ? m.card.draftReceivedTitle(formatDate(draft.created_at)) : m.card.draftPendingTitle}
+                </p>
+                <p className="mt-1 text-foreground">{draft ? m.card.draftReceivedText : m.card.draftPendingText}</p>
+              </div>
+              {draft && (
+                <Button size="sm" onClick={() => void downloadDocument(draft)} data-testid="draft-download">
+                  <Download className="mr-1.5 h-4 w-4" />
+                  {m.card.downloadDraft}
+                </Button>
+              )}
+            </div>
+            {stage === "deliberata" && (
+              <div className="mt-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{m.card.nextSteps}</p>
+                <ol className="mt-1 list-decimal space-y-0.5 pl-5 text-foreground">
+                  <li>{m.card.stepCheckDraft}</li>
+                  <li>{m.card.stepSign}</li>
+                  <li>{m.card.stepPay(due ? formatDate(due) : null)}</li>
+                  <li>{m.card.stepIssue}</li>
+                </ol>
+              </div>
+            )}
+          </div>
+        );
+      })()}
       {(stage === "deliberata" || stage === "da_emettere" || stage === "emessa") && due && (
         <div
           className={cn(

@@ -1,6 +1,6 @@
 # Guida all'Integrazione API - Policy Portal Pro
 
-**Versione:** 2.8
+**Versione:** 2.9
 
 Questa guida documenta tutti gli endpoint disponibili per l'integrazione con Policy Portal Pro: **preventivatore Pet** (catalogo coperture e calcolo), creazione pratica con **tutti i dati della quotazione**, **Ricapitolo Richiesta** generato automaticamente (ZIP con preventivo PDF e documentazione contrattuale), stato completo della pratica con **riepilogo**, documenti, messaggistica e gli endpoint di **dashboard** (elenco pratiche, scadenzario, report produzione, amministrazione).
 
@@ -471,8 +471,11 @@ curl -X GET "https://policy-portal-pro.vercel.app/api/get-practice-status?practi
 - `notes`: appunti liberi (non contiene i dati della quotazione).
 - `notes_chat`: messaggi scambiati tra partner e operatore.
 - `timeline`: eventi della pratica (creazione, cambi stato, documenti).
-- `documents`: tutti gli allegati, compreso il Ricapitolo Richiesta (`document_type = preventivo_pet`, ZIP) generato dal portale per le pratiche Pet. Il documento generato non rientra tra i documenti obbligatori.
+- `documents`: tutti gli allegati, compreso il Ricapitolo Richiesta (`document_type = preventivo_pet`, ZIP) generato dal portale per le pratiche Pet. Il documento generato non rientra tra i documenti obbligatori. Il modulo di polizza precompilato che il portale prepara per la compagnia (pratiche VIES) e' interno e non compare.
 - `quote`: e' `null` finche' non e' valorizzato almeno un premio.
+- `stage`: sezione del flusso (`da_lavorare`, `in_valutazione`, `integrazioni`, `deliberata`, `da_emettere`, `emessa`, `non_deliberata`).
+- `draft`: la bozza di polizza della compagnia. `received` e' `false` fino alla deliberazione; quando la pratica e' deliberata la bozza viene allegata e `received` diventa `true`, con `file_name` e `received_at`. Il file si scarica con `get-practice-documents` (`document_type = bozza_deliberata`).
+- `documents_to_sign` (pratiche VIES): i documenti che il rappresentante fiscale firma (anche in blocco, con firma digitale, dal proprio sistema) e ricarica dal portale. Per ognuno: `id` (`mup`, `set_informativo`, `privacy`, `antiriciclaggio`, `polizza_firmata`), `label`, `signed_document_type`, `available` (e' il momento di firmarlo: la polizza solo dopo la deliberazione), `signed`, `signed_at`, `signed_file_name`. `signatures_complete` riassume. Le copie firmate compaiono anche in `documents` con il loro `document_type`.
 
 ---
 
@@ -1190,6 +1193,11 @@ Il cambio di `status` e' riservato agli amministratori del portale: non esiste u
 - Il questionario Pet (`questionario_pet`) e' stato rimosso: per Pet sono richiesti solo documento d'identita' e libretto sanitario/microchip.
 - `get-practice-status` restituisce i nuovi campi `summary`, `pet`, `client.tax_code`, `policy.days_until_expiry`, `payment`, `missing_documents`, `documents_complete`.
 - Nuovi endpoint: `get-practices`, `get-expiries`, `get-reports`, `get-administration`.
+
+## Note versione 2.9
+
+- **Bozza separata dal caricamento.** Fino alla deliberazione la pratica non ha nessuna bozza (`draft.received = false`); il modulo di polizza precompilato per la compagnia e' interno al portale e non compare piu' tra i documenti del partner. Quando la pratica e' deliberata, la bozza viene allegata (`draft.received = true`, notifica `practice.deliberated`) e nel portale il rappresentante fiscale vede la schermata «Bozza ricevuta» con i passi successivi.
+- **Documenti da firmare.** `get-practice-status` restituisce `documents_to_sign` e `signatures_complete` per le pratiche VIES: MUP, set informativo, privacy/GDPR, antiriciclaggio e, dopo la deliberazione, la polizza firmata per accettazione. I modelli si scaricano dalla pratica o per tutto il lotto («Scarica documenti da firmare (ZIP)», una cartella per pratica), si firmano sul sistema del rappresentante e si ricaricano singolarmente o con lo stesso ZIP («Carica documenti firmati (ZIP)»).
 
 ## Note versione 2.8
 

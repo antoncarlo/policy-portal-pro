@@ -16,8 +16,10 @@ import { ApiLogsSettings } from "@/components/settings/admin/ApiLogsSettings";
 import { ApiKeysSettings } from "@/components/settings/admin/ApiKeysSettings";
 import { ApiKeyMappingSettings } from "@/components/settings/admin/ApiKeyMappingSettings";
 import { ConnectionsSettings } from "@/components/settings/admin/ConnectionsSettings";
+import { SigningTemplatesSettings } from "@/components/settings/admin/SigningTemplatesSettings";
 import { SessionsSettings } from "@/components/settings/SessionsSettings";
-import { User, Lock, Settings2, Users, FileText, Shield, BarChart3, Activity, Database, Mail, Monitor, Webhook, Key, Link2, Cable } from "lucide-react";
+import { signingMessages } from "@/i18n/messages/signing";
+import { User, Lock, Settings2, Users, FileText, FileSignature, Shield, BarChart3, Activity, Database, Mail, Monitor, Webhook, Key, Link2, Cable } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMessages } from "@/i18n";
 import { settingsMessages } from "@/i18n/messages/settings";
@@ -27,6 +29,7 @@ const Settings = () => {
   const [activeTab, setActiveTab] = useState("profile");
   const m = useMessages(settingsMessages);
   const connections = useMessages(connectionsMessages).settings;
+  const signing = useMessages(signingMessages);
   const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
@@ -136,6 +139,10 @@ const Settings = () => {
                   <Cable className="h-4 w-4" />
                   <span className="hidden group-data-[state=active]:inline sm:inline">{connections.title}</span>
                 </TabsTrigger>
+                <TabsTrigger value="signing" className="group h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={signing.settings.tab} title={signing.settings.tab} data-testid="settings-tab-signing">
+                  <FileSignature className="h-4 w-4" />
+                  <span className="hidden group-data-[state=active]:inline sm:inline">{signing.settings.tab}</span>
+                </TabsTrigger>
               </>
             )}
           </TabsList>
@@ -205,6 +212,10 @@ const Settings = () => {
 
               <TabsContent value="connections" className="space-y-4">
                 <ConnectionsSettings />
+              </TabsContent>
+
+              <TabsContent value="signing" className="space-y-4">
+                <SigningTemplatesSettings />
               </TabsContent>
             </>
           )}

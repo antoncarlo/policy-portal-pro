@@ -79,6 +79,7 @@ export const practiceDetailMessages = defineMessages({
       deletedText: "Il documento è stato eliminato con successo.",
       deleteErrorTitle: "Errore eliminazione",
       deleteErrorText: "Non è stato possibile eliminare il documento.",
+      internalModule: "Modulo per la compagnia (interno)",
     },
     viesPolicy: {
       title: "Documento di polizza VIES",
@@ -193,6 +194,7 @@ export const practiceDetailMessages = defineMessages({
       deletedText: "The document has been deleted.",
       deleteErrorTitle: "Delete error",
       deleteErrorText: "The document could not be deleted.",
+      internalModule: "Form for the insurer (internal)",
     },
     viesPolicy: {
       title: "VIES policy document",
@@ -305,6 +307,7 @@ export const practiceDetailMessages = defineMessages({
       deletedText: "文件已成功删除。",
       deleteErrorTitle: "删除出错",
       deleteErrorText: "无法删除该文件。",
+      internalModule: "提交保险公司的表格（内部）",
     },
     viesPolicy: {
       title: "VIES 保单文件",

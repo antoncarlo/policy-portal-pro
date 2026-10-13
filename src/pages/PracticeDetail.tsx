@@ -14,6 +14,7 @@ import { PracticeNotes } from "@/components/practice/PracticeNotes";
 import { PracticeSummaryCard } from "@/components/practice/PracticeSummaryCard";
 import { PracticeWorkflowCard } from "@/components/practice/PracticeWorkflowCard";
 import { ViesPolicyDocumentCard } from "@/components/practice/ViesPolicyDocumentCard";
+import { SigningDocumentsCard } from "@/components/practice/SigningDocumentsCard";
 import { formatPolicyDuration } from "@/lib/practiceSummary";
 import { formatDate, getMessages, useMessages } from "@/i18n";
 import { practiceDetailMessages } from "@/i18n/messages/practiceDetail";
@@ -313,6 +314,15 @@ const PracticeDetail = () => {
           }}
         />
 
+        {practice.practice_type === "vies" && (
+          <SigningDocumentsCard
+            practice={practice}
+            isAdmin={userRole === "admin"}
+            refreshToken={documentsRefreshToken}
+            onChanged={() => setDocumentsRefreshToken((t) => t + 1)}
+          />
+        )}
+
         <PracticeSummaryCard practice={practice} />
 
         <div className="grid lg:grid-cols-2 gap-6">
@@ -330,7 +340,8 @@ const PracticeDetail = () => {
           </div>
         </div>
 
-        {practice.practice_type === "vies" && (
+        {/* Modulo di polizza precompilato per la compagnia: strumento dell'ufficio, non una bozza per il rappresentante. */}
+        {practice.practice_type === "vies" && userRole === "admin" && (
           <ViesPolicyDocumentCard
             practice={practice}
             onDocumentCreated={() => setDocumentsRefreshToken((t) => t + 1)}
@@ -344,7 +355,7 @@ const PracticeDetail = () => {
           />
         )}
 
-        <PracticeDocuments practiceId={practice.id} refreshToken={documentsRefreshToken} canDelete={userRole === "admin"} />
+        <PracticeDocuments practiceId={practice.id} refreshToken={documentsRefreshToken} canDelete={userRole === "admin"} showInternal={userRole === "admin"} />
       </div>
     </DashboardLayout>
   );

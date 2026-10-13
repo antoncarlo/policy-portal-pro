@@ -42,6 +42,7 @@ import {
   viesPolicyInputFromPractice,
   viesPolicyPdfToBytes,
 } from "@/lib/viesPolicyPdf";
+import { PREFILLED_POLICY_MODULE_TYPE } from "@/lib/signingDocuments";
 import { extractPdfText } from "@/lib/pdfText";
 import type { ControllerReport } from "@/lib/viesController";
 import {
@@ -2489,6 +2490,8 @@ const Vies = () => {
           file_size: blob.size,
           mime_type: VIES_POLICY_MIME_TYPE,
           uploaded_by: userId,
+          // Modulo precompilato per la compagnia: non e' la bozza, il rappresentante fiscale non lo vede.
+          document_type: PREFILLED_POLICY_MODULE_TYPE,
         });
         if (insertError) throw new Error(errors.policyNotLinked(record.contraente, insertError.message));
         policyDocumentsAttached += 1;

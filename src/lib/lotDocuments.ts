@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { chunk, fetchAllRows } from "@/lib/fetchAllRows";
+import { visibleToPartner } from "@/lib/signingDocuments";
 
 /**
  * Everything of a VIES lot in one ZIP: the documents of every practice of the lot (a folder per practice)
@@ -40,6 +41,7 @@ interface LotDocument {
   file_name: string;
   file_path: string;
   file_size: number | null;
+  document_type: string | null;
 }
 
 /** One file to put in the ZIP. */
@@ -117,7 +119,7 @@ export async function fetchLotDocuments(practiceIds: string[]): Promise<LotDocum
   const documents: LotDocument[] = [];
   for (const ids of chunk(practiceIds, ID_CHUNK)) {
     const rows = await fetchAllRows<LotDocument>((from, to) =>
-      supabase.from("practice_documents").select("id, practice_id, file_name, file_path, file_size").in("practice_id", ids).order("id", { ascending: true }).range(from, to),
+      supabase.from("practice_documents").select("id, practice_id, file_name, file_path, file_size, document_type").in("practice_id", ids).order("id", { ascending: true }).range(from, to),
     );
     documents.push(...rows);
   }
@@ -197,6 +199,8 @@ interface Options {
   /** Name of the ZIP without extension, e.g. "Lotto 2 - documenti". */
   fileLabel: string;
   labels: LotZipLabels;
+  /** Also the internal files (the pre-filled policy module for the insurer): administrators only. */
+  includeInternal?: boolean;
   onProgress?: (done: number, total: number) => void;
 }
 
@@ -204,11 +208,12 @@ interface Options {
  * Builds the ZIP and hands it to the browser as a download. Resolves with what was put in it; a file that cannot
  * be read is listed in `failed` (and in a text file inside the ZIP) instead of stopping the others.
  */
-export async function downloadLotDocuments({ batchId, fileLabel, labels, onProgress }: Options): Promise<LotDocumentsResult> {
+export async function downloadLotDocuments({ batchId, fileLabel, labels, includeInternal = false, onProgress }: Options): Promise<LotDocumentsResult> {
   const fileName = `${safeName(fileLabel, "lotto")}.zip`;
   const practices = await fetchLotPractices(batchId);
   const numberOf = new Map(practices.map((practice) => [practice.id, practice.practice_number]));
-  const documents = practices.length > 0 ? await fetchLotDocuments(practices.map((practice) => practice.id)) : [];
+  const allDocuments = practices.length > 0 ? await fetchLotDocuments(practices.map((practice) => practice.id)) : [];
+  const documents = includeInternal ? allDocuments : visibleToPartner(allDocuments);
 
   // A file is put in the ZIP once, whichever list it comes from.
   const seen = new Set<string>();

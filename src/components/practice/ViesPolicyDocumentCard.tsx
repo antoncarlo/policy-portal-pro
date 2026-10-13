@@ -16,6 +16,7 @@ import {
 } from "@/lib/viesPolicyPdf";
 import { getMessages, useMessages } from "@/i18n";
 import { practiceDetailMessages } from "@/i18n/messages/practiceDetail";
+import { PREFILLED_POLICY_MODULE_TYPE } from "@/lib/signingDocuments";
 
 const PRACTICE_DOCUMENTS_BUCKET = "practice-documents";
 
@@ -67,6 +68,8 @@ export const ViesPolicyDocumentCard = ({ practice, onDocumentCreated }: ViesPoli
         file_size: blob.size,
         mime_type: VIES_POLICY_MIME_TYPE,
         uploaded_by: session.user.id,
+        // Modulo precompilato per la compagnia: non e' una bozza, lo vedono solo gli amministratori.
+        document_type: PREFILLED_POLICY_MODULE_TYPE,
       });
       if (dbError) {
         await supabase.storage.from(PRACTICE_DOCUMENTS_BUCKET).remove([filePath]);

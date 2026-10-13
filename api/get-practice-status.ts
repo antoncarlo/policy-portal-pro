@@ -8,6 +8,8 @@ import {
   todayIsoDate,
 } from './_lib/partner-api.js';
 import { buildPracticeSummary, extractNotesSections } from '../src/lib/practiceSummary.js';
+import { stageOf } from '../src/lib/practiceStages.js';
+import { signingStatus, visibleToPartner } from '../src/lib/signingDocuments.js';
 import { handlePracticeDocuments } from './_lib/practice-documents.js';
 
 // ---------------------------------------------------------------------------
@@ -150,13 +152,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  // Documenti (metadati)
-  const { data: docs } = await supabaseAdmin
+  // Documenti (metadati). Il modulo di polizza precompilato per la compagnia e' interno: il partner non lo vede.
+  const { data: allDocs } = await supabaseAdmin
     .from('practice_documents')
     .select('id, file_name, file_size, mime_type, document_type, created_at')
     .eq('practice_id', practice.id)
     .order('created_at', { ascending: false })
     .limit(100);
+  const docs = visibleToPartner(allDocs ?? []);
+
+  // Documenti da firmare (flusso VIES): per ognuno se e' il momento di firmarlo e la copia firmata.
+  const stage = stageOf(practice);
+  const draft = docs.find(d => d.document_type === 'bozza_deliberata') ?? null;
+  const documentsToSign = practice.practice_type === 'vies'
+    ? signingStatus(docs, stage).map(entry => ({
+        id: entry.slot.id,
+        label: entry.slot.label,
+        description: entry.slot.description,
+        signed_document_type: entry.slot.signedType,
+        available: entry.available,
+        signed: Boolean(entry.signed),
+        signed_at: entry.signed?.created_at ?? null,
+        signed_file_name: entry.signed?.file_name ?? null,
+      }))
+    : [];
 
   // Note: appunti testuali separati dai dati specifici
   const { textualNotes, specificFields } = extractNotesSections(practice.notes);
@@ -260,11 +279,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     },
     notes: textualNotes || null,
     notes_chat,
+    stage,
+    draft: {
+      received: Boolean(draft),
+      file_name: draft?.file_name ?? null,
+      received_at: draft?.created_at ?? null,
+    },
+    documents_to_sign: documentsToSign,
+    signatures_complete: documentsToSign.filter(d => d.available).every(d => d.signed),
     required_documents: requiredDocuments,
     missing_documents: missingDocuments,
     documents_complete: missingDocuments.length === 0,
-    documents_count: docs?.length ?? 0,
-    documents: (docs ?? []).map(d => ({
+    documents_count: docs.length,
+    documents: docs.map(d => ({
       id: d.id,
       file_name: d.file_name,
       file_size: d.file_size,
