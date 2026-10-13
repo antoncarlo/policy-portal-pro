@@ -81,6 +81,7 @@ ${policyLine}
 
 <h2>1. Titolare del trattamento e contatti</h2>
 <p>Titolare del trattamento è <b>${CO.name}</b>, sede legale in ${CO.legal}, sede operativa in ${CO.office}, iscritta al Registro Unico degli Intermediari (RUI) con il n. ${CO.rui}, P.IVA ${CO.vat}. Per ogni richiesta relativa ai dati personali: PEC <b>${CO.pec}</b>, tel. ${CO.tel}, oppure lettera presso la sede legale all’attenzione del Servizio Privacy. Sito: ${CO.web}.</p>
+<p>Il Responsabile della protezione dei dati (DPO) può essere contattato all’indirizzo PEC <b>${CO.pec}</b>.</p>
 
 <h2>2. Categorie di dati trattati</h2>
 <ul>
