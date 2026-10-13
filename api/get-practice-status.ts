@@ -9,7 +9,7 @@ import {
 } from './_lib/partner-api.js';
 import { buildPracticeSummary, extractNotesSections } from '../src/lib/practiceSummary.js';
 import { stageOf } from '../src/lib/practiceStages.js';
-import { signingStatus, visibleToPartner } from '../src/lib/signingDocuments.js';
+import { companyCopyOf, draftOf, isSigningStage, issuedCopiesOf, signingStatus, visibleToPartner } from '../src/lib/signingDocuments.js';
 import { handlePracticeDocuments } from './_lib/practice-documents.js';
 
 // ---------------------------------------------------------------------------
@@ -161,16 +161,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .limit(100);
   const docs = visibleToPartner(allDocs ?? []);
 
-  // Documenti da firmare (flusso VIES): per ognuno se e' il momento di firmarlo e la copia firmata.
+  // Documenti da firmare (flusso VIES), nell'ordine di firma: la polizza nella copia per la Compagnia,
+  // privacy, MUP, antiriciclaggio. La bozza si controlla, non si firma. Con tutte le copie firmate
+  // caricate il portale le trasmette alla compagnia (signed_copies_sent_at).
   const stage = stageOf(practice);
-  const draft = docs.find(d => d.document_type === 'bozza_deliberata') ?? null;
+  const draft = draftOf(docs);
+  const companyCopy = companyCopyOf(docs);
+  const issuedCopies = issuedCopiesOf(docs);
+  const { data: flow } = await supabaseAdmin
+    .from('practice_workflow')
+    .select('signed_sent_at, deliberated_at, issued_at, payment_due_date')
+    .eq('practice_id', practice.id)
+    .maybeSingle();
   const documentsToSign = practice.practice_type === 'vies'
     ? signingStatus(docs, stage).map(entry => ({
         id: entry.slot.id,
+        order: entry.slot.order,
         label: entry.slot.label,
         description: entry.slot.description,
         signed_document_type: entry.slot.signedType,
         available: entry.available,
+        // la copia per la Compagnia da firmare e' arrivata (solo per la polizza; i modelli sono nel portale)
+        source_received: entry.slot.sourceType ? Boolean(entry.source) : null,
+        source_file_name: entry.source?.file_name ?? null,
         signed: Boolean(entry.signed),
         signed_at: entry.signed?.created_at ?? null,
         signed_file_name: entry.signed?.file_name ?? null,
@@ -285,8 +298,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       file_name: draft?.file_name ?? null,
       received_at: draft?.created_at ?? null,
     },
+    company_copy: {
+      received: Boolean(companyCopy),
+      file_name: companyCopy?.file_name ?? null,
+      received_at: companyCopy?.created_at ?? null,
+    },
     documents_to_sign: documentsToSign,
-    signatures_complete: documentsToSign.filter(d => d.available).every(d => d.signed),
+    signatures_complete: isSigningStage(stage) && documentsToSign.filter(d => d.available).every(d => d.signed),
+    signed_copies_sent_at: (flow?.signed_sent_at as string | null | undefined) ?? null,
+    issued_copies: issuedCopies.map(d => ({ file_name: d.file_name, received_at: d.created_at })),
     required_documents: requiredDocuments,
     missing_documents: missingDocuments,
     documents_complete: missingDocuments.length === 0,

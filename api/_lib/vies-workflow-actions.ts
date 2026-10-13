@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isPaid } from '../../src/lib/practiceStages.js';
+import { isPaid, stageOf } from '../../src/lib/practiceStages.js';
+import { isSigningStage, missingSignatures, SIGNED_DOCUMENT_TYPES } from '../../src/lib/signingDocuments.js';
 import { getMailProvider } from './mailer.js';
 import { logActivity } from './audit.js';
 import { attributeQueuedEvents, dispatchNotifications } from './notification-dispatch.js';
@@ -37,6 +38,7 @@ export const WORKFLOW_ACTIONS = [
   'workflow_reopen',
   'workflow_mark_sent',
   'workflow_register_payment',
+  'workflow_send_signed',
   'workflow_bulk_status',
   'portal_status',
   'intake_link',
@@ -199,7 +201,10 @@ async function runWorkflowActionInner(
   action: WorkflowActionName,
   body: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
-  if (!(await isAdmin(supabase, userId))) throw new WorkflowError(403, 'forbidden', 'Solo gli amministratori possono gestire il flusso delle pratiche');
+  const admin = await isAdmin(supabase, userId);
+  // The signed copies are sent by whoever signed them too: the practice's owner (the fiscal representative).
+  if (action === 'workflow_send_signed') return sendSignedCopies(supabase, userId, admin, body);
+  if (!admin) throw new WorkflowError(403, 'forbidden', 'Solo gli amministratori possono gestire il flusso delle pratiche');
 
   // Connections as configured on the server: what is ready, never a URL, key or secret.
   if (action === 'portal_status') {
@@ -391,7 +396,8 @@ async function runWorkflowActionInner(
     case 'workflow_deliberate': {
       const paymentDueDate = optionalDate(body.paymentDueDate, 'paymentDueDate');
       const note = text(body.note, 1000) ?? null;
-      event = { type: 'deliberated', paymentDueDate, note, draft: parseDraft(body.draft) };
+      // draft: the company's draft (to check); companyCopy: the policy copy for the company (to sign)
+      event = { type: 'deliberated', paymentDueDate, note, draft: parseDraft(body.draft), companyCopy: parseDraft(body.companyCopy) };
       announce = { kind: 'deliberated' };
       break;
     }
@@ -414,11 +420,15 @@ async function runWorkflowActionInner(
       announce = { kind: 'info_provided', details: { message } };
       break;
     }
-    case 'workflow_issue':
-      event = { type: 'issued', document: parseDraft(body.document) };
+    case 'workflow_issue': {
+      // One copy in `document`, or every copy the company returned in `documents`.
+      const list = Array.isArray(body.documents) ? body.documents : [];
+      if (list.length > 10) throw new WorkflowError(422, 'invalid_payload', 'documents: al massimo 10 copie');
+      event = { type: 'issued', document: parseDraft(body.document), documents: list.map(parseDraft).filter((item): item is IncomingDocument => Boolean(item)) };
       announce = { kind: 'issued' };
       policyNumber = text(body.policyNumber, 100);
       break;
+    }
     case 'workflow_reopen': {
       const reason = text(body.reason, 500) ?? null;
       event = { type: 'reopened', reason };
@@ -473,8 +483,54 @@ async function runWorkflowActionInner(
   return { ok: true, ...result };
 }
 
+/**
+ * The signed copies (policy for the company, privacy, MUP, anti-money-laundering) go to the company
+ * once every one of them is in: the practice's owner or an administrator asks for it (the portal does
+ * so by itself after the last upload). An administrator may force it with a signature still missing.
+ */
+async function sendSignedCopies(supabase: SupabaseClient, userId: string, admin: boolean, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const practiceId = required(body.practiceId, 64, 'practiceId obbligatorio');
+  const practice = await loadPractice(supabase, practiceId);
+  if (!admin && practice.user_id !== userId) throw new WorkflowError(403, 'forbidden', 'Solo il titolare della pratica o un amministratore può trasmettere le copie firmate');
+  const stage = stageOf(practice);
+  if (!isSigningStage(stage)) throw new WorkflowError(409, 'invalid_transition', 'Le copie si firmano e si trasmettono dopo la deliberazione');
+
+  const { data: documents } = await supabase
+    .from('practice_documents')
+    .select('id, file_name, document_type, created_at')
+    .eq('practice_id', practice.id)
+    .in('document_type', SIGNED_DOCUMENT_TYPES);
+  const missing = missingSignatures((documents ?? []) as Array<{ file_name: string; document_type: string | null; created_at: string }>, stage);
+  if (missing.length > 0 && !(admin && body.force === true)) {
+    throw new WorkflowError(409, 'signatures_missing', `Mancano le firme di: ${missing.map((slot) => slot.label).join(', ')}`);
+  }
+
+  const { data: flow } = await supabase.from('practice_workflow').select('signed_sent_at').eq('practice_id', practice.id).maybeSingle();
+  const alreadySentAt = (flow?.signed_sent_at as string | null | undefined) ?? null;
+  if (alreadySentAt && body.resend !== true) return { ok: true, changed: false, practiceId: practice.id, sentAt: alreadySentAt, stage };
+
+  const sentAt = new Date().toISOString();
+  const { error } = await supabase
+    .from('practice_workflow')
+    .upsert({ practice_id: practice.id, signed_sent_at: sentAt }, { onConflict: 'practice_id' });
+  if (error) throw new WorkflowError(500, 'database', `Registrazione della trasmissione non riuscita: ${error.message}`);
+
+  const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', userId).maybeSingle();
+  const label = (profile?.full_name as string | undefined)?.trim() || (admin ? 'Amministratore' : 'Rappresentante fiscale');
+  await supabase.from('practice_events').insert({
+    practice_id: practice.id,
+    event_type: 'workflow_signed_sent',
+    description: `Copie firmate trasmesse alla compagnia (${label})`,
+    created_by: userId,
+  });
+  // The company receives the signed copies as links; the representative's portal is told too.
+  const delivery = await emitPracticeEvent(supabase, { practiceId: practice.id, kind: 'signed', origin: 'admin' });
+  await dispatchNotifications(supabase);
+  return { ok: true, changed: true, practiceId: practice.id, sentAt, stage, delivered: delivery.delivered, queued: delivery.queued };
+}
+
 const PRACTICE_ACTIONS = new Set<WorkflowActionName>([
-  'workflow_deliberate', 'workflow_reject', 'workflow_request_info', 'workflow_provide_info', 'workflow_issue', 'workflow_reopen', 'workflow_mark_sent', 'workflow_register_payment',
+  'workflow_deliberate', 'workflow_reject', 'workflow_request_info', 'workflow_provide_info', 'workflow_issue', 'workflow_reopen', 'workflow_mark_sent', 'workflow_register_payment', 'workflow_send_signed',
 ]);
 
 /**

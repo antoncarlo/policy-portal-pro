@@ -375,7 +375,7 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
         progress.update({
           id: progress.id,
           title: text.uploadDoneTitle,
-          description: text.uploadDone(result.uploaded, result.practices) + (result.skipped.length > 0 ? text.uploadSkipped(result.skipped.length) : ""),
+          description: text.uploadDone(result.uploaded, result.practices, result.sent) + (result.skipped.length > 0 ? text.uploadSkipped(result.skipped.length) : ""),
           duration: 10000,
         });
         void loadPractices();

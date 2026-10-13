@@ -2,11 +2,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { chunk, fetchAllRows } from "@/lib/fetchAllRows";
 import { fetchLotPractices, safeName } from "@/lib/lotDocuments";
 import { stageOf } from "@/lib/practiceStages";
+import { callWorkflow } from "@/lib/workflowApi";
 import {
+  COMPANY_COPY_DOCUMENT_TYPE,
   PRACTICE_DOCUMENTS_BUCKET,
+  SIGNED_DOCUMENT_TYPES,
   SIGNING_SLOTS,
   inferSigningSlotFromFileName,
-  isSlotAvailable,
+  isSigningStage,
+  signaturesComplete,
   signedDocumentPath,
   storageReferenceOf,
 } from "@/lib/signingDocuments";
@@ -14,10 +18,11 @@ import { downloadSigningTemplate, listSigningTemplates, saveBlob } from "@/lib/s
 
 /**
  * Documenti da firmare di un intero lotto VIES, in blocco:
- * - download: uno ZIP con una cartella per pratica (numero pratica) che contiene i modelli da firmare
- *   e, se la pratica e' deliberata, la bozza della compagnia;
+ * - download: uno ZIP con una cartella per pratica deliberata (numero pratica) che contiene, nell'ordine
+ *   di firma, la polizza nella copia per la Compagnia e i modelli di privacy, MUP e antiriciclaggio;
  * - upload: lo stesso ZIP firmato, letto cartella per cartella: ogni file finisce nella pratica della
- *   cartella, con il tipo riconosciuto dal nome (mup, set informativo, privacy, antiriciclaggio, polizza).
+ *   cartella, con il tipo riconosciuto dal nome; le pratiche con tutte le firme vengono trasmesse
+ *   alla compagnia.
  */
 
 const UPLOAD_CONCURRENCY = 3;
@@ -30,6 +35,14 @@ interface LotPracticeRow {
   financial_status: string | null;
 }
 
+interface StoredDocument {
+  practice_id: string;
+  file_name: string;
+  file_path: string;
+  document_type: string | null;
+  created_at: string;
+}
+
 async function fetchLotPracticesWithStage(batchId: string): Promise<LotPracticeRow[]> {
   const rows = await fetchAllRows<LotPracticeRow>((from, to) =>
     supabase.from("practices").select("id, practice_number, status, financial_status").eq("vies_batch_id", batchId).order("id", { ascending: true }).range(from, to),
@@ -37,20 +50,23 @@ async function fetchLotPracticesWithStage(batchId: string): Promise<LotPracticeR
   return [...rows].sort((a, b) => a.practice_number.localeCompare(b.practice_number));
 }
 
-async function fetchDrafts(practiceIds: string[]): Promise<Map<string, { file_name: string; file_path: string }>> {
-  const drafts = new Map<string, { file_name: string; file_path: string }>();
+/** Copie per la Compagnia e copie firmate delle pratiche indicate, le piu' recenti prima. */
+async function fetchFlowDocuments(practiceIds: string[]): Promise<Map<string, StoredDocument[]>> {
+  const byPractice = new Map<string, StoredDocument[]>();
   for (const ids of chunk(practiceIds, 100)) {
     const { data } = await supabase
       .from("practice_documents")
-      .select("practice_id, file_name, file_path, created_at")
+      .select("practice_id, file_name, file_path, document_type, created_at")
       .in("practice_id", ids)
-      .eq("document_type", "bozza_deliberata")
+      .in("document_type", [COMPANY_COPY_DOCUMENT_TYPE, ...SIGNED_DOCUMENT_TYPES])
       .order("created_at", { ascending: false });
-    for (const row of data ?? []) {
-      if (!drafts.has(row.practice_id)) drafts.set(row.practice_id, { file_name: row.file_name, file_path: row.file_path });
+    for (const row of (data ?? []) as StoredDocument[]) {
+      const list = byPractice.get(row.practice_id) ?? [];
+      list.push(row);
+      byPractice.set(row.practice_id, list);
     }
   }
-  return drafts;
+  return byPractice;
 }
 
 export interface SigningBundleLabels {
@@ -71,26 +87,24 @@ export async function downloadSigningBundle(options: {
   onProgress?: (done: number, total: number) => void;
 }): Promise<SigningBundleResult> {
   const fileName = `${safeName(options.fileLabel, "lotto")}.zip`;
-  const practices = await fetchLotPracticesWithStage(options.batchId);
+  const practices = (await fetchLotPracticesWithStage(options.batchId)).filter((practice) => isSigningStage(stageOf(practice)));
   const templates = await listSigningTemplates();
-  const drafts = practices.length > 0 ? await fetchDrafts(practices.map((practice) => practice.id)) : new Map();
+  const documents = practices.length > 0 ? await fetchFlowDocuments(practices.map((practice) => practice.id)) : new Map<string, StoredDocument[]>();
 
   const templateBlobs = new Map<string, Blob>();
   for (const [slot] of templates) templateBlobs.set(slot, await downloadSigningTemplate(slot));
 
-  // Un file per ogni documento da firmare nella sezione attuale della pratica.
+  // Per ogni pratica deliberata, i documenti da firmare nell'ordine di firma.
   const entries: Array<{ zipPath: string; blob?: Blob; storagePath?: string }> = [];
   for (const practice of practices) {
-    const stage = stageOf(practice);
     const folder = safeName(practice.practice_number, "pratica");
-    for (const slot of SIGNING_SLOTS) {
-      if (!isSlotAvailable(slot, stage)) continue;
+    for (const slot of [...SIGNING_SLOTS].sort((a, b) => a.order - b.order)) {
       if (slot.hasTemplate) {
         const blob = templateBlobs.get(slot.id);
-        if (blob) entries.push({ zipPath: `${folder}/${slot.id}.pdf`, blob });
+        if (blob) entries.push({ zipPath: `${folder}/${slot.order}_${slot.id}.pdf`, blob });
       } else {
-        const draft = drafts.get(practice.id);
-        if (draft) entries.push({ zipPath: `${folder}/${slot.id}_${safeName(draft.file_name, "bozza.pdf")}`, storagePath: draft.file_path });
+        const copy = (documents.get(practice.id) ?? []).find((document) => document.document_type === slot.sourceType);
+        if (copy) entries.push({ zipPath: `${folder}/${slot.order}_${COMPANY_COPY_DOCUMENT_TYPE}_${safeName(copy.file_name, "polizza.pdf")}`, storagePath: copy.file_path });
       }
     }
   }
@@ -119,7 +133,9 @@ export async function downloadSigningBundle(options: {
 export interface SignedUploadResult {
   uploaded: number;
   practices: number;
-  /** File non attribuiti: cartella senza numero pratica o tipo non riconosciuto. */
+  /** Pratiche con tutte le firme, trasmesse alla compagnia. */
+  sent: number;
+  /** File non attribuiti: cartella senza numero pratica, tipo non riconosciuto o pratica non deliberata. */
   skipped: string[];
 }
 
@@ -140,23 +156,23 @@ export async function uploadSignedBundle(options: {
 }): Promise<SignedUploadResult> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("not authenticated");
-  const practices = await fetchLotPractices(options.batchId);
-  const byNumber = new Map(practices.map((practice) => [practice.practice_number.toLowerCase(), { ...practice, status: "", financial_status: null } as LotPracticeRow]));
+  const practices = await fetchLotPracticesWithStage(options.batchId);
+  const byNumber = new Map(practices.map((practice) => [practice.practice_number.toLowerCase(), practice]));
 
   const { default: JSZip } = await import("jszip");
   const zip = await JSZip.loadAsync(options.file);
   const files = Object.values(zip.files).filter((entry) => !entry.dir && /\.pdf$/i.test(entry.name) && !/(^|\/)__MACOSX\//.test(entry.name) && !/(^|\/)\./.test(entry.name));
 
   const skipped: string[] = [];
-  const jobs: Array<{ practiceId: string; slotId: (typeof SIGNING_SLOTS)[number]["id"]; signedType: string; name: string; entry: (typeof files)[number] }> = [];
+  const jobs: Array<{ practice: LotPracticeRow; slotId: (typeof SIGNING_SLOTS)[number]["id"]; signedType: string; name: string; entry: (typeof files)[number] }> = [];
   for (const entry of files) {
     const practice = practiceOfEntry(entry.name, byNumber);
     const slot = inferSigningSlotFromFileName(entry.name);
-    if (!practice || !slot) {
+    if (!practice || !slot || !isSigningStage(stageOf(practice))) {
       skipped.push(entry.name);
       continue;
     }
-    jobs.push({ practiceId: practice.id, slotId: slot.id, signedType: slot.signedType, name: entry.name.split("/").pop() ?? entry.name, entry });
+    jobs.push({ practice, slotId: slot.id, signedType: slot.signedType, name: entry.name.split("/").pop() ?? entry.name, entry });
   }
 
   let done = 0;
@@ -169,11 +185,11 @@ export async function uploadSignedBundle(options: {
       try {
         const blob = await job.entry.async("blob");
         if (blob.size > MAX_FILE_BYTES) throw new Error("too big");
-        const path = signedDocumentPath(job.practiceId, job.slotId, job.name);
+        const path = signedDocumentPath(job.practice.id, job.slotId, job.name);
         const { error: uploadError } = await supabase.storage.from(PRACTICE_DOCUMENTS_BUCKET).upload(path, blob, { contentType: "application/pdf", upsert: false });
         if (uploadError) throw new Error(uploadError.message);
         const { error: insertError } = await supabase.from("practice_documents").insert({
-          practice_id: job.practiceId,
+          practice_id: job.practice.id,
           file_name: job.name,
           file_path: path,
           file_size: blob.size,
@@ -186,7 +202,7 @@ export async function uploadSignedBundle(options: {
           throw new Error(insertError.message);
         }
         uploaded += 1;
-        touched.add(job.practiceId);
+        touched.add(job.practice.id);
       } catch {
         skipped.push(job.entry.name);
       }
@@ -195,5 +211,21 @@ export async function uploadSignedBundle(options: {
     }
   };
   await Promise.all(Array.from({ length: Math.min(UPLOAD_CONCURRENCY, jobs.length) }, worker));
-  return { uploaded, practices: touched.size, skipped };
+
+  // Le pratiche ora complete di firme: le copie partono verso la compagnia (il server salta quelle gia' trasmesse).
+  let sent = 0;
+  if (touched.size > 0) {
+    const documents = await fetchFlowDocuments([...touched]);
+    for (const practice of practices) {
+      if (!touched.has(practice.id)) continue;
+      if (!signaturesComplete(documents.get(practice.id) ?? [], stageOf(practice))) continue;
+      try {
+        const result = await callWorkflow<{ changed?: boolean }>("workflow_send_signed", { practiceId: practice.id });
+        if (result.changed) sent += 1;
+      } catch {
+        // La trasmissione si puo' ripetere dalla pratica: il caricamento resta valido.
+      }
+    }
+  }
+  return { uploaded, practices: touched.size, sent, skipped };
 }

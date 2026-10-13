@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { stageOf, type PracticeStage } from "@/lib/practiceStages";
 import { callWorkflow, type WorkflowActionName } from "@/lib/workflowApi";
+import { COMPANY_COPY_DOCUMENT_TYPE, DRAFT_DOCUMENT_TYPE, FLOW_DOCUMENT_TYPES, ISSUED_POLICY_DOCUMENT_TYPE } from "@/lib/signingDocuments";
 import { formatDate, getMessages, useMessages } from "@/i18n";
 import { workflowMessages } from "@/i18n/messages/workflow";
 import { useQueryClient } from "@tanstack/react-query";
@@ -36,6 +37,7 @@ interface WorkflowRow {
   rejection_reason: string | null;
   issued_at: string | null;
   info_due_date: string | null;
+  signed_sent_at: string | null;
 }
 
 interface FlowDocument {
@@ -103,7 +105,9 @@ const safeName = (name: string) =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 100) || "documento.pdf";
 
-const emptyForm = { portal: "", reference: "", message: "", note: "", reason: "", dueDate: "", paymentDate: today(), policyNumber: "", file: null as File | null };
+const emptyForm = { portal: "", reference: "", message: "", note: "", reason: "", dueDate: "", paymentDate: today(), policyNumber: "", file: null as File | null, companyFile: null as File | null, files: [] as File[] };
+
+const isPdf = (file: File) => file.type === "application/pdf" || /\.pdf$/i.test(file.name);
 
 export const PracticeWorkflowCard = ({ practice, isAdmin, onChanged }: PracticeWorkflowCardProps) => {
   const m = useMessages(workflowMessages);
@@ -125,7 +129,7 @@ export const PracticeWorkflowCard = ({ practice, isAdmin, onChanged }: PracticeW
         .from("practice_documents")
         .select("id, file_name, file_path, document_type, created_at")
         .eq("practice_id", practice.id)
-        .in("document_type", ["bozza_deliberata", "polizza_emessa"])
+        .in("document_type", FLOW_DOCUMENT_TYPES)
         .order("created_at", { ascending: false }),
       supabase
         .from("practice_events")
@@ -151,8 +155,8 @@ export const PracticeWorkflowCard = ({ practice, isAdmin, onChanged }: PracticeW
     setDialog(kind);
   };
 
-  const uploadPdf = async (file: File, type: "bozza_deliberata" | "polizza_emessa") => {
-    const path = `${practice.id}/${type}-${Date.now()}-${safeName(file.name)}`;
+  const uploadPdf = async (file: File, type: string, index = 0) => {
+    const path = `${practice.id}/${type}-${Date.now()}-${index}-${safeName(file.name)}`;
     const { error } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: "application/pdf", upsert: false });
     if (error) throw new Error(error.message);
     return { path, document: { file_name: file.name, mime_type: "application/pdf", storage_path: path } };
@@ -163,9 +167,11 @@ export const PracticeWorkflowCard = ({ practice, isAdmin, onChanged }: PracticeW
     const t = m.dialogs;
     if (kind === "requestInfo" && !form.message.trim()) found.message = t.required;
     if (kind === "reject" && !form.reason.trim()) found.reason = t.required;
-    if ((kind === "deliberate" || kind === "issue") && form.file) {
-      if (!(form.file.type === "application/pdf" || /\.pdf$/i.test(form.file.name))) found.file = t.deliberate.draftInvalid;
-      else if (form.file.size > MAX_FILE_BYTES) found.file = t.deliberate.draftTooBig;
+    const pdfs = kind === "deliberate" ? [form.file, form.companyFile] : kind === "issue" ? form.files : [];
+    for (const file of pdfs) {
+      if (!file) continue;
+      if (!isPdf(file)) found.file = t.deliberate.draftInvalid;
+      else if (file.size > MAX_FILE_BYTES) found.file = t.deliberate.draftTooBig;
     }
     setErrors(found);
     return Object.keys(found).length === 0;
@@ -174,7 +180,7 @@ export const PracticeWorkflowCard = ({ practice, isAdmin, onChanged }: PracticeW
   const run = async () => {
     if (!dialog || !validate(dialog)) return;
     setBusy(true);
-    let uploadedPath: string | null = null;
+    const uploadedPaths: string[] = [];
     try {
       const payload: Record<string, unknown> = { practiceId: practice.id };
       if (dialog === "markSent") Object.assign(payload, { portalName: form.portal.trim() || undefined, reference: form.reference.trim() || undefined });
@@ -185,19 +191,28 @@ export const PracticeWorkflowCard = ({ practice, isAdmin, onChanged }: PracticeW
       if (dialog === "registerPayment") payload.paymentDate = form.paymentDate || undefined;
       if (dialog === "deliberate") {
         Object.assign(payload, { paymentDueDate: form.dueDate || undefined, note: form.note.trim() || undefined });
+        // The draft is checked, never signed; the insurer's copy is what the representative signs.
         if (form.file) {
-          const uploaded = await uploadPdf(form.file, "bozza_deliberata");
-          uploadedPath = uploaded.path;
+          const uploaded = await uploadPdf(form.file, DRAFT_DOCUMENT_TYPE);
+          uploadedPaths.push(uploaded.path);
           payload.draft = uploaded.document;
+        }
+        if (form.companyFile) {
+          const uploaded = await uploadPdf(form.companyFile, COMPANY_COPY_DOCUMENT_TYPE);
+          uploadedPaths.push(uploaded.path);
+          payload.companyCopy = uploaded.document;
         }
       }
       if (dialog === "issue") {
         payload.policyNumber = form.policyNumber.trim() || undefined;
-        if (form.file) {
-          const uploaded = await uploadPdf(form.file, "polizza_emessa");
-          uploadedPath = uploaded.path;
-          payload.document = uploaded.document;
+        // Every copy the insurer returned (policyholder, beneficiary, insurer).
+        const documents = [];
+        for (const [index, file] of form.files.entries()) {
+          const uploaded = await uploadPdf(file, ISSUED_POLICY_DOCUMENT_TYPE, index);
+          uploadedPaths.push(uploaded.path);
+          documents.push(uploaded.document);
         }
+        if (documents.length > 0) payload.documents = documents;
       }
       const result = await callWorkflow<{ to?: string; stage?: string }>(ACTION_API[dialog], payload);
       const next = (result.to ?? result.stage) as PracticeStage | undefined;
@@ -207,8 +222,8 @@ export const PracticeWorkflowCard = ({ practice, isAdmin, onChanged }: PracticeW
       onChanged();
       void load();
     } catch (error) {
-      // The server refused: the file uploaded for it is not left behind.
-      if (uploadedPath) await supabase.storage.from(BUCKET).remove([uploadedPath]);
+      // The server refused: the files uploaded for it are not left behind.
+      if (uploadedPaths.length > 0) await supabase.storage.from(BUCKET).remove(uploadedPaths);
       toast({ variant: "destructive", title: m.actions.error, description: error instanceof Error ? error.message : undefined });
     } finally {
       setBusy(false);
@@ -234,24 +249,50 @@ export const PracticeWorkflowCard = ({ practice, isAdmin, onChanged }: PracticeW
   if (workflow?.sent_at) rows.push([workflow.target_portal ? m.card.sentTo(workflow.target_portal === "manuale" ? m.card.manual : workflow.target_portal) : m.card.sentOn, formatDate(workflow.sent_at)]);
   if (workflow?.target_reference) rows.push([m.card.reference, workflow.target_reference]);
   if (workflow?.deliberated_at && stage !== "da_lavorare" && stage !== "non_deliberata") rows.push([m.card.deliberatedOn, formatDate(workflow.deliberated_at)]);
+  if (workflow?.signed_sent_at && (stage === "deliberata" || stage === "da_emettere" || stage === "emessa")) rows.push([m.card.signedSentOn, formatDate(workflow.signed_sent_at)]);
   if (practice.payment_date && (stage === "da_emettere" || stage === "emessa")) rows.push([m.card.paidOn, formatDate(practice.payment_date)]);
   if (workflow?.issued_at && stage === "emessa") rows.push([m.card.issuedOn, formatDate(workflow.issued_at)]);
   if (workflow?.rejected_at && stage === "non_deliberata") rows.push([m.card.rejectedOn, formatDate(workflow.rejected_at)]);
 
   const actions = isAdmin ? [...ACTIONS_BY_STAGE[stage], ...(stage === "da_lavorare" ? [] : (["reopen"] as ActionKind[]))] : [];
+  // The issued policy comes back in several copies: they are numbered in the order they arrived.
+  const issuedCopies = documents.filter((document) => document.document_type === ISSUED_POLICY_DOCUMENT_TYPE).reverse();
+  const documentLabel = (document: FlowDocument) => {
+    if (document.document_type === ISSUED_POLICY_DOCUMENT_TYPE) return m.card.issuedCopy(issuedCopies.indexOf(document) + 1, issuedCopies.length);
+    if (document.document_type === COMPANY_COPY_DOCUMENT_TYPE) return m.card.companyCopy;
+    return m.card.draft;
+  };
   const field = (key: keyof typeof emptyForm) => ({
     value: form[key] as string,
     onChange: (event: { target: { value: string } }) => setForm((previous) => ({ ...previous, [key]: event.target.value })),
   });
   const t = m.dialogs;
-  const fileInput = (label: string, hint?: string) => (
+  const fileInput = (label: string, hint?: string, options: { key?: "file" | "companyFile"; id?: string } = {}) => {
+    const key = options.key ?? "file";
+    const id = options.id ?? "workflow-file";
+    return (
+      <div className="space-y-1.5">
+        <Label htmlFor={id}>{label}</Label>
+        <Input
+          id={id}
+          type="file"
+          accept="application/pdf,.pdf"
+          onChange={(event) => setForm((previous) => ({ ...previous, [key]: event.target.files?.[0] ?? null }))}
+        />
+        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+        {errors.file && key === "file" && <p className="text-xs text-destructive">{errors.file}</p>}
+      </div>
+    );
+  };
+  const filesInput = (label: string, hint?: string) => (
     <div className="space-y-1.5">
       <Label htmlFor="workflow-file">{label}</Label>
       <Input
         id="workflow-file"
         type="file"
         accept="application/pdf,.pdf"
-        onChange={(event) => setForm((previous) => ({ ...previous, file: event.target.files?.[0] ?? null }))}
+        multiple
+        onChange={(event) => setForm((previous) => ({ ...previous, files: Array.from(event.target.files ?? []) }))}
       />
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
       {errors.file && <p className="text-xs text-destructive">{errors.file}</p>}
@@ -346,6 +387,7 @@ export const PracticeWorkflowCard = ({ practice, isAdmin, onChanged }: PracticeW
                 <ol className="mt-1 list-decimal space-y-0.5 pl-5 text-foreground">
                   <li>{m.card.stepCheckDraft}</li>
                   <li>{m.card.stepSign}</li>
+                  <li>{m.card.stepTransmit}</li>
                   <li>{m.card.stepPay(due ? formatDate(due) : null)}</li>
                   <li>{m.card.stepIssue}</li>
                 </ol>
@@ -402,7 +444,7 @@ export const PracticeWorkflowCard = ({ practice, isAdmin, onChanged }: PracticeW
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">{document.file_name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {document.document_type === "polizza_emessa" ? m.card.issuedPolicy : m.card.draft} · {formatDate(document.created_at)}
+                      {documentLabel(document)} · {formatDate(document.created_at)}
                     </p>
                   </div>
                 </div>
@@ -474,6 +516,7 @@ export const PracticeWorkflowCard = ({ practice, isAdmin, onChanged }: PracticeW
                 {dialog === "deliberate" && (
                   <>
                     {fileInput(t.deliberate.draft, t.deliberate.draftHint)}
+                    {fileInput(t.deliberate.companyCopy, t.deliberate.companyCopyHint, { key: "companyFile", id: "workflow-company-copy" })}
                     <div className="space-y-1.5">
                       <Label htmlFor="workflow-due">{t.deliberate.dueDate}</Label>
                       <Input id="workflow-due" type="date" min={today()} {...field("dueDate")} />
@@ -499,7 +542,7 @@ export const PracticeWorkflowCard = ({ practice, isAdmin, onChanged }: PracticeW
                 )}
                 {dialog === "issue" && (
                   <>
-                    {fileInput(t.issue.document)}
+                    {filesInput(t.issue.document, t.issue.documentHint)}
                     <div className="space-y-1.5">
                       <Label htmlFor="workflow-policy">{t.issue.policyNumber}</Label>
                       <Input id="workflow-policy" {...field("policyNumber")} />

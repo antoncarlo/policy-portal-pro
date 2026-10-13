@@ -181,6 +181,23 @@ await check("sent -> info requested -> info provided -> deliberated with draft -
   assert.equal(r.to, "emessa");
   assert.equal(db.rows("practice_documents").filter((d) => d.document_type === "polizza_emessa").length, 1);
 });
+await check("deliberated with the insurer's copy to sign; issued with every copy of the policy", async () => {
+  const { db, practice } = world();
+  const p = practice("in_attesa");
+  const r = await applyWorkflowEvent(sb(db), p.id, { type: "deliberated", draft: pdfDoc("bozza.pdf"), companyCopy: pdfDoc("copia-compagnia.pdf") }, actor);
+  assert.equal(r.to, "deliberata");
+  const types = db.rows("practice_documents").filter((d) => d.practice_id === p.id).map((d) => d.document_type).sort();
+  assert.deepEqual(types, ["bozza_deliberata", "polizza_copia_compagnia"]);
+  assert.ok(db.rows("practice_documents").find((d) => d.document_type === "polizza_copia_compagnia")!.file_path.startsWith(`${p.id}/polizza_copia_compagnia-`));
+  db.rows("practices").find((x) => x.id === p.id)!.financial_status = "incassata";
+  await applyWorkflowEvent(sb(db), p.id, { type: "issued", documents: [pdfDoc("contraente.pdf"), pdfDoc("beneficiario.pdf"), pdfDoc("compagnia.pdf")] }, actor);
+  assert.equal(db.rows("practice_documents").filter((d) => d.practice_id === p.id && d.document_type === "polizza_emessa").length, 3);
+  assert.match(events(db, p.id, "workflow_issued")[0].description, /Polizza emessa, 3 copie/);
+  // a bad copy among many: nothing is stored, the practice does not move
+  const q = practice("approvata", "incassata");
+  await rejects(() => applyWorkflowEvent(sb(db), q.id, { type: "issued", documents: [pdfDoc("ok.pdf"), { file_name: "x.pdf", mime_type: "application/pdf", content_base64: Buffer.from("not a pdf").toString("base64") }] }, actor), "invalid_document", 422);
+  assert.equal(db.rows("practices").find((x) => x.id === q.id)!.status, "approvata");
+});
 await check("a rejected document changes nothing", async () => {
   const { db, practice } = world();
   const p = practice("in_attesa");
@@ -614,6 +631,42 @@ await check("manual flow: sent, deliberate with draft, payment, issue, reopen", 
   assert.equal((await act("workflow_issue")).to, "emessa");
   assert.equal((await act("workflow_reopen", { reason: "errore" })).to, "da_lavorare");
   assert.ok(db.rows("practice_workflow")[0].deliberated_at === null, "reopening clears the answer");
+});
+await check("signed copies: the owner sends them once every signature is in; the admin may force; reopening clears it", async () => {
+  const { db, practice } = world();
+  const p = practice("in_attesa");
+  const admin = (a: any, body: any = {}) => runWorkflowAction(sb(db), ADMIN, a, { practiceId: p.id, ...body });
+  const owner = (a: any, body: any = {}) => runWorkflowAction(sb(db), OWNER, a, { practiceId: p.id, ...body });
+  // not before the deliberation
+  await rejects(() => owner("workflow_send_signed"), "invalid_transition", 409);
+  await admin("workflow_deliberate", { draft: pdfDoc("bozza.pdf"), companyCopy: pdfDoc("copia.pdf") });
+  const sign = (type: string, name: string) => db.seed("practice_documents", { practice_id: p.id, file_name: name, file_path: `${p.id}/${type}-1-${name}`, file_size: 10, mime_type: "application/pdf", document_type: type, uploaded_by: OWNER });
+  sign("polizza_firmata", "polizza-firmata.pdf"); sign("privacy_firmata", "privacy.pdf"); sign("mup_firmato", "mup.pdf");
+  // one signature missing: refused, with the names of what is missing
+  await rejects(() => owner("workflow_send_signed"), "signatures_missing", 409);
+  try { await owner("workflow_send_signed"); } catch (error: any) { assert.match(error.message, /antiriciclaggio/); }
+  // another user's practice: not theirs to send
+  const other = db.seed("profiles", { email: "x@example.test", full_name: "Altro" });
+  await rejects(() => runWorkflowAction(sb(db), other.id, "workflow_send_signed", { practiceId: p.id }), "forbidden", 403);
+  sign("antiriciclaggio_firmato", "aml.pdf");
+  const sent: any = await owner("workflow_send_signed");
+  assert.equal(sent.changed, true); assert.ok(sent.sentAt); assert.equal(sent.stage, "deliberata");
+  assert.equal(db.rows("practice_workflow")[0].signed_sent_at, sent.sentAt);
+  assert.match(events(db, p.id, "workflow_signed_sent")[0].description, /Copie firmate trasmesse alla compagnia \(Anna Rossi\)/);
+  assert.equal(events(db, p.id, "workflow_signed_sent")[0].created_by, OWNER);
+  // a second call is harmless; resend makes a new transmission
+  assert.equal((await owner("workflow_send_signed")).changed, false);
+  assert.equal((await admin("workflow_send_signed", { resend: true })).changed, true);
+  assert.equal(events(db, p.id, "workflow_signed_sent").length, 2);
+  // an administrator may force with a signature missing
+  const q = practice("approvata", "non_incassata");
+  await rejects(() => runWorkflowAction(sb(db), ADMIN, "workflow_send_signed", { practiceId: q.id }), "signatures_missing", 409);
+  assert.equal((await runWorkflowAction(sb(db), ADMIN, "workflow_send_signed", { practiceId: q.id, force: true })).changed, true);
+  // reopening clears the transmission
+  await admin("workflow_reopen", { reason: "errore" });
+  assert.equal(db.rows("practice_workflow")[0].signed_sent_at, null);
+  // audit: one line per transmission
+  assert.ok(db.rows("audit_log").some((row) => row.action === "practice.send_signed" && row.row_id === p.id), JSON.stringify(db.rows("audit_log").map((r) => r.action)));
 });
 await check("validation of what the administrator sends", async () => {
   const { db, practice } = world();

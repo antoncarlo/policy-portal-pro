@@ -11,7 +11,7 @@ export const PRACTICE_DOCUMENTS_BUCKET = 'practice-documents';
 export const MAX_DOCUMENT_BYTES = 12 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 20_000;
 
-export type StoredDocumentType = 'bozza_deliberata' | 'polizza_emessa';
+export type StoredDocumentType = 'bozza_deliberata' | 'polizza_copia_compagnia' | 'polizza_emessa';
 
 export interface IncomingDocument {
   file_name: string;
@@ -203,7 +203,7 @@ export async function listSignedPracticeDocuments(
   const expiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString();
   const documents: OutgoingDocument[] = [];
   for (const row of data ?? []) {
-    if (row.document_type === 'bozza_deliberata' || row.document_type === 'polizza_emessa') continue;
+    if (row.document_type === 'bozza_deliberata' || row.document_type === 'polizza_copia_compagnia' || row.document_type === 'polizza_emessa') continue;
     const reference = getDocumentStorageReference(row.file_path as string);
     const { data: signed, error: signError } = await supabase.storage.from(reference.bucket).createSignedUrl(reference.path, ttlSeconds);
     if (signError || !signed?.signedUrl) throw new Error(`Link del documento "${row.file_name}" non generato: ${signError?.message ?? 'nessun link'}`);

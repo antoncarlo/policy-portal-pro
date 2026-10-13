@@ -755,10 +755,11 @@ GET /api/vies-intake-status                      (gli ultimi 50 lotti della chia
                 ['lot.rejected', 'lotto rifiutato (data.reason)'],
                 ['practice.in_review', 'pratica inviata alla compagnia'],
                 ['practice.info_requested / practice.info_provided', 'la compagnia chiede integrazioni / integrazioni inviate (data.message)'],
-                ['practice.deliberated', 'deliberata: bozza da pagare (payment_due_date, documents)'],
+                ['practice.deliberated', 'deliberata: bozza da controllare e polizza nella copia per la Compagnia da firmare (payment_due_date, documents)'],
                 ['practice.rejected', 'non deliberata (data.reason)'],
                 ['practice.paid', 'pagamento registrato'],
-                ['practice.issued', 'polizza emessa (policy_number, documents)'],
+                ['practice.signed', 'copie firmate trasmesse alla compagnia (documents: polizza_firmata, privacy_firmata, mup_firmato, antiriciclaggio_firmato)'],
+                ['practice.issued', 'polizza emessa (policy_number, documents: tutte le copie)'],
                 ['practice.reopened', 'pratica riaperta (data.reason)'],
               ].map(([type, when], i) => (
                 <tr key={type}>
@@ -784,30 +785,34 @@ GET /api/vies-intake-status                      (gli ultimi 50 lotti della chia
             <code style={styles.inlineCode}> in_lavorazione, in_attesa, integrazioni, approvata, rifiutata, completata</code>.
           </p>
 
-          <h3 style={styles.h3}>6. Bozza e documenti da firmare</h3>
+          <h3 style={styles.h3}>6. Bozza, firme e copie della polizza</h3>
           <p style={styles.p}>
             Fino alla deliberazione la pratica non ha nessuna bozza: <code style={styles.inlineCode}>GET /api/get-practice-status</code> risponde con
-            <code style={styles.inlineCode}> draft.received = false</code>. Quando la pratica è deliberata, la bozza arriva con la notifica
-            <code style={styles.inlineCode}> practice.deliberated</code> e <code style={styles.inlineCode}>draft.received</code> diventa <code style={styles.inlineCode}>true</code>
-            (con <code style={styles.inlineCode}>received_at</code>). Il modulo di polizza precompilato che il portale prepara per la compagnia è interno e non compare mai tra i vostri documenti.
+            <code style={styles.inlineCode}> draft.received = false</code>. Quando la pratica è deliberata arrivano la bozza (<code style={styles.inlineCode}>draft</code>, <strong>si controlla, non si firma</strong>)
+            e la polizza nella copia per la Compagnia (<code style={styles.inlineCode}>company_copy</code>, la copia che il rappresentante fiscale firma), con la notifica
+            <code style={styles.inlineCode}> practice.deliberated</code>. Il modulo di polizza precompilato che il portale prepara per la compagnia è interno e non compare mai tra i vostri documenti.
           </p>
           <p style={styles.p}>
-            Per ogni pratica VIES l&apos;array <code style={styles.inlineCode}>documents_to_sign</code> elenca i documenti che il rappresentante fiscale deve
-            firmare (anche in blocco, con firma digitale, dal proprio sistema) e ricaricare dal portale: MUP, set informativo, privacy/GDPR, antiriciclaggio
-            e, dopo la deliberazione, la polizza firmata per accettazione. <code style={styles.inlineCode}>available</code> dice se è il momento di firmarlo,
-            <code style={styles.inlineCode}> signed</code>/<code style={styles.inlineCode}>signed_at</code> se la copia firmata è stata caricata;
-            <code style={styles.inlineCode}> signatures_complete</code> riassume. I modelli e le copie firmate si gestiscono dalla pratica o, per tutto il lotto,
-            con «Scarica documenti da firmare (ZIP)» e «Carica documenti firmati (ZIP)» nella pagina Pratiche.
+            Per ogni pratica VIES l&apos;array <code style={styles.inlineCode}>documents_to_sign</code> elenca, <strong>nell&apos;ordine di firma</strong>, i documenti che il rappresentante fiscale
+            firma (anche in blocco, con firma digitale, dal proprio sistema) e ricarica dal portale: 1) polizza nella copia per la Compagnia, 2) informativa privacy, 3) MUP, 4) questionario
+            antiriciclaggio. <code style={styles.inlineCode}>available</code> dice se è il momento (dopo la deliberazione), <code style={styles.inlineCode}>source_received</code> se la copia per la Compagnia è arrivata,
+            <code style={styles.inlineCode}> signed</code>/<code style={styles.inlineCode}>signed_at</code> se la copia firmata è stata caricata; <code style={styles.inlineCode}>signatures_complete</code> riassume.
+            Con tutte le firme caricate il portale trasmette da solo le copie firmate alla compagnia (<code style={styles.inlineCode}>signed_copies_sent_at</code>, notifica <code style={styles.inlineCode}>practice.signed</code>);
+            la compagnia emette e restituisce tutte le copie della polizza (<code style={styles.inlineCode}>issued_copies</code>, notifica <code style={styles.inlineCode}>practice.issued</code> con i link).
+            I modelli e le copie firmate si gestiscono dalla pratica o, per tutto il lotto, con «Scarica documenti da firmare (ZIP)» e «Carica documenti firmati (ZIP)» nella pagina Pratiche.
           </p>
           <pre style={styles.code}>{`"stage": "deliberata",
 "draft": { "received": true, "file_name": "bozza.pdf", "received_at": "2026-10-12T09:30:00Z" },
+"company_copy": { "received": true, "file_name": "polizza-copia-compagnia.pdf", "received_at": "2026-10-12T09:30:00Z" },
 "documents_to_sign": [
-  { "id": "mup", "label": "MUP - Modulo Unico Precontrattuale", "signed_document_type": "mup_firmato",
-    "available": true, "signed": true, "signed_at": "2026-10-13T08:00:00Z", "signed_file_name": "mup.pdf" },
-  { "id": "set_informativo", "…": "…" }, { "id": "privacy", "…": "…" }, { "id": "antiriciclaggio", "…": "…" },
-  { "id": "polizza_firmata", "label": "Polizza firmata per accettazione", "available": true, "signed": false, "signed_at": null }
+  { "id": "polizza_firmata", "order": 1, "label": "Polizza - copia per la Compagnia", "signed_document_type": "polizza_firmata",
+    "available": true, "source_received": true, "signed": true, "signed_at": "2026-10-13T08:00:00Z", "signed_file_name": "polizza-firmata.pdf" },
+  { "id": "privacy", "order": 2, "…": "…" }, { "id": "mup", "order": 3, "…": "…" },
+  { "id": "antiriciclaggio", "order": 4, "label": "Questionario antiriciclaggio e adeguata verifica", "available": true, "source_received": null, "signed": false, "signed_at": null }
 ],
-"signatures_complete": false`}</pre>
+"signatures_complete": false,
+"signed_copies_sent_at": null,
+"issued_copies": []`}</pre>
         </section>
 
         <section id="contatti" style={styles.section}>

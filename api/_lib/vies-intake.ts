@@ -292,7 +292,7 @@ export async function lotStatus(supabase: AdminClient, ctx: ApiKeyContext, query
         .from('practice_documents')
         .select('practice_id, file_name, file_path, mime_type, document_type')
         .in('practice_id', withDocuments.slice(start, start + 100))
-        .in('document_type', ['bozza_deliberata', 'polizza_emessa'])
+        .in('document_type', ['bozza_deliberata', 'polizza_copia_compagnia', 'polizza_emessa'])
         .order('created_at', { ascending: false });
       for (const doc of docs ?? []) {
         const reference = getDocumentStorageReference(doc.file_path as string);

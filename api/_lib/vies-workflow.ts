@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isPaid, stageOf, type PracticeStage } from '../../src/lib/practiceStages.js';
-import { attachPracticeDocument, DocumentError, type IncomingDocument } from './vies-documents.js';
+import { attachPracticeDocument, DocumentError, type IncomingDocument, type StoredDocumentType } from './vies-documents.js';
 import { attributeQueuedEvents } from './notification-dispatch.js';
 
 /**
@@ -15,11 +15,13 @@ import { attributeQueuedEvents } from './notification-dispatch.js';
 
 export type WorkflowEvent =
   | { type: 'sent'; portalId: string; portalName?: string; reference?: string | null; at?: string }
-  | { type: 'deliberated'; at?: string; paymentDueDate?: string | null; note?: string | null; draft?: IncomingDocument | null; documentHosts?: string[] }
+  // deliberated: the draft (to check, never signed) and the policy copy for the company (what the
+  // representative signs); issued: every copy of the issued policy the company returns.
+  | { type: 'deliberated'; at?: string; paymentDueDate?: string | null; note?: string | null; draft?: IncomingDocument | null; companyCopy?: IncomingDocument | null; documentHosts?: string[] }
   | { type: 'rejected'; reason: string; at?: string }
   | { type: 'info_requested'; message: string; dueDate?: string | null }
   | { type: 'info_provided'; message?: string | null }
-  | { type: 'issued'; at?: string; document?: IncomingDocument | null; documentHosts?: string[] }
+  | { type: 'issued'; at?: string; document?: IncomingDocument | null; documents?: IncomingDocument[] | null; documentHosts?: string[] }
   | { type: 'reopened'; reason?: string | null };
 
 export interface WorkflowContext {
@@ -155,8 +157,10 @@ function describe(event: WorkflowEvent, actor: string): string {
       return `Integrazioni richieste: ${event.message}`;
     case 'info_provided':
       return `Integrazioni fornite${event.message ? `: ${event.message}` : ''}`;
-    case 'issued':
-      return `Polizza emessa${actor ? ` (${actor})` : ''}`;
+    case 'issued': {
+      const copies = [event.document, ...(event.documents ?? [])].filter(Boolean).length;
+      return `Polizza emessa${copies > 1 ? `, ${copies} copie` : ''}${actor ? ` (${actor})` : ''}`;
+    }
     case 'reopened':
       return `Pratica riaperta${event.reason ? `: ${event.reason}` : ''}`;
   }
@@ -203,6 +207,7 @@ function workflowColumns(event: WorkflowEvent): Record<string, unknown> {
         rejected_at: null,
         rejection_reason: null,
         issued_at: null,
+        signed_sent_at: null,
       };
   }
 }
@@ -238,16 +243,22 @@ export async function applyWorkflowEvent(
   const from = stageOf(practice);
   const plan = planTransition(practice.status, paid, event.type, context.force === true);
 
-  // Documents first: if it cannot be stored, nothing else changes.
+  // Documents first: if one cannot be stored, nothing else changes.
   let documentId: string | undefined;
-  const document = event.type === 'deliberated' ? event.draft : event.type === 'issued' ? event.document : null;
-  if (document) {
+  const incoming: Array<{ document: IncomingDocument; type: StoredDocumentType }> = [];
+  if (event.type === 'deliberated') {
+    if (event.draft) incoming.push({ document: event.draft, type: 'bozza_deliberata' });
+    if (event.companyCopy) incoming.push({ document: event.companyCopy, type: 'polizza_copia_compagnia' });
+  } else if (event.type === 'issued') {
+    for (const document of [event.document, ...(event.documents ?? [])]) if (document) incoming.push({ document, type: 'polizza_emessa' });
+  }
+  for (const { document, type } of incoming) {
     try {
-      const stored = await attachPracticeDocument(supabase, practice, document, event.type === 'deliberated' ? 'bozza_deliberata' : 'polizza_emessa', {
+      const stored = await attachPracticeDocument(supabase, practice, document, type, {
         documentHosts: 'documentHosts' in event ? event.documentHosts : undefined,
         uploadedBy: context.actor.userId ?? null,
       });
-      documentId = stored.id;
+      documentId ??= stored.id;
     } catch (error) {
       if (error instanceof DocumentError) throw new WorkflowError(422, 'invalid_document', error.message);
       throw error;

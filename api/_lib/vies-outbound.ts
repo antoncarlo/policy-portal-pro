@@ -1,6 +1,7 @@
 import * as crypto from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { stageOf } from '../../src/lib/practiceStages.js';
+import { FLOW_DOCUMENT_TYPES, SIGNED_DOCUMENT_TYPES } from '../../src/lib/signingDocuments.js';
 import { getDocumentStorageReference, listSignedPracticeDocuments, type OutgoingDocument } from './vies-documents.js';
 import { readPortalRegistry } from './vies-portals.js';
 import { alertFailedDeliveries } from './ops-alerts.js';
@@ -22,7 +23,7 @@ import { signCallback } from './vies-signature.js';
  * retrying cannot fix (4xx) stops at once and can be retried by hand once fixed.
  */
 
-export type OutboundKind = 'sent' | 'info_requested' | 'info_provided' | 'deliberated' | 'rejected' | 'paid' | 'issued' | 'reopened';
+export type OutboundKind = 'sent' | 'info_requested' | 'info_provided' | 'deliberated' | 'rejected' | 'paid' | 'signed' | 'issued' | 'reopened';
 export type OutboundOrigin = 'portal' | 'admin' | 'system';
 
 export const OUTBOUND_EVENT_TYPE: Record<OutboundKind, string> = {
@@ -32,12 +33,13 @@ export const OUTBOUND_EVENT_TYPE: Record<OutboundKind, string> = {
   deliberated: 'practice.deliberated',
   rejected: 'practice.rejected',
   paid: 'practice.paid',
+  signed: 'practice.signed',
   issued: 'practice.issued',
   reopened: 'practice.reopened',
 };
 
 /** What the company is told about, when it did not cause it itself. */
-const PORTAL_KINDS: ReadonlySet<OutboundKind> = new Set(['paid', 'info_provided', 'reopened']);
+const PORTAL_KINDS: ReadonlySet<OutboundKind> = new Set(['paid', 'signed', 'info_provided', 'reopened']);
 
 export const MAX_ATTEMPTS = 7;
 const BACKOFF_SECONDS = [60, 300, 1800, 7200, 21600, 86400];
@@ -246,13 +248,13 @@ interface WorkflowInfo {
   info_due_date: string | null;
 }
 
-/** The practice's draft and policy, as links valid for a week. */
-async function flowDocuments(supabase: SupabaseClient, practiceId: string): Promise<OutgoingDocument[]> {
+/** The practice's draft, policy copy to sign and issued policy copies, as links valid for a week. */
+async function flowDocuments(supabase: SupabaseClient, practiceId: string, types: string[] = FLOW_DOCUMENT_TYPES): Promise<OutgoingDocument[]> {
   const { data } = await supabase
     .from('practice_documents')
     .select('file_name, file_path, file_size, mime_type, document_type')
     .eq('practice_id', practiceId)
-    .in('document_type', ['bozza_deliberata', 'polizza_emessa'])
+    .in('document_type', types)
     .order('created_at', { ascending: false });
   const documents: OutgoingDocument[] = [];
   const expiresAt = later(DOCUMENT_LINK_SECONDS);
@@ -313,7 +315,8 @@ async function buildSourcePayload(
       message: kind === 'info_requested' || kind === 'info_provided' ? details.message ?? null : undefined,
       due_date: kind === 'info_requested' ? details.dueDate ?? workflow?.info_due_date ?? null : undefined,
       policy_number: kind === 'issued' ? practice.policy_number : undefined,
-      documents: withDocuments ? await flowDocuments(supabase, practice.id) : undefined,
+      // signed: the copies the representative signed, now on their way to the company
+      documents: withDocuments ? await flowDocuments(supabase, practice.id) : kind === 'signed' ? await flowDocuments(supabase, practice.id, SIGNED_DOCUMENT_TYPES) : undefined,
     },
   };
 }
@@ -326,8 +329,14 @@ async function buildPortalPayload(
   eventId: string,
   details: EventDetails,
 ) {
-  // The documents the company may not have yet: everything of the practice except what came back from it.
-  const documents = kind === 'info_provided' ? await listSignedPracticeDocuments(supabase, practice.id, DOCUMENT_LINK_SECONDS) : undefined;
+  // The documents the company may not have yet: everything of the practice except what came back from
+  // it (info_provided), or the copies the representative signed (signed).
+  const documents =
+    kind === 'info_provided'
+      ? await listSignedPracticeDocuments(supabase, practice.id, DOCUMENT_LINK_SECONDS)
+      : kind === 'signed'
+        ? await flowDocuments(supabase, practice.id, SIGNED_DOCUMENT_TYPES)
+        : undefined;
   return {
     schema_version: 2,
     event_id: eventId,
@@ -338,6 +347,7 @@ async function buildPortalPayload(
       payment_date: kind === 'paid' ? practice.payment_date : undefined,
       message: kind === 'info_provided' ? details.message ?? null : undefined,
       reason: kind === 'reopened' ? details.reason ?? null : undefined,
+      signed_at: kind === 'signed' ? nowIso() : undefined,
       documents,
     },
   };

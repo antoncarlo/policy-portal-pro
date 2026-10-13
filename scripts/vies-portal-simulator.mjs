@@ -12,8 +12,10 @@
 //
 //   node scripts/vies-portal-simulator.mjs callback --url https://…/api/vies-portal-callback \
 //       --portal-id co --secret SECRET --event deliberated --practice-number VIES-2026-0001-ab12cd34 \
-//       [--due 2026-12-31] [--note "testo"] [--reason "testo"] [--pdf bozza.pdf] [--event-id evt-1]
-//       Invia una risposta firmata, come farebbe la compagnia.
+//       [--due 2026-12-31] [--note "testo"] [--reason "testo"] [--pdf bozza.pdf] [--policy-copy copia.pdf] [--event-id evt-1]
+//       Invia una risposta firmata, come farebbe la compagnia. Con deliberated --pdf e' la bozza e
+//       --policy-copy la copia per la Compagnia da firmare; con issued --pdf si puo' ripetere, una
+//       copia della polizza emessa per volta (data.documents).
 //
 // Eventi: received, info_requested, deliberated, rejected, issued. Nessuna dipendenza: solo Node 18+.
 
@@ -28,8 +30,11 @@ for (let i = 0; i < rest.length; i += 1) {
   const name = rest[i].slice(2);
   const next = rest[i + 1];
   if (next === undefined || next.startsWith("--")) args[name] = true;
+  else if (args[name] !== undefined) { args[name] = [].concat(args[name], next); i += 1; }
   else { args[name] = next; i += 1; }
 }
+
+const pdfAttachment = (path) => ({ file_name: String(path).split("/").pop(), mime_type: "application/pdf", content_base64: readFileSync(path).toString("base64") });
 
 const EVENT_TYPES = { received: "practice.received", info_requested: "practice.info_requested", deliberated: "practice.deliberated", rejected: "practice.rejected", issued: "practice.issued" };
 
@@ -59,13 +64,18 @@ export function buildEvent(options) {
   if (options.event === "deliberated") {
     if (options.due) data.payment_due_date = options.due;
     if (options.note) data.note = options.note;
-    if (options.pdf) data.draft = { file_name: String(options.pdf).split("/").pop(), mime_type: "application/pdf", content_base64: readFileSync(options.pdf).toString("base64") };
+    if (options.pdf) data.draft = pdfAttachment([].concat(options.pdf)[0]);
+    if (options["policy-copy"]) data.policy_copy = pdfAttachment([].concat(options["policy-copy"])[0]);
   }
   if (options.event === "rejected") data.reason = options.reason || "Rischio non assicurabile";
   if (options.event === "info_requested") data.message = options.message || options.note || "Allegare la documentazione richiesta";
   if (options.event === "issued") {
     if (options["policy-number"]) data.policy_number = options["policy-number"];
-    if (options.pdf) data.document = { file_name: String(options.pdf).split("/").pop(), mime_type: "application/pdf", content_base64: readFileSync(options.pdf).toString("base64") };
+    if (options.pdf) {
+      const copies = [].concat(options.pdf).map(pdfAttachment);
+      data.document = copies[0];
+      if (copies.length > 1) data.documents = copies;
+    }
   }
   return { event_id: options["event-id"] || `sim-${randomUUID()}`, event_type: type, occurred_at: new Date().toISOString(), practice, data };
 }

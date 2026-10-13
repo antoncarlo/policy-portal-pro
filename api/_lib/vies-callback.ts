@@ -47,7 +47,13 @@ export interface CallbackEvent {
   dueDate?: string;
   policyNumber?: string | null;
   document?: IncomingDocument | null;
+  /** deliberated: the policy copy for the company, the one the representative signs. */
+  companyCopy?: IncomingDocument | null;
+  /** issued: every copy of the issued policy (data.documents). */
+  documents?: IncomingDocument[];
 }
+
+const MAX_ISSUED_COPIES = 10;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 const text = (value: unknown, max: number): string | undefined =>
@@ -104,6 +110,7 @@ export function parseCallbackEvent(body: unknown): { ok: true; event: CallbackEv
         event.paymentDueDate = due ?? null;
         event.note = text(data.note, 1000) ?? null;
         event.document = parseDocument(data.draft, 'data.draft');
+        event.companyCopy = parseDocument(data.policy_copy, 'data.policy_copy');
         break;
       }
       case 'practice.rejected':
@@ -116,10 +123,16 @@ export function parseCallbackEvent(body: unknown): { ok: true; event: CallbackEv
         // Optional: the date the documents are due by; a missing or unusable one means the default term.
         event.dueDate = text(data.due_date, 10);
         break;
-      case 'practice.issued':
+      case 'practice.issued': {
         event.policyNumber = text(data.policy_number, 100) ?? null;
         event.document = parseDocument(data.document, 'data.document');
+        if (data.documents !== undefined && data.documents !== null) {
+          if (!Array.isArray(data.documents)) throw new Error('data.documents deve essere un elenco');
+          if (data.documents.length > MAX_ISSUED_COPIES) throw new Error(`data.documents: al massimo ${MAX_ISSUED_COPIES} copie`);
+          event.documents = data.documents.map((item, index) => parseDocument(item, `data.documents[${index}]`)).filter((item): item is IncomingDocument => Boolean(item));
+        }
         break;
+      }
       case 'practice.received':
         if (!ref.reference) throw new Error('practice.reference obbligatorio: è il riferimento del portale');
         break;
@@ -276,13 +289,13 @@ export async function handlePortalCallback(
         workflowEvent = { type: 'info_requested', message: event.message ?? '', dueDate: usableDueDate(event.dueDate) };
         break;
       case 'practice.deliberated':
-        workflowEvent = { type: 'deliberated', at, paymentDueDate: event.paymentDueDate, note: event.note, draft: event.document, documentHosts: hosts };
+        workflowEvent = { type: 'deliberated', at, paymentDueDate: event.paymentDueDate, note: event.note, draft: event.document, companyCopy: event.companyCopy, documentHosts: hosts };
         break;
       case 'practice.rejected':
         workflowEvent = { type: 'rejected', at, reason: event.reason ?? '' };
         break;
       case 'practice.issued':
-        workflowEvent = { type: 'issued', at, document: event.document, documentHosts: hosts };
+        workflowEvent = { type: 'issued', at, document: event.document, documents: event.documents, documentHosts: hosts };
         break;
     }
     if (!workflowEvent) throw new WorkflowError(400, 'invalid_payload', 'Evento non gestito');

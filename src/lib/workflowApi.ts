@@ -9,6 +9,7 @@ export type WorkflowActionName =
   | "workflow_reopen"
   | "workflow_mark_sent"
   | "workflow_register_payment"
+  | "workflow_send_signed"
   | "workflow_bulk_status"
   | "portal_status"
   | "intake_link"

@@ -1,6 +1,6 @@
 # Guida all'Integrazione API - Policy Portal Pro
 
-**Versione:** 2.9
+**Versione:** 2.10
 
 Questa guida documenta tutti gli endpoint disponibili per l'integrazione con Policy Portal Pro: **preventivatore Pet** (catalogo coperture e calcolo), creazione pratica con **tutti i dati della quotazione**, **Ricapitolo Richiesta** generato automaticamente (ZIP con preventivo PDF e documentazione contrattuale), stato completo della pratica con **riepilogo**, documenti, messaggistica e gli endpoint di **dashboard** (elenco pratiche, scadenzario, report produzione, amministrazione).
 
@@ -474,8 +474,11 @@ curl -X GET "https://policy-portal-pro.vercel.app/api/get-practice-status?practi
 - `documents`: tutti gli allegati, compreso il Ricapitolo Richiesta (`document_type = preventivo_pet`, ZIP) generato dal portale per le pratiche Pet. Il documento generato non rientra tra i documenti obbligatori. Il modulo di polizza precompilato che il portale prepara per la compagnia (pratiche VIES) e' interno e non compare.
 - `quote`: e' `null` finche' non e' valorizzato almeno un premio.
 - `stage`: sezione del flusso (`da_lavorare`, `in_valutazione`, `integrazioni`, `deliberata`, `da_emettere`, `emessa`, `non_deliberata`).
-- `draft`: la bozza di polizza della compagnia. `received` e' `false` fino alla deliberazione; quando la pratica e' deliberata la bozza viene allegata e `received` diventa `true`, con `file_name` e `received_at`. Il file si scarica con `get-practice-documents` (`document_type = bozza_deliberata`).
-- `documents_to_sign` (pratiche VIES): i documenti che il rappresentante fiscale firma (anche in blocco, con firma digitale, dal proprio sistema) e ricarica dal portale. Per ognuno: `id` (`mup`, `set_informativo`, `privacy`, `antiriciclaggio`, `polizza_firmata`), `label`, `signed_document_type`, `available` (e' il momento di firmarlo: la polizza solo dopo la deliberazione), `signed`, `signed_at`, `signed_file_name`. `signatures_complete` riassume. Le copie firmate compaiono anche in `documents` con il loro `document_type`.
+- `draft`: la bozza di polizza della compagnia. `received` e' `false` fino alla deliberazione; quando la pratica e' deliberata la bozza viene allegata e `received` diventa `true`, con `file_name` e `received_at`. Il file si scarica con `get-practice-documents` (`document_type = bozza_deliberata`). La bozza si controlla, non si firma.
+- `company_copy`: la polizza nella copia per la Compagnia, quella che il rappresentante fiscale firma. Arriva con la deliberazione (`received`, `file_name`, `received_at`; `document_type = polizza_copia_compagnia`).
+- `documents_to_sign` (pratiche VIES): i documenti che il rappresentante fiscale firma, dopo la deliberazione e in quest'ordine (`order`): `polizza_firmata` (la copia per la Compagnia), `privacy`, `mup`, `antiriciclaggio`. Per ognuno: `id`, `order`, `label`, `signed_document_type`, `available` (`true` solo dalla deliberazione in avanti), `source_received` e `source_file_name` (per la polizza: se la copia per la Compagnia e' arrivata), `signed`, `signed_at`, `signed_file_name`. `signatures_complete` riassume. Le copie firmate compaiono anche in `documents` con il loro `document_type`.
+- `signed_copies_sent_at`: quando le copie firmate sono state trasmesse alla compagnia (`null` finche' manca una firma). La trasmissione parte da sola con l'ultima firma caricata.
+- `issued_copies`: le copie della polizza emessa restituite dalla compagnia (`file_name`, `received_at`), anche piu' di una; `document_type = polizza_emessa` in `documents`.
 
 ---
 
@@ -1193,6 +1196,11 @@ Il cambio di `status` e' riservato agli amministratori del portale: non esiste u
 - Il questionario Pet (`questionario_pet`) e' stato rimosso: per Pet sono richiesti solo documento d'identita' e libretto sanitario/microchip.
 - `get-practice-status` restituisce i nuovi campi `summary`, `pet`, `client.tax_code`, `policy.days_until_expiry`, `payment`, `missing_documents`, `documents_complete`.
 - Nuovi endpoint: `get-practices`, `get-expiries`, `get-reports`, `get-administration`.
+
+## Note versione 2.10
+
+- **Ordine delle firme.** La bozza (`draft`) non si firma: si controlla. Si firmano, dopo la deliberazione e in quest'ordine, la polizza nella copia per la Compagnia (`company_copy`, nuovo campo), l'informativa privacy, il MUP e il questionario antiriciclaggio. `documents_to_sign` espone `order`, `source_received` e `source_file_name`; `set_informativo` non c'e' piu' (il set informativo e' parte del MUP). Nessun documento e' `available` prima della deliberazione.
+- **Trasmissione alla compagnia.** Con l'ultima firma caricata le copie firmate partono da sole verso la compagnia (notifica `practice.signed` ai portali collegati); `signed_copies_sent_at` indica quando. La compagnia restituisce poi tutte le copie della polizza emessa, elencate in `issued_copies` (`document_type = polizza_emessa`, anche piu' file).
 
 ## Note versione 2.9
 

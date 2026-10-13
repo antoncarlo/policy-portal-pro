@@ -47,7 +47,7 @@ Documentati nella pagina pubblica `/api-docs` (sezione 8). In sintesi: `create_l
 
 La chiave API deve essere associata a un utente (*Impostazioni → Mappatura API*): i lotti appartengono a quell'utente. Una chiave non associata riceve 403 `key_not_mapped`.
 
-**Bozza e documenti da firmare.** Alla creazione delle pratiche il portale genera il modulo di polizza precompilato (Annex III) **per la compagnia**: ha `document_type = modulo_polizza_vies`, lo vedono solo gli amministratori e non compare mai al rappresentante fiscale, ne' nel portale ne' nelle API. Fino alla deliberazione la pratica non ha nessuna bozza: la scheda *Valutazione pratica* mostra «Documenti ricevuti, in attesa della deliberazione». Alla deliberazione la bozza della compagnia (`bozza_deliberata`) viene allegata e la stessa scheda mostra «Bozza ricevuta il …» con download e passi successivi (controllo, firme, pagamento). La sezione *Documenti da firmare* della pratica (solo VIES) elenca MUP, set informativo, privacy/GDPR, antiriciclaggio e, dopo la deliberazione, la polizza firmata per accettazione: i modelli PDF si caricano in *Impostazioni → Documenti da firmare* (bucket `signing-templates`), le copie firmate finiscono nella pratica con `document_type` `mup_firmato`, `set_informativo_firmato`, `privacy_firmata`, `antiriciclaggio_firmato`, `polizza_firmata`. Dalla pagina Pratiche, per lotto: «Scarica documenti da firmare (ZIP)» (una cartella per pratica con modelli e bozza) e «Carica documenti firmati (ZIP)» (ogni file va nella pratica della sua cartella, tipo riconosciuto dal nome). Le API: `get-practice-status` restituisce `draft` e `documents_to_sign` (`src/lib/signingDocuments.ts`).
+**Bozza e documenti da firmare.** Alla creazione delle pratiche il portale genera il modulo di polizza precompilato (Annex III) **per la compagnia**: ha `document_type = modulo_polizza_vies`, lo vedono solo gli amministratori e non compare mai al rappresentante fiscale, ne' nel portale ne' nelle API. Fino alla deliberazione la pratica non ha nessuna bozza: la scheda *Valutazione pratica* mostra «Documenti ricevuti, in attesa della deliberazione» e la sezione *Documenti da firmare* dice che le firme iniziano dopo la deliberazione. Alla deliberazione arrivano la bozza (`bozza_deliberata`, **si controlla, non si firma**) e la polizza nella copia per la Compagnia (`polizza_copia_compagnia`, inviata dalla compagnia con `data.policy_copy` o allegata dall'ufficio); la scheda mostra «Bozza ricevuta il …» con i passi successivi. Le firme, **in quest'ordine**: 1) polizza nella copia per la Compagnia, 2) informativa privacy, 3) MUP, 4) questionario antiriciclaggio. I modelli PDF di privacy, MUP e antiriciclaggio si caricano in *Impostazioni → Documenti da firmare* (bucket `signing-templates`); le copie firmate finiscono nella pratica con `document_type` `polizza_firmata`, `privacy_firmata`, `mup_firmato`, `antiriciclaggio_firmato`. Con tutte e quattro le firme caricate il portale **trasmette da solo le copie firmate alla compagnia** (`practice.signed`, con i link; `practice_workflow.signed_sent_at`); la compagnia emette e restituisce **tutte le copie della polizza** con `practice.issued` (`data.documents`, ognuna allegata come `polizza_emessa`). Dalla pagina Pratiche, per lotto: «Scarica documenti da firmare (ZIP)» (una cartella per pratica deliberata, file numerati nell'ordine di firma) e «Carica documenti firmati (ZIP)» (ogni file va nella pratica della sua cartella, tipo riconosciuto dal nome; le pratiche complete vengono trasmesse). Le API: `get-practice-status` restituisce `draft`, `company_copy`, `documents_to_sign` (con `order` e `source_received`), `signatures_complete`, `signed_copies_sent_at` e `issued_copies` (`src/lib/signingDocuments.ts`).
 
 ### 2.2 Invio alla compagnia (questo portale → portale compagnia)
 
@@ -114,11 +114,11 @@ La firma copre i **byte esatti** del corpo: non ri-serializzare il JSON dopo ave
 |---|---|---|
 | `practice.received` | — (serve `practice.reference`) | Registra la presa in carico e il riferimento; lo stato non cambia |
 | `practice.info_requested` | `message` (obbligatorio), `due_date` (AAAA-MM-GG, facoltativo) | → Integrazioni richieste; il titolare riceve notifica ed email. Senza `due_date` (o se è nel passato) il termine è di 7 giorni |
-| `practice.deliberated` | `payment_due_date` (AAAA-MM-GG), `note`, `draft` | → Deliberate · da pagare; bozza allegata alla pratica |
+| `practice.deliberated` | `payment_due_date` (AAAA-MM-GG), `note`, `draft`, `policy_copy` | → Deliberate · da pagare; bozza (si controlla) e polizza nella copia per la Compagnia (si firma) allegate alla pratica |
 | `practice.rejected` | `reason` (obbligatorio) | → Non deliberate, con il motivo |
-| `practice.issued` | `policy_number`, `document` | → Emesse (richiede il pagamento già registrato) |
+| `practice.issued` | `policy_number`, `document` oppure `documents` (fino a 10 copie: contraente, beneficiario, compagnia) | → Emesse (richiede il pagamento già registrato); ogni copia è allegata come `polizza_emessa` |
 
-`draft` e `document` sono `{ "file_name", "mime_type", "content_base64" }` per file piccoli (corpo massimo 4 MB), oppure `{ "file_name", "mime_type", "url" }` con un indirizzo **https** il cui host sia quello del portale o uno di `documentHosts`. Tipi ammessi: PDF, ZIP, JPEG, PNG; massimo 12 MB; l'intestazione del file deve corrispondere al tipo dichiarato.
+`draft`, `policy_copy`, `document` e ogni elemento di `documents` sono `{ "file_name", "mime_type", "content_base64" }` per file piccoli (corpo massimo 4 MB), oppure `{ "file_name", "mime_type", "url" }` con un indirizzo **https** il cui host sia quello del portale o uno di `documentHosts`. Tipi ammessi: PDF, ZIP, JPEG, PNG; massimo 12 MB; l'intestazione del file deve corrispondere al tipo dichiarato.
 
 Risposte: `200` applicato (o già applicato), `400` corpo non valido (`invalid_json`, `invalid_payload`), `401` portale o firma non validi (stessa risposta per portale sconosciuto, senza segreto e firma errata), `403 practice_not_assigned` (la pratica non risulta inviata a questo portale: vale la riga di flusso o l'invio completato verso di lui; una pratica segnata «inviata a mano» non è assegnata a nessun portale), `404 practice_not_found`, `409 invalid_transition` o `conflict`, `422 invalid_document`, `429`, `503`. Un evento fallito può essere **rinviato con lo stesso `event_id`**: viene riapplicato.
 
@@ -187,10 +187,11 @@ X-Signature: sha256=…               # HMAC-SHA256(segreto, X-Timestamp + "." +
 | `practice.in_review` | Pratica inviata alla compagnia | — |
 | `practice.info_requested` | La compagnia chiede integrazioni | `message`, `due_date` (termine per fornirle) |
 | `practice.info_provided` | Integrazioni inviate alla compagnia | `message` |
-| `practice.deliberated` | Deliberata: bozza da pagare | `payment_due_date`, `note`, `documents` (bozza) |
+| `practice.deliberated` | Deliberata: bozza da pagare | `payment_due_date`, `note`, `documents` (bozza da controllare e, se arrivata, polizza nella copia per la Compagnia da firmare: `polizza_copia_compagnia`) |
 | `practice.rejected` | Non deliberata | `reason` |
 | `practice.paid` | Pagamento registrato | `payment_date`, `payment_due_date`, `documents` |
-| `practice.issued` | Polizza emessa | `policy_number`, `documents` (polizza) |
+| `practice.signed` | Copie firmate trasmesse alla compagnia | `documents` (le copie firmate: `polizza_firmata`, `privacy_firmata`, `mup_firmato`, `antiriciclaggio_firmato`) |
+| `practice.issued` | Polizza emessa | `policy_number`, `documents` (tutte le copie della polizza emessa) |
 | `practice.reopened` | Pratica riaperta | `reason` |
 | `practice.test` | Prova dalle impostazioni | `message` |
 
@@ -205,11 +206,12 @@ Oltre all'invio delle pratiche (2.2), il portale avvisa la compagnia di ciò che
 | `event_type` | Quando | `data` |
 |---|---|---|
 | `practice.paid` | Pagamento registrato: la compagnia può emettere la polizza | `payment_date` |
+| `practice.signed` | Il rappresentante fiscale ha firmato tutto: polizza nella copia per la Compagnia, privacy, MUP, antiriciclaggio. La compagnia emette e restituisce le copie della polizza con `practice.issued` | `signed_at`, `documents` (le copie firmate, con i link validi sette giorni) |
 | `practice.info_provided` | Integrazioni inviate | `message`, `documents` (i documenti della pratica, con i link) |
 | `practice.reopened` | La pratica è stata riaperta (non è più da considerare in valutazione) | `reason` |
 | `practice.test` | **Prova invio** dalle impostazioni | `message` |
 
-Il corpo ha `schema_version: 2`, `event_id`, `event_type`, `occurred_at`, `practice: { id, number, reference }`, `data`. Stesse regole di consegna e ritentativo di 2.4. Gli eventi che la compagnia stessa ha causato (deliberata, non deliberata, emessa, integrazioni richieste) non le vengono rimandati.
+Il corpo ha `schema_version: 2`, `event_id`, `event_type`, `occurred_at`, `practice: { id, number, reference }`, `data`. Stesse regole di consegna e ritentativo di 2.4. Gli eventi che la compagnia stessa ha causato (deliberata, non deliberata, emessa, integrazioni richieste) non le vengono rimandati. `practice.signed` parte da solo quando l'ultima copia firmata viene caricata (dalla pratica o con lo ZIP del lotto), oppure a mano dalla sezione *Documenti da firmare*; `practice_workflow.signed_sent_at` ne registra il momento e la riapertura lo azzera.
 
 ## SECTION 03 — Configurazione (Vercel, sola produzione)
 
@@ -240,7 +242,12 @@ node scripts/vies-portal-simulator.mjs listen --port 4010 --key CHIAVE --secret 
 # oppure invia a mano una risposta firmata
 node scripts/vies-portal-simulator.mjs callback --url https://portale.tecnomga.com/api/vies-portal-callback \
   --portal-id alfa --secret SEGRETO --event deliberated --practice-number VIES-2026-0001-ab12cd34 \
-  --due 2026-12-31 --note "Premio confermato" --pdf bozza.pdf
+  --due 2026-12-31 --note "Premio confermato" --pdf bozza.pdf --policy-copy copia_compagnia.pdf
+
+# emissione con tutte le copie della polizza (--pdf ripetuto, una copia per volta)
+node scripts/vies-portal-simulator.mjs callback --url https://portale.tecnomga.com/api/vies-portal-callback \
+  --portal-id alfa --secret SEGRETO --event issued --practice-number VIES-2026-0001-ab12cd34 \
+  --policy-number POL-2026-123 --pdf polizza_contraente.pdf --pdf polizza_compagnia.pdf --pdf polizza_intermediario.pdf
 ```
 
 ```bash

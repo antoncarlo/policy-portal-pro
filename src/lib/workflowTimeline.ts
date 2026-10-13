@@ -25,7 +25,8 @@ export function translateWorkflowDescription(description: string): string | null
   if ((match = /^Non deliberata(?: dalla compagnia)?: (.+)$/s.exec(description))) return t.rejected(match[1]);
   if ((match = /^Integrazioni richieste(?: dalla compagnia)?: (.+)$/s.exec(description))) return t.infoRequested(match[1]);
   if ((match = /^Integrazioni (?:inviate alla compagnia|fornite)(?:: (.+))?$/s.exec(description))) return t.infoProvided(match[1] ?? null);
-  if ((match = /^Polizza emessa(?: \((.+)\))?$/.exec(description))) return t.issued(match[1] ?? null);
+  if ((match = /^Polizza emessa(?:, (\d+) copie)?(?: \((.+)\))?$/.exec(description))) return t.issued(match[2] ?? null, match[1] ? Number(match[1]) : null);
+  if ((match = /^Copie firmate trasmesse alla compagnia(?: \((.+)\))?$/.exec(description))) return t.signedSent(match[1] ?? null);
   if ((match = /^Pratica riaperta(?:: (.+))?$/s.exec(description))) return t.reopened(match[1] ?? null);
   if ((match = /^Pagamento registrato \((\S+)\)(?: · (.+))?$/.exec(description))) return t.paid(match[1], match[2] ?? null);
   return null;

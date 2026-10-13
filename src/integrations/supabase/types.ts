@@ -765,6 +765,7 @@ export type Database = {
           practice_id: string
           rejected_at: string | null
           rejection_reason: string | null
+          signed_sent_at: string | null
           sent_at: string | null
           source_portal: string | null
           source_reference: string | null
@@ -784,6 +785,7 @@ export type Database = {
           practice_id: string
           rejected_at?: string | null
           rejection_reason?: string | null
+          signed_sent_at?: string | null
           sent_at?: string | null
           source_portal?: string | null
           source_reference?: string | null
@@ -803,6 +805,7 @@ export type Database = {
           practice_id?: string
           rejected_at?: string | null
           rejection_reason?: string | null
+          signed_sent_at?: string | null
           sent_at?: string | null
           source_portal?: string | null
           source_reference?: string | null
