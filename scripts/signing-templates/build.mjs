@@ -27,7 +27,7 @@ const CO = {
   office: "Via Michele Mercati, 18 - 00197 Roma",
   tel: "06.97638088",
   pec: "tecnoadvancemgabroker@legalmail.it",
-  // Referente interno per la protezione dei dati (punto di contatto privacy).
+  // Responsabile della protezione dei dati (DPO), nominato dal Titolare ai sensi dell'art. 37 GDPR.
   privacy: { name: "Anton Carlo Santoro", email: "antoncarlo@tecnomga.com" },
 };
 
@@ -88,7 +88,7 @@ ${policyLine}
 
 <h2>1. Titolare del trattamento e contatti</h2>
 <p>Titolare del trattamento è <b>${CO.name}</b>, sede legale in ${CO.legal}, sede operativa in ${CO.office}, iscritta al Registro Unico degli Intermediari (RUI) con il n. ${CO.rui}, P.IVA ${CO.vat}. Per ogni richiesta relativa ai dati personali: PEC <b>${CO.pec}</b>, tel. ${CO.tel}, oppure lettera presso la sede legale all’attenzione del Servizio Privacy. Sito: ${CO.web}.</p>
-<p>Referente interno per la protezione dei dati personali, punto di contatto per ogni richiesta: <b>${CO.privacy.name}</b>, e-mail <b>${CO.privacy.email}</b>, PEC <b>${CO.pec}</b>.</p>
+<p>Il Titolare ha nominato un Responsabile della protezione dei dati (DPO): <b>${CO.privacy.name}</b>, contattabile all’e-mail <b>${CO.privacy.email}</b> (vedi punto 9).</p>
 
 <h2>2. Categorie di dati trattati</h2>
 <ul>
@@ -126,7 +126,7 @@ ${policyLine}
 
 <h2>7. Periodo di conservazione</h2>
 <ul>
-<li>dati contrattuali: per la durata del rapporto e, dopo la sua cessazione, per il tempo necessario ad adempiere agli obblighi di legge e a far valere o difendere diritti (di regola dieci anni, tenuto conto dei termini di prescrizione e dell’art. 2220 c.c.);</li>
+<li>dati contrattuali: per la durata del rapporto e fino a dieci anni dalla sua cessazione, fatto salvo un ulteriore periodo di conservazione imposto o consentito da norme di legge o necessario a far valere o difendere diritti (termini di prescrizione, art. 2220 c.c.);</li>
 <li>documentazione di adeguata verifica antiriciclaggio: dieci anni dalla fine del rapporto (art. 31 D.Lgs. 231/2007);</li>
 <li>registri di sicurezza e di audit (accessi, operazioni sulle pratiche, invii): fino a dieci anni per quelli relativi a pratiche, clienti e documenti e due anni per gli altri; gli indirizzi IP sono resi anonimi dopo dodici mesi (trenta giorni per i registri delle chiamate tecniche);</li>
 <li>dati per marketing: fino alla revoca del consenso e comunque non oltre 24 mesi dalla cessazione del rapporto; dati per profilazione: non oltre 12 mesi.</li>
@@ -134,11 +134,15 @@ ${policyLine}
 <p>Decorsi i termini i dati sono cancellati o resi anonimi.</p>
 
 <h2>8. Diritti dell’interessato</h2>
-<p>Lei può chiedere al Titolare, in ogni momento e nei limiti previsti dal GDPR: l’accesso ai dati (art. 15); la rettifica o l’integrazione (art. 16); la cancellazione (art. 17); la limitazione del trattamento (art. 18); la portabilità dei dati forniti (art. 20); di opporsi al trattamento fondato sul legittimo interesse e, sempre, al marketing diretto (art. 21). Ove il trattamento si basi sul consenso, può revocarlo in qualsiasi momento, senza pregiudicare la liceità del trattamento precedente. Le richieste vanno inviate alla PEC <b>${CO.pec}</b> o alla sede legale.</p>
-<h2>9. Reclamo all’Autorità di controllo</h2>
+<p>Lei può chiedere al Titolare, in ogni momento e nei limiti previsti dal GDPR: l’accesso ai dati (art. 15); la rettifica o l’integrazione (art. 16); la cancellazione (art. 17); la limitazione del trattamento (art. 18); la portabilità dei dati forniti (art. 20); di opporsi al trattamento fondato sul legittimo interesse e, sempre, al marketing diretto (art. 21). Ove il trattamento si basi sul consenso, può revocarlo in qualsiasi momento, senza pregiudicare la liceità del trattamento precedente. Le richieste vanno inviate al DPO o al Titolare ai recapiti indicati ai punti 1 e 9.</p>
+<h2>9. Responsabile della protezione dei dati (DPO)</h2>
+<p>Il Titolare ha designato, ai sensi dell’art. 37 del GDPR, il Sig. <b>${CO.privacy.name}</b> quale Responsabile della protezione dei dati (“DPO”). Ai sensi dell’art. 39 il DPO informa e fornisce consulenza al Titolare, ai responsabili e al personale sugli obblighi in materia di protezione dei dati; sorveglia l’osservanza del GDPR e delle procedure adottate; fornisce supporto nei riscontri agli interessati; coopera con il Garante per la protezione dei dati personali ed è il punto di contatto per l’Autorità e per gli interessati.</p>
+<p>Ai sensi dell’art. 38 Lei può contattare liberamente il DPO per tutte le questioni relative al trattamento dei Suoi dati e all’esercizio dei Suoi diritti: e-mail <b>${CO.privacy.email}</b>, PEC <b>${CO.pec}</b>, oppure lettera presso la sede legale (${CO.legal}) all’attenzione del DPO.</p>
+<h2>10. Reclamo all’Autorità di controllo</h2>
 <p>Fatto salvo ogni altro ricorso, Lei ha il diritto di proporre reclamo al Garante per la protezione dei dati personali (www.garanteprivacy.it) se ritiene che il trattamento violi il GDPR.</p>
-<h2>10. Aggiornamenti</h2>
+<h2>11. Aggiornamenti</h2>
 <p>La presente informativa può essere integrata o aggiornata, anche a seguito di modifiche normative; la versione vigente è comunicata ai clienti con le modalità previste dalla legge.</p>
+<p class="note">Versione ottobre 2026.</p>
 
 <div class="pb"></div>
 <h1>Dichiarazione di presa visione e consensi</h1>
@@ -307,7 +311,7 @@ ${sign("Firma dell’operatore o dell’incaricato")}
 <div class="pb"></div>
 <h1>Informativa sugli obblighi di cui al D.Lgs. 231/2007</h1>
 <p class="sub">Antiriciclaggio e contrasto al finanziamento del terrorismo · parte integrante del questionario</p>
-<p>Le dichiarazioni richieste ai sensi del D.Lgs. 231/2007 e dei relativi regolamenti attuativi sono raccolte per adempiere a obblighi di legge e permettono all’intermediario di verificare che il contratto o l’operazione connessa non perseguano finalità di riciclaggio o di finanziamento del terrorismo. Il conferimento dei dati è obbligatorio: il mancato rilascio delle informazioni non consente di dar corso alla sottoscrizione del contratto o all’operazione e può determinare la risoluzione del rapporto in essere. Il trattamento è svolto anche con strumenti elettronici, solo da personale incaricato, con garanzia di sicurezza e riservatezza; i dati non sono diffusi ma possono essere comunicati alle Autorità e agli Organi di Vigilanza e Controllo, come per legge. I documenti di adeguata verifica sono conservati per dieci anni dalla fine del rapporto (art. 31). Titolare del trattamento: ${CO.name}, PEC ${CO.pec}; referente per la protezione dei dati: ${CO.privacy.name}, ${CO.privacy.email}. I documenti allegati (documento d’identità, licenza dell’impresa, dichiarazione dei titolari effettivi) possono essere letti con strumenti automatici per precompilare il presente questionario: i dati così inseriti sono una bozza e restano sotto la responsabilità di chi firma, che deve verificarli e correggerli. I fornitori del servizio, anche con sede fuori dall’Unione europea, sono indicati nell’informativa sul trattamento dei dati personali.</p>
+<p>Le dichiarazioni richieste ai sensi del D.Lgs. 231/2007 e dei relativi regolamenti attuativi sono raccolte per adempiere a obblighi di legge e permettono all’intermediario di verificare che il contratto o l’operazione connessa non perseguano finalità di riciclaggio o di finanziamento del terrorismo. Il conferimento dei dati è obbligatorio: il mancato rilascio delle informazioni non consente di dar corso alla sottoscrizione del contratto o all’operazione e può determinare la risoluzione del rapporto in essere. Il trattamento è svolto anche con strumenti elettronici, solo da personale incaricato, con garanzia di sicurezza e riservatezza; i dati non sono diffusi ma possono essere comunicati alle Autorità e agli Organi di Vigilanza e Controllo, come per legge. I documenti di adeguata verifica sono conservati per dieci anni dalla fine del rapporto (art. 31). Titolare del trattamento: ${CO.name}, PEC ${CO.pec}; Responsabile della protezione dei dati (DPO): ${CO.privacy.name}, ${CO.privacy.email}. I documenti allegati (documento d’identità, licenza dell’impresa, dichiarazione dei titolari effettivi) possono essere letti con strumenti automatici per precompilare il presente questionario: i dati così inseriti sono una bozza e restano sotto la responsabilità di chi firma, che deve verificarli e correggerli. I fornitori del servizio, anche con sede fuori dall’Unione europea, sono indicati nell’informativa sul trattamento dei dati personali.</p>
 
 <h2>Obblighi del cliente · art. 22 D.Lgs. 231/2007</h2>
 <p>I clienti forniscono per iscritto, sotto la propria responsabilità, tutte le informazioni necessarie e aggiornate per consentire ai soggetti obbligati di adempiere agli obblighi di adeguata verifica. Le imprese dotate di personalità giuridica e le persone giuridiche private ottengono e conservano, per almeno cinque anni, informazioni adeguate, accurate e aggiornate sulla propria titolarità effettiva e le forniscono ai soggetti obbligati in occasione degli adempimenti di adeguata verifica.</p>
