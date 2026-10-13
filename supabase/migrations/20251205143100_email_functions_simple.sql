@@ -1,6 +1,13 @@
 -- Email Automation Functions
 -- Funzioni semplificate per gestione email
 
+-- These replace the first versions (migration 20251205143000) with a different signature or
+-- return type: a function cannot change those in place, so the old ones go first.
+DROP FUNCTION IF EXISTS public.get_pending_email_notifications();
+DROP FUNCTION IF EXISTS public.mark_email_notification_sent(UUID, BOOLEAN);
+DROP FUNCTION IF EXISTS public.mark_email_notification_sent(UUID);
+DROP FUNCTION IF EXISTS public.log_email_sent(UUID, UUID, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR);
+
 -- Funzione per recuperare notifiche in attesa di invio email
 CREATE OR REPLACE FUNCTION public.get_pending_email_notifications()
 RETURNS TABLE (

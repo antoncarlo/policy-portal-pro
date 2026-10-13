@@ -3,6 +3,9 @@
 
 -- Drop the existing trigger and function
 DROP TRIGGER IF EXISTS on_practice_status_change ON public.practices;
+-- The first version of the trigger (migration 20251121175111) has a different name: it goes too,
+-- otherwise the function cannot be dropped and the status would be logged twice.
+DROP TRIGGER IF EXISTS practice_status_change_trigger ON public.practices;
 DROP FUNCTION IF EXISTS public.log_practice_status_change();
 
 -- Recreate the function with explicit TEXT casting and COALESCE for auth.uid()

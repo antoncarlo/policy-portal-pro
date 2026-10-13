@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 
 const root = process.cwd();
 const viesPage = readFileSync(resolve(root, "src/pages/Vies.tsx"), "utf8");
-const safeMigration = readFileSync(resolve(root, "supabase/migrations/20260607_apply_vies_full_orchestrator_safe.sql"), "utf8");
+const safeMigration = readFileSync(resolve(root, "supabase/migrations/20260607100300_apply_vies_full_orchestrator_safe.sql"), "utf8");
 const practiceDocumentsComponent = readFileSync(resolve(root, "src/components/practices/PracticesTable.tsx"), "utf8");
 const practiceDetailDocumentsComponent = readFileSync(resolve(root, "src/components/practice/PracticeDocuments.tsx"), "utf8");
 

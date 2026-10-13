@@ -1,5 +1,5 @@
 -- VIES orchestrator runtime helpers: atomic claim, retry handling and batch counters.
--- Apply after 20260607_create_vies_batch_queue.sql.
+-- Apply after 20260607100000_create_vies_batch_queue.sql.
 
 ALTER TABLE public.vies_batches
   ADD COLUMN IF NOT EXISTS processing_started_at TIMESTAMP WITH TIME ZONE,

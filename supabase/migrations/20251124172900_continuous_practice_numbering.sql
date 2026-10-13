@@ -2,8 +2,8 @@
 -- This migration changes the numbering from yearly reset (PR-2025-0001, PR-2026-0001)
 -- to continuous numbering (PR-2025-0001, PR-2026-0002, etc.)
 
--- Drop the existing function
-DROP FUNCTION IF EXISTS public.generate_practice_number();
+-- The column default of practices.practice_number depends on this function: it is replaced in
+-- place (same signature), never dropped.
 
 -- Create the new function with continuous numbering
 CREATE OR REPLACE FUNCTION public.generate_practice_number()

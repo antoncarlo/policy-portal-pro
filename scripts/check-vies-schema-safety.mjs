@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const migrationPath = resolve('supabase/migrations/20260607_apply_vies_full_orchestrator_safe.sql');
+const migrationPath = resolve('supabase/migrations/20260607100300_apply_vies_full_orchestrator_safe.sql');
 const migrationSql = readFileSync(migrationPath, 'utf8');
 
 const enumPatchPattern = /ALTER\s+TYPE\s+public\.practice_type\s+ADD\s+VALUE\s+IF\s+NOT\s+EXISTS\s+'vies'/i;

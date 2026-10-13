@@ -10,6 +10,7 @@
 | Prove sul server | `npm test` (Vitest) | funzioni delle API con un database finto: notifiche email, flusso delle pratiche e callback della compagnia, consegne in uscita, account e recupero password, rate limit, firma dei webhook, registro email, avvisi, rinnovi, termini delle integrazioni, offboarding, monitoraggio |
 | Prove nel browser | `npm run test:e2e` (Playwright) | pagine reali con la rete simulata: accesso e 2FA, sezioni del flusso, lotti, bozza e documenti da firmare, notifiche, offboarding, registro di audit, rinnovi, pagina di errore, adattamento a telefono/iPad/PC |
 | Audit dipendenze, build | `node scripts/audit-gate.mjs` · `npx vite build` | vulnerabilità alte e critiche, compilazione |
+| Migrazioni da zero (a mano, come «Supabase Preview») | `scripts/check-migrations-fresh.sh` | applica `supabase/migrations/*.sql` in ordine di nome su un Postgres 16 locale vuoto (cluster in `/tmp/pgsim`, porta 54329) con gli schemi `auth`, `storage` e `cron` simulati; si ferma al primo file che fallisce |
 
 ## SECTION 02 — In locale
 

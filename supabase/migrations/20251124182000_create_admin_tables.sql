@@ -65,7 +65,7 @@ CREATE POLICY "Admins can update system settings"
 CREATE TRIGGER update_system_settings_updated_at
   BEFORE UPDATE ON public.system_settings
   FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+  EXECUTE FUNCTION public.handle_updated_at();
 
 -- Create activity_logs table for audit trail
 CREATE TABLE IF NOT EXISTS public.activity_logs (

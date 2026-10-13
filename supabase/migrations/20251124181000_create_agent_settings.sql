@@ -38,7 +38,7 @@ CREATE POLICY "Users can delete own agent settings"
 CREATE TRIGGER update_agent_settings_updated_at
   BEFORE UPDATE ON public.agent_settings
   FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+  EXECUTE FUNCTION public.handle_updated_at();
 
 -- Create index
 CREATE INDEX idx_agent_settings_user_id ON public.agent_settings(user_id);

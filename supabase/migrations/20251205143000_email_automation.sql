@@ -114,7 +114,7 @@ BEGIN
     INNER JOIN 
         public.clients c ON p.client_id = c.id
     INNER JOIN 
-        public.users u ON p.assigned_to = u.id
+        public.profiles u ON p.user_id = u.id
     WHERE 
         -- Notifica non ancora inviata via email
         en.email_sent = false
@@ -322,11 +322,7 @@ CREATE POLICY "email_templates_select_all" ON public.email_templates
 
 CREATE POLICY "email_templates_admin_all" ON public.email_templates
     FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM public.users
-            WHERE users.id = auth.uid()
-            AND users.role = 'admin'
-        )
+        public.has_role(auth.uid(), 'admin'::public.app_role)
     );
 
 -- Email Logs: Utenti vedono solo i propri log
@@ -335,25 +331,21 @@ ALTER TABLE public.email_logs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "email_logs_select_own" ON public.email_logs
     FOR SELECT USING (
         -- Admin vede tutti
-        EXISTS (
-            SELECT 1 FROM public.users
-            WHERE users.id = auth.uid()
-            AND users.role = 'admin'
-        )
+        public.has_role(auth.uid(), 'admin'::public.app_role)
         OR
         -- Agente vede solo le sue pratiche
         EXISTS (
             SELECT 1 FROM public.practices p
             WHERE p.id = email_logs.practice_id
-            AND p.assigned_to = auth.uid()
+            AND p.user_id = auth.uid()
         )
         OR
         -- Collaboratore vede pratiche del suo team
         EXISTS (
             SELECT 1 FROM public.practices p
-            INNER JOIN public.users u ON p.assigned_to = u.id
+            INNER JOIN public.user_roles ur ON ur.user_id = p.user_id
             WHERE p.id = email_logs.practice_id
-            AND u.parent_id = auth.uid()
+            AND ur.parent_agent_id = auth.uid()
         )
     );
 

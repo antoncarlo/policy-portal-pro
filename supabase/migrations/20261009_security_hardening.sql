@@ -316,6 +316,12 @@ begin
 end;
 $function$;
 
+-- The report functions of migration 20251205143200 return other row types: a function cannot change
+-- its return type in place, so the first versions are dropped (the front end reads them through
+-- PostgREST by name; the grants are given again below).
+drop function if exists public.get_production_details(timestamp with time zone, timestamp with time zone, uuid, character varying, character varying);
+drop function if exists public.get_production_stats(timestamp with time zone, timestamp with time zone, uuid);
+drop function if exists public.get_dashboard_kpis(character varying);
 create or replace function public.get_production_details(p_start_date timestamp with time zone, p_end_date timestamp with time zone, p_agent_id uuid default null::uuid, p_practice_type character varying default null::character varying, p_status character varying default null::character varying)
 returns table(practice_number text, practice_type text, client_name text, policy_number text, policy_start_date date, policy_end_date date, premium_gross numeric, commission_amount numeric, status text, created_at timestamp with time zone)
 language plpgsql

@@ -9,7 +9,7 @@ const practiceDetail = readFileSync(resolve(root, "src/pages/PracticeDetail.tsx"
 const domainMessages = readFileSync(resolve(root, "src/i18n/messages/domain.ts"), "utf8");
 const practiceDetailMessages = readFileSync(resolve(root, "src/i18n/messages/practiceDetail.ts"), "utf8");
 const supabaseTypes = readFileSync(resolve(root, "src/integrations/supabase/types.ts"), "utf8");
-const viesPracticeTypeMigrationPath = resolve(root, "supabase/migrations/20260607_add_vies_practice_type.sql");
+const viesPracticeTypeMigrationPath = resolve(root, "supabase/migrations/20260607100200_add_vies_practice_type.sql");
 const migrations = existsSync(viesPracticeTypeMigrationPath) ? readFileSync(viesPracticeTypeMigrationPath, "utf8") : "";
 
 const checks = [

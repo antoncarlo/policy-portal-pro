@@ -41,6 +41,8 @@ create policy "Admins can view email logs"
   on public.email_logs for select to authenticated
   using (public.has_role((select auth.uid()), 'admin'));
 
+-- The earlier version (migration 20251205143100) returns a different row type: it goes first.
+drop function if exists public.get_pending_email_notifications();
 create or replace function public.get_pending_email_notifications()
 returns table (
   notification_id uuid,
