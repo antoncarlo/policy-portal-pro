@@ -2,6 +2,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "devCommand": "npm run dev",
+  "regions": ["dub1"],
   "installCommand": "npm install",
   "framework": "vite",
   "functions": {

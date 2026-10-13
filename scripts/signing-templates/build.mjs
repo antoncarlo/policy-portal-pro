@@ -184,7 +184,7 @@ ${policyLine}
 <tr><td><b>Legale rappresentante e responsabile dell’attività di intermediazione</b></td><td>Barbara Santoro · RUI n. B000614489, sezione B (Broker), iscritta dal 20/11/2018 · in carica dal 29/02/2024</td></tr>
 <tr><td><b>Sede legale</b></td><td>${CO.legal}</td></tr>
 <tr><td><b>Sede operativa</b></td><td>${CO.office}</td></tr>
-<tr><td><b>Recapiti</b></td><td>Tel. ${CO.tel} · PEC ${CO.pec} · e-mail ____________________</td></tr>
+<tr><td><b>Recapiti</b></td><td>Tel. ${CO.tel} · PEC ${CO.pec}</td></tr>
 <tr><td><b>Sito internet</b></td><td>${CO.web}</td></tr>
 <tr><td><b>Autorità di vigilanza</b></td><td>Istituto per la Vigilanza sulle Assicurazioni (IVASS), competente a vigilare sull’attività dell’intermediario</td></tr>
 <tr><td><b>P. IVA</b></td><td>${CO.vat}</td></tr>
