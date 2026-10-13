@@ -33,6 +33,7 @@ const WORKFLOW = [
   { practice_id: PRACTICES[2].id, payment_due_date: iso(12), deliberated_at: "2026-10-05T10:00:00Z", target_portal: "alfa", sent_at: "2026-10-03T10:00:00Z", signed_sent_at: null },
 ];
 const doc = (id, practice, file_name, document_type, created_at, extra = {}) => ({ id, practice_id: practice.id, file_name, file_path: `${practice.id}/${document_type ?? "x"}-${file_name}`, file_size: 1000, mime_type: "application/pdf", document_type, uploaded_by: UID, created_at, ...extra });
+const AML = [{ practice_id: PRACTICES[2].id, data: {}, sources: { files: ["licenza.pdf", "id.jpg", "ubo.pdf"], issues: ["Documento del legale rappresentante scaduto il 30/09/2025"], skipped: [] }, extracted_at: "2026-10-12T09:00:00Z" }];
 const DOCS = [
   doc("m1", PRACTICES[0], "Polizza_VIES_Azienda_1.pdf", "modulo_polizza_vies", "2026-10-01T10:01:00Z"),
   doc("z1", PRACTICES[0], "1.zip", null, "2026-10-01T10:00:30Z", { file_path: `vies-batch-files://${UID}/${LOT}/1.zip`, mime_type: "application/zip", file_size: 5000 }),
@@ -97,6 +98,7 @@ async function open({ admin = true, pageErrors = [] } = {}) {
     if (table === "practices") return reply(filter(PRACTICES));
     if (table === "practice_workflow") return reply(filter(WORKFLOW));
     if (table === "practice_documents") return reply(filter(DOCS));
+    if (table === "practice_aml_data") return reply(filter(AML));
     return reply([]);
   });
   await ctx.route(`${BASE}/api/**`, (route) => {
@@ -150,6 +152,10 @@ const text = async (page) => (await page.locator("body").innerText()).replace(/\
   check("2 ordine di firma: polizza copia Compagnia, privacy, MUP, antiriciclaggio", JSON.stringify(order) === JSON.stringify(["polizza_firmata", "privacy", "mup", "antiriciclaggio"]), JSON.stringify(order));
   check("2 documenti da firmare: 1 di 4, MUP firmato il 06/10/2026", (await page.getByTestId("signing-progress").innerText()).includes("1 di 4") && /Firmato il 06\/10\/2026/.test(await page.getByTestId("signing-slot-mup").innerText()));
   check("2 la copia per la Compagnia si scarica; la bozza non e' tra i documenti da firmare", !(await page.getByTestId("signing-company-copy-download").isDisabled()) && !/bozza-compagnia\.pdf/.test(await page.getByTestId("signing-card").innerText()));
+  check("2 documenti dello ZIP non ancora letti: lo dice, con il pulsante per leggerli", /Non ancora letti/.test(await page.getByTestId("signing-aml").innerText()) && /Leggi i documenti/.test(await page.getByTestId("signing-aml-read").innerText()));
+  await page.getByTestId("signing-aml-read").click();
+  await page.waitForTimeout(800);
+  check("2 nessun documento utile indicizzato: errore chiaro, nessuna chiamata a vuoto", /Lettura dei documenti non riuscita/.test(await text(page)));
   check("2 il rappresentante non vede il campo del numero di polizza", (await page.getByTestId("signing-policy-number").count()) === 0);
   check("2 privacy, MUP e antiriciclaggio: modello sempre disponibile (integrato nel portale)", !(await page.getByTestId("signing-slot-privacy").getByRole("button", { name: /Scarica il modello/ }).isDisabled()) && !(await page.getByTestId("signing-slot-antiriciclaggio").getByRole("button", { name: /Scarica il modello/ }).isDisabled()) && !/Modello non ancora disponibile/.test(await page.getByTestId("signing-card").innerText()));
   const [download] = await Promise.all([page.waitForEvent("download", { timeout: 15000 }), page.getByTestId("signing-slot-antiriciclaggio").getByRole("button", { name: /Scarica il modello/ }).click()]);
@@ -175,6 +181,8 @@ const text = async (page) => (await page.locator("body").innerText()).replace(/\
   const sends = log.api.filter((c) => c.body.action === "workflow_send_signed");
   check("3 4 di 4 firmati: la trasmissione parte da sola, una volta, per la pratica giusta", sends.length === 1 && sends[0].body.practiceId === PRACTICES[2].id && sends[0].body.resend === false, JSON.stringify(sends));
   check("3 dopo la risposta: 'Copie firmate trasmesse alla compagnia il 13/10/2026'", (await page.getByTestId("signing-sent").count()) === 1 && /trasmesse alla compagnia il 13\/10\/2026/.test(await page.getByTestId("signing-sent").innerText()), await page.getByTestId("signing-card").innerText());
+  const amlPanel = await page.getByTestId("signing-aml").innerText();
+  check("3 dati letti dai documenti: data, numero di documenti, segnalazioni da controllare, 'bozza da verificare'", /Letti il 12\/10\/2026 da 3 documenti/.test(amlPanel) && /bozza da verificare/.test(amlPanel) && /scaduto il 30\/09\/2025/.test(await page.getByTestId("signing-aml-issues").innerText()) && /Rileggi i documenti/.test(amlPanel), amlPanel);
   check("3 nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
   await ctx.close();
 }

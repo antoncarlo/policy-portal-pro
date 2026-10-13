@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { SigningSlotId } from "@/lib/signingDocuments";
+import { loadAmlData } from "@/lib/amlExtractionRun";
 import { buildPrefillValues, fillSigningDocument, type AmlData, type PrefillDocument, type PrefillPractice } from "@/lib/signingPrefill";
 
 /** Dati della pratica (e quelli letti dai suoi documenti) con cui si compilano i modelli. */
@@ -20,6 +21,15 @@ export async function loadPrefillInputs(practiceIds: string[]): Promise<Map<stri
     for (const row of (data ?? []) as Array<PrefillPractice & { id: string }>) {
       found.set(row.id, { practice: row, aml: {} });
     }
+  }
+  // Quello che e' stato letto dai documenti dello ZIP (se e' stato letto): una bozza da verificare.
+  try {
+    for (const [practiceId, stored] of await loadAmlData([...found.keys()])) {
+      const entry = found.get(practiceId);
+      if (entry) entry.aml = stored.aml;
+    }
+  } catch {
+    // Senza i dati letti dai documenti i moduli si compilano con quelli della pratica.
   }
   return found;
 }

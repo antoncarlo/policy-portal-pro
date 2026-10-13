@@ -106,7 +106,8 @@ export function buildPrefillValues(practice: PrefillPractice, aml: AmlData = {})
     lr_professione: text(fields.vies_legale_rappresentante) ? "Legale rappresentante" : "",
     lr_paese_attivita: chinese ? "Cina" : "",
     lr_doc_tipo: id.valid ? "Carta d'identità cinese" : "",
-    lr_doc_numero: text(legal.doc_numero) || idNumber,
+    // Il numero del file Excel, se valido, vale piu' di quello letto dal documento.
+    lr_doc_numero: id.valid ? idNumber : text(legal.doc_numero) || idNumber,
     lr_doc_rilascio: text(legal.doc_rilascio),
     lr_doc_scadenza: text(legal.doc_scadenza),
     lr_doc_ente: text(legal.doc_ente),

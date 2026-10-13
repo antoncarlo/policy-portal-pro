@@ -26,6 +26,7 @@ import {
 } from "@/lib/signingDocuments";
 import { listSigningTemplates, saveBlob, type TemplateInfo } from "@/lib/signingTemplates";
 import { generateSigningDocument, loadPrefillInputs } from "@/lib/signingPrefillData";
+import { loadAmlData, readAmlDocuments, type StoredAml } from "@/lib/amlExtractionRun";
 import { formatDate, getMessages, useMessages } from "@/i18n";
 import { signingMessages } from "@/i18n/messages/signing";
 
@@ -61,11 +62,13 @@ export const SigningDocumentsCard = ({ practice, isAdmin, refreshToken = 0, onCh
   const [documents, setDocuments] = useState<FlowDocument[]>([]);
   const [templates, setTemplates] = useState<Map<SigningSlotId, TemplateInfo>>(new Map());
   const [sentAt, setSentAt] = useState<string | null>(null);
-  const [busy, setBusy] = useState<SigningSlotId | "company_copy" | "send" | "policy" | null>(null);
+  const [busy, setBusy] = useState<SigningSlotId | "company_copy" | "send" | "policy" | "aml" | null>(null);
   const sendingRef = useRef(false);
   // Numero di polizza della compagnia: arriva dopo la delibera, con la copia per la Compagnia.
   const [policyNumber, setPolicyNumber] = useState<string>("");
   const [policyDraft, setPolicyDraft] = useState<string>("");
+  // Dati letti dai documenti dello ZIP (licenza, documento del legale rappresentante, UBO) per l'antiriciclaggio.
+  const [aml, setAml] = useState<StoredAml | null>(null);
 
   const load = useCallback(async () => {
     const [{ data: rows }, { data: flow }, found, { data: practiceRow }] = await Promise.all([
@@ -79,6 +82,7 @@ export const SigningDocumentsCard = ({ practice, isAdmin, refreshToken = 0, onCh
       listSigningTemplates(),
       supabase.from("practices").select("policy_number").eq("id", practice.id).maybeSingle(),
     ]);
+    void loadAmlData([practice.id]).then((found) => setAml(found.get(practice.id) ?? null)).catch(() => undefined);
     const saved = ((practiceRow as { policy_number?: string | null } | null)?.policy_number ?? "").trim();
     // "VIES-<n>" e' il riferimento interno del portale, non il numero della compagnia.
     const real = /^VIES-/i.test(saved) ? "" : saved;
@@ -136,6 +140,22 @@ export const SigningDocumentsCard = ({ practice, isAdmin, refreshToken = 0, onCh
     void sendSigned({ silent: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when the set of signatures becomes complete
   }, [complete, sentAt, practice.id]);
+
+  const readAml = async () => {
+    setBusy("aml");
+    const text = getMessages(signingMessages).card;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("session");
+      const stored = await readAmlDocuments(practice.id, session.user.id);
+      setAml(stored);
+      toast({ title: text.amlDone, description: text.amlDoneText(stored.files.length, stored.issues.length) });
+    } catch (error) {
+      fail(text.amlError, error);
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const savePolicyNumber = async () => {
     const value = policyDraft.trim();
@@ -289,6 +309,29 @@ export const SigningDocumentsCard = ({ practice, isAdmin, refreshToken = 0, onCh
               {m.card.policyNumberSave}
             </Button>
           </div>
+        </div>
+      )}
+
+      {signing && (
+        <div className="mb-4 rounded-md border p-3" data-testid="signing-aml">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">{m.card.amlTitle}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{aml ? m.card.amlReadOn(formatDate(aml.extractedAt), aml.files.length) : m.card.amlNever}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{m.card.amlNote}</p>
+            </div>
+            <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => void readAml()} data-testid="signing-aml-read">
+              {busy === "aml" ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+              {busy === "aml" ? m.card.amlReading : aml ? m.card.amlReread : m.card.amlRead}
+            </Button>
+          </div>
+          {aml && aml.issues.length > 0 && (
+            <ul className="mt-2 list-disc space-y-0.5 pl-5 text-xs text-amber-700 dark:text-amber-400" data-testid="signing-aml-issues">
+              {aml.issues.map((issue) => (
+                <li key={issue}>{issue}</li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 

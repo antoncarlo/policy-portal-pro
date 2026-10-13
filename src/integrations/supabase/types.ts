@@ -673,6 +673,38 @@ export type Database = {
           },
         ]
       }
+      practice_aml_data: {
+        Row: {
+          data: Json
+          extracted_at: string
+          extracted_by: string | null
+          practice_id: string
+          sources: Json
+        }
+        Insert: {
+          data?: Json
+          extracted_at?: string
+          extracted_by?: string | null
+          practice_id: string
+          sources?: Json
+        }
+        Update: {
+          data?: Json
+          extracted_at?: string
+          extracted_by?: string | null
+          practice_id?: string
+          sources?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_aml_data_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: true
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       practice_documents: {
         Row: {
           created_at: string
