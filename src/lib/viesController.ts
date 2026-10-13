@@ -243,7 +243,7 @@ export function verifyViesBatch(input: ControllerInput): ControllerReport {
       if (str(job.zip_file_name) !== expectedZipName) fail(`Lo ZIP della riga è ${str(job.zip_file_name) || "mancante"}, atteso ${expectedZipName}`);
       if (str(fields.vies_zip_file) !== expectedZipName) fail(`Lo ZIP registrato nella pratica è ${str(fields.vies_zip_file) || "mancante"}, atteso ${expectedZipName}`);
 
-      // 6. Allegati della pratica: esattamente lo ZIP giusto e un documento di polizza.
+      // 6. Allegati della pratica: esattamente lo ZIP giusto (la bozza non esiste finché la compagnia non delibera).
       const attachments = documentsByPractice.get(practice.id) ?? [];
       const zipAttachments = attachments.filter((document) => /\.zip$/i.test(document.file_name));
       if (zipAttachments.length !== 1) {
@@ -255,12 +255,6 @@ export function verifyViesBatch(input: ControllerInput): ControllerReport {
           fail(`Lo ZIP allegato non è quello archiviato con questo lotto (${zip.file_path})`);
         }
         if (!zip.file_size) fail("Lo ZIP allegato risulta vuoto");
-      }
-      const policyAttachments = attachments.filter((document) => /^Polizza_VIES_.*\.pdf$/i.test(document.file_name));
-      if (policyAttachments.length !== 1) {
-        fail(policyAttachments.length ? `Alla pratica sono allegati ${policyAttachments.length} documenti di polizza` : "Manca il documento di polizza");
-      } else if (!policyAttachments[0].file_path.startsWith(`${practice.id}/`)) {
-        fail("Il documento di polizza non è archiviato nella cartella di questa pratica");
       }
 
       // 7. Documenti obbligatori, ricontati dall'indice dei documenti dello ZIP.

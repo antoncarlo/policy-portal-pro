@@ -130,10 +130,10 @@ export const viesMessages = defineMessages({
     step5: {
       title: "5. Crea le pratiche",
       description:
-        "Vengono create solo le pratiche complete e corrette, ognuna con il suo ZIP e il documento di polizza. Le righe con documenti mancanti o errati non vengono create.",
+        "Vengono create solo le pratiche complete e corrette, ognuna con il suo ZIP. Le righe con documenti mancanti o errati non vengono create.",
       closedTitle: "Pratiche create: questo lotto è chiuso.",
       closedText: (created: number, excluded: number, testMode: boolean) =>
-        `${created} pratiche VIES con ZIP e documento di polizza allegati${excluded ? `; ${excluded} righe escluse e non create` : ""}. Per un nuovo lotto carica un nuovo Excel e i suoi ZIP${
+        `${created} pratiche VIES con lo ZIP allegato${excluded ? `; ${excluded} righe escluse e non create` : ""}. Per un nuovo lotto carica un nuovo Excel e i suoi ZIP${
           testMode
             ? " (modalità prova: le società già create possono essere create di nuovo)."
             : ": le società già create vengono riconosciute e non vengono create due volte."
@@ -152,7 +152,7 @@ export const viesMessages = defineMessages({
     step6: {
       title: "6. Invio al portale esterno",
       description:
-        "Prima dell'invio il controllo finale rilegge dal database ogni pratica creata: dati della società, ZIP allegato, documenti obbligatori, documento di polizza, premio, durata e doppioni. Viene inviata solo la pratica che supera tutte le verifiche; le altre restano bloccate con il motivo. Il controllo viene ripetuto anche un attimo prima di ogni invio.",
+        "Prima dell'invio il controllo finale rilegge dal database ogni pratica creata: dati della società, ZIP allegato, documenti obbligatori, premio, durata e doppioni. Viene inviata solo la pratica che supera tutte le verifiche; le altre restano bloccate con il motivo. Il controllo viene ripetuto anche un attimo prima di ogni invio.",
       finalCheck: "Controllo finale",
       repeat: "Ripeti il controllo",
       checking: "Controllo in corso…",
@@ -257,7 +257,7 @@ export const viesMessages = defineMessages({
       nothingToCreateText: "Nessuna riga supera i controlli: correggi documenti e dati indicati al punto 3.",
       lotCreatedTitle: (lot: number) => `Excel Lotto ${lot} creato`,
       lotCreatedText: (representative: string, count: number, duration: string, excluded: number) =>
-        `${representative}: ${count} pratiche create con ZIP e documento di polizza in ${duration}. Il lotto è in Amministrazione › VIES.${
+        `${representative}: ${count} pratiche create con lo ZIP in ${duration}. Il lotto è in Amministrazione › VIES.${
           excluded ? ` ${excluded} righe escluse perché incomplete o errate: nessuna pratica creata per loro.` : ""
         }`,
       batchErrorTitle: "Errore creazione batch VIES",
@@ -284,7 +284,6 @@ export const viesMessages = defineMessages({
       creatingPractices: (done: number, total: number, duration: string) => `Creazione pratiche VIES ${done}/${total} (${duration})`,
       linkingDocuments: (done: number, total: number, duration: string) =>
         `Collegamento documenti pratica ${done}/${total} (${duration})`,
-      policyDocument: (index: number, total: number, name: string) => `Documento di polizza ${index}/${total}: ${name}`,
       creatingJobs: (done: number, total: number, duration: string) => `Creazione job VIES ${done}/${total} (${duration})`,
       indexingDocuments: (done: number, total: number, duration: string) =>
         `Indicizzazione documenti VIES ${done}/${total} (${duration})`,
@@ -322,10 +321,6 @@ export const viesMessages = defineMessages({
       zipNotArchived: (name: string) => `ZIP pratica ${name} non archiviato nel bucket VIES: impossibile collegarlo alla pratica.`,
       linkFailed: (message: string) => `Collegamento documenti pratica non riuscito: ${message}`,
       practiceNotFound: (row: number) => `Pratica non trovata per la riga ${row}.`,
-      policyNotGenerable: (name: string, missing: string) => `Documento di polizza non generabile per ${name}: mancano ${missing}.`,
-      policyNotArchived: (name: string, message: string) =>
-        `Documento di polizza di ${name} non archiviato dopo 3 tentativi: ${message}`,
-      policyNotLinked: (name: string, message: string) => `Documento di polizza di ${name} non collegato: ${message}`,
       jobsFailed: (message: string) => `Creazione job non riuscita: ${message}`,
       indexingFailed: (message: string) => `Indicizzazione documenti non riuscita: ${message}`,
       finalizeFailed: (message: string) => `Finalizzazione batch non riuscita: ${message}`,
@@ -497,10 +492,10 @@ export const viesMessages = defineMessages({
     step5: {
       title: "5. Create the applications",
       description:
-        "Only complete and correct applications are created, each with its ZIP and policy document. Rows with missing or wrong documents are not created.",
+        "Only complete and correct applications are created, each with its ZIP. Rows with missing or wrong documents are not created.",
       closedTitle: "Applications created: this batch is closed.",
       closedText: (created: number, excluded: number, testMode: boolean) =>
-        `${created} VIES applications with ZIP and policy document attached${excluded ? `; ${excluded} rows excluded and not created` : ""}. For a new batch, upload a new Excel file and its ZIPs${
+        `${created} VIES applications with the ZIP attached${excluded ? `; ${excluded} rows excluded and not created` : ""}. For a new batch, upload a new Excel file and its ZIPs${
           testMode
             ? " (test mode: companies already created can be created again)."
             : ": companies already created are recognised and never created twice."
@@ -519,7 +514,7 @@ export const viesMessages = defineMessages({
     step6: {
       title: "6. Send to the external portal",
       description:
-        "Before sending, the final check re-reads every created application from the database: company data, attached ZIP, required documents, policy document, premium, duration and duplicates. Only applications that pass every check are sent; the others stay blocked with the reason. The check is repeated again just before each submission.",
+        "Before sending, the final check re-reads every created application from the database: company data, attached ZIP, required documents, premium, duration and duplicates. Only applications that pass every check are sent; the others stay blocked with the reason. The check is repeated again just before each submission.",
       finalCheck: "Final check",
       repeat: "Run the check again",
       checking: "Checking…",
@@ -622,7 +617,7 @@ export const viesMessages = defineMessages({
       nothingToCreateText: "No row passes the checks: correct the documents and data shown in step 3.",
       lotCreatedTitle: (lot: number) => `Excel Batch ${lot} created`,
       lotCreatedText: (representative: string, count: number, duration: string, excluded: number) =>
-        `${representative}: ${count} applications created with ZIP and policy document in ${duration}. The batch is in Accounting › VIES.${
+        `${representative}: ${count} applications created with the ZIP in ${duration}. The batch is in Accounting › VIES.${
           excluded ? ` ${excluded} rows excluded because incomplete or wrong: no application created for them.` : ""
         }`,
       batchErrorTitle: "Error creating the VIES batch",
@@ -648,7 +643,6 @@ export const viesMessages = defineMessages({
       verifyZip: (index: number, total: number, name: string) => `Checking that ZIP ${index}/${total} is stored: ${name}`,
       creatingPractices: (done: number, total: number, duration: string) => `Creating VIES applications ${done}/${total} (${duration})`,
       linkingDocuments: (done: number, total: number, duration: string) => `Linking application documents ${done}/${total} (${duration})`,
-      policyDocument: (index: number, total: number, name: string) => `Policy document ${index}/${total}: ${name}`,
       creatingJobs: (done: number, total: number, duration: string) => `Creating VIES jobs ${done}/${total} (${duration})`,
       indexingDocuments: (done: number, total: number, duration: string) => `Indexing VIES documents ${done}/${total} (${duration})`,
       created: (duration: string) => `Applications created in ${duration}.`,
@@ -683,9 +677,6 @@ export const viesMessages = defineMessages({
       zipNotArchived: (name: string) => `Application ZIP ${name} not stored in the VIES bucket: it cannot be linked to the application.`,
       linkFailed: (message: string) => `Linking application documents failed: ${message}`,
       practiceNotFound: (row: number) => `Application not found for row ${row}.`,
-      policyNotGenerable: (name: string, missing: string) => `Policy document cannot be generated for ${name}: missing ${missing}.`,
-      policyNotArchived: (name: string, message: string) => `Policy document of ${name} not stored after 3 attempts: ${message}`,
-      policyNotLinked: (name: string, message: string) => `Policy document of ${name} not linked: ${message}`,
       jobsFailed: (message: string) => `Job creation failed: ${message}`,
       indexingFailed: (message: string) => `Document indexing failed: ${message}`,
       finalizeFailed: (message: string) => `Batch finalisation failed: ${message}`,
@@ -850,10 +841,10 @@ export const viesMessages = defineMessages({
     },
     step5: {
       title: "5. 创建申请",
-      description: "只创建资料完整且正确的申请，每笔申请附带其 ZIP 和保单文件。文件缺失或错误的行不会被创建。",
+      description: "只创建资料完整且正确的申请，每笔申请附带其 ZIP。文件缺失或错误的行不会被创建。",
       closedTitle: "申请已创建：本批次已关闭。",
       closedText: (created: number, excluded: number, testMode: boolean) =>
-        `已创建 ${created} 笔附带 ZIP 和保单文件的 VIES 申请${excluded ? `；${excluded} 行被排除，未创建` : ""}。如需新批次，请上传新的 Excel 及其 ZIP${
+        `已创建 ${created} 笔附带 ZIP 的 VIES 申请${excluded ? `；${excluded} 行被排除，未创建` : ""}。如需新批次，请上传新的 Excel 及其 ZIP${
           testMode ? "（测试模式：已创建的公司可以再次创建）。" : "：系统会识别已创建的公司，不会重复创建。"
         }`,
       goToPractices: "前往 VIES 申请",
@@ -869,7 +860,7 @@ export const viesMessages = defineMessages({
     step6: {
       title: "6. 发送至外部门户",
       description:
-        "发送前，最终检查会从数据库重新读取每笔已创建的申请：公司信息、附带的 ZIP、必备文件、保单文件、保费、期限以及重复情况。只有全部检查通过的申请才会发送；其余申请保持阻止状态并显示原因。每次发送前还会再检查一次。",
+        "发送前，最终检查会从数据库重新读取每笔已创建的申请：公司信息、附带的 ZIP、必备文件、保费、期限以及重复情况。只有全部检查通过的申请才会发送；其余申请保持阻止状态并显示原因。每次发送前还会再检查一次。",
       finalCheck: "最终检查",
       repeat: "重新检查",
       checking: "正在检查…",
@@ -968,7 +959,7 @@ export const viesMessages = defineMessages({
       nothingToCreateText: "没有任何一行通过检查：请按第 3 步的提示修改文件和数据。",
       lotCreatedTitle: (lot: number) => `Excel 批次 ${lot} 已创建`,
       lotCreatedText: (representative: string, count: number, duration: string, excluded: number) =>
-        `${representative}：已在 ${duration} 内创建 ${count} 笔附带 ZIP 和保单文件的申请。该批次位于“财务管理 › VIES”。${
+        `${representative}：已在 ${duration} 内创建 ${count} 笔附带 ZIP 的申请。该批次位于“财务管理 › VIES”。${
           excluded ? `另有 ${excluded} 行因资料不完整或错误被排除，未为其创建申请。` : ""
         }`,
       batchErrorTitle: "创建 VIES 批次出错",
@@ -993,7 +984,6 @@ export const viesMessages = defineMessages({
       verifyZip: (index: number, total: number, name: string) => `正在确认 ZIP ${index}/${total} 已存档：${name}`,
       creatingPractices: (done: number, total: number, duration: string) => `正在创建 VIES 申请 ${done}/${total}（${duration}）`,
       linkingDocuments: (done: number, total: number, duration: string) => `正在关联申请文件 ${done}/${total}（${duration}）`,
-      policyDocument: (index: number, total: number, name: string) => `保单文件 ${index}/${total}：${name}`,
       creatingJobs: (done: number, total: number, duration: string) => `正在创建 VIES 任务 ${done}/${total}（${duration}）`,
       indexingDocuments: (done: number, total: number, duration: string) => `正在索引 VIES 文件 ${done}/${total}（${duration}）`,
       created: (duration: string) => `申请已于 ${duration} 内创建。`,
@@ -1025,9 +1015,6 @@ export const viesMessages = defineMessages({
       zipNotArchived: (name: string) => `申请 ZIP ${name} 未存入 VIES 存储桶：无法关联到申请。`,
       linkFailed: (message: string) => `关联申请文件失败：${message}`,
       practiceNotFound: (row: number) => `未找到第 ${row} 行对应的申请。`,
-      policyNotGenerable: (name: string, missing: string) => `无法为 ${name} 生成保单文件：缺少 ${missing}。`,
-      policyNotArchived: (name: string, message: string) => `${name} 的保单文件尝试 3 次后仍未存档：${message}`,
-      policyNotLinked: (name: string, message: string) => `${name} 的保单文件未关联：${message}`,
       jobsFailed: (message: string) => `创建任务失败：${message}`,
       indexingFailed: (message: string) => `文件索引失败：${message}`,
       finalizeFailed: (message: string) => `批次收尾失败：${message}`,

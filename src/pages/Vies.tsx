@@ -34,15 +34,6 @@ import { formatDateTime, useLocale, useMessages } from "@/i18n";
 import { viesMessages } from "@/i18n/messages/vies";
 import { getDocumentTypeLabel, translateViesText, viesText } from "@/i18n/viesText";
 import { composeNotes } from "@/lib/practiceSummary";
-import {
-  VIES_POLICY_MIME_TYPE,
-  buildViesPolicyFileName,
-  generateViesPolicyPdf,
-  missingViesPolicyData,
-  viesPolicyInputFromPractice,
-  viesPolicyPdfToBytes,
-} from "@/lib/viesPolicyPdf";
-import { PREFILLED_POLICY_MODULE_TYPE } from "@/lib/signingDocuments";
 import { extractPdfText } from "@/lib/pdfText";
 import type { ControllerReport } from "@/lib/viesController";
 import {
@@ -408,7 +399,6 @@ const uploadViesFileResumable = async ({
 };
 
 const VIES_DEFAULT_BENEFICIARY = "Agenzia delle Entrate";
-const VIES_POLICY_DOCUMENTS_BUCKET = "practice-documents";
 
 // Beneficiary office and fiscal representative are fixed for one Excel sheet:
 // entered once, applied to every row unless the row has its own Excel column.
@@ -2453,48 +2443,6 @@ const Vies = () => {
           const { error: practiceDocumentsError } = await supabase.from("practice_documents").insert(chunk);
           if (practiceDocumentsError) throw new Error(errors.linkFailed(practiceDocumentsError.message));
         }
-      }
-
-      // Policy document (front page + guarantee text) for every practice, before the
-      // batch is finalized: if one cannot be produced, the whole creation is undone,
-      // so no practice is ever left without its policy document.
-      let policyDocumentsAttached = 0;
-      for (const [index, record] of batchRecords.entries()) {
-        const practiceId = createdPracticesByIndex.get(record.rowNumber);
-        if (!practiceId) throw new Error(errors.practiceNotFound(record.rowNumber));
-        const input = viesPolicyInputFromPractice(practiceRows[index]);
-        const missingPolicyData = missingViesPolicyData(input);
-        if (missingPolicyData.length) {
-          throw new Error(errors.policyNotGenerable(record.contraente, missingPolicyData.join(", ")));
-        }
-        setBatchUploadStatus(status.policyDocument(index + 1, batchRecords.length, record.contraente));
-        const blob = new Blob([viesPolicyPdfToBytes(generateViesPolicyPdf(input)) as BlobPart], {
-          type: VIES_POLICY_MIME_TYPE,
-        });
-        const fileName = buildViesPolicyFileName(input);
-        const filePath = `${practiceId}/${Date.now()}-${fileName}`;
-        // Temporary storage errors are retried before giving up on the whole creation.
-        let uploadError: Error | null = null;
-        for (let attempt = 0; attempt < 3; attempt += 1) {
-          if (attempt) await new Promise((resolve) => window.setTimeout(resolve, 2000 * attempt));
-          ({ error: uploadError } = await supabase.storage
-            .from(VIES_POLICY_DOCUMENTS_BUCKET)
-            .upload(filePath, blob, { contentType: VIES_POLICY_MIME_TYPE, upsert: true }));
-          if (!uploadError) break;
-        }
-        if (uploadError) throw new Error(errors.policyNotArchived(record.contraente, uploadError.message));
-        const { error: insertError } = await supabase.from("practice_documents").insert({
-          practice_id: practiceId,
-          file_name: fileName,
-          file_path: filePath,
-          file_size: blob.size,
-          mime_type: VIES_POLICY_MIME_TYPE,
-          uploaded_by: userId,
-          // Modulo precompilato per la compagnia: non e' la bozza, il rappresentante fiscale non lo vede.
-          document_type: PREFILLED_POLICY_MODULE_TYPE,
-        });
-        if (insertError) throw new Error(errors.policyNotLinked(record.contraente, insertError.message));
-        policyDocumentsAttached += 1;
       }
 
       const jobRows = jobPreparationRows.map(({ record, reconciliation, reconciliationValidationErrors, allValidationErrors, isBlocked }) => {

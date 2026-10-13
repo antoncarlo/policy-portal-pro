@@ -181,7 +181,7 @@ export const GUIDE = {
               [
                 "<strong>5. Crea le pratiche</strong>",
                 "Premere «Crea N pratiche VIES», dove N è il numero di pratiche pronte.",
-                "Crea solo le pratiche complete e corrette, ciascuna con il suo ZIP e il documento di polizza.",
+                "Crea solo le pratiche complete e corrette, ciascuna con il suo ZIP.",
               ],
             ],
             widths: ["20%", "38%", "42%"],
@@ -212,7 +212,7 @@ export const GUIDE = {
             rows: [
               [
                 "<strong>Pratiche</strong>",
-                "Elenco delle vostre pratiche VIES con stato, ricerca e filtri. Aprendo una pratica trovate il riepilogo (contraente, beneficiario, rappresentante fiscale, garanzia e premio) e i documenti scaricabili (ZIP, documento di polizza).",
+                "Elenco delle vostre pratiche VIES con stato, ricerca e filtri. Aprendo una pratica trovate il riepilogo (contraente, beneficiario, rappresentante fiscale, garanzia e premio) e i documenti scaricabili (ZIP e documenti del lotto).",
               ],
               [
                 "<strong>Amministrazione → VIES</strong>",
@@ -459,7 +459,7 @@ export const GUIDE = {
               [
                 "<strong>5. Create the applications</strong>",
                 "Press \"Create N VIES applications\", where N is the number of ready applications.",
-                "Creates only complete and correct applications, each with its ZIP and the policy document.",
+                "Creates only complete and correct applications, each with its ZIP.",
               ],
             ],
             widths: ["20%", "38%", "42%"],
@@ -490,7 +490,7 @@ export const GUIDE = {
             rows: [
               [
                 "<strong>Applications</strong>",
-                "List of your VIES applications with status, search and filters. Opening one shows the summary (policyholder, beneficiary, fiscal representative, guarantee and premium) and the downloadable documents (ZIP, policy document).",
+                "List of your VIES applications with status, search and filters. Opening one shows the summary (policyholder, beneficiary, fiscal representative, guarantee and premium) and the downloadable documents (ZIP and batch documents).",
               ],
               [
                 "<strong>Accounting → VIES</strong>",

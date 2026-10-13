@@ -1,8 +1,9 @@
 // Documenti da firmare di una pratica (flusso VIES), modulo di polizza precompilato e copie firmate.
 //
-// - Il modulo "Polizza_VIES_*.pdf" generato alla creazione del lotto e' il modulo Annex III
-//   precompilato PER LA COMPAGNIA: non e' una bozza. Resta visibile solo agli amministratori
-//   e viaggia verso il portale della compagnia; al rappresentante fiscale non compare mai.
+// - Il lotto NON genera nessun documento di polizza: finche' la compagnia non delibera la pratica
+//   non ha bozza ne' proposta. Il vecchio modulo "Polizza_VIES_*.pdf" (pratiche create prima) o
+//   quello che un amministratore genera a mano dalla pratica e' interno: visibile solo agli
+//   amministratori, mai al rappresentante fiscale.
 // - La bozza della compagnia (bozza_deliberata) si controlla, non si firma.
 // - Si firmano, in quest'ordine e solo dopo la deliberazione: la polizza nella copia per la
 //   Compagnia (polizza_copia_compagnia, inviata dalla compagnia o allegata dall'ufficio),
