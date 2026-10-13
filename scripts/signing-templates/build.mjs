@@ -27,6 +27,8 @@ const CO = {
   office: "Via Michele Mercati, 18 - 00197 Roma",
   tel: "06.97638088",
   pec: "tecnoadvancemgabroker@legalmail.it",
+  // Referente interno per la protezione dei dati (punto di contatto privacy).
+  privacy: { name: "Anton Carlo Santoro", email: "antoncarlo@tecnomga.com" },
 };
 
 const CSS = `
@@ -86,11 +88,11 @@ ${policyLine}
 
 <h2>1. Titolare del trattamento e contatti</h2>
 <p>Titolare del trattamento è <b>${CO.name}</b>, sede legale in ${CO.legal}, sede operativa in ${CO.office}, iscritta al Registro Unico degli Intermediari (RUI) con il n. ${CO.rui}, P.IVA ${CO.vat}. Per ogni richiesta relativa ai dati personali: PEC <b>${CO.pec}</b>, tel. ${CO.tel}, oppure lettera presso la sede legale all’attenzione del Servizio Privacy. Sito: ${CO.web}.</p>
-<p>Il Responsabile della protezione dei dati (DPO) può essere contattato all’indirizzo PEC <b>${CO.pec}</b>.</p>
+<p>Referente interno per la protezione dei dati personali, punto di contatto per ogni richiesta: <b>${CO.privacy.name}</b>, e-mail <b>${CO.privacy.email}</b>, PEC <b>${CO.pec}</b>.</p>
 
 <h2>2. Categorie di dati trattati</h2>
 <ul>
-<li><b>dati comuni</b>: anagrafici e identificativi, codice fiscale e partita IVA, recapiti (telefono, e-mail, PEC), dati dell’impresa, dati del rappresentante e dei poteri di firma (procura), estremi del documento di identità;</li>
+<li><b>dati comuni</b>: anagrafici e identificativi, codice fiscale e partita IVA, recapiti (telefono, e-mail, PEC), dati dell’impresa, dati del rappresentante e dei poteri di firma (procura), copia e estremi del documento di identità, licenza o visura dell’impresa, dichiarazione dei titolari effettivi;</li>
 <li><b>dati economici e di pagamento</b>: premio, modalità e coordinate di pagamento, dati fiscali e contabili, informazioni sulla situazione economica necessarie all’adeguata verifica;</li>
 <li><b>dati di categorie particolari</b> (art. 9 GDPR, per esempio relativi alla salute) e <b>dati giudiziari</b> (art. 10), solo quando strettamente necessari alla copertura richiesta, alla gestione di un sinistro o agli obblighi antifrode e antiriciclaggio;</li>
 <li><b>dati di terzi</b> che Lei ci fornisce (assicurato, beneficiario, titolari effettivi): è Suo onere informare tali persone e, ove necessario, acquisirne il consenso.</li>
@@ -107,22 +109,26 @@ ${policyLine}
 <tr><td>e) trattamento dei dati di categorie particolari per le finalità a) e b)</td><td>Consenso esplicito (art. 9.2.a) o, ove ricorra, necessità di far valere un diritto in sede giudiziaria</td></tr>
 <tr><td>f) comunicazioni commerciali e promozionali sui prodotti e servizi del Titolare; indagini di soddisfazione</td><td>Consenso, separato per ogni finalità (art. 6.1.a)</td></tr>
 <tr><td>g) profilazione per marketing: analisi dei dati per proporre offerte personalizzate</td><td>Consenso specifico (art. 6.1.a)</td></tr>
+<tr><td>h) lettura automatica, con strumenti di intelligenza artificiale, dei documenti caricati (documento d’identità, licenza dell’impresa, dichiarazione dei titolari effettivi) per precompilare il questionario antiriciclaggio e controllarne la coerenza</td><td>Obbligo di legge e legittimo interesse (art. 6.1.c e 6.1.f)</td></tr>
 </table>
 <p>Il conferimento dei dati per le finalità a), b), c) è necessario: il rifiuto rende impossibile intermediare e gestire il contratto. Il conferimento per le finalità f) e g) è facoltativo e il rifiuto non ha alcuna conseguenza sul rapporto assicurativo.</p>
 
 <h2>4. Modalità del trattamento</h2>
-<p>Il trattamento avviene con strumenti cartacei, informatici e telematici, con logiche strettamente correlate alle finalità indicate e con misure tecniche e organizzative adeguate a garantire sicurezza e riservatezza. I dati non sono diffusi. Non è adottato alcun processo decisionale esclusivamente automatizzato che produca effetti giuridici sull’interessato.</p>
+<p>Il trattamento avviene con strumenti cartacei, informatici e telematici, con logiche strettamente correlate alle finalità indicate e con misure tecniche e organizzative adeguate a garantire sicurezza e riservatezza. I dati non sono diffusi. Non è adottato alcun processo decisionale esclusivamente automatizzato che produca effetti giuridici sull’interessato (art. 22 GDPR).</p>
+<p>La lettura automatica dei documenti (finalità h) produce solo una bozza dei dati del questionario: viene attivata da un operatore, riguarda i soli documenti necessari e il contenuto è sempre verificato e sottoscritto da una persona, che ne risponde. Il fornitore del servizio tratta i documenti per nostro conto e non per i propri fini.</p>
 
 <h2>5. Destinatari dei dati</h2>
-<p>I dati possono essere comunicati, secondo i casi e per le sole finalità indicate, ad altri soggetti della cosiddetta “catena assicurativa”, che li trattano come autonomi titolari o come responsabili del trattamento: imprese di assicurazione e di riassicurazione, coassicuratori, altri intermediari e collaboratori, rappresentanti fiscali e soggetti delegati, periti, medici, legali e consulenti, società di servizi informatici, di archiviazione e di gestione dei pagamenti, banche, società di recupero crediti e di controllo delle frodi, organismi associativi e consortili del settore assicurativo. I dati possono inoltre essere comunicati alle Autorità e agli enti pubblici a ciò legittimati (tra cui IVASS, UIF, Agenzia delle Entrate, Autorità Giudiziaria e Forze dell’ordine). Il personale del Titolare li tratta in qualità di soggetto autorizzato. L’elenco aggiornato dei responsabili è disponibile a richiesta.</p>
+<p>I dati possono essere comunicati, secondo i casi e per le sole finalità indicate, ad altri soggetti della cosiddetta “catena assicurativa”, che li trattano come autonomi titolari o come responsabili del trattamento: imprese di assicurazione e di riassicurazione, coassicuratori, altri intermediari e collaboratori, rappresentanti fiscali e soggetti delegati, periti, medici, legali e consulenti, società di servizi informatici, di archiviazione e di gestione dei pagamenti, banche, società di recupero crediti e di controllo delle frodi, organismi associativi e consortili del settore assicurativo. I dati possono inoltre essere comunicati alle Autorità e agli enti pubblici a ciò legittimati (tra cui IVASS, UIF, Agenzia delle Entrate, Autorità Giudiziaria e Forze dell’ordine). Il personale del Titolare li tratta in qualità di soggetto autorizzato.</p>
+<p>Per erogare il servizio il Titolare si avvale, come responsabili del trattamento, dei seguenti fornitori: <b>Supabase</b> (database, autenticazione e archivio dei file, su infrastruttura Amazon Web Services nella regione dell’Unione europea di Irlanda); <b>Vercel</b> (pubblicazione dell’applicazione e funzioni di collegamento con i portali); <b>Resend</b> (invio della posta elettronica di servizio); <b>Anthropic</b> (lettura automatica dei documenti, finalità h). L’elenco aggiornato dei responsabili è disponibile a richiesta.</p>
 
 <h2>6. Trasferimento dei dati all’estero</h2>
-<p>I dati sono trattati all’interno dello Spazio Economico Europeo. Un trasferimento verso Paesi terzi può avvenire solo se la Commissione europea ha emesso una decisione di adeguatezza o, in mancanza, con le clausole contrattuali standard approvate dalla Commissione e le garanzie supplementari necessarie.</p>
+<p>I dati sono conservati nello Spazio Economico Europeo (Irlanda). Alcuni fornitori sono società con sede negli Stati Uniti e possono trattare i dati anche fuori dall’Unione: il trasferimento avviene solo in presenza di una decisione di adeguatezza della Commissione europea (quadro UE-USA per la protezione dei dati personali) o, in mancanza, con le clausole contrattuali standard approvate dalla Commissione e le garanzie supplementari necessarie.</p>
 
 <h2>7. Periodo di conservazione</h2>
 <ul>
 <li>dati contrattuali: per la durata del rapporto e, dopo la sua cessazione, per il tempo necessario ad adempiere agli obblighi di legge e a far valere o difendere diritti (di regola dieci anni, tenuto conto dei termini di prescrizione e dell’art. 2220 c.c.);</li>
 <li>documentazione di adeguata verifica antiriciclaggio: dieci anni dalla fine del rapporto (art. 31 D.Lgs. 231/2007);</li>
+<li>registri di sicurezza e di audit (accessi, operazioni sulle pratiche, invii): fino a dieci anni per quelli relativi a pratiche, clienti e documenti e due anni per gli altri; gli indirizzi IP sono resi anonimi dopo dodici mesi (trenta giorni per i registri delle chiamate tecniche);</li>
 <li>dati per marketing: fino alla revoca del consenso e comunque non oltre 24 mesi dalla cessazione del rapporto; dati per profilazione: non oltre 12 mesi.</li>
 </ul>
 <p>Decorsi i termini i dati sono cancellati o resi anonimi.</p>
@@ -301,7 +307,7 @@ ${sign("Firma dell’operatore o dell’incaricato")}
 <div class="pb"></div>
 <h1>Informativa sugli obblighi di cui al D.Lgs. 231/2007</h1>
 <p class="sub">Antiriciclaggio e contrasto al finanziamento del terrorismo · parte integrante del questionario</p>
-<p>Le dichiarazioni richieste ai sensi del D.Lgs. 231/2007 e dei relativi regolamenti attuativi sono raccolte per adempiere a obblighi di legge e permettono all’intermediario di verificare che il contratto o l’operazione connessa non perseguano finalità di riciclaggio o di finanziamento del terrorismo. Il conferimento dei dati è obbligatorio: il mancato rilascio delle informazioni non consente di dar corso alla sottoscrizione del contratto o all’operazione e può determinare la risoluzione del rapporto in essere. Il trattamento è svolto anche con strumenti elettronici, solo da personale incaricato, con garanzia di sicurezza e riservatezza; i dati non sono diffusi ma possono essere comunicati alle Autorità e agli Organi di Vigilanza e Controllo, come per legge. I documenti di adeguata verifica sono conservati per dieci anni dalla fine del rapporto (art. 31). Titolare del trattamento: ${CO.name}, PEC ${CO.pec}.</p>
+<p>Le dichiarazioni richieste ai sensi del D.Lgs. 231/2007 e dei relativi regolamenti attuativi sono raccolte per adempiere a obblighi di legge e permettono all’intermediario di verificare che il contratto o l’operazione connessa non perseguano finalità di riciclaggio o di finanziamento del terrorismo. Il conferimento dei dati è obbligatorio: il mancato rilascio delle informazioni non consente di dar corso alla sottoscrizione del contratto o all’operazione e può determinare la risoluzione del rapporto in essere. Il trattamento è svolto anche con strumenti elettronici, solo da personale incaricato, con garanzia di sicurezza e riservatezza; i dati non sono diffusi ma possono essere comunicati alle Autorità e agli Organi di Vigilanza e Controllo, come per legge. I documenti di adeguata verifica sono conservati per dieci anni dalla fine del rapporto (art. 31). Titolare del trattamento: ${CO.name}, PEC ${CO.pec}; referente per la protezione dei dati: ${CO.privacy.name}, ${CO.privacy.email}. I documenti allegati (documento d’identità, licenza dell’impresa, dichiarazione dei titolari effettivi) possono essere letti con strumenti automatici per precompilare il presente questionario: i dati così inseriti sono una bozza e restano sotto la responsabilità di chi firma, che deve verificarli e correggerli. I fornitori del servizio, anche con sede fuori dall’Unione europea, sono indicati nell’informativa sul trattamento dei dati personali.</p>
 
 <h2>Obblighi del cliente · art. 22 D.Lgs. 231/2007</h2>
 <p>I clienti forniscono per iscritto, sotto la propria responsabilità, tutte le informazioni necessarie e aggiornate per consentire ai soggetti obbligati di adempiere agli obblighi di adeguata verifica. Le imprese dotate di personalità giuridica e le persone giuridiche private ottengono e conservano, per almeno cinque anni, informazioni adeguate, accurate e aggiornate sulla propria titolarità effettiva e le forniscono ai soggetti obbligati in occasione degli adempimenti di adeguata verifica.</p>
