@@ -22,7 +22,7 @@ const CO = {
   web: "www.tecnoinsurance.com",
   rui: "B000746484",
   vat: "17460381001",
-  legal: "Viale Parioli, 74 - 00197 Roma",
+  legal: "Via Po, 102 - 00198 Roma",
   office: "Via Michele Mercati, 18 - 00197 Roma",
   tel: "06.97638088",
   pec: "tecnoadvancemgabroker@legalmail.it",
