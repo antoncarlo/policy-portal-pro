@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { callLot, fetchLotCycle, uploadPracticeFile, type LotPracticeRow } from "@/lib/lotFlowApi";
-import { expandFiles, matchEntries, type FileMatch, type LotFileEntry } from "@/lib/lotRecognition";
+import { expandFiles, matchEntries, readEntryTexts, type FileMatch, type LotFileEntry, type RecognitionPractice } from "@/lib/lotRecognition";
+import { extractNotesSections } from "@/lib/practiceSummary";
 import { stageOf } from "@/lib/practiceStages";
 import { useMessages } from "@/i18n";
 import { lotCycleMessages } from "@/i18n/messages/lotCycle";
@@ -42,6 +43,9 @@ export const LotBulkDocumentsDialog = ({ open, mode, batchId, onOpenChange, onDo
   const [overrides, setOverrides] = useState<Record<number, string | null>>({});
   const [ignored, setIgnored] = useState<string[]>([]);
   const [reading, setReading] = useState(false);
+  // The text read inside each PDF: the practice is recognised from the content, not only from the file name.
+  const [texts, setTexts] = useState<Map<string, string>>(new Map());
+  const [readingContent, setReadingContent] = useState<{ done: number; total: number } | null>(null);
   const [running, setRunning] = useState<{ done: number; total: number } | null>(null);
   const [result, setResult] = useState<{ attached: number; failed: string[] } | null>(null);
   const [dueDate, setDueDate] = useState("");
@@ -65,6 +69,8 @@ export const LotBulkDocumentsDialog = ({ open, mode, batchId, onOpenChange, onDo
   useEffect(() => {
     if (!open) return;
     setEntries([]);
+    setTexts(new Map());
+    setReadingContent(null);
     setOverrides({});
     setIgnored([]);
     setResult(null);
@@ -81,17 +87,38 @@ export const LotBulkDocumentsDialog = ({ open, mode, batchId, onOpenChange, onDo
     setResult(null);
     try {
       const { entries: found, ignored: skipped } = await expandFiles(files);
-      setEntries(found.filter((entry) => entry.size <= MAX_FILE_BYTES));
+      const usable = found.filter((entry) => entry.size <= MAX_FILE_BYTES);
+      setEntries(usable);
+      setTexts(new Map());
       setOverrides({});
       setIgnored([...skipped, ...found.filter((entry) => entry.size > MAX_FILE_BYTES).map((entry) => entry.path)]);
       setPicked(true);
+      setReading(false);
+      // The files show up at once, recognised by name; the content is read right after and refines it.
+      setReadingContent({ done: 0, total: usable.length });
+      setTexts(await readEntryTexts(usable, (done, total) => setReadingContent({ done, total })));
+      setReadingContent(null);
     } finally {
       setReading(false);
     }
   };
 
   // The recognition is computed from the files and the practices together: it follows the practices if they load late.
-  const recognised = useMemo(() => matchEntries(entries, eligible), [entries, eligible]);
+  const recognitionPractices = useMemo<RecognitionPractice[]>(
+    () =>
+      eligible.map((practice) => ({
+        id: practice.id,
+        practice_number: practice.practice_number,
+        client_name: practice.client_name,
+        policy_number: practice.policy_number,
+        tax_code: practice.owner_tax_code,
+        uscc: String(extractNotesSections(practice.notes).specificFields?.vies_uscc ?? "") || null,
+      })),
+    [eligible],
+  );
+  // One draft or one policy copy per practice: two files never get the same practice. The issued policies come in several copies.
+  const exclusive = mode !== "issued";
+  const recognised = useMemo(() => matchEntries(entries, recognitionPractices, { exclusive, texts }), [entries, recognitionPractices, exclusive, texts]);
   const matches: FileMatch[] = recognised;
   const assignment = (index: number) => (index in overrides ? overrides[index] : recognised[index]?.practiceId ?? null);
   const assigned = matches.map((match, index) => ({ match, practiceId: assignment(index) })).filter((item) => item.practiceId);
@@ -221,6 +248,7 @@ export const LotBulkDocumentsDialog = ({ open, mode, batchId, onOpenChange, onDo
             {matches.length > 0 && (
               <div className="space-y-2">
                 <p className="text-sm font-medium" data-testid="lot-bulk-summary">{m.recognised(assigned.length, matches.length)}</p>
+                {readingContent && <p className="flex items-center gap-1.5 text-xs text-muted-foreground" data-testid="lot-bulk-reading"><Loader2 className="h-3.5 w-3.5 animate-spin" />{m.readingContent(readingContent.done, readingContent.total)}</p>}
                 <div className="max-h-72 overflow-y-auto rounded-md border">
                   <table className="w-full text-sm">
                     <tbody>
@@ -238,14 +266,17 @@ export const LotBulkDocumentsDialog = ({ open, mode, batchId, onOpenChange, onDo
                                 onChange={(event) => setOverrides((current) => ({ ...current, [index]: event.target.value || null }))}
                               >
                                 <option value="">{m.none}</option>
-                                {eligible.map((practice) => (
+                                {eligible
+                                  // A client already given to another file is no longer offered: the list shrinks as files are assigned.
+                                  .filter((practice) => !exclusive || practice.id === value || !assigned.some((item) => item.practiceId === practice.id))
+                                  .map((practice) => (
                                   <option key={practice.id} value={practice.id}>
                                     {practice.practice_number} · {practice.client_name} {m.stageNote(stages[stageOf(practice)])}
                                   </option>
-                                ))}
+                                  ))}
                               </select>
                             </td>
-                            <td className="whitespace-nowrap px-3 py-1.5 text-xs text-muted-foreground">{match.how ? m.how[match.how] : m.unassigned}</td>
+                            <td className="px-3 py-1.5 text-xs text-muted-foreground">{index in overrides ? "" : match.how ? m.how[match.how] : match.duplicate ? m.duplicate : m.unassigned}</td>
                           </tr>
                         );
                       })}

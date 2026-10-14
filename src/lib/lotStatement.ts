@@ -8,9 +8,6 @@ import {
   type ViesStatementImage,
 } from "@/lib/viesStatementPdf";
 
-const VIES_BUCKET = "vies-batch-files";
-// Shared by every user: the administrators upload it, everyone reads it for the client statement.
-const SIGNATURE_PATH = "00000000-0000-0000-0000-000000000000/impostazioni/firma-estratti-conto";
 
 const blobToImage = (blob: Blob) =>
   new Promise<ViesStatementImage>((resolve, reject) => {
@@ -68,10 +65,8 @@ export async function buildClientStatement(batchId: string): Promise<ClientState
     }));
   if (policies.length === 0) throw new Error("no policies");
 
-  const [logoBlob, signatureBlob] = await Promise.all([
-    fetch("/brand/tecno-mga-logo.png").then((response) => (response.ok ? response.blob() : null)).catch(() => null),
-    supabase.storage.from(VIES_BUCKET).download(SIGNATURE_PATH).then(({ data }) => data).catch(() => null),
-  ]);
+  // The statement is signed by the fiscal representative who pays: the agency's signature is not on it.
+  const logoBlob = await fetch("/brand/tecno-mga-logo.png").then((response) => (response.ok ? response.blob() : null)).catch(() => null);
   const input = {
     kind: "cliente" as const,
     lotNumber: batch.lot_number ?? 0,
@@ -79,7 +74,7 @@ export async function buildClientStatement(batchId: string): Promise<ClientState
     representative: { name: representative?.name ?? "", taxCode: representative?.tax_code ?? "" },
     policies,
     logo: logoBlob ? await blobToImage(logoBlob).catch(() => null) : null,
-    signature: signatureBlob ? await blobToImage(signatureBlob).catch(() => null) : null,
+    signature: null,
     paidAt: batch.paid_at,
   };
   const doc = generateViesStatementPdf(input);

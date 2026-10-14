@@ -173,19 +173,46 @@ const apiCalls = (log, action) => log.api.filter((c) => c.body.action === action
   await page.getByTestId("lot-bulk-input").setInputFiles([
     { name: "VIES-2026-0001-AAAA1111_bozza.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 uno") },
     { name: "Polizza Azienda Due Srl.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 due") },
+    { name: "scan_001.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 senza testo") },
     { name: "scansione.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 boh") },
   ]);
   await page.waitForSelector("[data-testid=lot-bulk-row]", { timeout: 8000 });
-  check("3 il portale riconosce 2 file su 3 (numero pratica, nome del cliente)", /2 file su 3 assegnati/.test(await page.getByTestId("lot-bulk-summary").innerText()), await page.getByTestId("lot-bulk-summary").innerText());
-  check("3 le pratiche senza file sono elencate (la non deliberata ma non rifiutata)", /1 pratica senza file/.test(await page.getByTestId("lot-bulk-without").innerText()) && /VIES-2026-0003/.test(await page.getByTestId("lot-bulk-without").innerText()));
+  await page.waitForFunction(() => !document.querySelector("[data-testid=lot-bulk-reading]"), null, { timeout: 8000 });
+  check("3 il portale riconosce 2 file su 4 (numero pratica, nome del cliente)", /2 file su 4 assegnati/.test(await page.getByTestId("lot-bulk-summary").innerText()), await page.getByTestId("lot-bulk-summary").innerText());
+  const optionsOf = async (index) => (await page.locator("[data-testid=lot-bulk-row]").nth(index).locator("option").allInnerTexts()).map((t) => t.trim());
+  const third = await optionsOf(2);
+  check("3 la lista dei clienti si restringe: per un file da assegnare restano solo i clienti non ancora assegnati", third.length === 2 && /VIES-2026-0003/.test(third[1]), JSON.stringify(third));
+  await page.locator("[data-testid=lot-bulk-row]").nth(2).locator("select").selectOption({ label: third[1] });
+  const fourth = await optionsOf(3);
+  check("3 assegnato il terzo cliente, l'ultimo file non ha più nulla da scegliere", fourth.length === 1, JSON.stringify(fourth));
+  check("3 il cliente scelto resta nella lista del file a cui è assegnato (si può cambiare)", (await optionsOf(2)).length === 2);
+  check("3 le pratiche senza file non ci sono più", (await page.getByTestId("lot-bulk-without").count()) === 0);
   await page.getByTestId("lot-bulk-run").click();
   await page.waitForSelector("[data-testid=lot-bulk-result]", { timeout: 10000 });
   const deliberate = apiCalls(log, "workflow_deliberate");
-  check("3 le due pratiche si deliberano con la bozza, senza e-mail per pratica (quiet)", deliberate.length === 2 && deliberate.every((c) => c.body.quiet === true && c.body.draft.storage_path.startsWith(c.body.practiceId + "/")), JSON.stringify(deliberate));
+  check("3 le tre pratiche si deliberano con la bozza, senza e-mail per pratica (quiet)", deliberate.length === 3 && deliberate.every((c) => c.body.quiet === true && c.body.draft.storage_path.startsWith(c.body.practiceId + "/")), JSON.stringify(deliberate));
   const step = apiCalls(log, "lot_record_step")[0];
-  check("3 il passaggio si registra una volta, con 2 pratiche collegate e il file non riconosciuto", apiCalls(log, "lot_record_step").length === 1 && step.body.step === "drafts_uploaded" && step.body.summary.attached === 2 && step.body.summary.unmatched.join() === "scansione.pdf", JSON.stringify(step));
-  check("3 i file sono nelle cartelle delle pratiche", log.storage.filter((x) => x.method === "POST" && /\/practice-documents\/00000000-0000-4000-8000-0000000003(01|02)\/bozza_deliberata-/.test(x.path)).length === 2, JSON.stringify(log.storage));
+  check("3 il passaggio si registra una volta, con 3 pratiche collegate e il file non riconosciuto", apiCalls(log, "lot_record_step").length === 1 && step.body.step === "drafts_uploaded" && step.body.summary.attached === 3 && step.body.summary.unmatched.join() === "scansione.pdf", JSON.stringify(step));
+  check("3 i file sono nelle cartelle delle pratiche", log.storage.filter((x) => x.method === "POST" && /\/practice-documents\/00000000-0000-4000-8000-0000000003(01|02|03)\/bozza_deliberata-/.test(x.path)).length === 3, JSON.stringify(log.storage));
   check("3 nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
+  await ctx.close();
+}
+
+// 3b) il contenuto del PDF, non solo il nome: un file dal nome qualunque va al cliente scritto dentro
+{
+  const { PDFDocument, StandardFonts } = await import("pdf-lib");
+  const pdf = await PDFDocument.create();
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  pdf.addPage().drawText("Polizza fideiussoria. Contraente: AZIENDA DUE S.R.L. - Rappresentante fiscale", { x: 40, y: 700, size: 12, font });
+  const withText = Buffer.from(await pdf.save());
+  const { ctx, page, pageErrors } = await open({ admin: true, flow: flowOf(["drafts_uploaded", "drafts_confirmed", "payment_submitted", "payment_confirmed"]), paid: true });
+  await page.getByTestId("lot-action-copies").click();
+  await page.getByTestId("lot-bulk-input").setInputFiles([{ name: "documento-7781.pdf", mimeType: "application/pdf", buffer: withText }]);
+  await page.waitForSelector("[data-testid=lot-bulk-row]", { timeout: 8000 });
+  await page.waitForFunction(() => /nel documento/.test(document.querySelector("[data-testid=lot-bulk-row]")?.textContent ?? ""), null, { timeout: 15000 }).catch(() => undefined);
+  const row = await page.locator("[data-testid=lot-bulk-row]").first().innerText();
+  check("3b il PDF 'documento-7781.pdf' va ad Azienda Due dal nome scritto dentro il documento (anche 'S.R.L.' con i punti)", /VIES-2026-0002/.test(await page.locator("[data-testid=lot-bulk-row] select").first().evaluate((el) => el.selectedOptions[0]?.textContent ?? "")) && /dal nome del cliente nel documento/.test(row), row.replace(/\s+/g, " "));
+  check("3b nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
   await ctx.close();
 }
 

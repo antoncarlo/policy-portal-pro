@@ -255,6 +255,34 @@ export function generateViesStatementPdf(input: ViesStatementInput): jsPDF {
   );
 
   y += 10;
+  doc.setDrawColor(60, 60, 60);
+  if (input.kind === "cliente") {
+    // L'estratto conto lo firma chi paga, il rappresentante fiscale: non l'agenzia che lo emette.
+    const signatureWidth = 92;
+    const signatureLeft = right - signatureWidth;
+    if (y > pageHeight - 56) {
+      doc.addPage();
+      y = 30;
+    }
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(90, 90, 90);
+    doc.text("Per accettazione e conferma del saldo", signatureLeft + signatureWidth / 2, y, { align: "center" });
+    y += 5;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.setTextColor(30, 30, 30);
+    const name = doc.splitTextToSize(pdfText(input.representative.name), signatureWidth) as string[];
+    doc.text(name, signatureLeft + signatureWidth / 2, y, { align: "center" });
+    y += name.length * 4.2 + 16;
+    doc.line(signatureLeft, y, right, y);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(90, 90, 90);
+    doc.text("Firma del rappresentante fiscale", signatureLeft + signatureWidth / 2, y + 4, { align: "center" });
+    return doc;
+  }
+
   const signatureWidth = 60;
   const signatureLeft = right - signatureWidth;
   doc.setFontSize(9.5);
@@ -269,7 +297,6 @@ export function generateViesStatementPdf(input: ViesStatementInput): jsPDF {
   } else {
     y += 14;
   }
-  doc.setDrawColor(60, 60, 60);
   doc.line(signatureLeft, y, right, y);
   doc.setFontSize(8.5);
   doc.setTextColor(90, 90, 90);

@@ -36,6 +36,8 @@ export interface LotPracticeRow {
   financial_status: string | null;
   user_id: string;
   premium_gross: number | null;
+  owner_tax_code: string | null;
+  notes: string | null;
 }
 
 export interface LotCycleData {
@@ -49,7 +51,7 @@ export interface LotCycleData {
 /** Tutto cio' che serve a mostrare il ciclo di un lotto, con il perimetro dell'utente (lo applica il database). */
 export async function fetchLotCycle(batchId: string): Promise<LotCycleData> {
   const [practiceResult, flowResult, eventResult, documentResult] = await Promise.all([
-    supabase.from("practices").select("id, practice_number, client_name, policy_number, status, financial_status, user_id, premium_gross").eq("vies_batch_id", batchId).order("practice_number"),
+    supabase.from("practices").select("id, practice_number, client_name, policy_number, status, financial_status, user_id, premium_gross, owner_tax_code, notes").eq("vies_batch_id", batchId).order("practice_number"),
     supabase.from("vies_lot_flow").select("*").eq("batch_id", batchId).maybeSingle(),
     supabase.from("vies_lot_events").select("id, event_type, description, details, created_by, created_at").eq("batch_id", batchId).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(200),
     supabase.from("vies_lot_documents").select("id, kind, file_name, file_path, file_size, mime_type, uploaded_by, created_at").eq("batch_id", batchId).order("created_at", { ascending: false }),

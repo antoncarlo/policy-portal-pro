@@ -403,7 +403,7 @@ export const ViesAdministration = () => {
       setStatementLot(null);
       toast({
         title: internal ? text().internalGenerated(lot.lot_number) : text().clientGenerated(lot.lot_number),
-        description: signature || !isAdmin ? undefined : text().noSignatureWarning,
+        description: signature || !isAdmin || !internal ? undefined : text().noSignatureWarning,
       });
       if (internal) await load();
     } catch (error) {
