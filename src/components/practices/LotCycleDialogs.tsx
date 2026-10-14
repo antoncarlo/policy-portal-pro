@@ -1,3 +1,4 @@
+import { DIALOG_GLASS, GLASS_INSET, SERIF } from "./lotGlass";
 import { useEffect, useState } from "react";
 import { Download, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -57,9 +58,9 @@ export const LotVerifyDialog = ({ open, batchId, data, onOpenChange, onDone }: B
 
   return (
     <Dialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
-      <DialogContent data-testid="lot-verify-dialog">
+      <DialogContent className={DIALOG_GLASS} data-testid="lot-verify-dialog">
         <DialogHeader>
-          <DialogTitle>{m.verify.title}</DialogTitle>
+          <DialogTitle className={SERIF}>{m.verify.title}</DialogTitle>
           <DialogDescription>{m.verify.text(practices)}</DialogDescription>
         </DialogHeader>
         {missing.length > 0 && <p className="text-sm text-amber-700 dark:text-amber-400">{m.verify.missing(missing.slice(0, 6).join(", "))}</p>}
@@ -120,9 +121,9 @@ export const LotPaymentDialog = ({ open, batchId, onOpenChange, onDone }: BasePr
 
   return (
     <Dialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
-      <DialogContent data-testid="lot-payment-dialog">
+      <DialogContent className={DIALOG_GLASS} data-testid="lot-payment-dialog">
         <DialogHeader>
-          <DialogTitle>{m.payment.title}</DialogTitle>
+          <DialogTitle className={SERIF}>{m.payment.title}</DialogTitle>
           <DialogDescription>{m.payment.step1}</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -197,15 +198,15 @@ export const LotPaymentCheckDialog = ({ open, batchId, data, onOpenChange, onDon
   const documents = data?.documents ?? [];
   return (
     <Dialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
-      <DialogContent data-testid="lot-check-dialog">
+      <DialogContent className={DIALOG_GLASS} data-testid="lot-check-dialog">
         <DialogHeader>
-          <DialogTitle>{m.check.title}</DialogTitle>
+          <DialogTitle className={SERIF}>{m.check.title}</DialogTitle>
           <DialogDescription>{m.check.text}</DialogDescription>
         </DialogHeader>
         {documents.length === 0 ? (
           <p className="text-sm text-muted-foreground">{m.check.noDocs}</p>
         ) : (
-          <ul className="divide-y rounded-md border text-sm">
+          <ul className={`divide-y text-sm ${GLASS_INSET}`}>
             {documents.map((doc) => (
               <li key={doc.id} className="flex items-center justify-between gap-2 px-3 py-2" data-testid="lot-check-doc">
                 <div className="min-w-0">
@@ -263,9 +264,9 @@ export const LotSentDialog = ({ open, batchId, onOpenChange, onDone }: BaseProps
 
   return (
     <Dialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
-      <DialogContent data-testid="lot-sent-dialog">
+      <DialogContent className={DIALOG_GLASS} data-testid="lot-sent-dialog">
         <DialogHeader>
-          <DialogTitle>{m.sent.title}</DialogTitle>
+          <DialogTitle className={SERIF}>{m.sent.title}</DialogTitle>
           <DialogDescription>{m.sent.text}</DialogDescription>
         </DialogHeader>
         <div className="space-y-1.5">

@@ -1,5 +1,6 @@
 import { Fragment, useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -140,9 +141,12 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
   // Solo gli amministratori possono cambiare lo stato delle pratiche
   const [canChangeStatus, setCanChangeStatus] = useState(false);
 
+  const queryClient = useQueryClient();
   useEffect(() => {
     setCycleRefresh((value) => value + 1);
-  }, [practices]);
+    // I contatori delle schede (Da lavorare, Pagate, Emesse...) seguono ogni cambio di stato delle pratiche.
+    void queryClient.invalidateQueries({ queryKey: ["practice-stage-counts"] });
+  }, [practices, queryClient]);
 
   const loadPractices = async () => {
     setLoading(true);

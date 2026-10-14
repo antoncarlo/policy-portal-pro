@@ -1,3 +1,4 @@
+import { DIALOG_GLASS, GLASS_INSET, SERIF } from "./lotGlass";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -202,9 +203,9 @@ export const LotBulkDocumentsDialog = ({ open, mode, batchId, onOpenChange, onDo
   const busy = running !== null;
   return (
     <Dialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl" data-testid="lot-bulk-dialog">
+      <DialogContent className={`${DIALOG_GLASS} max-h-[90vh] overflow-y-auto sm:max-w-3xl`} data-testid="lot-bulk-dialog">
         <DialogHeader>
-          <DialogTitle>{m.titles[mode]}</DialogTitle>
+          <DialogTitle className={SERIF}>{m.titles[mode]}</DialogTitle>
           <DialogDescription>{m.intros[mode]}</DialogDescription>
         </DialogHeader>
 
@@ -249,7 +250,7 @@ export const LotBulkDocumentsDialog = ({ open, mode, batchId, onOpenChange, onDo
               <div className="space-y-2">
                 <p className="text-sm font-medium" data-testid="lot-bulk-summary">{m.recognised(assigned.length, matches.length)}</p>
                 {readingContent && <p className="flex items-center gap-1.5 text-xs text-muted-foreground" data-testid="lot-bulk-reading"><Loader2 className="h-3.5 w-3.5 animate-spin" />{m.readingContent(readingContent.done, readingContent.total)}</p>}
-                <div className="max-h-72 overflow-y-auto rounded-md border">
+                <div className={`max-h-72 overflow-y-auto ${GLASS_INSET}`}>
                   <table className="w-full text-sm">
                     <tbody>
                       {matches.map((match, index) => {

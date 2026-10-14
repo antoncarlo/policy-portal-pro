@@ -8,6 +8,9 @@ type HintText = Record<LotStepId, { admin: string; collaborator: string }>;
 export const lotCycleMessages = defineMessages({
   it: {
     title: (lot: string) => `Ciclo del lotto · ${lot}`,
+    eyebrow: "Ciclo del lotto",
+    eyebrowNext: "Prossimo passo",
+    eyebrowClosed: "Completato",
     intro: "Dalla bozza della compagnia alle polizze emesse: ogni passaggio resta registrato.",
     actor: { admin: "Amministratore", collaborator: "Rappresentante fiscale" },
     turn: { you: "Tocca a te", admin: "Attende l'amministratore", collaborator: "Attende il rappresentante fiscale", closed: "Lotto chiuso" },
@@ -152,6 +155,9 @@ export const lotCycleMessages = defineMessages({
   },
   en: {
     title: (lot: string) => `Lot cycle · ${lot}`,
+    eyebrow: "Lot cycle",
+    eyebrowNext: "Next step",
+    eyebrowClosed: "Completed",
     intro: "From the insurer's draft to the issued policies: every step is recorded.",
     actor: { admin: "Administrator", collaborator: "Fiscal representative" },
     turn: { you: "Your turn", admin: "Waiting for the administrator", collaborator: "Waiting for the fiscal representative", closed: "Lot closed" },
@@ -296,6 +302,9 @@ export const lotCycleMessages = defineMessages({
   },
   zh: {
     title: (lot: string) => `批次流程 · ${lot}`,
+    eyebrow: "批次流程",
+    eyebrowNext: "下一步",
+    eyebrowClosed: "已完成",
     intro: "从保险公司草稿到已出具保单：每一步都有记录。",
     actor: { admin: "管理员", collaborator: "税务代表" },
     turn: { you: "轮到您", admin: "等待管理员", collaborator: "等待税务代表", closed: "批次已关闭" },
