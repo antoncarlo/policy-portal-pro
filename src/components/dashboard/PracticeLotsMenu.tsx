@@ -112,6 +112,9 @@ export const PracticeLotsMenu = ({ open }: { open: boolean }) => {
 
   if (!open || lots.length === 0) return null;
 
+  // Il numero ricomincia da 1 per ogni rappresentante fiscale: con piu' rappresentanti nel menu si indica di chi e' il lotto.
+  const showRepresentative = new Set(lots.map((lot) => lot.representative ?? "")).size > 1;
+
   return (
     <div className="-ml-3 mt-2 border-t border-border pt-2" data-testid="lots-menu">
       <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{m.menuTitle}</p>
@@ -138,7 +141,12 @@ export const PracticeLotsMenu = ({ open }: { open: boolean }) => {
                     size="sm"
                     className="h-auto min-h-8 w-full justify-start whitespace-normal py-1.5 text-left text-[13px] font-normal leading-snug"
                   >
-                    <span className="min-w-0 break-words font-medium">{title}</span>
+                    <span className="min-w-0 break-words">
+                      <span className="font-medium">{title}</span>
+                      {showRepresentative && lot.representative && (
+                        <span className="block text-[11px] font-normal text-muted-foreground" data-testid="lots-menu-representative">{lot.representative}</span>
+                      )}
+                    </span>
                     <span className="ml-auto shrink-0 pl-2 text-xs tabular-nums text-muted-foreground">{lot.practiceCount}</span>
                   </Button>
                 </Link>

@@ -18,7 +18,9 @@ import {
   companyCopyPath,
   isSigningStage,
   signaturesComplete,
+  isSignedFileName,
   signedDocumentPath,
+  signedMimeType,
   signingStatus,
   storageReferenceOf,
   type SigningSlot,
@@ -194,24 +196,26 @@ export const SigningDocumentsCard = ({ practice, isAdmin, refreshToken = 0, onCh
     }
   };
 
-  const checkPdf = (file: File) => {
+  const checkPdf = (file: File, signedFile = false) => {
     const text = getMessages(signingMessages).card;
-    if (!(file.type === "application/pdf" || /\.pdf$/i.test(file.name))) throw new Error(text.onlyPdf);
+    // Le copie firmate possono essere PDF o file firmati digitalmente (.p7m); la copia per la Compagnia e' un PDF.
+    const accepted = signedFile ? isSignedFileName(file.name) || file.type === "application/pdf" : file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+    if (!accepted) throw new Error(signedFile ? text.onlySigned : text.onlyPdf);
     if (file.size > MAX_FILE_BYTES) throw new Error(text.tooBig);
   };
 
-  const storeDocument = async (file: File, path: string, documentType: string) => {
+  const storeDocument = async (file: File, path: string, documentType: string, mimeType = "application/pdf") => {
     const text = getMessages(signingMessages).card;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error(text.notAuthenticated);
-    const { error: uploadError } = await supabase.storage.from(PRACTICE_DOCUMENTS_BUCKET).upload(path, file, { contentType: "application/pdf", upsert: false });
+    const { error: uploadError } = await supabase.storage.from(PRACTICE_DOCUMENTS_BUCKET).upload(path, file, { contentType: mimeType, upsert: false });
     if (uploadError) throw new Error(uploadError.message);
     const { error: insertError } = await supabase.from("practice_documents").insert({
       practice_id: practice.id,
       file_name: file.name,
       file_path: path,
       file_size: file.size,
-      mime_type: "application/pdf",
+      mime_type: mimeType,
       uploaded_by: session.user.id,
       document_type: documentType,
     });
@@ -225,8 +229,8 @@ export const SigningDocumentsCard = ({ practice, isAdmin, refreshToken = 0, onCh
     const text = getMessages(signingMessages).card;
     setBusy(slot.id);
     try {
-      checkPdf(file);
-      await storeDocument(file, signedDocumentPath(practice.id, slot.id, file.name), slot.signedType);
+      checkPdf(file, true);
+      await storeDocument(file, signedDocumentPath(practice.id, slot.id, file.name), slot.signedType, signedMimeType(file.name));
       toast({ title: text.uploadedTitle, description: text.uploadedText(m.slots[slot.id].label) });
       requestNotificationFlush();
       onChanged?.();
@@ -410,7 +414,7 @@ export const SigningDocumentsCard = ({ practice, isAdmin, refreshToken = 0, onCh
                     <input
                       id={fileInputId(slot.id)}
                       type="file"
-                      accept="application/pdf,.pdf"
+                      accept="application/pdf,.pdf,.p7m"
                       className="hidden"
                       onChange={(event) => {
                         const file = event.target.files?.[0];

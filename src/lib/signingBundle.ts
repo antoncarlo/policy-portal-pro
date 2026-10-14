@@ -9,9 +9,12 @@ import {
   SIGNED_DOCUMENT_TYPES,
   SIGNING_SLOTS,
   inferSigningSlotFromFileName,
+  isSignedFileName,
   isSigningStage,
+  practiceOfPath,
   signaturesComplete,
   signedDocumentPath,
+  signedMimeType,
   storageReferenceOf,
 } from "@/lib/signingDocuments";
 import { saveBlob } from "@/lib/signingTemplates";
@@ -139,16 +142,6 @@ export interface SignedUploadResult {
   skipped: string[];
 }
 
-/** Numero pratica di una voce dello ZIP: la prima cartella del percorso che corrisponde a una pratica del lotto. */
-const practiceOfEntry = (path: string, byNumber: Map<string, LotPracticeRow>) => {
-  const parts = path.split("/").filter(Boolean);
-  for (const part of parts.slice(0, -1)) {
-    const match = byNumber.get(part.trim().toLowerCase());
-    if (match) return match;
-  }
-  return null;
-};
-
 export async function uploadSignedBundle(options: {
   batchId: string;
   file: File;
@@ -157,16 +150,15 @@ export async function uploadSignedBundle(options: {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("not authenticated");
   const practices = await fetchLotPracticesWithStage(options.batchId);
-  const byNumber = new Map(practices.map((practice) => [practice.practice_number.toLowerCase(), practice]));
 
   const { default: JSZip } = await import("jszip");
   const zip = await JSZip.loadAsync(options.file);
-  const files = Object.values(zip.files).filter((entry) => !entry.dir && /\.pdf$/i.test(entry.name) && !/(^|\/)__MACOSX\//.test(entry.name) && !/(^|\/)\./.test(entry.name));
+  const files = Object.values(zip.files).filter((entry) => !entry.dir && isSignedFileName(entry.name) && !/(^|\/)__MACOSX\//.test(entry.name) && !/(^|\/)\./.test(entry.name));
 
   const skipped: string[] = [];
   const jobs: Array<{ practice: LotPracticeRow; slotId: (typeof SIGNING_SLOTS)[number]["id"]; signedType: string; name: string; entry: (typeof files)[number] }> = [];
   for (const entry of files) {
-    const practice = practiceOfEntry(entry.name, byNumber);
+    const practice = practiceOfPath(entry.name, practices);
     const slot = inferSigningSlotFromFileName(entry.name);
     if (!practice || !slot || !isSigningStage(stageOf(practice))) {
       skipped.push(entry.name);
@@ -186,14 +178,14 @@ export async function uploadSignedBundle(options: {
         const blob = await job.entry.async("blob");
         if (blob.size > MAX_FILE_BYTES) throw new Error("too big");
         const path = signedDocumentPath(job.practice.id, job.slotId, job.name);
-        const { error: uploadError } = await supabase.storage.from(PRACTICE_DOCUMENTS_BUCKET).upload(path, blob, { contentType: "application/pdf", upsert: false });
+        const { error: uploadError } = await supabase.storage.from(PRACTICE_DOCUMENTS_BUCKET).upload(path, blob, { contentType: signedMimeType(job.name), upsert: false });
         if (uploadError) throw new Error(uploadError.message);
         const { error: insertError } = await supabase.from("practice_documents").insert({
           practice_id: job.practice.id,
           file_name: job.name,
           file_path: path,
           file_size: blob.size,
-          mime_type: "application/pdf",
+          mime_type: signedMimeType(job.name),
           uploaded_by: session.user.id,
           document_type: job.signedType,
         });

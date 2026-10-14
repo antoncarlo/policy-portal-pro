@@ -6,6 +6,7 @@
 //      caricamento di una copia firmata con il tipo giusto; con firme incomplete nessuna trasmissione
 //   3) rappresentante, pratica con tutte le firme: la trasmissione alla compagnia parte da sola
 //   4) amministratore: vede il modulo per la compagnia con la sua etichetta, e la scheda modelli in Impostazioni
+//   6) amministratore: ZIP firmato con file .p7m caricato dal lotto
 //   5) pagina Pratiche, lotto aperto: le azioni "Scarica documenti da firmare" e "Carica documenti firmati"
 import { chromium } from "playwright";
 const BASE = process.env.E2E_BASE ?? "http://127.0.0.1:5300";
@@ -225,6 +226,32 @@ const text = async (page) => (await page.locator("body").innerText()).replace(/\
   await page.waitForSelector("[data-testid=lot-download-signing-chip]", { timeout: 10000 });
   check("5 lotto aperto: 'Scarica documenti da firmare' e 'Carica documenti firmati'", (await page.getByTestId("lot-download-signing-chip").count()) === 1 && (await page.getByTestId("lot-upload-signed-chip").count()) === 1);
   check("5 nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
+  await ctx.close();
+}
+
+// 6) amministratore, lotto aperto: ZIP dei documenti firmati digitalmente (.p7m), in cartelle e con nomi appiattiti
+{
+  const { default: JSZip } = await import("jszip");
+  const zip = new JSZip();
+  zip.file(`${PRACTICES[1].practice_number}/3_mup.pdf.p7m`, "p7m-bytes-mup");
+  zip.file(`${PRACTICES[1].practice_number}/1_polizza_copia_compagnia_Azienda_2.pdf.p7m`, "p7m-bytes-polizza");
+  zip.file(`${PRACTICES[2].practice_number}_2_privacy.pdf.p7m`, "p7m-bytes-privacy"); // senza cartella: il numero e' nel nome
+  zip.file("note.txt", "non e' un documento firmato");
+  zip.file(`${PRACTICES[0].practice_number}/3_mup.pdf.p7m`, "pratica non deliberata");
+  const buffer = await zip.generateAsync({ type: "nodebuffer" });
+  const { ctx, page, log, pageErrors } = await open({ admin: true });
+  await page.goto(`${BASE}/practices?lot=${LOT}`, { waitUntil: "networkidle" });
+  await page.waitForSelector("[data-testid=lot-upload-signed-chip]", { timeout: 10000 });
+  await page.locator(`#signed-upload-${LOT}-chip`).setInputFiles({ name: "firmati.zip", mimeType: "application/zip", buffer });
+  await page.waitForTimeout(2500);
+  const docs = log.inserts.filter((i) => i.table === "practice_documents").map((i) => i.body);
+  const find = (practice, type) => docs.find((d) => d.practice_id === practice.id && d.document_type === type);
+  check("6 MUP firmato .p7m nella cartella della pratica giusta, tipo mup_firmato, tipo file p7m", !!find(PRACTICES[1], "mup_firmato") && find(PRACTICES[1], "mup_firmato").mime_type === "application/pkcs7-mime" && find(PRACTICES[1], "mup_firmato").file_name === "3_mup.pdf.p7m", JSON.stringify(docs));
+  check("6 copia polizza firmata .p7m riconosciuta (polizza_firmata)", !!find(PRACTICES[1], "polizza_firmata") && find(PRACTICES[1], "polizza_firmata").file_name.endsWith(".pdf.p7m"));
+  check("6 file senza cartella: la pratica si riconosce dal numero nel nome", !!find(PRACTICES[2], "privacy_firmata"));
+  check("6 testo, e pratica non deliberata: ignorati (3 file caricati, non 5)", docs.length === 3, String(docs.length));
+  check("6 niente errore 'Nessun file riconosciuto'", !/Nessun file riconosciuto/.test(await text(page)));
+  check("6 nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
   await ctx.close();
 }
 

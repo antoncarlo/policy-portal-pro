@@ -3,6 +3,9 @@ import {
   companyCopyOf,
   draftOf,
   inferSigningSlotFromFileName,
+  isSignedFileName,
+  practiceOfPath,
+  signedMimeType,
   isPrefilledPolicyModule,
   isSlotAvailable,
   issuedCopiesOf,
@@ -87,5 +90,28 @@ describe("documenti da firmare", () => {
     expect(inferSigningSlotFromFileName("Polizza copia compagnia firmata.pdf")?.id).toBe("polizza_firmata");
     expect(inferSigningSlotFromFileName("visura.pdf")).toBeNull();
     expect(inferSigningSlotFromFileName("bozza.pdf")).toBeNull();
+  });
+
+  it("accepts signed files in PDF or P7M (CAdES) form", () => {
+    for (const name of ["a.pdf", "A.PDF", "mup.pdf.p7m", "mup.p7m", "x/3_mup.PDF.P7M"]) expect(isSignedFileName(name)).toBe(true);
+    for (const name of ["note.txt", "mup.p7s", "mup.pdf.zip", "mup"]) expect(isSignedFileName(name)).toBe(false);
+    expect(signedMimeType("mup.pdf.p7m")).toBe("application/pkcs7-mime");
+    expect(signedMimeType("mup.pdf")).toBe("application/pdf");
+  });
+
+  it("recognises the slot of a P7M file by its name", () => {
+    expect(inferSigningSlotFromFileName("VIES-2026-0001/3_mup.pdf.p7m")?.id).toBe("mup");
+    expect(inferSigningSlotFromFileName("VIES-2026-0001/1_polizza_copia_compagnia_Azienda.pdf.p7m")?.id).toBe("polizza_firmata");
+    expect(inferSigningSlotFromFileName("VIES-2026-0001/2_privacy.pdf.p7m")?.id).toBe("privacy");
+    expect(inferSigningSlotFromFileName("VIES-2026-0001/4_antiriciclaggio.pdf.p7m")?.id).toBe("antiriciclaggio");
+  });
+
+  it("finds the practice by folder, or by the number in the file name when folders are lost", () => {
+    const practices = [{ practice_number: "VIES-2026-1-ABCD1234" }, { practice_number: "VIES-2026-10-EF567890" }, { practice_number: "VIES-2026-1-ABCD1234-BIS" }];
+    expect(practiceOfPath("VIES-2026-10-EF567890/3_mup.pdf.p7m", practices)).toBe(practices[1]);
+    expect(practiceOfPath("lotto/vies-2026-1-abcd1234/3_mup.pdf.p7m", practices)).toBe(practices[0]);
+    expect(practiceOfPath("VIES-2026-10-EF567890_3_mup.pdf.p7m", practices)).toBe(practices[1]);
+    expect(practiceOfPath("VIES-2026-1-ABCD1234-BIS_3_mup.pdf.p7m", practices)).toBe(practices[2]);
+    expect(practiceOfPath("3_mup.pdf.p7m", practices)).toBeNull();
   });
 });

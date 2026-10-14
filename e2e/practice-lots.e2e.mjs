@@ -37,7 +37,7 @@ const LOTS = [
 ];
 
 const browser = await chromium.launch();
-async function open({ withLots = true, language = "it" } = {}) {
+async function open({ withLots = true, language = "it", lotRows = LOTS } = {}) {
   const ctx = await browser.newContext({ locale: "it-IT", viewport: { width: 1400, height: 1000 } });
   const log = { rpc: [], practiceQueries: [] };
   const hdr = { "access-control-allow-origin": BASE, "access-control-allow-headers": "*", "access-control-allow-methods": "*", "access-control-expose-headers": "content-range" };
@@ -52,7 +52,7 @@ async function open({ withLots = true, language = "it" } = {}) {
       const body = JSON.parse(req.postData() || "{}");
       log.rpc.push(body);
       if (!withLots) return json([]);
-      let rows = LOTS;
+      let rows = lotRows;
       if (body.p_batch_ids) rows = rows.filter((row) => body.p_batch_ids.includes(row.batch_id));
       if (body.p_limit) rows = rows.slice(0, body.p_limit);
       return json(rows);
@@ -157,6 +157,26 @@ const lotRow = (page, n) => page.locator("[data-testid=lot-row]", { hasText: `Lo
   await ctx.close();
 }
 
+// 2b) two representatives, each with its own "Lotto 1": the menu says whose lot it is
+{
+  const rows = [
+    { batch_id: LOT2, lot_number: 1, name: "Excel Lotto 1 · VIES", fiscal_representative_name: "Colcerasa Srl", created_at: "2026-10-09T09:00:00Z", practice_count: 4 },
+    { batch_id: LOT1, lot_number: 1, name: "Excel Lotto 1 · VIES", fiscal_representative_name: "Rossi Fiscale Srl", created_at: "2026-10-08T09:00:00Z", practice_count: 2 },
+  ];
+  const { ctx, page, pageErrors } = await open({ lotRows: rows });
+  await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(500);
+  await page.getByRole("button", { name: /Apri le sezioni|sezioni/i }).first().click().catch(() => {});
+  await page.locator("aside [aria-expanded]").first().waitFor();
+  const chevron = page.locator("aside button[aria-expanded]").first();
+  if ((await chevron.getAttribute("aria-expanded")) !== "true") await chevron.click();
+  await page.waitForSelector("[data-testid=lots-menu]", { timeout: 8000 });
+  const reps = await page.locator("[data-testid=lots-menu-representative]").allInnerTexts();
+  check("2b due 'Lotto 1' di rappresentanti diversi: sotto ognuno il nome del rappresentante", JSON.stringify(reps.map((t) => t.trim())) === JSON.stringify(["Colcerasa Srl", "Rossi Fiscale Srl"]), JSON.stringify(reps));
+  check("2b nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
+  await ctx.close();
+}
+
 // 2) the menu: lots with their practices
 {
   const { ctx, page, pageErrors } = await open();
@@ -169,6 +189,7 @@ const lotRow = (page, n) => page.locator("[data-testid=lot-row]", { hasText: `Lo
   if ((await chevron.getAttribute("aria-expanded")) !== "true") await chevron.click();
   await page.waitForSelector("[data-testid=lots-menu]", { timeout: 8000 });
   const lots = await page.locator("[data-testid=lots-menu-lot]").allInnerTexts();
+  check("2 stesso rappresentante in tutti i lotti: il nome non si ripete nel menu", (await page.locator("[data-testid=lots-menu-representative]").count()) === 0);
   check("2 il menu Pratiche elenca i lotti (Lotto 2 e Lotto 1) con il numero di pratiche", lots.length === 2 && /Lotto 2\s*4/.test(lots[0].replace(/\s+/g, " ")) && /Lotto 1\s*2/.test(lots[1].replace(/\s+/g, " ")), JSON.stringify(lots));
   await page.locator("[data-testid=lots-menu-lot]").first().locator("button[aria-expanded]").click();
   await page.waitForSelector("[data-testid=lots-menu-practice]");

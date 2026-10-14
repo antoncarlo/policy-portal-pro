@@ -129,6 +129,31 @@ const safeFileName = (fileName: string) =>
 export const signedDocumentPath = (practiceId: string, slot: SigningSlotId, fileName: string) =>
   `${practiceId}/${slot}_firmato-${Date.now()}-${safeFileName(fileName)}`;
 
+/**
+ * File firmati accettati: PDF oppure busta di firma digitale CAdES (.p7m, anche "documento.pdf.p7m"), come
+ * li restituisce il sistema di firma del rappresentante fiscale.
+ */
+export const isSignedFileName = (fileName: string) => /\.(pdf|p7m)$/i.test(fileName.trim());
+export const signedMimeType = (fileName: string) => (/\.p7m$/i.test(fileName.trim()) ? "application/pkcs7-mime" : "application/pdf");
+
+/**
+ * La pratica a cui appartiene un file di uno ZIP: la cartella che e' il numero pratica; in mancanza (la firma
+ * in blocco appiattisce o rinomina le cartelle) il numero pratica che compare nel percorso o nel nome del file,
+ * il piu' lungo se ce n'e' piu' d'uno.
+ */
+export function practiceOfPath<T extends { practice_number: string }>(path: string, practices: T[]): T | null {
+  const parts = path.split("/").filter(Boolean).map((part) => part.trim().toLowerCase());
+  const folders = parts.slice(0, -1);
+  for (const practice of practices) if (folders.includes(practice.practice_number.toLowerCase())) return practice;
+  const whole = parts.join("/");
+  let best: T | null = null;
+  for (const practice of practices) {
+    const number = practice.practice_number.toLowerCase();
+    if (number && whole.includes(number) && (!best || number.length > best.practice_number.length)) best = practice;
+  }
+  return best;
+}
+
 /** Nome file della copia per la Compagnia caricata dall'ufficio. */
 export const companyCopyPath = (practiceId: string, fileName: string) =>
   `${practiceId}/${COMPANY_COPY_DOCUMENT_TYPE}-${Date.now()}-${safeFileName(fileName)}`;
