@@ -135,19 +135,19 @@ await check("signed copies go to the company and to the representative's portal,
   await emitPracticeEvent(client, { practiceId: p.id, kind: "deliberated", origin: "admin" });
   assert.deepEqual(sourceCalls()[0].body.data.documents.map((d: any) => d.document_type).sort(), ["bozza_deliberata", "polizza_copia_compagnia"], "the representative gets the copy to sign with the draft");
   reset();
-  doc("polizza_firmata", "polizza-firmata.pdf"); doc("privacy_firmata", "privacy.pdf"); doc("mup_firmato", "mup.pdf"); doc("antiriciclaggio_firmato", "aml.pdf");
+  doc("polizza_firmata", "polizza-firmata.pdf"); doc("mup_firmato", "mup.pdf");
   const out: any = await runWorkflowAction(client, OWNER, "workflow_send_signed", { practiceId: p.id });
   assert.equal(out.changed, true);
   const company = companyCalls(); const source = sourceCalls();
   assert.deepEqual(company.map((c) => c.body.event_type), ["practice.signed"]);
   assert.deepEqual(source.map((c) => c.body.event_type), ["practice.signed"]);
   assert.equal(company[0].headers.authorization, "Bearer company-bearer-key");
-  assert.deepEqual(company[0].body.data.documents.map((d: any) => d.document_type).sort(), ["antiriciclaggio_firmato", "mup_firmato", "polizza_firmata", "privacy_firmata"]);
+  assert.deepEqual(company[0].body.data.documents.map((d: any) => d.document_type).sort(), ["mup_firmato", "polizza_firmata"]);
   assert.ok(company[0].body.data.documents.every((d: any) => /^https:\/\//.test(d.download_url)));
   assert.ok(company[0].body.data.signed_at);
   assert.equal(company[0].body.practice.reference, "ALFA-7");
   assert.equal(source[0].body.stage, "deliberata");
-  assert.equal(source[0].body.data.documents.length, 4);
+  assert.equal(source[0].body.data.documents.length, 2);
 });
 await check("the company is told about the payment and about integrations, with links to the documents", async () => {
   reset();

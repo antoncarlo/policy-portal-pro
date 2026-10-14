@@ -1,15 +1,17 @@
-// Genera i modelli dei documenti da firmare su carta intestata Tecno Advance MGA Broker Srl:
-// informativa privacy e consensi, MUP (Allegato 3 al Reg. IVASS 40/2018) e questionario antiriciclaggio.
+// Genera il documento da firmare su carta intestata Tecno Advance MGA Broker Srl: il MUP unico (Allegato 3 al
+// Reg. IVASS 40/2018, incarico di consulenza, raccomandazione, dichiarazione di consegna, informativa privacy e
+// questionario antiriciclaggio), il cui testo e' in mup-body.mjs.
 //
 //   node scripts/signing-templates/build.mjs [cartella-di-uscita]     (predefinita: public/modelli-firma)
 //
 // I testi stanno in questo file: si modificano qui e si rigenerano i PDF. I file prodotti si caricano in
-// Impostazioni > Documenti da firmare (nomi: privacy.pdf, mup.pdf, antiriciclaggio.pdf).
+// Impostazioni > Documenti da firmare (nome: mup.pdf).
 // Richiede Chromium di Playwright.
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { buildMup } from "./mup-body.mjs";
 import { PDFArray, PDFDict, PDFDocument, PDFName, PDFString } from "pdf-lib";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -78,270 +80,15 @@ const policyLine = row(f("Pratica / Polizza n.", "w2", "pratica"), f("Contraente
 const sign = (...captions) => `<div class="sig">${captions.map((c) => `<div>${c}</div>`).join("")}</div>`;
 const placeDate = row(f("Luogo"), f("Data"));
 
-// ---------------------------------------------------------------------------------------------------
-// 1. INFORMATIVA PRIVACY E CONSENSI
-// ---------------------------------------------------------------------------------------------------
-const privacy = `
-<h1>Informativa sul trattamento dei dati personali e consensi</h1>
-<p class="sub">Artt. 13 e 14 del Regolamento (UE) 2016/679 (GDPR) · Clienti, contraenti, assicurati, beneficiari e loro rappresentanti</p>
-${policyLine}
 
-<p>Gentile Cliente, ai sensi degli artt. 13 e 14 del Regolamento UE 2016/679 (di seguito “GDPR”) La informiamo che, per effetto della richiesta di un preventivo, della sottoscrizione di una polizza assicurativa o dello svolgimento del relativo rapporto, <b>${CO.name}</b>, in qualità di intermediario assicurativo, tratta alcuni dati personali che riguardano Lei, la società che Lei rappresenta e le altre persone coinvolte nel contratto (assicurato, beneficiario, titolari effettivi). I dati sono trattati secondo i principi di correttezza, liceità, trasparenza, minimizzazione e riservatezza.</p>
+const inl = (key, width) =>
+  `<a class="k" href="${KEY_URL}${key}" style="display:inline-block;width:${width};border-bottom:1px solid #1f2733;min-height:13px;vertical-align:bottom;text-decoration:none">&nbsp;</a>`;
 
-<h2>1. Titolare del trattamento e contatti</h2>
-<p>Titolare del trattamento è <b>${CO.name}</b>, sede legale in ${CO.legal}, sede operativa in ${CO.office}, iscritta al Registro Unico degli Intermediari (RUI) con il n. ${CO.rui}, P.IVA ${CO.vat}. Per ogni richiesta relativa ai dati personali: PEC <b>${CO.pec}</b>, tel. ${CO.tel}, oppure lettera presso la sede legale all’attenzione del Servizio Privacy. Sito: ${CO.web}.</p>
-<p>Il Titolare ha nominato un Responsabile della protezione dei dati (DPO): <b>${CO.privacy.name}</b>, contattabile all’e-mail <b>${CO.privacy.email}</b> (vedi punto 9).</p>
-
-<h2>2. Categorie di dati trattati</h2>
-<ul>
-<li><b>dati comuni</b>: anagrafici e identificativi, codice fiscale e partita IVA, recapiti (telefono, e-mail, PEC), dati dell’impresa, dati del rappresentante e dei poteri di firma (procura), copia e estremi del documento di identità, licenza o visura dell’impresa, dichiarazione dei titolari effettivi;</li>
-<li><b>dati economici e di pagamento</b>: premio, modalità e coordinate di pagamento, dati fiscali e contabili, informazioni sulla situazione economica necessarie all’adeguata verifica;</li>
-<li><b>dati di categorie particolari</b> (art. 9 GDPR, per esempio relativi alla salute) e <b>dati giudiziari</b> (art. 10), solo quando strettamente necessari alla copertura richiesta, alla gestione di un sinistro o agli obblighi antifrode e antiriciclaggio;</li>
-<li><b>dati di terzi</b> che Lei ci fornisce (assicurato, beneficiario, titolari effettivi): è Suo onere informare tali persone e, ove necessario, acquisirne il consenso.</li>
-</ul>
-<p>I dati sono raccolti direttamente presso di Lei o presso soggetti terzi inerenti al rapporto (imprese di assicurazione, altri intermediari, rappresentante fiscale o delegato, banche dati e registri pubblici, società di informazione commerciale).</p>
-
-<h2>3. Finalità e basi giuridiche del trattamento</h2>
-<table>
-<tr><th style="width:62%">Finalità</th><th>Base giuridica</th></tr>
-<tr><td>a) attività di intermediazione e consulenza: rilevazione delle esigenze assicurative, valutazione di adeguatezza, preventivo, proposta e conclusione del contratto, servizi connessi o accessori</td><td>Esecuzione del contratto o di misure precontrattuali richieste dall’interessato (art. 6.1.b)</td></tr>
-<tr><td>b) gestione ed esecuzione del rapporto: emissione e rinnovo della polizza, incasso e regolazione dei premi, gestione dei sinistri, assistenza e riscontro a richieste e reclami</td><td>Esecuzione del contratto (art. 6.1.b)</td></tr>
-<tr><td>c) obblighi di legge e di vigilanza: normativa assicurativa e IVASS, adeguata verifica e antiriciclaggio (D.Lgs. 231/2007), obblighi fiscali e contabili, richieste di Autorità</td><td>Obbligo di legge (art. 6.1.c)</td></tr>
-<tr><td>d) prevenzione e individuazione delle frodi assicurative; tutela dei diritti in sede giudiziaria; sicurezza dei sistemi informatici; analisi statistiche e di portafoglio</td><td>Legittimo interesse del Titolare (art. 6.1.f)</td></tr>
-<tr><td>e) trattamento dei dati di categorie particolari per le finalità a) e b)</td><td>Consenso esplicito (art. 9.2.a) o, ove ricorra, necessità di far valere un diritto in sede giudiziaria</td></tr>
-<tr><td>f) comunicazioni commerciali e promozionali sui prodotti e servizi del Titolare; indagini di soddisfazione</td><td>Consenso, separato per ogni finalità (art. 6.1.a)</td></tr>
-<tr><td>g) profilazione per marketing: analisi dei dati per proporre offerte personalizzate</td><td>Consenso specifico (art. 6.1.a)</td></tr>
-<tr><td>h) lettura automatica, con strumenti di intelligenza artificiale, dei documenti caricati (documento d’identità, licenza dell’impresa, dichiarazione dei titolari effettivi) per precompilare il questionario antiriciclaggio e controllarne la coerenza</td><td>Obbligo di legge e legittimo interesse (art. 6.1.c e 6.1.f)</td></tr>
-</table>
-<p>Il conferimento dei dati per le finalità a), b), c) è necessario: il rifiuto rende impossibile intermediare e gestire il contratto. Il conferimento per le finalità f) e g) è facoltativo e il rifiuto non ha alcuna conseguenza sul rapporto assicurativo.</p>
-
-<h2>4. Modalità del trattamento</h2>
-<p>Il trattamento avviene con strumenti cartacei, informatici e telematici, con logiche strettamente correlate alle finalità indicate e con misure tecniche e organizzative adeguate a garantire sicurezza e riservatezza. I dati non sono diffusi. Non è adottato alcun processo decisionale esclusivamente automatizzato che produca effetti giuridici sull’interessato (art. 22 GDPR).</p>
-<p>La lettura automatica dei documenti (finalità h) produce solo una bozza dei dati del questionario: viene attivata da un operatore, riguarda i soli documenti necessari e il contenuto è sempre verificato e sottoscritto da una persona, che ne risponde. Il fornitore del servizio tratta i documenti per nostro conto e non per i propri fini.</p>
-
-<h2>5. Destinatari dei dati</h2>
-<p>I dati possono essere comunicati, secondo i casi e per le sole finalità indicate, ad altri soggetti della cosiddetta “catena assicurativa”, che li trattano come autonomi titolari o come responsabili del trattamento: imprese di assicurazione e di riassicurazione, coassicuratori, altri intermediari e collaboratori, rappresentanti fiscali e soggetti delegati, periti, medici, legali e consulenti, società di servizi informatici, di archiviazione e di gestione dei pagamenti, banche, società di recupero crediti e di controllo delle frodi, organismi associativi e consortili del settore assicurativo. I dati possono inoltre essere comunicati alle Autorità e agli enti pubblici a ciò legittimati (tra cui IVASS, UIF, Agenzia delle Entrate, Autorità Giudiziaria e Forze dell’ordine). Il personale del Titolare li tratta in qualità di soggetto autorizzato.</p>
-<p>Per erogare il servizio il Titolare si avvale, come responsabili del trattamento, dei seguenti fornitori: <b>Supabase</b> (database, autenticazione e archivio dei file, su infrastruttura Amazon Web Services nella regione dell’Unione europea di Irlanda); <b>Vercel</b> (pubblicazione dell’applicazione e funzioni di collegamento con i portali); <b>Resend</b> (invio della posta elettronica di servizio); <b>Anthropic</b> (lettura automatica dei documenti, finalità h). L’elenco aggiornato dei responsabili è disponibile a richiesta.</p>
-
-<h2>6. Trasferimento dei dati all’estero</h2>
-<p>I dati sono conservati nello Spazio Economico Europeo (Irlanda). Alcuni fornitori sono società con sede negli Stati Uniti e possono trattare i dati anche fuori dall’Unione: il trasferimento avviene solo in presenza di una decisione di adeguatezza della Commissione europea (quadro UE-USA per la protezione dei dati personali) o, in mancanza, con le clausole contrattuali standard approvate dalla Commissione e le garanzie supplementari necessarie.</p>
-
-<h2>7. Periodo di conservazione</h2>
-<ul>
-<li>dati contrattuali: per la durata del rapporto e fino a dieci anni dalla sua cessazione, fatto salvo un ulteriore periodo di conservazione imposto o consentito da norme di legge o necessario a far valere o difendere diritti (termini di prescrizione, art. 2220 c.c.);</li>
-<li>documentazione di adeguata verifica antiriciclaggio: dieci anni dalla fine del rapporto (art. 31 D.Lgs. 231/2007);</li>
-<li>registri di sicurezza e di audit (accessi, operazioni sulle pratiche, invii): fino a dieci anni per quelli relativi a pratiche, clienti e documenti e due anni per gli altri; gli indirizzi IP sono resi anonimi dopo dodici mesi (trenta giorni per i registri delle chiamate tecniche);</li>
-<li>dati per marketing: fino alla revoca del consenso e comunque non oltre 24 mesi dalla cessazione del rapporto; dati per profilazione: non oltre 12 mesi.</li>
-</ul>
-<p>Decorsi i termini i dati sono cancellati o resi anonimi.</p>
-
-<h2>8. Diritti dell’interessato</h2>
-<p>Lei può chiedere al Titolare, in ogni momento e nei limiti previsti dal GDPR: l’accesso ai dati (art. 15); la rettifica o l’integrazione (art. 16); la cancellazione (art. 17); la limitazione del trattamento (art. 18); la portabilità dei dati forniti (art. 20); di opporsi al trattamento fondato sul legittimo interesse e, sempre, al marketing diretto (art. 21). Ove il trattamento si basi sul consenso, può revocarlo in qualsiasi momento, senza pregiudicare la liceità del trattamento precedente. Le richieste vanno inviate al DPO o al Titolare ai recapiti indicati ai punti 1 e 9.</p>
-<h2>9. Responsabile della protezione dei dati (DPO)</h2>
-<p>Il Titolare ha designato, ai sensi dell’art. 37 del GDPR, il Sig. <b>${CO.privacy.name}</b> quale Responsabile della protezione dei dati (“DPO”). Ai sensi dell’art. 39 il DPO informa e fornisce consulenza al Titolare, ai responsabili e al personale sugli obblighi in materia di protezione dei dati; sorveglia l’osservanza del GDPR e delle procedure adottate; fornisce supporto nei riscontri agli interessati; coopera con il Garante per la protezione dei dati personali ed è il punto di contatto per l’Autorità e per gli interessati.</p>
-<p>Ai sensi dell’art. 38 Lei può contattare liberamente il DPO per tutte le questioni relative al trattamento dei Suoi dati e all’esercizio dei Suoi diritti: e-mail <b>${CO.privacy.email}</b>, PEC <b>${CO.pec}</b>, oppure lettera presso la sede legale (${CO.legal}) all’attenzione del DPO.</p>
-<h2>10. Reclamo all’Autorità di controllo</h2>
-<p>Fatto salvo ogni altro ricorso, Lei ha il diritto di proporre reclamo al Garante per la protezione dei dati personali (www.garanteprivacy.it) se ritiene che il trattamento violi il GDPR.</p>
-<h2>11. Aggiornamenti</h2>
-<p>La presente informativa può essere integrata o aggiornata, anche a seguito di modifiche normative; la versione vigente è comunicata ai clienti con le modalità previste dalla legge.</p>
-<p class="note">Versione ottobre 2026.</p>
-
-<div class="pb"></div>
-<h1>Dichiarazione di presa visione e consensi</h1>
-<p class="sub">Da compilare e firmare dal Contraente o dal suo rappresentante munito di procura</p>
-${policyLine}
-<div class="row">${f("Il/La sottoscritto/a (cognome e nome)", "w3", "firmatario")}${f("Codice fiscale", "w2", "firmatario_cf")}</div>
-<div class="row">${f("in qualità di (rappresentante legale / procuratore speciale / altro)", "w3", "qualita")}${f("della società", "w3", "contraente")}</div>
-<p>dichiara di aver ricevuto e letto l’informativa che precede, resa da ${CO.name} ai sensi degli artt. 13 e 14 del GDPR, anche per conto delle persone di cui ha fornito i dati.</p>
-
-<h3>A. Dati di categorie particolari (art. 9 GDPR) · finalità a) e b)</h3>
-<p>Presto il consenso al trattamento dei dati di categorie particolari necessari all’intermediazione e alla gestione del contratto e dei sinistri. Il mancato consenso può impedire la conclusione o la gestione del contratto per le coperture che li richiedono.</p>
-${opts("DO il consenso", "NEGO il consenso")}
-<h3>B. Marketing diretto · finalità f)</h3>
-<p>Presto il consenso a ricevere comunicazioni promozionali e commerciali dal Titolare, con modalità tradizionali (posta, telefono con operatore) e automatizzate (e-mail, SMS, messaggistica).</p>
-${opts("DO il consenso", "NEGO il consenso")}
-<h3>C. Indagini di soddisfazione e ricerche di mercato · finalità f)</h3>
-${opts("DO il consenso", "NEGO il consenso")}
-<h3>D. Profilazione per marketing · finalità g)</h3>
-<p>Presto il consenso all’analisi dei miei dati per ricevere offerte personalizzate.</p>
-${opts("DO il consenso", "NEGO il consenso")}
-<h3>E. Comunicazione a terzi per le loro finalità commerciali</h3>
-<p>Presto il consenso alla comunicazione dei miei dati a società partner del Titolare per l’invio di loro proposte commerciali.</p>
-${opts("DO il consenso", "NEGO il consenso")}
-<p class="note">I consensi B–E sono facoltativi e indipendenti l’uno dall’altro; possono essere modificati o revocati in ogni momento scrivendo alla PEC ${CO.pec}.</p>
-${placeDate}
-${sign("Firma del Contraente o del rappresentante con procura (leggibile) e timbro", `Per ricevuta · ${CO.name}`)}
-`;
+const mup = buildMup({ CO, f, row, cb, on, opts, stack, sign, placeDate, inl });
 
 // ---------------------------------------------------------------------------------------------------
-// 2. MUP - ALLEGATO 3 AL REGOLAMENTO IVASS N. 40/2018
-// ---------------------------------------------------------------------------------------------------
-const mup = `
-<h1>Modulo Unico Precontrattuale (MUP) per i prodotti assicurativi</h1>
-<p class="sub">Allegato 3 al Regolamento IVASS n. 40 del 2 agosto 2018 · art. 120-quater del Codice delle Assicurazioni Private</p>
-<div class="box"><p style="margin:0">Il distributore ha l’obbligo di consegnare o trasmettere al contraente il presente Modulo prima della sottoscrizione della proposta o del contratto di assicurazione. Il documento può essere fornito con modalità non cartacea se appropriato rispetto alle modalità di distribuzione del prodotto assicurativo e il contraente lo consente.</p></div>
-${policyLine}
-
-<h2>Sezione I · Informazioni generali sul distributore che entra in contatto con il contraente</h2>
-<h3>Identificazione dell’intermediario</h3>
-<table>
-<tr><td style="width:36%"><b>Cognome e nome</b></td><td>SANTORO BARBARA · legale rappresentante</td></tr>
-<tr><td><b>N. iscrizione</b></td><td>B000614489 · data 20/11/2018 · sezione RUI: B (Broker)</td></tr>
-<tr><td><b>Responsabile dell’attività di distribuzione della</b></td><td>${CO.name.toUpperCase()}</td></tr>
-<tr><td><b>N. iscrizione</b></td><td>${CO.rui} · data 29/02/2024 · sezione RUI: B (Broker) · attività assicurativa · operativa</td></tr>
-<tr><td><b>Indirizzo sede legale</b></td><td>${CO.legal}</td></tr>
-<tr><td><b>Sede operativa</b></td><td>${CO.office}</td></tr>
-<tr><td><b>Recapito telefonico</b></td><td>${CO.tel}</td></tr>
-<tr><td><b>PEC</b></td><td>${CO.pec}</td></tr>
-<tr><td><b>Sito web per promozione e/o collocamento</b></td><td>${CO.web}</td></tr>
-<tr><td><b>P. IVA</b></td><td>${CO.vat}</td></tr>
-</table>
-<div class="box"><b>IVASS è l’Istituto competente alla vigilanza sull’attività di distribuzione svolta. Gli estremi identificativi e di iscrizione dell’intermediario possono essere verificati consultando il RUI sul sito internet dell’IVASS (www.ivass.it).</b></div>
-
-<h2>Sezione II · Informazioni sul modello di distribuzione</h2>
-<p>L’intermediario indica di agire:</p>
-${stack(on("su incarico del cliente"), "in nome e per conto dell’impresa di assicurazione: ______________________________", "distribuisce il contratto in qualità di intermediario proponente sulla base di un accordo di collaborazione orizzontale con l’intermediario emittente ______________________, n. iscrizione ____________ sezione ____")}
-<p class="note">Art. 22, comma 10, D.L. 18 ottobre 2012 n. 179, convertito in L. 17 dicembre 2012 n. 221.</p>
-
-<h2>Sezione III · Informazioni relative a situazioni di potenziale conflitto d’interesse</h2>
-<p>L’intermediario assicurativo informa:</p>
-${stack(on("di non detenere una partecipazione diretta o indiretta pari o superiore al 10% del capitale sociale o dei diritti di voto di una impresa di assicurazione"), on("che nessuna impresa di assicurazione, né impresa controllante un’impresa di assicurazione, detiene una partecipazione diretta o indiretta pari o superiore al 10% del capitale sociale o dei diritti di voto dell’intermediario assicurativo"))}
-
-<h2>Sezione IV · Informazioni sull’attività di distribuzione e consulenza</h2>
-<p>L’intermediario assicurativo informa:</p>
-${stack(on("di non fornire consulenza ai sensi dell’art. 119-ter comma 3 del Codice delle Assicurazioni Private"), on("di non fornire consulenza fondata su un’analisi imparziale e personale ai sensi dell’art. 119-ter comma 4 del Codice delle Assicurazioni Private"), on("di distribuire contratti in assenza di obblighi contrattuali che gli impongano di offrire esclusivamente i contratti di una o più imprese di assicurazione e di non fornire una consulenza fondata su un’analisi imparziale e personale; l’elenco delle imprese con cui ha o potrebbe avere rapporti d’affari è disponibile su richiesta del contraente"), on("che in relazione al contratto intermediato, in caso di esistenza di conflitti di interesse, è stata data opportuna informazione sulla natura e fonte del conflitto come previsto dall’art. 119-bis, comma 7, del Codice delle Assicurazioni Private"))}
-
-<h2>Sezione V · Informazioni sulle remunerazioni</h2>
-<p>L’intermediario assicurativo informa di essere remunerato:</p>
-${stack("con commissione inclusa nel premio assicurativo", "con onorario corrisposto direttamente dal cliente · importo o metodo di calcolo: ______________________________", "con altro tipo di compenso, compresi i benefici economici di qualsiasi tipo offerti o ricevuti in virtù dell’intermediazione: ______________________________", "con una combinazione delle diverse tipologie di compensi indicate")}
-<p class="note">Nel caso di onorario corrisposto direttamente dal cliente, è indicato l’importo del compenso o, se non è possibile, il metodo per calcolarlo. Nel caso di collaborazioni orizzontali o con altri intermediari iscritti nella sezione E del RUI, l’informativa è complessivamente relativa ai compensi percepiti dagli intermediari coinvolti nella distribuzione del prodotto assicurativo.</p>
-
-<h2>Sezione VI · Informazioni sul pagamento dei premi</h2>
-<p>L’intermediario assicurativo informa:</p>
-${stack(on("che i premi pagati dal contraente all’intermediario e le somme destinate ai risarcimenti o ai pagamenti dovuti dalle imprese, se regolati per il tramite dell’intermediario, costituiscono patrimonio autonomo e separato dal patrimonio dell’intermediario stesso"), on("di aver stipulato una fideiussione bancaria idonea a garantire una capacità finanziaria pari al 4 per cento dei premi incassati, con un minimo di euro 23.480. Tale importo è soggetto ad aggiornamento annuale, tenuto conto delle variazioni dell’indice dei prezzi al consumo pubblicato da Eurostat"))}
-<p>che le modalità di pagamento dei premi ammesse sono:</p>
-<ul style="list-style:none;padding-left:6px">
-<li>1. assegni bancari, postali o circolari, muniti della clausola di non trasferibilità, intestati o girati all’impresa di assicurazione oppure all’intermediario, espressamente in tale qualità;</li>
-<li>2. ordini di bonifico, altri mezzi di pagamento bancario o postale, inclusi gli strumenti di pagamento elettronici, anche nella forma on line, che abbiano quale beneficiario uno dei soggetti indicati al precedente punto 1;</li>
-<li>3. denaro contante, esclusivamente per i contratti di assicurazione contro i danni del ramo responsabilità civile auto e relative garanzie accessorie (se ed in quanto riferite allo stesso veicolo assicurato per la responsabilità civile auto), nonché per i contratti degli altri rami danni con il limite di settecentocinquanta euro annui per ciascun contratto.</li>
-</ul>
-<p><b>che i premi pagati all’iscritto nella Sezione B del RUI si considerano pagati direttamente all’impresa e attivano la garanzia solo se espressamente previsto nell’accordo sottoscritto o ratificato dall’impresa stessa con l’intermediario, ai sensi dell’art. 118 del Codice delle Assicurazioni Private.</b></p>
-
-<h2>Sezione VII · Informazioni sugli strumenti di tutela del contraente</h2>
-<p>L’intermediario assicurativo informa che:</p>
-<ul>
-<li>l’attività di distribuzione è garantita da un contratto di assicurazione della responsabilità civile che copre i danni arrecati ai contraenti da negligenze ed errori professionali dell’intermediario o da negligenze, errori professionali ed infedeltà dei dipendenti, dei collaboratori o delle persone del cui operato l’intermediario deve rispondere a norma di legge;</li>
-<li>il contraente ha facoltà, ferma restando la possibilità di rivolgersi all’Autorità Giudiziaria, di inoltrare reclamo per iscritto all’intermediario (<b>${CO.name}</b>, ${CO.legal}, PEC <b>${CO.pec}</b>) o all’impresa preponente secondo le modalità previste dalla sezione Reclami del DIP Aggiuntivo, nonché la possibilità per il contraente, qualora non si ritenga soddisfatto dall’esito del reclamo o in caso di assenza di riscontro da parte dell’intermediario o dell’impresa entro il termine di legge, di rivolgersi all’IVASS (Servizio Tutela degli Utenti, Via del Quirinale 21, 00187 Roma) secondo quanto indicato nei DIP aggiuntivi;</li>
-<li>il contraente ha facoltà di avvalersi di altri eventuali sistemi alternativi di risoluzione delle controversie previsti dalla normativa vigente indicati nei DIP aggiuntivi;</li>
-<li>gli assicurati hanno la possibilità di rivolgersi al Fondo di garanzia per l’attività dei mediatori di assicurazione e di riassicurazione (c/o Consap Spa, via Yser 14 – 00198 Roma – consap@pec.consap.it), per chiedere il risarcimento del danno patrimoniale loro causato dall’esercizio dell’attività di intermediazione, che non sia stato risarcito dall’intermediario stesso o non sia stato indennizzato attraverso il contratto di assicurazione della responsabilità civile.</li>
-</ul>
-
-<h2>Presa visione</h2>
-<p>Il sottoscritto dichiara di aver ricevuto, prima della sottoscrizione della proposta o del contratto, il presente Modulo Unico Precontrattuale, di averne preso visione e di averne compreso il contenuto.</p>
-${policyLine}
-<div class="row">${f("Firmatario (cognome e nome)", "w3", "firmatario")}${f("in qualità di (contraente / rappresentante fiscale con procura speciale)", "w3", "qualita")}</div>
-${placeDate}
-${sign("Firma del Contraente o del rappresentante con procura (leggibile) e timbro", "Firma dell’intermediario o dell’incaricato")}
-`;
-
-// ---------------------------------------------------------------------------------------------------
-// 3. QUESTIONARIO ANTIRICICLAGGIO
-// ---------------------------------------------------------------------------------------------------
-const person = (title, extra = "", p = "") => {
-  const k = (name) => (p ? p + name : "");
-  return `
-<h3>${title}</h3>
-${row(f("Cognome e nome", "w3", k("nome")), f("Codice fiscale", "w2", k("cf")), f("Sesso", "", k("sesso")), f("Data di nascita", "", k("nascita")))}
-${row(f("Comune di nascita", "w2", k("luogo")), f("Prov."), f("Nazione", "", k("nazione_nascita")), f("Cittadinanza", "", k("cittadinanza")), f("Seconda cittadinanza"))}
-${row(f("Residenza: indirizzo e n. civico", "w3", k("residenza")), f("CAP"), f("Comune"), f("Prov."), f("Nazione", "", k("residenza_nazione")))}
-${row(f("Settore e professione", "w2", k("professione")), f("Paese attività prevalente", "", k("paese_attivita")))}
-<div class="opts"><b>Persona politicamente esposta (PEP):</b> ${cb("NO")} ${cb("SI")} · altre cariche pubbliche: ${cb("nessuna")} ${cb("amministratore locale")} ${cb("ruolo apicale in P.A. / consorzio pubblico / associazione di natura pubblica")} ${cb("altro: ____________")}</div>
-${row(f("Documento: carta d’identità / passaporto / patente", "w2", k("doc_tipo")), f("Numero", "", k("doc_numero")), f("Rilasciato il", "", k("doc_rilascio")), f("Scadenza", "", k("doc_scadenza")), f("Ente e località di rilascio", "w2", k("doc_ente")))}
-${extra}`;
-};
-
-const aml = `
-<h1>Modulo per l’identificazione e l’adeguata verifica della clientela</h1>
-<p class="sub">Questionario antiriciclaggio · artt. 15 e seguenti del D.Lgs. 231/2007 e s.m.i. · Da compilare in ogni sua parte, in stampatello</p>
-${row(f("Polizza / Contratto / Pratica n.", "w2", "pratica"), f("Impresa di assicurazione", "w2"), f("Prodotto", "w2", "prodotto"))}
-
-<h2>1. Contraente (persona giuridica)</h2>
-${row(f("Denominazione", "w3", "contraente"), f("Forma giuridica", "w2", "forma"), f("Codice fiscale / P.IVA", "w2", "cf"))}
-${row(f("Sede legale: indirizzo e n. civico", "w3", "sede"), f("CAP"), f("Comune"), f("Prov."), f("Nazione", "", "sede_nazione"))}
-${row(f("Recapito (se diverso dalla sede legale)", "w3"), f("SAE / ATECO"), f("Data di costituzione", "", "costituzione"), f("Registro e n. di iscrizione", "w2", "registro"))}
-${row(f("Paese sede attività economica prevalente", "", "paese_attivita"), f("Paese sede legale della capogruppo"), f("Paesi esteri con cui intrattiene relazioni commerciali", "w2"))}
-<div class="opts"><b>Catena partecipativa complessa:</b> ${cb("NO")} ${cb("SI (allegare organigramma)")} · <b>Ente no profit:</b> ${cb("NO")} ${cb("SI · categoria dei beneficiari: ____________")}</div>
-<p class="lead"><b>Fatturato annuo:</b></p>
-${opts("fino a € 250.000", "da € 250.000,01 a € 1.000.000", "da € 1.000.000,01 a € 10.000.000", "da € 10.000.000,01 a € 50.000.000", "oltre € 50.000.000")}
-<p class="lead"><b>Capitale versato / controvalore dei beni conferiti:</b></p>
-${opts("fino a € 20.000", "da € 20.000,01 a € 250.000", "da € 250.000,01 a € 1.000.000", "da € 1.000.000,01 a € 10.000.000", "oltre € 10.000.000")}
-
-<h2>1-bis. Contraente (persona fisica) · solo se il contraente non è una società</h2>
-${person("Dati del contraente persona fisica", row(f("Reddito annuo"), f("Patrimonio complessivo")))}
-
-<h2>2. Legale rappresentante / esecutore</h2>
-${person("Dati del legale rappresentante o di chi agisce per il contraente (es. rappresentante fiscale con procura speciale)", `
-<div class="opts"><b>Rapporto con il contraente:</b> ${cb("legale rappresentante")} ${cb("procuratore speciale (rappresentante fiscale)")} ${cb("rapporto di lavoro/affari")} ${cb("altro: ____________")}</div>
-<div class="opts"><b>Poteri di rappresentanza comprovati da (allegare):</b> ${cb("statuto")} ${cb("delibera di nomina")} ${cb("procura / delega")} ${cb("visura camerale")} ${cb("altro: ____________")}</div>`, "lr_")}
-
-<h2>3. Titolare effettivo</h2>
-<p><b>Dichiarazione resa ai sensi del D.Lgs. 231/2007.</b> Il sottoscritto, consapevole delle responsabilità anche penali in caso di omessa o falsa dichiarazione in tema di titolarità effettiva, dichiara che i titolari effettivi sono n. ____ ${cb("coincidenti con il legale rappresentante / esecutore (non compilare le schede)")} ${cb("diversi, indicati di seguito")}.</p>
-<p class="note">Titolare effettivo è la persona fisica cui, in ultima istanza, è attribuibile la proprietà diretta o indiretta dell’ente (partecipazione superiore al 25% del capitale) o il relativo controllo; se non è individuabile, coincide con chi detiene poteri di rappresentanza legale, amministrazione o direzione (art. 20 D.Lgs. 231/2007).</p>
-${person("Titolare effettivo n. 1", row(f("Quota di partecipazione / controllo (%)", "", "te1_quota"), f("Natura del controllo", "w2", "te1_controllo")), "te1_")}
-${person("Titolare effettivo n. 2", row(f("Quota di partecipazione / controllo (%)", "", "te2_quota"), f("Natura del controllo", "w2", "te2_controllo")), "te2_")}
-${person("Titolare effettivo n. 3", row(f("Quota di partecipazione / controllo (%)", "", "te3_quota"), f("Natura del controllo", "w2", "te3_controllo")), "te3_")}
-
-<h2>4. Assicurato, beneficiario e soggetto che effettua il pagamento</h2>
-${row(f("Assicurato (se diverso dal contraente): cognome e nome / denominazione", "w3"), f("Codice fiscale / P.IVA", "w2"), f("Motivo e rapporto con il contraente", "w2"))}
-${row(f("Beneficiario della garanzia (denominazione)", "w3", "beneficiario"), f("Codice fiscale / P.IVA", "w2", "beneficiario_cf"), f("Rapporto con il contraente", "w2"))}
-${row(f("Soggetto che effettua il pagamento del premio, se diverso dal contraente", "w3"), f("Codice fiscale / P.IVA", "w2"), f("Rapporto con il contraente", "w2"))}
-<div class="opts"><b>Il soggetto pagante è PEP:</b> ${cb("NO")} ${cb("SI")}</div>
-
-<h2>5. Natura e scopo del rapporto</h2>
-<div class="opts"><b>Scopo prevalente:</b> ${cb("protezione")} ${cb("risparmio")} ${cb("investimento")} ${cb("altro (es. garanzia fideiussoria / polizza a copertura di obbligazioni di legge): ____________")}</div>
-${row(f("Paese di provenienza delle somme versate"), f("Paese di destinazione delle somme liquidate"))}
-<p class="lead"><b>Origine delle somme versate:</b></p>
-${opts("reddito d’impresa", "lavoro dipendente", "lavoro autonomo", "pensione", "rendite da immobili", "reinvestimento da liquidazione", "reinvestimento da sinistro danni", "lascito / eredità / donazione", "altro: ____________")}
-<p>Le operazioni di importo pari o superiore a 5.000 euro si presumono effettuate per conto del contraente e non di un soggetto terzo, salva Sua diversa indicazione. Se intende operare per conto di un terzo deve comunicarlo all’intermediario al momento dell’operazione, fornendo i dati necessari all’identificazione del terzo e, se è una società, del suo titolare effettivo. In assenza delle informazioni necessarie l’operazione non potrà essere eseguita.</p>
-
-<h2>6. Dichiarazione del contraente</h2>
-<p>Il sottoscritto, consapevole della responsabilità penale derivante da mendaci affermazioni in tale sede, dichiara di aver preso visione dell’informativa sugli obblighi di cui al D.Lgs. 231/2007 riportata di seguito, parte integrante del presente questionario, di aver fornito tutte le informazioni necessarie e aggiornate di cui è a conoscenza, anche relative al titolare effettivo del rapporto, di garantirne l’esattezza e la veridicità e di impegnarsi a comunicarne ogni futura variazione.</p>
-${placeDate}
-${sign("Timbro e firma del Contraente o del rappresentante con procura (leggibile)")}
-
-<div class="box keep"><b>Riservato all’intermediario · ${CO.name} (RUI n. ${CO.rui})</b>
-<p style="margin:3px 0 0">Si dichiara che il presente modulo è stato correttamente compilato e che l’incaricato ha proceduto all’identificazione e alla verifica dell’identità dei firmatari, ai sensi della vigente normativa antiriciclaggio.</p>
-${row(f("Modalità di identificazione (di persona / a distanza / altro)", "w2"), f("Livello di rischio assegnato (basso / medio / alto)"), f("Data"))}
-${sign("Firma dell’operatore o dell’incaricato")}
-</div>
-
-<div class="pb"></div>
-<h1>Informativa sugli obblighi di cui al D.Lgs. 231/2007</h1>
-<p class="sub">Antiriciclaggio e contrasto al finanziamento del terrorismo · parte integrante del questionario</p>
-<p>Le dichiarazioni richieste ai sensi del D.Lgs. 231/2007 e dei relativi regolamenti attuativi sono raccolte per adempiere a obblighi di legge e permettono all’intermediario di verificare che il contratto o l’operazione connessa non perseguano finalità di riciclaggio o di finanziamento del terrorismo. Il conferimento dei dati è obbligatorio: il mancato rilascio delle informazioni non consente di dar corso alla sottoscrizione del contratto o all’operazione e può determinare la risoluzione del rapporto in essere. Il trattamento è svolto anche con strumenti elettronici, solo da personale incaricato, con garanzia di sicurezza e riservatezza; i dati non sono diffusi ma possono essere comunicati alle Autorità e agli Organi di Vigilanza e Controllo, come per legge. I documenti di adeguata verifica sono conservati per dieci anni dalla fine del rapporto (art. 31). Titolare del trattamento: ${CO.name}, PEC ${CO.pec}; Responsabile della protezione dei dati (DPO): ${CO.privacy.name}, ${CO.privacy.email}. I documenti allegati (documento d’identità, licenza dell’impresa, dichiarazione dei titolari effettivi) possono essere letti con strumenti automatici per precompilare il presente questionario: i dati così inseriti sono una bozza e restano sotto la responsabilità di chi firma, che deve verificarli e correggerli. I fornitori del servizio, anche con sede fuori dall’Unione europea, sono indicati nell’informativa sul trattamento dei dati personali.</p>
-
-<h2>Obblighi del cliente · art. 22 D.Lgs. 231/2007</h2>
-<p>I clienti forniscono per iscritto, sotto la propria responsabilità, tutte le informazioni necessarie e aggiornate per consentire ai soggetti obbligati di adempiere agli obblighi di adeguata verifica. Le imprese dotate di personalità giuridica e le persone giuridiche private ottengono e conservano, per almeno cinque anni, informazioni adeguate, accurate e aggiornate sulla propria titolarità effettiva e le forniscono ai soggetti obbligati in occasione degli adempimenti di adeguata verifica.</p>
-
-<h2>Persone politicamente esposte · art. 1, comma 2, lett. dd)</h2>
-<p>Sono persone politicamente esposte le persone fisiche che occupano o hanno cessato di occupare da meno di un anno importanti cariche pubbliche, nonché i loro familiari e coloro che con loro intrattengono notoriamente stretti legami. Sono importanti cariche pubbliche, tra le altre: Presidente della Repubblica, Presidente del Consiglio, Ministro, Vice-Ministro e Sottosegretario, Presidente di Regione, assessore regionale, Sindaco di capoluogo di provincia o città metropolitana e di comune con almeno 15.000 abitanti; deputato, senatore, parlamentare europeo, consigliere regionale; membro degli organi direttivi centrali di partiti politici; giudice della Corte Costituzionale, magistrato della Cassazione o della Corte dei conti, consigliere di Stato; membro degli organi direttivi delle banche centrali e delle autorità indipendenti; ambasciatore, incaricato d’affari, ufficiale di grado apicale delle forze armate; componente degli organi di amministrazione, direzione o controllo di imprese controllate dallo Stato o partecipate in misura prevalente da enti locali; direttore generale di ASL e di aziende ospedaliere; direttore, vicedirettore e membro dell’organo di gestione di organizzazioni internazionali. Sono familiari i genitori, il coniuge o la persona legata da unione civile o convivenza di fatto, i figli e i loro coniugi o conviventi.</p>
-
-<h2>Titolare effettivo · art. 20</h2>
-<p>Per le società di capitali costituisce indicazione di proprietà diretta la titolarità di una partecipazione superiore al 25% del capitale detenuta da una persona fisica; di proprietà indiretta, la titolarità di una percentuale superiore al 25% posseduta tramite società controllate, fiduciarie o interposta persona. Se l’assetto proprietario non consente di individuare la persona fisica, il titolare effettivo è chi esercita in ultima istanza il controllo (maggioranza dei voti in assemblea ordinaria, influenza dominante, particolari vincoli contrattuali). Se neppure così è possibile, coincide con chi detiene poteri di rappresentanza legale, amministrazione o direzione. In presenza di più titolari effettivi gli adempimenti riguardano ciascuno di essi.</p>
-
-<h2>Obbligo di astensione · art. 42</h2>
-<p>I soggetti obbligati che non possono effettuare l’adeguata verifica si astengono dall’instaurare, eseguire o proseguire il rapporto e valutano se effettuare una segnalazione di operazione sospetta alla UIF. Si astengono inoltre dal rapporto con società fiduciarie, trust, società anonime o controllate tramite azioni al portatore aventi sede in Paesi terzi ad alto rischio.</p>
-
-<h2>Sanzioni penali · art. 55</h2>
-<p>Chiunque, essendo tenuto agli obblighi di adeguata verifica, falsifica i dati e le informazioni relative al cliente, al titolare effettivo, all’esecutore, allo scopo e alla natura del rapporto è punito con la reclusione da sei mesi a tre anni e con la multa da 10.000 a 30.000 euro. La stessa pena si applica a chi fornisce dati falsi o informazioni non veritiere necessari all’adeguata verifica.</p>
-`;
-
-// ---------------------------------------------------------------------------------------------------
-const docs = [
-  { file: "privacy.pdf", title: "Informativa privacy e consensi", body: privacy },
-  { file: "mup.pdf", title: "Modulo Unico Precontrattuale (MUP)", body: mup },
-  { file: "antiriciclaggio.pdf", title: "Questionario antiriciclaggio", body: aml },
-];
+// Un solo documento da firmare: il MUP unico (con incarico, raccomandazione, consegna, privacy e antiriciclaggio).
+const docs = [{ file: "mup.pdf", title: "MUP unico", body: mup }];
 
 const page = (title, body) => `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>${title} · ${CO.name}</title><style>${CSS}</style></head><body>${body}</body></html>`;
 

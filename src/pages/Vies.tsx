@@ -72,6 +72,11 @@ type ExcelRecord = {
   nomeZip: string;
   contraente: string;
   denominazioneCn: string;
+  /** "ID" column: the number the fiscal representative uses internally to find the practice. */
+  idRappresentante: string;
+  tipoAnagrafica: string;
+  tipoSocieta: string;
+  sedePrincipale: string;
   /** Unified Social Credit Code (codice di credito sociale) of the Chinese company. */
   uscc: string;
   legaleRappresentante: string;
@@ -483,6 +488,10 @@ const buildViesSpecificFields = ({
 }) => ({
   vies_sede_contraente: record.indirizzoContraente || null,
   vies_denominazione_cn: record.denominazioneCn || null,
+  vies_id_rappresentante: record.idRappresentante || null,
+  vies_tipo_anagrafica: record.tipoAnagrafica || null,
+  vies_tipo_societa: record.tipoSocieta || null,
+  vies_sede_principale: record.sedePrincipale || null,
   vies_uscc: record.uscc || null,
   vies_partita_iva: record.partitaIvaContraente || null,
   vies_legale_rappresentante: record.legaleRappresentante || null,
@@ -630,9 +639,25 @@ const fiscalRepresentativeNameHeaders = [
   "税务代表",
 ];
 
+// Address of the company from the template's separate columns: "Via Roma 12, 00100 Milano (MI), Italia".
+const composeCompanyAddress = (raw: Record<string, string>) => {
+  const cell = (aliases: string[]) => getCellByAliases(raw, aliases, { exactOnly: true }).trim();
+  const street = cell(["indirizzo", "via", "indirizzo via piazza"]);
+  const number = cell(["numero civico", "civico", "n. civico"]);
+  const postalCode = cell(["cap"]);
+  const city = cell(["citta"]);
+  const province = cell(["provincia"]);
+  const country = cell(["nazione", "paese"]);
+  if (!number && !postalCode && !city && !province && !country) return "";
+  const line = [street, number].filter(Boolean).join(" ");
+  const place = [postalCode, city].filter(Boolean).join(" ") + (province ? ` (${province})` : "");
+  return [line, place.trim(), country].filter(Boolean).join(", ");
+};
+
 // Column names the parser knows. The header row is the row that contains the
 // most of them, so title rows, a logo or notes above the table are skipped.
 const KNOWN_COLUMN_HEADERS = new Set([
+  "id", "tipo anagrafica", "tipo societa", "c.f.", "cf", "numero civico", "civico", "citta", "cap", "provincia", "nazione", "sede principale",
   "zip", "nome zip", "n. zip", "n zip", "numero zip", "file zip", "ragione sociale", "contraente", "denominazione cn",
   "p.iva", "p. iva", "partita iva",
   "partita iva ditta", "codice credito sociale", "codice fiscale cn", "sede legale estera", "indirizzo",
@@ -757,11 +782,15 @@ const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; she
 
       const record: ExcelRecord = {
         rowNumber: headerIndex + index + 2,
-        progressivo: getCellByAliases(raw, ["numero progressivo", "progressivo", "numero"]),
+        progressivo: getCellByAliases(raw, ["numero progressivo", "progressivo", "numero"], { exactOnly: true }),
         nomeZip: getCellByAliases(raw, [
           "nome zip", "zip", "n. zip", "n zip", "numero zip", "file zip", "nome archivio", "zip nominativo", "zip number", "zip 编号",
         ]),
         contraente: getCellByAliases(raw, ["contraente", "ragione sociale", "nome ditta", "ditta", "company name", "公司名称"]),
+        idRappresentante: getCellByAliases(raw, ["id", "id pratica", "id rappresentante fiscale"], { exactOnly: true }),
+        tipoAnagrafica: getCellByAliases(raw, ["tipo anagrafica"], { exactOnly: true }),
+        tipoSocieta: getCellByAliases(raw, ["tipo societa"], { exactOnly: true }),
+        sedePrincipale: getCellByAliases(raw, ["sede principale"], { exactOnly: true }),
         denominazioneCn: getCellByAliases(raw, ["denominazione cn", "denominazione cinese", "nome cinese", "chinese name", "中文名称"], {
           exactOnly: true,
         }),
@@ -774,6 +803,9 @@ const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; she
             "uscc",
             "codice fiscale cn",
             "统一社会信用代码",
+            "c.f.",
+            "cf",
+            "codice fiscale",
           ], { exactOnly: true }),
         ),
         legaleRappresentante: getCellByAliases(raw, ["legale rappresentante", "legale rappre", "legal representative", "法定代表人"], {
@@ -792,7 +824,7 @@ const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; she
           ["data di nascita legale rappresentante", "data di nascita", "data nascita", "legal representative date of birth", "法定代表人出生日期"],
           { exactOnly: true },
         ),
-        indirizzoContraente: getCellByAliases(
+        indirizzoContraente: composeCompanyAddress(raw) || getCellByAliases(
           raw,
           hasBeneficiaryColumn
             ? ["sede legale estera", "indirizzo contraente", "indirizzo ditta", "registered office abroad", "境外注册地址"]

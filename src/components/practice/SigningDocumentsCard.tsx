@@ -53,7 +53,7 @@ const MAX_FILE_BYTES = 12 * 1024 * 1024;
 
 /**
  * Documenti da firmare della pratica (flusso VIES), dopo la deliberazione e nell'ordine di firma:
- * la polizza nella copia per la Compagnia, privacy, MUP, antiriciclaggio. La bozza si controlla,
+ * la polizza nella copia per la Compagnia e il MUP unico. La bozza si controlla,
  * non si firma. Con tutte le copie firmate caricate, il portale le trasmette da solo alla compagnia.
  */
 export const SigningDocumentsCard = ({ practice, isAdmin, refreshToken = 0, onChanged }: SigningDocumentsCardProps) => {

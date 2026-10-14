@@ -2,7 +2,7 @@
 //   1) rappresentante, pratica in valutazione: "Documenti ricevuti, in attesa della deliberazione", nessuna bozza,
 //      il modulo precompilato per la compagnia non compare, le firme non sono ancora aperte
 //   2) rappresentante, pratica deliberata: "Bozza ricevuta il …" con download e passi successivi; documenti da firmare
-//      nell'ordine polizza copia Compagnia, privacy, MUP, antiriciclaggio; la copia per la Compagnia si scarica;
+//      nell'ordine polizza copia Compagnia, MUP unico; la copia per la Compagnia si scarica;
 //      caricamento di una copia firmata con il tipo giusto; con firme incomplete nessuna trasmissione
 //   3) rappresentante, pratica con tutte le firme: la trasmissione alla compagnia parte da sola
 //   4) amministratore: vede il modulo per la compagnia con la sua etichetta, e la scheda modelli in Impostazioni
@@ -45,11 +45,9 @@ const DOCS = [
   doc("b3", PRACTICES[2], "bozza-3.pdf", "bozza_deliberata", "2026-10-05T10:00:00Z"),
   doc("c3", PRACTICES[2], "copia-3.pdf", "polizza_copia_compagnia", "2026-10-05T10:00:01Z"),
   doc("p3", PRACTICES[2], "polizza-firmata.pdf", "polizza_firmata", "2026-10-07T10:00:00Z"),
-  doc("v3", PRACTICES[2], "privacy.pdf", "privacy_firmata", "2026-10-07T10:01:00Z"),
   doc("u3", PRACTICES[2], "mup.pdf", "mup_firmato", "2026-10-07T10:02:00Z"),
-  doc("a3", PRACTICES[2], "aml.pdf", "antiriciclaggio_firmato", "2026-10-07T10:03:00Z"),
 ];
-const TEMPLATES = ["mup.pdf", "privacy.pdf"].map((name) => ({ id: `t-${name}`, name, updated_at: "2026-09-30T10:00:00Z", created_at: "2026-09-30T10:00:00Z", metadata: { size: 1234 } }));
+const TEMPLATES = ["mup.pdf"].map((name) => ({ id: `t-${name}`, name, updated_at: "2026-09-30T10:00:00Z", created_at: "2026-09-30T10:00:00Z", metadata: { size: 1234 } }));
 
 const browser = await chromium.launch();
 
@@ -146,27 +144,27 @@ const text = async (page) => (await page.locator("body").innerText()).replace(/\
   await page.waitForTimeout(600);
   const received = await page.getByTestId("draft-received").innerText();
   check("2 'Bozza ricevuta il 05/10/2026'", /Bozza ricevuta il 05\/10\/2026/.test(received), received.replace(/\s+/g, " ").slice(0, 200));
-  check("2 passi successivi: controllo (la bozza non si firma), firme nell'ordine, trasmissione, pagamento, copie", /la bozza non si firma/.test(received) && /copia per la Compagnia, privacy, MUP e antiriciclaggio/.test(received) && /partono da sole verso la compagnia/.test(received) && /copie della polizza emessa/.test(received), received.replace(/\s+/g, " ").slice(0, 600));
+  check("2 passi successivi: controllo (la bozza non si firma), firme nell'ordine, trasmissione, pagamento, copie", /la bozza non si firma/.test(received) && /copia per la Compagnia e il MUP unico/.test(received) && /partono da sole verso la compagnia/.test(received) && /copie della polizza emessa/.test(received), received.replace(/\s+/g, " ").slice(0, 600));
   check("2 bottone per scaricare la bozza", (await page.getByTestId("draft-download").count()) === 1);
   check("2 modulo storico senza tipo (per nome) nascosto; bozza, copia per la Compagnia e copia firmata visibili", !(await text(page)).includes("Polizza_VIES_Azienda_2.pdf") && (await text(page)).includes("bozza-compagnia.pdf") && (await text(page)).includes("copia-compagnia.pdf") && (await text(page)).includes("mup-firmato.pdf"));
   const order = await page.locator("[data-testid^=signing-slot-]").evaluateAll((items) => items.map((item) => item.getAttribute("data-testid").replace("signing-slot-", "")));
-  check("2 ordine di firma: polizza copia Compagnia, privacy, MUP, antiriciclaggio", JSON.stringify(order) === JSON.stringify(["polizza_firmata", "privacy", "mup", "antiriciclaggio"]), JSON.stringify(order));
-  check("2 documenti da firmare: 1 di 4, MUP firmato il 06/10/2026", (await page.getByTestId("signing-progress").innerText()).includes("1 di 4") && /Firmato il 06\/10\/2026/.test(await page.getByTestId("signing-slot-mup").innerText()));
+  check("2 ordine di firma: polizza copia Compagnia, MUP unico", JSON.stringify(order) === JSON.stringify(["polizza_firmata", "mup"]), JSON.stringify(order));
+  check("2 documenti da firmare: 1 di 2, MUP firmato il 06/10/2026", (await page.getByTestId("signing-progress").innerText()).includes("1 di 2") && /Firmato il 06\/10\/2026/.test(await page.getByTestId("signing-slot-mup").innerText()));
   check("2 la copia per la Compagnia si scarica; la bozza non e' tra i documenti da firmare", !(await page.getByTestId("signing-company-copy-download").isDisabled()) && !/bozza-compagnia\.pdf/.test(await page.getByTestId("signing-card").innerText()));
   check("2 documenti dello ZIP non ancora letti: lo dice, con il pulsante per leggerli", /Non ancora letti/.test(await page.getByTestId("signing-aml").innerText()) && /Leggi i documenti/.test(await page.getByTestId("signing-aml-read").innerText()));
   await page.getByTestId("signing-aml-read").click();
   await page.waitForTimeout(800);
   check("2 nessun documento utile indicizzato: errore chiaro, nessuna chiamata a vuoto", /Lettura dei documenti non riuscita/.test(await text(page)));
   check("2 il rappresentante non vede il campo del numero di polizza", (await page.getByTestId("signing-policy-number").count()) === 0);
-  check("2 privacy, MUP e antiriciclaggio: modello sempre disponibile (integrato nel portale)", !(await page.getByTestId("signing-slot-privacy").getByRole("button", { name: /Scarica il modello/ }).isDisabled()) && !(await page.getByTestId("signing-slot-antiriciclaggio").getByRole("button", { name: /Scarica il modello/ }).isDisabled()) && !/Modello non ancora disponibile/.test(await page.getByTestId("signing-card").innerText()));
-  const [download] = await Promise.all([page.waitForEvent("download", { timeout: 15000 }), page.getByTestId("signing-slot-antiriciclaggio").getByRole("button", { name: /Scarica il modello/ }).click()]);
+  check("2 MUP unico: modello sempre disponibile (integrato nel portale)", !(await page.getByTestId("signing-slot-mup").getByRole("button", { name: /Scarica il modello/ }).isDisabled()) && !/Modello non ancora disponibile/.test(await page.getByTestId("signing-card").innerText()));
+  const [download] = await Promise.all([page.waitForEvent("download", { timeout: 15000 }), page.getByTestId("signing-slot-mup").getByRole("button", { name: /Scarica il modello/ }).click()]);
   const downloadedPath = await download.path();
   const downloaded = downloadedPath ? (await import("node:fs")).readFileSync(downloadedPath) : Buffer.alloc(0);
-  check("2 il download e' il PDF dell'antiriciclaggio compilato per la pratica, nome con ordine e numero", /^4_antiriciclaggio_VIES-2026-0002\.pdf$/.test(download.suggestedFilename()) && downloaded.subarray(0, 5).toString() === "%PDF-" && downloaded.length > 150000, `${download.suggestedFilename()} ${downloaded.length}`);
-  await page.locator(`#signing-upload-${PRACTICES[1].id}-privacy`).setInputFiles({ name: "privacy firmata.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 firmato") });
+  check("2 il download e' il MUP unico compilato per la pratica, nome con ordine e numero", /^2_mup_VIES-2026-0002\.pdf$/.test(download.suggestedFilename()) && downloaded.subarray(0, 5).toString() === "%PDF-" && downloaded.length > 150000, `${download.suggestedFilename()} ${downloaded.length}`);
+  await page.locator(`#signing-upload-${PRACTICES[1].id}-mup`).setInputFiles({ name: "mup firmato.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 firmato") });
   await page.waitForTimeout(900);
   const insert = log.inserts.find((i) => i.table === "practice_documents");
-  check("2 copia firmata caricata nella cartella della pratica con il tipo privacy_firmata", !!insert && insert.body.document_type === "privacy_firmata" && insert.body.file_path.startsWith(`${PRACTICES[1].id}/privacy_firmato-`) && log.storage.some((s) => s.method === "POST" && s.path.includes(`/practice-documents/${PRACTICES[1].id}/privacy_firmato-`)), JSON.stringify(insert));
+  check("2 copia firmata caricata nella cartella della pratica con il tipo mup_firmato", !!insert && insert.body.document_type === "mup_firmato" && insert.body.file_path.startsWith(`${PRACTICES[1].id}/mup_firmato-`) && log.storage.some((s) => s.method === "POST" && s.path.includes(`/practice-documents/${PRACTICES[1].id}/mup_firmato-`)), JSON.stringify(insert));
   check("2 firme incomplete: nessuna trasmissione alla compagnia", !log.api.some((c) => c.body.action === "workflow_send_signed"), JSON.stringify(log.api));
   check("2 nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
   await ctx.close();
@@ -180,7 +178,7 @@ const text = async (page) => (await page.locator("body").innerText()).replace(/\
   for (let i = 0; i < 50 && !log.api.some((c) => c.body.action === "workflow_send_signed"); i += 1) await page.waitForTimeout(100);
   await page.waitForTimeout(500);
   const sends = log.api.filter((c) => c.body.action === "workflow_send_signed");
-  check("3 4 di 4 firmati: la trasmissione parte da sola, una volta, per la pratica giusta", sends.length === 1 && sends[0].body.practiceId === PRACTICES[2].id && sends[0].body.resend === false, JSON.stringify(sends));
+  check("3 2 di 2 firmati: la trasmissione parte da sola, una volta, per la pratica giusta", sends.length === 1 && sends[0].body.practiceId === PRACTICES[2].id && sends[0].body.resend === false, JSON.stringify(sends));
   check("3 dopo la risposta: 'Copie firmate trasmesse alla compagnia il 13/10/2026'", (await page.getByTestId("signing-sent").count()) === 1 && /trasmesse alla compagnia il 13\/10\/2026/.test(await page.getByTestId("signing-sent").innerText()), await page.getByTestId("signing-card").innerText());
   const amlPanel = await page.getByTestId("signing-aml").innerText();
   check("3 dati letti dai documenti: data, numero di documenti, segnalazioni da controllare, 'bozza da verificare'", /Letti il 12\/10\/2026 da 3 documenti/.test(amlPanel) && /bozza da verificare/.test(amlPanel) && /scaduto il 30\/09\/2025/.test(await page.getByTestId("signing-aml-issues").innerText()) && /Rileggi i documenti/.test(amlPanel), amlPanel);
@@ -214,7 +212,7 @@ const text = async (page) => (await page.locator("body").innerText()).replace(/\
   await page.getByTestId("settings-tab-signing").click();
   await page.waitForTimeout(700);
   const settings = await text(page);
-  check("4 Impostazioni → Documenti da firmare: privacy, MUP e antiriciclaggio integrati (nessun caricamento), polizza senza modello", /Modelli dei documenti da firmare/.test(settings) && /Modello integrato/.test(await page.getByTestId("signing-template-mup").innerText()) && /Modello integrato/.test(await page.getByTestId("signing-template-antiriciclaggio").innerText()) && (await page.locator("[id^=signing-template-]").count()) === 0 && /si firma la copia per la Compagnia/.test(await page.getByTestId("signing-template-polizza_firmata").innerText()));
+  check("4 Impostazioni → Documenti da firmare: MUP unico integrato (nessun caricamento), polizza senza modello", /Modelli dei documenti da firmare/.test(settings) && /Modello integrato/.test(await page.getByTestId("signing-template-mup").innerText()) && (await page.locator("[id^=signing-template-]").count()) === 0 && /si firma la copia per la Compagnia/.test(await page.getByTestId("signing-template-polizza_firmata").innerText()));
   check("4 nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
   await ctx.close();
 }
@@ -235,7 +233,7 @@ const text = async (page) => (await page.locator("body").innerText()).replace(/\
   const zip = new JSZip();
   zip.file(`${PRACTICES[1].practice_number}/3_mup.pdf.p7m`, "p7m-bytes-mup");
   zip.file(`${PRACTICES[1].practice_number}/1_polizza_copia_compagnia_Azienda_2.pdf.p7m`, "p7m-bytes-polizza");
-  zip.file(`${PRACTICES[2].practice_number}_2_privacy.pdf.p7m`, "p7m-bytes-privacy"); // senza cartella: il numero e' nel nome
+  zip.file(`${PRACTICES[2].practice_number}_2_mup.pdf.p7m`, "p7m-bytes-mup"); // senza cartella: il numero e' nel nome
   zip.file("note.txt", "non e' un documento firmato");
   zip.file(`${PRACTICES[0].practice_number}/3_mup.pdf.p7m`, "pratica non deliberata");
   const buffer = await zip.generateAsync({ type: "nodebuffer" });
@@ -248,7 +246,7 @@ const text = async (page) => (await page.locator("body").innerText()).replace(/\
   const find = (practice, type) => docs.find((d) => d.practice_id === practice.id && d.document_type === type);
   check("6 MUP firmato .p7m nella cartella della pratica giusta, tipo mup_firmato, tipo file p7m", !!find(PRACTICES[1], "mup_firmato") && find(PRACTICES[1], "mup_firmato").mime_type === "application/pkcs7-mime" && find(PRACTICES[1], "mup_firmato").file_name === "3_mup.pdf.p7m", JSON.stringify(docs));
   check("6 copia polizza firmata .p7m riconosciuta (polizza_firmata)", !!find(PRACTICES[1], "polizza_firmata") && find(PRACTICES[1], "polizza_firmata").file_name.endsWith(".pdf.p7m"));
-  check("6 file senza cartella: la pratica si riconosce dal numero nel nome", !!find(PRACTICES[2], "privacy_firmata"));
+  check("6 file senza cartella: la pratica si riconosce dal numero nel nome", !!find(PRACTICES[2], "mup_firmato"));
   check("6 testo, e pratica non deliberata: ignorati (3 file caricati, non 5)", docs.length === 3, String(docs.length));
   check("6 niente errore 'Nessun file riconosciuto'", !/Nessun file riconosciuto/.test(await text(page)));
   check("6 nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));

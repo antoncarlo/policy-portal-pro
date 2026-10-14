@@ -758,7 +758,7 @@ GET /api/vies-intake-status                      (gli ultimi 50 lotti della chia
                 ['practice.deliberated', 'deliberata: bozza da controllare e polizza nella copia per la Compagnia da firmare (payment_due_date, documents)'],
                 ['practice.rejected', 'non deliberata (data.reason)'],
                 ['practice.paid', 'pagamento registrato'],
-                ['practice.signed', 'copie firmate trasmesse alla compagnia (documents: polizza_firmata, privacy_firmata, mup_firmato, antiriciclaggio_firmato)'],
+                ['practice.signed', 'copie firmate trasmesse alla compagnia (documents: polizza_firmata, mup_firmato)'],
                 ['practice.issued', 'polizza emessa (policy_number, documents: tutte le copie)'],
                 ['practice.reopened', 'pratica riaperta (data.reason)'],
               ].map(([type, when], i) => (
@@ -794,8 +794,7 @@ GET /api/vies-intake-status                      (gli ultimi 50 lotti della chia
           </p>
           <p style={styles.p}>
             Per ogni pratica VIES l&apos;array <code style={styles.inlineCode}>documents_to_sign</code> elenca, <strong>nell&apos;ordine di firma</strong>, i documenti che il rappresentante fiscale
-            firma (anche in blocco, con firma digitale, dal proprio sistema) e ricarica dal portale: 1) polizza nella copia per la Compagnia, 2) informativa privacy, 3) MUP, 4) questionario
-            antiriciclaggio. <code style={styles.inlineCode}>available</code> dice se è il momento (dopo la deliberazione), <code style={styles.inlineCode}>source_received</code> se la copia per la Compagnia è arrivata,
+            firma (anche in blocco, con firma digitale, dal proprio sistema) e ricarica dal portale: 1) polizza nella copia per la Compagnia, 2) MUP unico (con privacy e questionario antiriciclaggio). <code style={styles.inlineCode}>available</code> dice se è il momento (dopo la deliberazione), <code style={styles.inlineCode}>source_received</code> se la copia per la Compagnia è arrivata,
             <code style={styles.inlineCode}> signed</code>/<code style={styles.inlineCode}>signed_at</code> se la copia firmata è stata caricata; <code style={styles.inlineCode}>signatures_complete</code> riassume.
             Con tutte le firme caricate il portale trasmette da solo le copie firmate alla compagnia (<code style={styles.inlineCode}>signed_copies_sent_at</code>, notifica <code style={styles.inlineCode}>practice.signed</code>);
             la compagnia emette e restituisce tutte le copie della polizza (<code style={styles.inlineCode}>issued_copies</code>, notifica <code style={styles.inlineCode}>practice.issued</code> con i link).
@@ -807,8 +806,7 @@ GET /api/vies-intake-status                      (gli ultimi 50 lotti della chia
 "documents_to_sign": [
   { "id": "polizza_firmata", "order": 1, "label": "Polizza - copia per la Compagnia", "signed_document_type": "polizza_firmata",
     "available": true, "source_received": true, "signed": true, "signed_at": "2026-10-13T08:00:00Z", "signed_file_name": "polizza-firmata.pdf" },
-  { "id": "privacy", "order": 2, "…": "…" }, { "id": "mup", "order": 3, "…": "…" },
-  { "id": "antiriciclaggio", "order": 4, "label": "Questionario antiriciclaggio e adeguata verifica", "available": true, "source_received": null, "signed": false, "signed_at": null }
+  { "id": "mup", "order": 2, "label": "MUP unico (precontrattuale, privacy e antiriciclaggio)", "available": true, "source_received": null, "signed": false, "signed_at": null }
 ],
 "signatures_complete": false,
 "signed_copies_sent_at": null,

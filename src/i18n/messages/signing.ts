@@ -8,14 +8,12 @@ export const signingMessages = defineMessages({
   it: {
     slots: {
       polizza_firmata: { label: "Polizza - copia per la Compagnia", description: "La polizza nella copia per la Compagnia, firmata dal rappresentante fiscale con la procura speciale del contraente. La bozza non si firma." },
-      privacy: { label: "Informativa privacy e consensi (GDPR)", description: "Informativa sul trattamento dei dati e consensi, firmata dal rappresentante con procura." },
-      mup: { label: "MUP - Modulo Unico Precontrattuale", description: "Informativa precontrattuale dell'intermediario (allegati 3, 4 e 4-ter IVASS), firmata per presa visione." },
-      antiriciclaggio: { label: "Questionario antiriciclaggio e adeguata verifica", description: "Adeguata verifica della clientela (D.Lgs. 231/2007) e dichiarazione di avvenuta identificazione del rappresentante fiscale." },
+      mup: { label: "MUP unico (precontrattuale, privacy e antiriciclaggio)", description: "Un solo documento su carta intestata: MUP, incarico di consulenza, raccomandazione, consegna dell'informativa, privacy e questionario antiriciclaggio. Si firma solo questo, con la polizza." },
     } satisfies SlotText,
     card: {
       title: "Documenti da firmare",
-      intro: "Dopo la deliberazione, nell'ordine: la polizza nella copia per la Compagnia, privacy, MUP e antiriciclaggio. Scarica, firma (anche con firma digitale, in blocco dal tuo sistema) e ricarica qui: con tutte le firme caricate le copie partono da sole verso la compagnia, che restituisce le copie della polizza emessa.",
-      introAdmin: "Copie firmate dal rappresentante fiscale, nell'ordine di firma. Privacy, MUP e antiriciclaggio sono modelli del portale su carta intestata, compilati con i dati della pratica; la copia per la Compagnia arriva dalla compagnia con la bozza o si allega qui.",
+      intro: "Dopo la deliberazione, nell'ordine: la polizza nella copia per la Compagnia e il MUP unico (con privacy e antiriciclaggio). Scarica, firma (anche con firma digitale, in blocco dal tuo sistema) e ricarica qui: con tutte le firme caricate le copie partono da sole verso la compagnia, che restituisce le copie della polizza emessa.",
+      introAdmin: "Copie firmate dal rappresentante fiscale, nell'ordine di firma. Il MUP unico è un modello del portale su carta intestata, compilato con i dati della pratica; la copia per la Compagnia arriva dalla compagnia con la bozza o si allega qui.",
       beforeSigning: "Le firme iniziano dopo la deliberazione: quando arriva la bozza, qui compaiono i documenti da firmare.",
       progress: (signed: number, total: number) => `${signed} di ${total} firmati`,
       allSigned: "Tutti i documenti sono firmati.",
@@ -24,7 +22,7 @@ export const signingMessages = defineMessages({
       signedOn: (date: string) => `Firmato il ${date}`,
       stepLabel: (order: number) => `${order}.`,
       policyNumber: "Numero di polizza della compagnia",
-      policyNumberHint: "Arriva dopo la delibera, con la copia per la Compagnia. Una volta registrato finisce in privacy, MUP e antiriciclaggio di questa pratica e negli ZIP del lotto.",
+      policyNumberHint: "Arriva dopo la delibera, con la copia per la Compagnia. Una volta registrato finisce nel MUP unico di questa pratica e negli ZIP del lotto.",
       policyNumberSave: "Salva il numero",
       policyNumberSaved: "Numero di polizza registrato",
       policyNumberError: "Numero di polizza non salvato",
@@ -73,7 +71,7 @@ export const signingMessages = defineMessages({
     settings: {
       tab: "Documenti da firmare",
       title: "Modelli dei documenti da firmare",
-      intro: "Privacy, MUP e questionario antiriciclaggio sono modelli del portale, su carta intestata Tecno Advance MGA: per ogni pratica vengono compilati da soli con i dati che il portale ha (pratica, contraente, legale rappresentante, rappresentante fiscale, beneficiario); il resto lo completa chi firma. Non serve caricare nulla. Il testo dei modelli si cambia nel repository (scripts/signing-templates). La polizza non ha un modello: si firma la copia per la Compagnia inviata dalla compagnia.",
+      intro: "Il MUP unico (con incarico, raccomandazione, consegna, privacy e questionario antiriciclaggio) è un modello del portale, su carta intestata Tecno Advance MGA: per ogni pratica viene compilato da solo con i dati che il portale ha (pratica, contraente, legale rappresentante, rappresentante fiscale, beneficiario); il resto lo completa chi firma. Non serve caricare nulla. Il testo dei modelli si cambia nel repository (scripts/signing-templates). La polizza non ha un modello: si firma la copia per la Compagnia inviata dalla compagnia.",
       noTemplate: "Nessun modello caricato",
       builtIn: "Modello integrato, compilato in automatico",
       downloadBlank: "Scarica il modello in bianco",
@@ -97,8 +95,8 @@ export const signingMessages = defineMessages({
       zipName: (title: string) => `${title} - documenti da firmare`,
       readme: "LEGGIMI.txt",
       readmeText:
-        "Una cartella per pratica deliberata (numero pratica). In ogni cartella, nell'ordine di firma: 1_polizza_copia_compagnia (la polizza nella copia per la Compagnia), 2_privacy, 3_mup, 4_antiriciclaggio. La bozza non va firmata.\n" +
-        "Firmate i file (anche con firma digitale, in blocco) e ricaricate lo ZIP dal portale con «Carica documenti firmati (ZIP)»: mantenete le cartelle con il numero pratica e i nomi dei file (o nomi che contengono polizza, privacy, mup, antiriciclaggio). Con tutte le firme di una pratica caricate, le copie partono da sole verso la compagnia.",
+        "Una cartella per pratica deliberata (numero pratica). In ogni cartella, nell'ordine di firma: 1_polizza_copia_compagnia (la polizza nella copia per la Compagnia), 2_mup (il MUP unico). La bozza non va firmata.\n" +
+        "Firmate i file (anche con firma digitale, in blocco) e ricaricate lo ZIP dal portale con «Carica documenti firmati (ZIP)»: mantenete le cartelle con il numero pratica e i nomi dei file (o nomi che contengono polizza, mup). Con tutte le firme di una pratica caricate, le copie partono da sole verso la compagnia.",
       preparing: (title: string) => `${title}: preparazione dei documenti da firmare…`,
       progress: (done: number, total: number) => `${done} file su ${total}…`,
       downloadDoneTitle: "ZIP pronto",
@@ -117,14 +115,12 @@ export const signingMessages = defineMessages({
   en: {
     slots: {
       polizza_firmata: { label: "Policy - copy for the insurer", description: "The policy in the insurer's copy, signed by the fiscal representative under the policyholder's special power of attorney. The draft is not signed." },
-      privacy: { label: "Privacy notice and consents (GDPR)", description: "Data processing notice and consents, signed by the representative under power of attorney." },
-      mup: { label: "MUP - pre-contractual information form", description: "The intermediary's pre-contractual information (IVASS annexes 3, 4 and 4-ter), signed for acknowledgement." },
-      antiriciclaggio: { label: "Anti-money-laundering questionnaire and due diligence", description: "Customer due diligence (Legislative Decree 231/2007) and the fiscal representative's identification statement." },
+      mup: { label: "Single MUP (pre-contractual, privacy and AML)", description: "One document on letterhead: MUP, advisory mandate, recommendation, delivery statement, privacy notice and anti-money-laundering questionnaire. Only this is signed, together with the policy." },
     } satisfies SlotText,
     card: {
       title: "Documents to sign",
-      intro: "After approval, in this order: the policy in the insurer's copy, privacy, MUP and anti-money-laundering. Download, sign (digital signature in bulk from your own system is fine) and upload here: once every signature is in, the copies go to the insurer on their own, and the insurer returns the copies of the issued policy.",
-      introAdmin: "Copies signed by the fiscal representative, in signing order. Privacy, MUP and AML are portal templates on letterhead, filled in with the practice data; the insurer's copy arrives with the draft or is attached here.",
+      intro: "After approval, in this order: the policy in the insurer's copy and the single MUP (with privacy and AML). Download, sign (digital signature in bulk from your own system is fine) and upload here: once every signature is in, the copies go to the insurer on their own, and the insurer returns the copies of the issued policy.",
+      introAdmin: "Copies signed by the fiscal representative, in signing order. The single MUP is a portal template on letterhead, filled in with the practice data; the insurer's copy arrives with the draft or is attached here.",
       beforeSigning: "Signing starts after approval: when the draft arrives, the documents to sign appear here.",
       progress: (signed: number, total: number) => `${signed} of ${total} signed`,
       allSigned: "Every document is signed.",
@@ -133,7 +129,7 @@ export const signingMessages = defineMessages({
       signedOn: (date: string) => `Signed on ${date}`,
       stepLabel: (order: number) => `${order}.`,
       policyNumber: "Insurer's policy number",
-      policyNumberHint: "It arrives after approval, with the insurer's copy. Once recorded it goes into the privacy, MUP and AML documents of this practice and into the batch ZIPs.",
+      policyNumberHint: "It arrives after approval, with the insurer's copy. Once recorded it goes into the single MUP of this practice and into the batch ZIPs.",
       policyNumberSave: "Save the number",
       policyNumberSaved: "Policy number recorded",
       policyNumberError: "Policy number not saved",
@@ -182,7 +178,7 @@ export const signingMessages = defineMessages({
     settings: {
       tab: "Documents to sign",
       title: "Templates of the documents to sign",
-      intro: "Privacy, MUP and AML questionnaire are portal templates on Tecno Advance MGA letterhead: for each practice they are filled in automatically with the data the portal has (practice, policyholder, legal representative, fiscal representative, beneficiary); whoever signs completes the rest. Nothing needs uploading. The templates' text is changed in the repository (scripts/signing-templates). The policy has no template: the insurer's copy sent by the insurer is what gets signed.",
+      intro: "The single MUP (with advisory mandate, recommendation, delivery statement, privacy and AML questionnaire) is a portal template on Tecno Advance MGA letterhead: for each practice it is filled in automatically with the data the portal has (practice, policyholder, legal representative, fiscal representative, beneficiary); whoever signs completes the rest. Nothing needs uploading. The templates' text is changed in the repository (scripts/signing-templates). The policy has no template: the insurer's copy sent by the insurer is what gets signed.",
       noTemplate: "No template uploaded",
       builtIn: "Built-in template, filled in automatically",
       downloadBlank: "Download the blank template",
@@ -206,8 +202,8 @@ export const signingMessages = defineMessages({
       zipName: (title: string) => `${title} - documents to sign`,
       readme: "README.txt",
       readmeText:
-        "One folder per approved practice (practice number). In each folder, in signing order: 1_polizza_copia_compagnia (the policy in the insurer's copy), 2_privacy, 3_mup, 4_antiriciclaggio. The draft is not signed.\n" +
-        "Sign the files (digital signature in bulk is fine) and upload the ZIP back from the portal with “Upload signed documents (ZIP)”: keep the folders named after the practice number and the file names (or names containing polizza, privacy, mup, antiriciclaggio). Once every signature of a practice is in, the copies go to the insurer on their own.",
+        "One folder per approved practice (practice number). In each folder, in signing order: 1_polizza_copia_compagnia (the policy in the insurer's copy), 2_mup (the single MUP). The draft is not signed.\n" +
+        "Sign the files (digital signature in bulk is fine) and upload the ZIP back from the portal with “Upload signed documents (ZIP)”: keep the folders named after the practice number and the file names (or names containing polizza, mup). Once every signature of a practice is in, the copies go to the insurer on their own.",
       preparing: (title: string) => `${title}: preparing the documents to sign…`,
       progress: (done: number, total: number) => `${done} of ${total} files…`,
       downloadDoneTitle: "ZIP ready",
@@ -226,9 +222,7 @@ export const signingMessages = defineMessages({
   zh: {
     slots: {
       polizza_firmata: { label: "保单 - 保险公司留存联", description: "保单的保险公司留存联，由税务代表凭投保人的特别授权书签署。草稿不签署。" },
-      privacy: { label: "隐私告知与同意（GDPR）", description: "个人数据处理告知与同意，由持授权书的代表签署。" },
-      mup: { label: "MUP - 合同前统一信息表", description: "中介机构的合同前信息（IVASS 附件 3、4 和 4-ter），签字确认已阅。" },
-      antiriciclaggio: { label: "反洗钱问卷与尽职调查", description: "客户尽职调查（第 231/2007 号法令）及税务代表的身份核实声明。" },
+      mup: { label: "统一 MUP（合同前信息、隐私与反洗钱）", description: "信笺纸上的单一文件：MUP、咨询委托、个性化建议、告知送达声明、隐私告知和反洗钱问卷。只需签署此文件及保单。" },
     } satisfies SlotText,
     card: {
       title: "待签署文件",
@@ -315,8 +309,8 @@ export const signingMessages = defineMessages({
       zipName: (title: string) => `${title} - 待签署文件`,
       readme: "自述.txt",
       readmeText:
-        "每个已核准申请一个文件夹（申请编号）。每个文件夹内按签署顺序：1_polizza_copia_compagnia（保单的保险公司留存联）、2_privacy、3_mup、4_antiriciclaggio。草稿不签署。\n" +
-        "签署文件（可批量数字签署）后，通过门户的“上传已签署文件（ZIP）”回传 ZIP：保留以申请编号命名的文件夹和文件名（或包含 polizza、privacy、mup、antiriciclaggio 的名称）。某申请的所有签名齐全后，副本会自动发送给保险公司。",
+        "每个已核准申请一个文件夹（申请编号）。每个文件夹内按签署顺序：1_polizza_copia_compagnia（保单的保险公司留存联）、2_mup（统一 MUP）。草稿不签署。\n" +
+        "签署文件（可批量数字签署）后，通过门户的“上传已签署文件（ZIP）”回传 ZIP：保留以申请编号命名的文件夹和文件名（或包含 polizza、mup 的名称）。某申请的所有签名齐全后，副本会自动发送给保险公司。",
       preparing: (title: string) => `${title}：正在准备待签署文件…`,
       progress: (done: number, total: number) => `${done}/${total} 个文件…`,
       downloadDoneTitle: "ZIP 已就绪",

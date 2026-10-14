@@ -641,14 +641,14 @@ await check("signed copies: the owner sends them once every signature is in; the
   await rejects(() => owner("workflow_send_signed"), "invalid_transition", 409);
   await admin("workflow_deliberate", { draft: pdfDoc("bozza.pdf"), companyCopy: pdfDoc("copia.pdf") });
   const sign = (type: string, name: string) => db.seed("practice_documents", { practice_id: p.id, file_name: name, file_path: `${p.id}/${type}-1-${name}`, file_size: 10, mime_type: "application/pdf", document_type: type, uploaded_by: OWNER });
-  sign("polizza_firmata", "polizza-firmata.pdf"); sign("privacy_firmata", "privacy.pdf"); sign("mup_firmato", "mup.pdf");
+  sign("polizza_firmata", "polizza-firmata.pdf");
   // one signature missing: refused, with the names of what is missing
   await rejects(() => owner("workflow_send_signed"), "signatures_missing", 409);
-  try { await owner("workflow_send_signed"); } catch (error: any) { assert.match(error.message, /antiriciclaggio/); }
+  try { await owner("workflow_send_signed"); } catch (error: any) { assert.match(error.message, /MUP/i); }
   // another user's practice: not theirs to send
   const other = db.seed("profiles", { email: "x@example.test", full_name: "Altro" });
   await rejects(() => runWorkflowAction(sb(db), other.id, "workflow_send_signed", { practiceId: p.id }), "forbidden", 403);
-  sign("antiriciclaggio_firmato", "aml.pdf");
+  sign("mup_firmato", "mup.pdf");
   const sent: any = await owner("workflow_send_signed");
   assert.equal(sent.changed, true); assert.ok(sent.sentAt); assert.equal(sent.stage, "deliberata");
   assert.equal(db.rows("practice_workflow")[0].signed_sent_at, sent.sentAt);

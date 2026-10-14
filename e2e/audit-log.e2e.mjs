@@ -96,10 +96,15 @@ const openLogs = async (page) => {
   check("1 filtro per azione: solo gli accessi", (await page.locator("[data-testid=audit-line]").count()) === 1);
   await page.locator("#audit-action").selectOption("all");
   await page.locator("#audit-user").fill("Mario");
-  await page.waitForTimeout(700);
-  check("1 filtro per utente (nome): solo le righe di quella persona", (await page.locator("[data-testid=audit-line]").count()) === 3);
+  // The filter is applied after a short delay and a new query: wait for the list, not for a fixed time.
+  const waitForLines = async (expected) => {
+    for (let i = 0; i < 40 && (await page.locator("[data-testid=audit-line]").count()) !== expected; i += 1) await page.waitForTimeout(100);
+  };
+  await waitForLines(3);
+  check("1 filtro per utente (nome): solo le righe di quella persona", (await page.locator("[data-testid=audit-line]").count()) === 3, String(await page.locator("[data-testid=audit-line]").count()));
   await page.locator("#audit-user").fill("Nessuno");
-  await page.waitForTimeout(700);
+  await waitForLines(0);
+  await page.getByText(/Nessuna riga nel registro/).first().waitFor({ timeout: 4000 }).catch(() => {});
   check("1 utente inesistente: nessuna riga", (await page.locator("[data-testid=audit-line]").count()) === 0 && /Nessuna riga nel registro/.test(await text(page)));
   check("1 il registro è solo in lettura (nessuna scrittura verso audit_log)", log.audit.every((q) => !/method=/.test(q)));
   check("1 nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));

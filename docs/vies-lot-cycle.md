@@ -11,7 +11,7 @@
 | 3 | **Pagamento** | rappresentante fiscale | «Scarica l'estratto conto» (polizze deliberate e totale premi da pagare), lo paga con il saldo, lo firma (PDF o .p7m) e allega estratto firmato e bonifico. |
 | 4 | **Conferma** | amministratore | Controlla i documenti, indica la data e conferma l'incasso: tutte le pratiche deliberate passano a «Pagate · in emissione» e il lotto risulta pagato. |
 | 5 | **Copie** | amministratore | «Carica polizze copia Compagnia»: PDF o ZIP, assegnati alle pratiche come le bozze. Il numero di polizza si registra nella pratica. |
-| 6 | **Firme** | rappresentante fiscale | Scarica lo ZIP (per pratica: polizza copia Compagnia, privacy, MUP, antiriciclaggio, compilati; alla base l'Excel di ricapitolo del lotto), firma in blocco e ricarica lo ZIP firmato (PDF o .p7m): il portale smista i file nelle pratiche. |
+| 6 | **Firme** | rappresentante fiscale | Scarica lo ZIP (per pratica: polizza copia Compagnia e MUP unico, compilati; alla base l'Excel di ricapitolo del lotto), firma in blocco e ricarica lo ZIP firmato (PDF o .p7m): il portale smista i file nelle pratiche. |
 | 7 | **Invio** | amministratore | Scarica il lotto con tutte le firme, lo invia alla compagnia e lo segna («Segna inviato alla compagnia», con un riferimento facoltativo). |
 | 8 | **Emesse** | amministratore | La compagnia manda le polizze emesse (fino a 4 copie per pratica): «Carica polizze emesse», PDF o ZIP. Le pratiche passano a «Emesse», il lotto si chiude e il rappresentante scarica tutto. |
 

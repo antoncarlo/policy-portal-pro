@@ -301,7 +301,7 @@ export const viesMessages = defineMessages({
         `dimensione Storage ${actual} diversa dal file locale ${expected}`,
       emptySheet: "Il primo foglio dell'Excel è vuoto.",
       noHeaderRow:
-        "Non ho trovato la riga di intestazione nell'Excel: servono almeno 3 colonne del modello (es. ZIP, Ragione Sociale, Codice credito sociale, P.IVA).",
+        "Non ho trovato la riga di intestazione nell'Excel: servono almeno 3 colonne del modello (es. ZIP, Ragione Sociale, C.F., P.IVA).",
       tooManyRows: (count: number, max: number) =>
         `L'Excel contiene ${count} righe: il limite è ${max} pratiche per foglio. Dividere il lotto in più file.`,
       zipRead: (name: string, message: string) => `Errore lettura ZIP ${name}: ${message}`,

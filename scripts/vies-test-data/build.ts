@@ -372,7 +372,9 @@ interface LotPlan {
   opaqueNames: Set<number>;
 }
 
-const COLUMN_KEYS = ["zip", "name", "nameCn", "vat", "uscc", "address", "legalRep", "phone", "email", "pec"] as const;
+const COLUMN_KEYS = [
+  "zip", "id", "entityType", "name", "companyType", "cf", "vat", "legalRep", "street", "streetNumber", "city", "postalCode", "province", "country", "mainOffice", "pec",
+] as const;
 
 async function writeExcel(plan: LotPlan, path: string) {
   const workbook = new ExcelJS.Workbook();
@@ -385,14 +387,20 @@ async function writeExcel(plan: LotPlan, path: string) {
     const fault = plan.faults.get(company.zip);
     const values: Record<(typeof COLUMN_KEYS)[number], string | number> = {
       zip: company.zip,
+      id: `RF-${String(company.zip).padStart(4, "0")}`,
+      entityType: "persona giuridica",
       name: company.name,
-      nameCn: company.nameCn,
+      companyType: "srl",
+      cf: fault?.kind === "bad_uscc" ? brokenUscc(company.uscc) : company.uscc,
       vat: company.vat,
-      uscc: fault?.kind === "bad_uscc" ? brokenUscc(company.uscc) : company.uscc,
-      address: company.address,
       legalRep: company.legalRep,
-      phone: company.phone,
-      email: company.email,
+      street: company.address,
+      streetNumber: "",
+      city: "",
+      postalCode: "",
+      province: "",
+      country: "Cina",
+      mainOffice: "Sì",
       pec: company.pec,
     };
     COLUMN_KEYS.forEach((key, index) => {

@@ -7,8 +7,8 @@
 // - La bozza della compagnia (bozza_deliberata) si controlla, non si firma.
 // - Si firmano, in quest'ordine e solo dopo la deliberazione: la polizza nella copia per la
 //   Compagnia (polizza_copia_compagnia, inviata dalla compagnia o allegata dall'ufficio),
-//   l'informativa privacy, il MUP e il questionario antiriciclaggio. I modelli di privacy, MUP e
-//   antiriciclaggio li caricano gli amministratori (bucket `signing-templates`); le copie firmate
+//   il MUP unico (con incarico, raccomandazione, consegna, privacy e antiriciclaggio nello stesso file,
+//   predisposto dal rappresentante fiscale e compilato dal portale per ogni cliente); le copie firmate
 //   finiscono nella pratica (bucket `practice-documents`, document_type `<slot>_firmat[oa]`).
 // - Con tutte le firme caricate, le copie firmate vengono trasmesse alla compagnia
 //   (practice_workflow.signed_sent_at), che restituisce le copie della polizza emessa.
@@ -35,7 +35,7 @@ export const PRACTICE_DOCUMENTS_BUCKET = "practice-documents";
 /** Sezione del flusso da cui si firma: dopo la deliberazione. */
 export const SIGNING_STAGE: PracticeStage = "deliberata";
 
-export type SigningSlotId = "polizza_firmata" | "privacy" | "mup" | "antiriciclaggio";
+export type SigningSlotId = "polizza_firmata" | "mup";
 
 export interface SigningSlot {
   id: SigningSlotId;
@@ -69,37 +69,16 @@ export const SIGNING_SLOTS: SigningSlot[] = [
     keywords: [/polizza/i, /policy/i, /copia[ _-]?compagnia/i, /accettazion/i, /fideius/i],
   },
   {
-    id: "privacy",
-    order: 2,
-    label: "Informativa privacy e consensi (GDPR)",
-    description: "Informativa sul trattamento dei dati personali e consensi, firmata dal rappresentante con procura.",
-    signedType: "privacy_firmata",
-    hasTemplate: true,
-    builtIn: true,
-    sourceType: null,
-    keywords: [/privacy/i, /gdpr/i, /consens/i, /trattamento[ _-]?dati/i],
-  },
-  {
     id: "mup",
-    order: 3,
-    label: "MUP - Modulo Unico Precontrattuale",
-    description: "Informativa precontrattuale dell'intermediario (allegati 3, 4 e 4-ter IVASS), firmata per presa visione.",
+    order: 2,
+    label: "MUP unico (precontrattuale, privacy e antiriciclaggio)",
+    description:
+      "Il documento unico del rappresentante fiscale: MUP, incarico di consulenza, raccomandazione, consegna dell'informativa, privacy e questionario antiriciclaggio. Si firma solo questo, con la polizza.",
     signedType: "mup_firmato",
     hasTemplate: true,
     builtIn: true,
     sourceType: null,
-    keywords: [/(^|[^a-z])mup(?![a-z])/i, /precontrattual/i, /allegat[oi][ _-]?(3|4)/i],
-  },
-  {
-    id: "antiriciclaggio",
-    order: 4,
-    label: "Questionario antiriciclaggio e adeguata verifica",
-    description: "Adeguata verifica della clientela (D.Lgs. 231/2007) e dichiarazione di avvenuta identificazione del rappresentante fiscale.",
-    signedType: "antiriciclaggio_firmato",
-    hasTemplate: true,
-    builtIn: true,
-    sourceType: null,
-    keywords: [/antiricicl/i, /(^|[^a-z])aml(?![a-z])/i, /adeguata[ _-]?verifica/i, /kyc/i, /231/],
+    keywords: [/(^|[^a-z])mup(?![a-z])/i, /precontrattual/i, /allegat[oi][ _-]?(3|4)/i, /privacy/i, /gdpr/i, /antiricicl/i, /adeguata[ _-]?verifica/i, /questionario/i],
   },
 ];
 

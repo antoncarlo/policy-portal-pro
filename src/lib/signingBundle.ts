@@ -23,7 +23,7 @@ import { generateSigningDocument, loadPrefillInputs } from "@/lib/signingPrefill
 /**
  * Documenti da firmare di un intero lotto VIES, in blocco:
  * - download: uno ZIP con una cartella per pratica deliberata (numero pratica) che contiene, nell'ordine
- *   di firma, la polizza nella copia per la Compagnia e i modelli di privacy, MUP e antiriciclaggio;
+ *   di firma, la polizza nella copia per la Compagnia e il MUP unico;
  * - upload: lo stesso ZIP firmato, letto cartella per cartella: ogni file finisce nella pratica della
  *   cartella, con il tipo riconosciuto dal nome; le pratiche con tutte le firme vengono trasmesse
  *   alla compagnia.

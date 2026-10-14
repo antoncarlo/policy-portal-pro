@@ -52,7 +52,7 @@ export const myWorkMessages = defineMessages({
     },
     signing: {
       title: "Documenti da firmare",
-      intro: "Le pratiche deliberate che aspettano le firme, nell'ordine: polizza copia Compagnia, privacy, MUP e antiriciclaggio. Per scaricare e ricaricare tutto in blocco apri il lotto.",
+      intro: "Le pratiche deliberate che aspettano le firme, nell'ordine: polizza copia Compagnia e MUP unico. Per scaricare e ricaricare tutto in blocco apri il lotto.",
       none: "Nessuna pratica da firmare in questo momento.",
       signed: (done: number, total: number) => `${done} di ${total} firmati`,
       sent: (date: string) => `Trasmessi alla compagnia il ${date}`,
@@ -116,7 +116,7 @@ export const myWorkMessages = defineMessages({
     },
     signing: {
       title: "Documents to sign",
-      intro: "Approved practices waiting for signatures, in this order: policy insurer's copy, privacy, MUP and anti-money-laundering. To download and upload everything in bulk, open the lot.",
+      intro: "Approved practices waiting for signatures, in this order: policy insurer's copy and single MUP. To download and upload everything in bulk, open the lot.",
       none: "No practice to sign right now.",
       signed: (done: number, total: number) => `${done} of ${total} signed`,
       sent: (date: string) => `Sent to the insurer on ${date}`,

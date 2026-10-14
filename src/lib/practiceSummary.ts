@@ -502,6 +502,9 @@ function buildViesSummary(input: PracticeSummaryInput): PracticeSummary {
   const contraente: SummaryItem[] = [];
   pushItem(contraente, "client_name", "Ragione sociale", input.client_name);
   pushItem(contraente, "vies_denominazione_cn", "Denominazione cinese", str("vies_denominazione_cn"));
+  pushItem(contraente, "vies_id_rappresentante", "ID (rappresentante fiscale)", str("vies_id_rappresentante"));
+  pushItem(contraente, "vies_tipo_anagrafica", "Tipo anagrafica", str("vies_tipo_anagrafica"));
+  pushItem(contraente, "vies_tipo_societa", "Tipo società", str("vies_tipo_societa"));
   pushItem(contraente, "vies_partita_iva", "Partita IVA italiana", str("vies_partita_iva") ?? (str("vies_uscc") ? null : input.owner_tax_code));
   pushItem(contraente, "vies_uscc", "Codice di credito sociale", str("vies_uscc"));
   pushItem(contraente, "vies_legale_rappresentante", "Legale rappresentante", str("vies_legale_rappresentante"));
@@ -509,6 +512,7 @@ function buildViesSummary(input: PracticeSummaryInput): PracticeSummary {
   pushItem(contraente, "vies_data_nascita_legale_rappresentante", "Data di nascita legale rappresentante", str("vies_data_nascita_legale_rappresentante"));
   pushItem(contraente, "vies_domicilio_fiscale_contraente", "Domicilio fiscale in Italia", str("vies_domicilio_fiscale"));
   pushItem(contraente, "vies_sede_contraente", "Sede legale (estero)", str("vies_sede_contraente"));
+  pushItem(contraente, "vies_sede_principale", "Sede principale", str("vies_sede_principale"));
   pushItem(contraente, "client_phone", "Telefono", input.client_phone && input.client_phone !== "N/D" ? input.client_phone : null);
   pushItem(contraente, "vies_email", "Email", str("vies_email"));
   const pecSource = str("vies_pec_fonte");

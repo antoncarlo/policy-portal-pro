@@ -9,7 +9,7 @@ export interface PrefillInput {
   aml: AmlData;
 }
 
-const COLUMNS = "id, practice_number, policy_number, client_name, owner_tax_code, beneficiary, notes";
+const COLUMNS = "id, practice_number, policy_number, client_name, client_email, owner_tax_code, beneficiary, notes";
 const CHUNK = 100;
 
 /** Legge dal database i dati per compilare i documenti di piu' pratiche. Una pratica illeggibile manca dall'elenco. */
@@ -35,9 +35,7 @@ export async function loadPrefillInputs(practiceIds: string[]): Promise<Map<stri
 }
 
 const DOCUMENT_OF_SLOT: Partial<Record<SigningSlotId, PrefillDocument>> = {
-  privacy: "privacy",
   mup: "mup",
-  antiriciclaggio: "antiriciclaggio",
 };
 
 /** Il documento da firmare compilato per una pratica; senza dati (`input` assente) il modello in bianco. */

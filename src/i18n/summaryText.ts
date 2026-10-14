@@ -64,6 +64,10 @@ const ITEM_LABELS: Labels = {
   premium_gross: { en: "Gross Premium", zh: "总保费" },
   // VIES
   vies_denominazione_cn: { en: "Chinese name", zh: "中文名称" },
+  vies_id_rappresentante: { en: "ID (fiscal representative)", zh: "编号（税务代表）" },
+  vies_tipo_anagrafica: { en: "Entity type", zh: "主体类型" },
+  vies_tipo_societa: { en: "Company type", zh: "公司类型" },
+  vies_sede_principale: { en: "Main office", zh: "主要办事处" },
   vies_partita_iva: { en: "Italian VAT number", zh: "意大利增值税号" },
   vies_uscc: { en: "Unified Social Credit Code", zh: "统一社会信用代码" },
   vies_legale_rappresentante: { en: "Legal representative", zh: "法定代表人" },

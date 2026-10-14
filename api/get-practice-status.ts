@@ -162,7 +162,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const docs = visibleToPartner(allDocs ?? []);
 
   // Documenti da firmare (flusso VIES), nell'ordine di firma: la polizza nella copia per la Compagnia,
-  // privacy, MUP, antiriciclaggio. La bozza si controlla, non si firma. Con tutte le copie firmate
+  // MUP unico. La bozza si controlla, non si firma. Con tutte le copie firmate
   // caricate il portale le trasmette alla compagnia (signed_copies_sent_at).
   const stage = stageOf(practice);
   const draft = draftOf(docs);

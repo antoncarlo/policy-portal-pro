@@ -104,14 +104,30 @@ describe("signing prefill", () => {
     expect(values.te3_nome).toBeUndefined();
   });
 
-  it("every template has its fields registered", async () => {
-    const map = await source.fields();
-    for (const document of ["privacy", "mup", "antiriciclaggio"] as const) expect(map[document].length).toBeGreaterThan(5);
-    const keys = new Set(map.antiriciclaggio.map((field) => field.key));
-    for (const key of ["pratica", "contraente", "cf", "forma", "sede", "lr_nome", "lr_doc_numero", "te1_nome", "te3_quota", "beneficiario"]) expect(keys.has(key)).toBe(true);
+  it("fills the single MUP: policy, declarant, e-mail for the durable medium, owners with place and date of birth", () => {
+    const values = buildPrefillValues(
+      { ...practice, policy_number: "POL-77", client_email: "societa@pec.example.it" },
+      { titolari: [{ nome: "Wang Wei", luogo_nascita: "Beijing", data_nascita: "01/02/1980", quota: "60%", controllo: "diretto" }] },
+    );
+    expect(values).toMatchObject({
+      polizza: "POL-77",
+      email: "societa@pec.example.it",
+      dichiarante: "Rossi Fiscale Srl",
+      te1_nascita_luogo: "Beijing, 01/02/1980",
+      te1_quota: "60% · diretto",
+    });
+    expect(buildPrefillValues({ ...practice, client_email: "vies-riga-1@placeholder.local" }).email).toBeUndefined();
+    expect(buildPrefillValues(practice).polizza).toBe("VIES-2026-0007");
   });
 
-  for (const document of ["privacy", "mup", "antiriciclaggio"] as const) {
+  it("every template has its fields registered", async () => {
+    const map = await source.fields();
+    expect(map.mup.length).toBeGreaterThan(20);
+    const keys = new Set(map.mup.map((field) => field.key));
+    for (const key of ["pratica", "polizza", "contraente", "cf", "sede", "registro", "firmatario", "firmatario_cf", "dichiarante", "email", "te1_nome", "te1_quota", "te3_quota"]) expect(keys.has(key)).toBe(true);
+  });
+
+  for (const document of ["mup"] as const) {
     it(`writes the values on ${document} without changing its pages`, async () => {
       const values = buildPrefillValues(practice, { contraente: { forma_giuridica: "Società a responsabilità limitata" }, titolari: [{ nome: "Wang Wei", quota: "60%" }] });
       const blob = await fillSigningDocument(document, values, source);

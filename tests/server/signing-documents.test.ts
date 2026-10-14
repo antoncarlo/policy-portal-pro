@@ -17,12 +17,12 @@ import {
 } from "../../src/lib/signingDocuments";
 
 describe("documenti da firmare", () => {
-  it("ordine di firma: polizza copia Compagnia, privacy, MUP, antiriciclaggio; la bozza non e' tra i documenti da firmare", () => {
+  it("ordine di firma: polizza copia Compagnia, MUP unico; la bozza non e' tra i documenti da firmare", () => {
     const ordered = [...SIGNING_SLOTS].sort((a, b) => a.order - b.order).map((s) => s.id);
-    expect(ordered).toEqual(["polizza_firmata", "privacy", "mup", "antiriciclaggio"]);
+    expect(ordered).toEqual(["polizza_firmata", "mup"]);
     expect(SIGNING_SLOTS.find((s) => s.id === "polizza_firmata")!.sourceType).toBe("polizza_copia_compagnia");
     expect(SIGNING_SLOTS.find((s) => s.id === "polizza_firmata")!.hasTemplate).toBe(false);
-    expect(SIGNING_SLOTS.filter((s) => s.hasTemplate).map((s) => s.id)).toEqual(["privacy", "mup", "antiriciclaggio"]);
+    expect(SIGNING_SLOTS.filter((s) => s.hasTemplate).map((s) => s.id)).toEqual(["mup"]);
   });
 
   it("il modulo precompilato per la compagnia e' riconosciuto per tipo e, per le righe storiche, per nome", () => {
@@ -65,14 +65,14 @@ describe("documenti da firmare", () => {
       { file_name: "privacy.pdf", document_type: "privacy_firmata", created_at: "2026-10-02T10:00:00Z" },
     ];
     const status = signingStatus(docs, "deliberata");
-    expect(status.map((s) => s.slot.id)).toEqual(["polizza_firmata", "privacy", "mup", "antiriciclaggio"]);
+    expect(status.map((s) => s.slot.id)).toEqual(["polizza_firmata", "mup"]);
     expect(status[0].source!.file_name).toBe("copia-compagnia.pdf");
     expect(status.find((s) => s.slot.id === "mup")!.signed!.file_name).toBe("mup-nuovo.pdf");
-    expect(missingSignatures(docs, "deliberata").map((s) => s.id)).toEqual(["polizza_firmata", "antiriciclaggio"]);
+    expect(missingSignatures(docs, "deliberata").map((s) => s.id)).toEqual(["polizza_firmata"]);
     expect(signaturesComplete(docs, "deliberata")).toBe(false);
     expect(missingSignatures(docs, "in_valutazione")).toEqual([]);
     expect(signaturesComplete(docs, "in_valutazione")).toBe(false);
-    const all = [...docs, { file_name: "polizza-firmata.pdf", document_type: "polizza_firmata", created_at: "2026-10-06T10:00:00Z" }, { file_name: "aml.pdf", document_type: "antiriciclaggio_firmato", created_at: "2026-10-06T10:00:00Z" }];
+    const all = [...docs, { file_name: "polizza-firmata.pdf", document_type: "polizza_firmata", created_at: "2026-10-06T10:00:00Z" }];
     expect(signaturesComplete(all, "deliberata")).toBe(true);
     expect(draftOf(docs)!.file_name).toBe("bozza.pdf");
     expect(companyCopyOf(docs)!.file_name).toBe("copia-compagnia.pdf");
@@ -82,10 +82,10 @@ describe("documenti da firmare", () => {
   it("riconosce il documento dal nome del file caricato in blocco", () => {
     expect(inferSigningSlotFromFileName("VIES-2026-0001/3_mup.pdf")?.id).toBe("mup");
     expect(inferSigningSlotFromFileName("mup_firmato-rossi.pdf")?.id).toBe("mup");
-    expect(inferSigningSlotFromFileName("2_privacy.pdf")?.id).toBe("privacy");
-    expect(inferSigningSlotFromFileName("informativa-privacy-GDPR.pdf")?.id).toBe("privacy");
-    expect(inferSigningSlotFromFileName("questionario antiriciclaggio.pdf")?.id).toBe("antiriciclaggio");
-    expect(inferSigningSlotFromFileName("adeguata_verifica.pdf")?.id).toBe("antiriciclaggio");
+    // Il MUP e' un solo documento: anche i nomi di privacy e antiriciclaggio portano a lui.
+    expect(inferSigningSlotFromFileName("2_privacy.pdf")?.id).toBe("mup");
+    expect(inferSigningSlotFromFileName("questionario antiriciclaggio.pdf")?.id).toBe("mup");
+    expect(inferSigningSlotFromFileName("adeguata_verifica.pdf")?.id).toBe("mup");
     expect(inferSigningSlotFromFileName("1_polizza_copia_compagnia_Azienda.pdf")?.id).toBe("polizza_firmata");
     expect(inferSigningSlotFromFileName("Polizza copia compagnia firmata.pdf")?.id).toBe("polizza_firmata");
     expect(inferSigningSlotFromFileName("visura.pdf")).toBeNull();
@@ -102,8 +102,7 @@ describe("documenti da firmare", () => {
   it("recognises the slot of a P7M file by its name", () => {
     expect(inferSigningSlotFromFileName("VIES-2026-0001/3_mup.pdf.p7m")?.id).toBe("mup");
     expect(inferSigningSlotFromFileName("VIES-2026-0001/1_polizza_copia_compagnia_Azienda.pdf.p7m")?.id).toBe("polizza_firmata");
-    expect(inferSigningSlotFromFileName("VIES-2026-0001/2_privacy.pdf.p7m")?.id).toBe("privacy");
-    expect(inferSigningSlotFromFileName("VIES-2026-0001/4_antiriciclaggio.pdf.p7m")?.id).toBe("antiriciclaggio");
+    expect(inferSigningSlotFromFileName("VIES-2026-0001/2_mup_unico.pdf.p7m")?.id).toBe("mup");
   });
 
   it("finds the practice by folder, or by the number in the file name when folders are lost", () => {

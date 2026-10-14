@@ -113,7 +113,7 @@ async function open() {
   const signing = await page.getByTestId("my-signing").innerText();
   const items = await page.locator("[data-testid=my-signing-practice]").allInnerTexts();
   check("4 documenti da firmare: lotto 3 con le due pratiche deliberate (non le altre)", /Lotto 3/.test(signing) && items.length === 2 && !signing.includes("VIES-2026-0001") && !signing.includes("VIES-2026-0004"), signing.replace(/\s+/g, " ").slice(0, 400));
-  check("4 documenti da firmare: stato delle firme e trasmissione", items.some((t) => /1 di 4 firmati/.test(t)) && items.some((t) => /Trasmessi alla compagnia il 08\/10\/2026/.test(t)) && items.some((t) => /In attesa della copia per la Compagnia/.test(t)), JSON.stringify(items));
+  check("4 documenti da firmare: stato delle firme e trasmissione", items.some((t) => /1 di 2 firmati/.test(t)) && items.some((t) => /Trasmessi alla compagnia il 08\/10\/2026/.test(t)) && items.some((t) => /In attesa della copia per la Compagnia/.test(t)), JSON.stringify(items));
   check("4 documenti da firmare: link al lotto per scaricare e ricaricare in blocco", (await page.locator("[data-testid=my-signing-lot] a[href*='lot=']").count()) === 1);
   check("nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
   await ctx.close();

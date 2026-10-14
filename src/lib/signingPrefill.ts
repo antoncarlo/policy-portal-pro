@@ -1,6 +1,6 @@
 // Documenti da firmare compilati con i dati che il portale ha gia' della pratica.
 //
-// I modelli (privacy, MUP, antiriciclaggio) sono PDF su carta intestata Tecno Advance MGA, generati da
+// Il documento da firmare (MUP unico: MUP, incarico, raccomandazione, consegna, privacy, antiriciclaggio) e' un PDF su carta intestata Tecno Advance MGA, generato da
 // scripts/signing-templates/build.mjs in public/modelli-firma/ insieme a fields.json, che dice dove sta ogni
 // campo precompilabile (pagina, posizione, misura). Qui si calcolano i valori e si scrivono sul modello.
 // Cio' che il portale non sa resta in bianco: lo compila chi firma.
@@ -9,7 +9,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import { extractNotesSections } from "./practiceSummary";
 import { isValidChineseId } from "./viesCodes";
 
-export type PrefillDocument = "privacy" | "mup" | "antiriciclaggio";
+export type PrefillDocument = "mup";
 export type PrefillValues = Record<string, string>;
 
 /** Dati della pratica che servono a compilare i modelli. */
@@ -17,6 +17,7 @@ export interface PrefillPractice {
   practice_number: string;
   policy_number?: string | null;
   client_name: string;
+  client_email?: string | null;
   owner_tax_code?: string | null;
   beneficiary?: string | null;
   notes?: string | null;
@@ -80,6 +81,9 @@ export function buildPrefillValues(practice: PrefillPractice, aml: AmlData = {})
   const legal = aml.rappresentante ?? {};
 
   const values: PrefillValues = {
+    polizza: realPolicy || practice.practice_number,
+    email: text(fields.vies_email) || (practice.client_email && !/@placeholder\.local$/i.test(practice.client_email) ? practice.client_email : ""),
+    dichiarante: text(fields.vies_amministratore_rappresentante) || representative,
     pratica: realPolicy ? `${practice.practice_number} · polizza ${realPolicy}` : practice.practice_number,
     contraente: text(practice.client_name),
     cf: [vat, uscc ? `USCC ${uscc}` : ""].filter(Boolean).join(" · "),
@@ -128,8 +132,8 @@ export function buildPrefillValues(practice: PrefillPractice, aml: AmlData = {})
       [`${prefix}doc_rilascio`]: text(owner.doc_rilascio),
       [`${prefix}doc_scadenza`]: text(owner.doc_scadenza),
       [`${prefix}doc_ente`]: text(owner.doc_ente),
-      [`${prefix}quota`]: text(owner.quota),
-      [`${prefix}controllo`]: text(owner.controllo),
+      [`${prefix}nascita_luogo`]: [text(owner.luogo_nascita), text(owner.data_nascita)].filter(Boolean).join(", "),
+      [`${prefix}quota`]: [text(owner.quota), text(owner.controllo)].filter(Boolean).join(" · "),
     });
   });
 
