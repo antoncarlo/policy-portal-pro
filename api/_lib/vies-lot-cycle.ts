@@ -1,17 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isActiveInCycle, lotCycleOf, type LotCycleState, type LotFlowRow, type LotPracticeState } from '../../src/lib/lotCycle.js';
+import { isActiveInCycle, LOT_CYCLE_DOCUMENT_TYPES, lotCycleOf, practiceStateOf, type LotCycleState, type LotFlowRow } from '../../src/lib/lotCycle.js';
 import { stageOf } from '../../src/lib/practiceStages.js';
-import {
-  COMPANY_COPY_DOCUMENT_TYPE,
-  DRAFT_DOCUMENT_TYPE,
-  ISSUED_POLICY_DOCUMENT_TYPE,
-  SIGNED_DOCUMENT_TYPES,
-  signaturesComplete,
-} from '../../src/lib/signingDocuments.js';
 import { alertUsers } from './admin-alerts.js';
 import { portalUrl } from './auth-emails.js';
 import { logActivity } from './audit.js';
 import { lotAlertContent, lotLabel, type LotAlertKind } from './lot-copy.js';
+import { suppressQueuedEvents } from './notification-dispatch.js';
 import { registerPracticePayment } from './practice-payment.js';
 import { WorkflowError } from './vies-workflow.js';
 
@@ -21,7 +15,7 @@ import { WorkflowError } from './vies-workflow.js';
  * people who are next by email. The practices keep their own history too.
  */
 
-export const LOT_ACTIONS = ['lot_record_step', 'lot_confirm_drafts', 'lot_submit_payment', 'lot_confirm_payment', 'lot_mark_sent'] as const;
+export const LOT_ACTIONS = ['lot_record_step', 'lot_confirm_drafts', 'lot_submit_payment', 'lot_confirm_payment', 'lot_mark_sent', 'lot_silence_events'] as const;
 export type LotActionName = (typeof LOT_ACTIONS)[number];
 export const isLotAction = (value: unknown): value is LotActionName => typeof value === 'string' && (LOT_ACTIONS as readonly string[]).includes(value);
 
@@ -86,26 +80,13 @@ export async function loadLot(supabase: SupabaseClient, batchId: string): Promis
       .from('practice_documents')
       .select('practice_id, file_name, document_type, created_at')
       .in('practice_id', part)
-      .in('document_type', [DRAFT_DOCUMENT_TYPE, COMPANY_COPY_DOCUMENT_TYPE, ISSUED_POLICY_DOCUMENT_TYPE, ...SIGNED_DOCUMENT_TYPES]);
+      .in('document_type', LOT_CYCLE_DOCUMENT_TYPES);
     for (const doc of (docs ?? []) as Array<{ practice_id: string; file_name: string; document_type: string | null; created_at: string }>) {
       docsByPractice.set(doc.practice_id, [...(docsByPractice.get(doc.practice_id) ?? []), doc]);
     }
   }
 
-  const states: LotPracticeState[] = practices.map((practice) => {
-    const docs = docsByPractice.get(practice.id) ?? [];
-    return {
-      id: practice.id,
-      practice_number: practice.practice_number,
-      client_name: practice.client_name,
-      status: practice.status,
-      financial_status: practice.financial_status,
-      hasDraft: docs.some((doc) => doc.document_type === DRAFT_DOCUMENT_TYPE),
-      hasCompanyCopy: docs.some((doc) => doc.document_type === COMPANY_COPY_DOCUMENT_TYPE),
-      signaturesComplete: signaturesComplete(docs, stageOf(practice)),
-      issuedCopies: docs.filter((doc) => doc.document_type === ISSUED_POLICY_DOCUMENT_TYPE).length,
-    };
-  });
+  const states = practices.map((practice) => practiceStateOf(practice, docsByPractice.get(practice.id) ?? []));
 
   const flowRow = (flow as LotFlowRow | null) ?? null;
   return {
@@ -306,6 +287,15 @@ export async function runLotAction(
       await recordLotEvent(supabase, batchId, userId, 'payment_confirmed', `Pagamento confermato (${paidAt.split('-').reverse().join('/')}): ${registered} pratiche pagate${failed.length ? `, ${failed.length} non registrate` : ''} · ${who}`, { paid_at: paidAt, registered, failed });
       await tellOwners(supabase, lot, 'payment_confirmed', { count: registered });
       return { ok: true, changed: true, batchId, confirmedAt: now, registered, failed };
+    }
+
+    case 'lot_silence_events': {
+      // After a bulk operation done by the browser (the signed files of the whole lot): the documents added to each practice
+      // do not mail anyone one by one, the lot's step does.
+      assertOwnerOrAdmin(lot, userId, admin);
+      const since = new Date(Date.now() - 30 * 60 * 1000);
+      for (const practice of lot.practices) await suppressQueuedEvents(supabase, practice.id, since);
+      return { ok: true, changed: true, batchId, practices: lot.practices.length };
     }
 
     case 'lot_mark_sent': {

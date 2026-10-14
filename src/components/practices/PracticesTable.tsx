@@ -48,6 +48,7 @@ import { applyStageFilter, stageOf, type PracticeStage, type StageFilterable } f
 import { fetchPracticeLots, lotTitle, type PracticeLot } from "@/lib/practiceLots";
 import { downloadLotDocuments, LotZipTooLargeError } from "@/lib/lotDocuments";
 import { downloadSigningBundle, uploadSignedBundle } from "@/lib/signingBundle";
+import { LotCyclePanel } from "@/components/practices/LotCyclePanel";
 import { signingMessages } from "@/i18n/messages/signing";
 import { workflowMessages } from "@/i18n/messages/workflow";
 import { cn } from "@/lib/utils";
@@ -131,11 +132,17 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
   const [bulkStatus, setBulkStatus] = useState<PracticeStatus>("in_lavorazione");
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [downloadingLot, setDownloadingLot] = useState<string | null>(null);
+  // Changes after each read of the practices: the lot's cycle panel is read again with it.
+  const [cycleRefresh, setCycleRefresh] = useState(0);
   // Reason or request text: the company flow asks for it when a practice is rejected or more documents are needed.
   const [bulkNote, setBulkNote] = useState("");
   const bulkNeedsNote = bulkStatus === "rifiutata" || bulkStatus === "integrazioni";
   // Solo gli amministratori possono cambiare lo stato delle pratiche
   const [canChangeStatus, setCanChangeStatus] = useState(false);
+
+  useEffect(() => {
+    setCycleRefresh((value) => value + 1);
+  }, [practices]);
 
   const loadPractices = async () => {
     setLoading(true);
@@ -886,6 +893,19 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
           })}
         />
       </div>
+      {lotId && lots.get(lotId) && (
+        <LotCyclePanel
+          batchId={lotId}
+          title={lotTitle(lots.get(lotId) as PracticeLot, lotText.lotName)}
+          isAdmin={canChangeStatus}
+          busy={downloadingLot === lotId}
+          refreshKey={cycleRefresh}
+          onChanged={() => void loadPractices()}
+          onDownloadSigning={() => void handleDownloadSigning(lots.get(lotId) as PracticeLot, lotTitle(lots.get(lotId) as PracticeLot, lotText.lotName))}
+          onUploadSigned={() => document.getElementById(`${signedInputId(lots.get(lotId) as PracticeLot)}-chip`)?.click()}
+          onDownloadLot={() => void handleDownloadLot(lots.get(lotId) as PracticeLot, lotTitle(lots.get(lotId) as PracticeLot, lotText.lotName))}
+        />
+      )}
       {(lotId || lots.size > 0) && (
         <div className="flex flex-wrap items-center gap-3">
           {lotId && lots.get(lotId) && (

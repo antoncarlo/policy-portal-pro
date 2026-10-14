@@ -1512,6 +1512,156 @@ export type Database = {
           },
         ]
       }
+      vies_lot_flow: {
+        Row: {
+          batch_id: string
+          drafts_uploaded_at: string | null
+          drafts_uploaded_by: string | null
+          drafts_confirmed_at: string | null
+          drafts_confirmed_by: string | null
+          payment_submitted_at: string | null
+          payment_submitted_by: string | null
+          payment_confirmed_at: string | null
+          payment_confirmed_by: string | null
+          copies_uploaded_at: string | null
+          copies_uploaded_by: string | null
+          sent_to_company_at: string | null
+          sent_to_company_by: string | null
+          issued_uploaded_at: string | null
+          issued_uploaded_by: string | null
+          closed_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          batch_id: string
+          drafts_uploaded_at?: string | null
+          drafts_uploaded_by?: string | null
+          drafts_confirmed_at?: string | null
+          drafts_confirmed_by?: string | null
+          payment_submitted_at?: string | null
+          payment_submitted_by?: string | null
+          payment_confirmed_at?: string | null
+          payment_confirmed_by?: string | null
+          copies_uploaded_at?: string | null
+          copies_uploaded_by?: string | null
+          sent_to_company_at?: string | null
+          sent_to_company_by?: string | null
+          issued_uploaded_at?: string | null
+          issued_uploaded_by?: string | null
+          closed_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          batch_id?: string
+          drafts_uploaded_at?: string | null
+          drafts_uploaded_by?: string | null
+          drafts_confirmed_at?: string | null
+          drafts_confirmed_by?: string | null
+          payment_submitted_at?: string | null
+          payment_submitted_by?: string | null
+          payment_confirmed_at?: string | null
+          payment_confirmed_by?: string | null
+          copies_uploaded_at?: string | null
+          copies_uploaded_by?: string | null
+          sent_to_company_at?: string | null
+          sent_to_company_by?: string | null
+          issued_uploaded_at?: string | null
+          issued_uploaded_by?: string | null
+          closed_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vies_lot_flow_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: true
+            referencedRelation: "vies_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vies_lot_events: {
+        Row: {
+          batch_id: string
+          created_at: string
+          created_by: string | null
+          description: string
+          details: Json
+          event_type: string
+          id: number
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          created_by?: string | null
+          description: string
+          details?: Json
+          event_type: string
+          id?: number
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          details?: Json
+          event_type?: string
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vies_lot_events_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "vies_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vies_lot_documents: {
+        Row: {
+          batch_id: string
+          created_at: string
+          file_name: string
+          file_path: string
+          file_size: number
+          id: string
+          kind: string
+          mime_type: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          file_name: string
+          file_path: string
+          file_size?: number
+          id?: string
+          kind: string
+          mime_type?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          id?: string
+          kind?: string
+          mime_type?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vies_lot_documents_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "vies_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vies_jobs: {
         Row: {
           agent_result: Json

@@ -23,7 +23,7 @@ export const TECNO_MGA_DETAILS = [
   "Tecno Advance MGA Broker Srl",
   "Iscr. IVASS n. B000746484",
   "P.Iva: 17460381001",
-  "Sede Legale: Viale Parioli, 74 - 00197 Roma",
+  "Sede Legale: Via Po, 102 - 00198 Roma",
   "Sede Operativa: Via Michele Mercati, 18 - 00197 Roma",
   "Pec: tecnoadvancemgabroker@legalmail.it",
 ];

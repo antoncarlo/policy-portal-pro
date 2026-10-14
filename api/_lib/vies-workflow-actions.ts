@@ -49,6 +49,7 @@ export const WORKFLOW_ACTIONS = [
   'lot_submit_payment',
   'lot_confirm_payment',
   'lot_mark_sent',
+  'lot_silence_events',
   'workflow_bulk_status',
   'portal_status',
   'intake_link',
@@ -574,7 +575,9 @@ async function sendSignedCopies(supabase: SupabaseClient, userId: string, admin:
   });
   // The company receives the signed copies as links; the representative's portal is told too.
   const delivery = await emitPracticeEvent(supabase, { practiceId: practice.id, kind: 'signed', origin: 'admin' });
-  await dispatchNotifications(supabase);
+  // Signed files uploaded for a whole lot mail nobody one by one.
+  if (body.quiet === true) await suppressQueuedEvents(supabase, practice.id, new Date(Date.now() - 30 * 60 * 1000));
+  else await dispatchNotifications(supabase);
   // When every practice of the lot has its signatures, the administrators are told the lot is ready to be sent.
   await afterSignaturesComplete(supabase, practice.id, userId);
   return { ok: true, changed: true, practiceId: practice.id, sentAt, stage, delivered: delivery.delivered, queued: delivery.queued };

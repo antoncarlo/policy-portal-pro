@@ -17,6 +17,7 @@ export type WorkflowActionName =
   | "lot_submit_payment"
   | "lot_confirm_payment"
   | "lot_mark_sent"
+  | "lot_silence_events"
   | "workflow_bulk_status"
   | "portal_status"
   | "intake_link"

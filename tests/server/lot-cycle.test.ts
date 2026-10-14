@@ -231,6 +231,17 @@ await check("issued policies: four copies per practice close the lot and the rep
   assert.deepEqual(events(db).map((e) => e.event_type).filter((t, i, all) => all.indexOf(t) === i), ["drafts_uploaded", "drafts_confirmed", "payment_submitted", "payment_confirmed", "copies_uploaded", "signatures_complete", "sent_to_company", "issued_uploaded", "closed"]);
 });
 
+await check("the signed files of a whole lot: queued per-document emails are closed and quiet sending mails nobody", async () => {
+  db.seed("notification_events", { event_type: "documents_added", practice_id: p1.id, actor_id: OWNER, attempts: 0, payload: { file_name: "x.p7m" } });
+  db.seed("notification_events", { event_type: "documents_added", practice_id: p2.id, actor_id: OWNER, attempts: 0, payload: { file_name: "y.p7m" } });
+  await rejects(() => runWorkflowAction(sb(db), OTHER, "lot_silence_events", { batchId: BATCH }), "forbidden", 403);
+  const before = mails.length;
+  await owner("lot_silence_events");
+  assert.equal(db.rows("notification_events").filter((e) => e.event_type === "documents_added" && !e.processed_at).length, 0);
+  await runWorkflowAction(sb(db), OWNER, "workflow_send_signed", { practiceId: p1.id, resend: true, quiet: true });
+  assert.equal(mails.length, before);
+});
+
 afterAll(() => {
   smtpSink.close();
 });

@@ -113,6 +113,13 @@ export async function downloadSigningBundle(options: {
   }
   if (entries.length === 0) return { practices: practices.length, files: 0, fileName };
 
+  // L'Excel di ricapitolo del lotto sta alla base dello ZIP, accanto alle cartelle delle pratiche.
+  const { data: batch } = await supabase.from("vies_batches").select("excel_storage_path, source_excel_file_name").eq("id", options.batchId).maybeSingle();
+  if (batch?.excel_storage_path) {
+    const excelPath = batch.excel_storage_path.includes("://") ? batch.excel_storage_path : `vies-batch-files://${batch.excel_storage_path}`;
+    entries.push({ zipPath: safeName(batch.source_excel_file_name || "Excel ricapitolo lotto.xlsx", "ricapitolo.xlsx"), storagePath: excelPath });
+  }
+
   const { default: JSZip } = await import("jszip");
   const zip = new JSZip();
   zip.file(options.labels.readme, `${options.labels.readmeText}\n`);
@@ -205,14 +212,16 @@ export async function uploadSignedBundle(options: {
   await Promise.all(Array.from({ length: Math.min(UPLOAD_CONCURRENCY, jobs.length) }, worker));
 
   // Le pratiche ora complete di firme: le copie partono verso la compagnia (il server salta quelle gia' trasmesse).
+  // Nessuna e-mail per ogni documento caricato: un lotto firmato non deve mandarne decine.
   let sent = 0;
   if (touched.size > 0) {
+    await callWorkflow("lot_silence_events", { batchId: options.batchId }).catch(() => undefined);
     const documents = await fetchFlowDocuments([...touched]);
     for (const practice of practices) {
       if (!touched.has(practice.id)) continue;
       if (!signaturesComplete(documents.get(practice.id) ?? [], stageOf(practice))) continue;
       try {
-        const result = await callWorkflow<{ changed?: boolean }>("workflow_send_signed", { practiceId: practice.id });
+        const result = await callWorkflow<{ changed?: boolean }>("workflow_send_signed", { practiceId: practice.id, quiet: true });
         if (result.changed) sent += 1;
       } catch {
         // La trasmissione si puo' ripetere dalla pratica: il caricamento resta valido.
@@ -220,4 +229,63 @@ export async function uploadSignedBundle(options: {
     }
   }
   return { uploaded, practices: touched.size, sent, skipped };
+}
+
+export interface DraftsBundleLabels {
+  readme: string;
+  readmeText: string;
+}
+
+/**
+ * Le bozze della compagnia e il MUP di ogni pratica deliberata del lotto, una cartella per pratica: quello che il
+ * rappresentante fiscale controlla prima di confermare e pagare l'estratto conto.
+ */
+export async function downloadDraftsBundle(options: {
+  batchId: string;
+  fileLabel: string;
+  labels: DraftsBundleLabels;
+  onProgress?: (done: number, total: number) => void;
+}): Promise<SigningBundleResult> {
+  const fileName = `${safeName(options.fileLabel, "lotto")}.zip`;
+  const practices = (await fetchLotPracticesWithStage(options.batchId)).filter((practice) => ["deliberata", "da_emettere", "emessa"].includes(stageOf(practice)));
+  const prefill = await loadPrefillInputs(practices.map((practice) => practice.id));
+
+  const drafts = new Map<string, StoredDocument[]>();
+  for (const ids of chunk(practices.map((practice) => practice.id), 100)) {
+    const { data } = await supabase
+      .from("practice_documents")
+      .select("practice_id, file_name, file_path, document_type, created_at")
+      .in("practice_id", ids)
+      .eq("document_type", "bozza_deliberata")
+      .order("created_at", { ascending: false });
+    for (const row of (data ?? []) as StoredDocument[]) drafts.set(row.practice_id, [...(drafts.get(row.practice_id) ?? []), row]);
+  }
+
+  const entries: Array<{ zipPath: string; blob?: Blob; storagePath?: string }> = [];
+  for (const practice of practices) {
+    const folder = safeName(practice.practice_number, "pratica");
+    const draft = drafts.get(practice.id)?.[0];
+    if (draft) entries.push({ zipPath: `${folder}/bozza_${safeName(draft.file_name, "bozza.pdf")}`, storagePath: draft.file_path });
+    entries.push({ zipPath: `${folder}/mup.pdf`, blob: await generateSigningDocument("mup", prefill.get(practice.id) ?? null) });
+  }
+  if (entries.length === 0) return { practices: practices.length, files: 0, fileName };
+
+  const { default: JSZip } = await import("jszip");
+  const zip = new JSZip();
+  zip.file(options.labels.readme, `${options.labels.readmeText}\n`);
+  let done = 0;
+  options.onProgress?.(0, entries.length);
+  for (const entry of entries) {
+    if (entry.blob) zip.file(entry.zipPath, entry.blob);
+    else if (entry.storagePath) {
+      const reference = storageReferenceOf(entry.storagePath);
+      const { data } = await supabase.storage.from(reference.bucket).download(reference.path);
+      if (data) zip.file(entry.zipPath, data);
+    }
+    done += 1;
+    options.onProgress?.(done, entries.length);
+  }
+  const blob = await zip.generateAsync({ type: "blob", compression: "STORE", streamFiles: true });
+  saveBlob(blob, fileName);
+  return { practices: practices.length, files: entries.length, fileName };
 }

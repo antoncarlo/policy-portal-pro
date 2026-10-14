@@ -12,6 +12,13 @@
 // Il file non dipende dal browser: lo usano anche le funzioni /api (stessi passaggi, stessi controlli).
 
 import { stageOf, type PracticeStage } from "./practiceStages.js";
+import {
+  COMPANY_COPY_DOCUMENT_TYPE,
+  DRAFT_DOCUMENT_TYPE,
+  ISSUED_POLICY_DOCUMENT_TYPE,
+  SIGNED_DOCUMENT_TYPES,
+  signaturesComplete,
+} from "./signingDocuments.js";
 
 export const LOT_STEPS = ["drafts", "verify", "payment", "payment_check", "copies", "sign", "send", "issued"] as const;
 export type LotStepId = (typeof LOT_STEPS)[number];
@@ -140,4 +147,47 @@ export function stepBlockedBy(state: LotCycleState, step: LotStepId): LotStepId 
     if (!previous.done) return previous.id;
   }
   return null;
+}
+
+/** I tipi di documento che servono al ciclo: bozza, copia per la compagnia, copie firmate, polizze emesse. */
+export const LOT_CYCLE_DOCUMENT_TYPES = [DRAFT_DOCUMENT_TYPE, COMPANY_COPY_DOCUMENT_TYPE, ISSUED_POLICY_DOCUMENT_TYPE, ...SIGNED_DOCUMENT_TYPES];
+
+interface CycleDocument {
+  file_name: string;
+  document_type: string | null;
+  created_at: string;
+}
+
+/** Lo stato di una pratica del lotto, dai suoi documenti. */
+export function practiceStateOf(
+  practice: { id: string; practice_number: string; client_name?: string; status: string; financial_status: string | null },
+  documents: CycleDocument[],
+): LotPracticeState {
+  return {
+    id: practice.id,
+    practice_number: practice.practice_number,
+    client_name: practice.client_name,
+    status: practice.status,
+    financial_status: practice.financial_status,
+    hasDraft: documents.some((doc) => doc.document_type === DRAFT_DOCUMENT_TYPE),
+    hasCompanyCopy: documents.some((doc) => doc.document_type === COMPANY_COPY_DOCUMENT_TYPE),
+    signaturesComplete: signaturesComplete(documents, stageOf(practice)),
+    issuedCopies: documents.filter((doc) => doc.document_type === ISSUED_POLICY_DOCUMENT_TYPE).length,
+  };
+}
+
+/**
+ * Chi deve agire ora sul lotto, dalle sole date del passaggio (senza leggere le pratiche): serve a segnalarlo nel
+ * menu. Un lotto senza riga del ciclo aspetta la delibera dell'amministratore.
+ */
+export function lotWaitingFor(flow: Partial<LotFlowRow> | null | undefined, signaturesComplete: boolean): "admin" | "collaborator" | null {
+  const row = { ...EMPTY_FLOW, ...(flow ?? {}) };
+  if (row.closed_at) return null;
+  if (!row.drafts_uploaded_at) return "admin";
+  if (!row.drafts_confirmed_at) return "collaborator";
+  if (!row.payment_submitted_at) return "collaborator";
+  if (!row.payment_confirmed_at) return "admin";
+  if (!row.copies_uploaded_at) return "admin";
+  if (!row.sent_to_company_at) return signaturesComplete ? "admin" : "collaborator";
+  return "admin";
 }

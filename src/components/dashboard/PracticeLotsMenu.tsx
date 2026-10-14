@@ -6,6 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMessages } from "@/i18n";
 import { practicesMessages } from "@/i18n/messages/practices";
 import { fetchPracticeLots, lotTitle, type PracticeLot } from "@/lib/practiceLots";
+import { lotWaitingFor } from "@/lib/lotCycle";
+import { lotCycleMessages } from "@/i18n/messages/lotCycle";
 import { cn } from "@/lib/utils";
 
 /** The newest lots are in the menu; "All lots" opens the full list. */
@@ -34,9 +36,12 @@ const PRACTICE_PATH = /^\/practices\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-
  */
 export const PracticeLotsMenu = ({ open }: { open: boolean }) => {
   const m = useMessages(practicesMessages).lots;
+  const cycleText = useMessages(lotCycleMessages);
   const location = useLocation();
   const [lots, setLots] = useState<PracticeLot[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // The lots waiting for the person looking at the menu (the next step of the cycle is theirs).
+  const [myTurn, setMyTurn] = useState<Set<string>>(new Set());
   const [practicesByLot, setPracticesByLot] = useState<Record<string, LotPractice[] | "loading" | "error">>({});
 
   const activeLotId = new URLSearchParams(location.search).get("lot");
@@ -52,6 +57,30 @@ export const PracticeLotsMenu = ({ open }: { open: boolean }) => {
       cancelled = true;
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!open || lots.length === 0) return;
+    let cancelled = false;
+    const ids = lots.map((lot) => lot.batchId);
+    (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+      const [{ data: role }, { data: flows }, { data: signed }] = await Promise.all([
+        supabase.from("user_roles").select("role").eq("user_id", session.user.id).eq("role", "admin").maybeSingle(),
+        supabase.from("vies_lot_flow").select("*").in("batch_id", ids),
+        supabase.from("vies_lot_events").select("batch_id").in("batch_id", ids).eq("event_type", "signatures_complete"),
+      ]);
+      const flowOf = new Map((flows ?? []).map((flow) => [flow.batch_id, flow]));
+      const complete = new Set((signed ?? []).map((row) => row.batch_id));
+      const mine = ids.filter((id) => lotWaitingFor(flowOf.get(id), complete.has(id)) === (role ? "admin" : "collaborator"));
+      if (!cancelled) setMyTurn(new Set(mine));
+    })().catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [open, lots]);
 
   const loadPractices = useCallback(async (lotId: string) => {
     setPracticesByLot((current) => (current[lotId] && current[lotId] !== "error" ? current : { ...current, [lotId]: "loading" }));
@@ -147,7 +176,12 @@ export const PracticeLotsMenu = ({ open }: { open: boolean }) => {
                         <span className="block text-[11px] font-normal text-muted-foreground" data-testid="lots-menu-representative">{lot.representative}</span>
                       )}
                     </span>
-                    <span className="ml-auto shrink-0 pl-2 text-xs tabular-nums text-muted-foreground">{lot.practiceCount}</span>
+                    <span className="ml-auto flex shrink-0 items-center gap-1.5 pl-2">
+                      {myTurn.has(lot.batchId) && (
+                        <span className="h-2 w-2 rounded-full bg-amber-500" title={cycleText.turn.you} aria-label={cycleText.turn.you} data-testid="lots-menu-turn" />
+                      )}
+                      <span className="text-xs tabular-nums text-muted-foreground">{lot.practiceCount}</span>
+                    </span>
                   </Button>
                 </Link>
               </div>
