@@ -77,6 +77,15 @@ type ExcelRecord = {
   tipoAnagrafica: string;
   tipoSocieta: string;
   sedePrincipale: string;
+  /** Codice fiscale italiano assegnato dall'Agenzia delle Entrate alla società estera insieme alla partita IVA. */
+  codiceFiscaleContraente: string;
+  /** Address as the template asks for it, column by column. */
+  indirizzoVia: string;
+  indirizzoCivico: string;
+  indirizzoCitta: string;
+  indirizzoCap: string;
+  indirizzoProvincia: string;
+  indirizzoNazione: string;
   /** Unified Social Credit Code (codice di credito sociale) of the Chinese company. */
   uscc: string;
   legaleRappresentante: string;
@@ -488,6 +497,13 @@ const buildViesSpecificFields = ({
 }) => ({
   vies_sede_contraente: record.indirizzoContraente || null,
   vies_denominazione_cn: record.denominazioneCn || null,
+  vies_codice_fiscale_contraente: record.codiceFiscaleContraente || null,
+  vies_indirizzo_via: record.indirizzoVia || null,
+  vies_indirizzo_civico: record.indirizzoCivico || null,
+  vies_indirizzo_citta: record.indirizzoCitta || null,
+  vies_indirizzo_cap: record.indirizzoCap || null,
+  vies_indirizzo_provincia: record.indirizzoProvincia || null,
+  vies_indirizzo_nazione: record.indirizzoNazione || null,
   vies_id_rappresentante: record.idRappresentante || null,
   vies_tipo_anagrafica: record.tipoAnagrafica || null,
   vies_tipo_societa: record.tipoSocieta || null,
@@ -639,19 +655,25 @@ const fiscalRepresentativeNameHeaders = [
   "税务代表",
 ];
 
-// Address of the company from the template's separate columns: "Via Roma 12, 00100 Milano (MI), Italia".
-const composeCompanyAddress = (raw: Record<string, string>) => {
+// Address of the company, column by column as the template asks for it.
+const readCompanyAddress = (raw: Record<string, string>) => {
   const cell = (aliases: string[]) => getCellByAliases(raw, aliases, { exactOnly: true }).trim();
-  const street = cell(["indirizzo", "via", "indirizzo via piazza"]);
-  const number = cell(["numero civico", "civico", "n. civico"]);
-  const postalCode = cell(["cap"]);
-  const city = cell(["citta"]);
-  const province = cell(["provincia"]);
-  const country = cell(["nazione", "paese"]);
-  if (!number && !postalCode && !city && !province && !country) return "";
-  const line = [street, number].filter(Boolean).join(" ");
-  const place = [postalCode, city].filter(Boolean).join(" ") + (province ? ` (${province})` : "");
-  return [line, place.trim(), country].filter(Boolean).join(", ");
+  return {
+    via: cell(["indirizzo", "via", "indirizzo via piazza"]),
+    civico: cell(["numero civico", "civico", "n. civico"]),
+    cap: cell(["cap"]),
+    citta: cell(["citta"]),
+    provincia: cell(["provincia"]),
+    nazione: cell(["nazione", "paese"]),
+  };
+};
+
+/** One line for the places that need a single address: "Via Roma 12, 00100 Milano (MI), Italia". */
+const composeCompanyAddress = ({ via, civico, cap, citta, provincia, nazione }: ReturnType<typeof readCompanyAddress>) => {
+  if (!civico && !cap && !citta && !provincia && !nazione) return "";
+  const line = [via, civico].filter(Boolean).join(" ");
+  const place = [cap, citta].filter(Boolean).join(" ") + (provincia ? ` (${provincia})` : "");
+  return [line, place.trim(), nazione].filter(Boolean).join(", ");
 };
 
 // Column names the parser knows. The header row is the row that contains the
@@ -803,9 +825,6 @@ const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; she
             "uscc",
             "codice fiscale cn",
             "统一社会信用代码",
-            "c.f.",
-            "cf",
-            "codice fiscale",
           ], { exactOnly: true }),
         ),
         legaleRappresentante: getCellByAliases(raw, ["legale rappresentante", "legale rappre", "legal representative", "法定代表人"], {
@@ -824,7 +843,14 @@ const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; she
           ["data di nascita legale rappresentante", "data di nascita", "data nascita", "legal representative date of birth", "法定代表人出生日期"],
           { exactOnly: true },
         ),
-        indirizzoContraente: composeCompanyAddress(raw) || getCellByAliases(
+        indirizzoVia: readCompanyAddress(raw).via,
+        indirizzoCivico: readCompanyAddress(raw).civico,
+        indirizzoCitta: readCompanyAddress(raw).citta,
+        indirizzoCap: readCompanyAddress(raw).cap,
+        indirizzoProvincia: readCompanyAddress(raw).provincia,
+        indirizzoNazione: readCompanyAddress(raw).nazione,
+        codiceFiscaleContraente: normalizeText(getCellByAliases(raw, ["c.f.", "cf", "codice fiscale", "codice fiscale ditta", "codice fiscale contraente", "tax code"], { exactOnly: true })).replace(/\s+/g, "").toUpperCase(),
+        indirizzoContraente: composeCompanyAddress(readCompanyAddress(raw)) || getCellByAliases(
           raw,
           hasBeneficiaryColumn
             ? ["sede legale estera", "indirizzo contraente", "indirizzo ditta", "registered office abroad", "境外注册地址"]
@@ -884,7 +910,7 @@ const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; she
       const values = Object.values(record.raw).map(normalizeHeader).filter(Boolean);
       const looksLikeHeader = Object.values(record.raw).filter(isKnownHeader).length >= MIN_HEADER_MATCHES;
       const hasDataBesidesZip = values.length > (record.nomeZip ? 1 : 0);
-      return !looksLikeHeader && (Boolean(record.contraente || record.uscc || record.partitaIvaContraente) || hasDataBesidesZip);
+      return !looksLikeHeader && (Boolean(record.contraente || record.uscc || record.partitaIvaContraente || record.codiceFiscaleContraente) || hasDataBesidesZip);
     });
 
   if (parsedRecords.length > VIES_MAX_PRACTICES_PER_SHEET) {
@@ -1364,7 +1390,7 @@ const Vies = () => {
       let linkedByVat = false;
       const errors: string[] = [];
 
-      const expectedIdentifiers = [record.uscc, record.partitaIvaContraente].filter(Boolean);
+      const expectedIdentifiers = [record.uscc, record.partitaIvaContraente, record.codiceFiscaleContraente].filter(Boolean);
       // The representative's and the beneficiary's codes appear in every ZIP: never evidence of the client.
       const sharedIdentifiers = new Set([record.codiceFiscaleRappresentante, record.partitaIvaBeneficiario].filter(Boolean));
 
@@ -2003,8 +2029,11 @@ const Vies = () => {
     // An 18-character code is a Chinese Unified Social Credit Code and must pass its check;
     // other foreign formats (e.g. Hong Kong BR numbers) are kept as given.
     if (record.uscc.length === 18 && !isValidUscc(record.uscc)) errors.push("Codice di credito sociale non valido");
-    if (!record.partitaIvaContraente && !record.uscc) {
-      errors.push("Identificativo fiscale mancante (P.IVA o codice di credito sociale)");
+    if (record.codiceFiscaleContraente && !isValidItalianTaxCode(record.codiceFiscaleContraente)) {
+      errors.push("Codice fiscale contraente non valido");
+    }
+    if (!record.partitaIvaContraente && !record.uscc && !record.codiceFiscaleContraente) {
+      errors.push("Identificativo fiscale mancante (C.F., P.IVA o codice di credito sociale)");
     }
     if (!record.beneficiario) errors.push("Beneficiario mancante");
     if (!record.indirizzoBeneficiario) errors.push("Indirizzo beneficiario mancante");
@@ -2379,7 +2408,7 @@ const Vies = () => {
           client_phone: record.telefono || "N/D",
           beneficiary: record.beneficiario || null,
           // Column sized for Italian codes (max 16): the 18-character USCC stays in vies_uscc.
-          owner_tax_code: record.partitaIvaContraente || null,
+          owner_tax_code: record.partitaIvaContraente || record.codiceFiscaleContraente || null,
           policy_number: record.progressivo ? `VIES-${record.progressivo}` : null,
           policy_start_date: policyStartDate,
           policy_end_date: policyEndDate,

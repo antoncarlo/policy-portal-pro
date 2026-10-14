@@ -54,7 +54,7 @@ describe("signing prefill", () => {
     expect(values).toMatchObject({
       pratica: "VIES-2026-0007",
       contraente: "Shenzhen Example Trading Co., Ltd",
-      cf: "12345678903 · USCC 91440300MA5EXAMPL1",
+      cf: "P.IVA 12345678903 · USCC 91440300MA5EXAMPL1",
       firmatario: "Rossi Fiscale Srl",
       firmatario_cf: "09876543210",
       qualita: "Rappresentante fiscale con procura speciale",
@@ -118,6 +118,9 @@ describe("signing prefill", () => {
     });
     expect(buildPrefillValues({ ...practice, client_email: "vies-riga-1@placeholder.local" }).email).toBeUndefined();
     expect(buildPrefillValues(practice).polizza).toBe("VIES-2026-0007");
+    // The tax code the Revenue Agency assigned to the foreign company, together with the VAT number.
+    const withTaxCode = { ...practice, notes: composeNotes({ specificFields: { vies_codice_fiscale_contraente: "12345678903" } }) };
+    expect(buildPrefillValues(withTaxCode).cf).toBe("C.F. 12345678903");
   });
 
   it("every template has its fields registered", async () => {

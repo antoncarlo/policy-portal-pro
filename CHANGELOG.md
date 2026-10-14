@@ -68,7 +68,7 @@ Prima versione numerata. Riepilogo di ciò che il portale fa oggi:
 ### Modificato
 
 - Documenti da firmare: un solo MUP unico (MUP, incarico di consulenza, raccomandazione, dichiarazione di consegna, informativa privacy e questionario antiriciclaggio, testo del rappresentante fiscale) su carta intestata Tecno, compilato per ogni cliente; sostituisce privacy, MUP e antiriciclaggio separati. Si firmano solo la polizza (copia Compagnia) e il MUP unico. Consensi precompilati come nel vecchio MUP firmato: dati e supporto durevole sì, comunicazioni commerciali no, motivo della raccomandazione «Specificità di alcune garanzie».
-- Excel del lotto: nuove colonne (ZIP, ID, Tipo Anagrafica, Ragione Sociale, Tipo Società, C.F., P.IVA, Legale rappresentante, Indirizzo, Numero civico, Città, CAP, Provincia, Nazione, Sede principale, PEC). L'ID è il numero interno del rappresentante fiscale; i vecchi file con le colonne precedenti si leggono ancora.
+- Excel del lotto: nuove colonne (ZIP, ID, Tipo Anagrafica, Ragione Sociale, Tipo Società, C.F., P.IVA, Legale rappresentante, Indirizzo, Numero civico, Città, CAP, Provincia, Nazione, Sede principale, PEC). L'ID è il numero interno del rappresentante fiscale; il C.F. è il codice fiscale assegnato alla società estera dall'Agenzia delle Entrate con la partita IVA; l'indirizzo resta scomposto nelle sue voci anche sulla pratica; «Sede principale» è un campo da compilare; i vecchi file con le colonne precedenti si leggono ancora.
 
 - Stile di vetro completato: sfondo con aloni blu e bronzo, menu laterale e barre traslucidi, campi, schede, tab, pulsanti e avvisi colorati in vetro; riquadri di Amministrazione (Premi, Provvigioni, Da ricevere, Ricevute) nello stesso stile della dashboard.
 

@@ -39,7 +39,7 @@ const uscc = (region: string) => {
   return body + USCC_CHARSET[(31 - (sum % 31)) % 31];
 };
 /** Stesso codice con la cifra di controllo sbagliata: per la pratica che deve bloccarsi. */
-const brokenUscc = (code: string) => code.slice(0, 17) + USCC_CHARSET[(USCC_CHARSET.indexOf(code[17]) + 1) % USCC_CHARSET.length];
+const brokenTaxCode = (code: string) => code.slice(0, -1) + String((Number(code.slice(-1)) + 1) % 10);
 
 const ID_WEIGHTS = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2];
 const chineseId = (region: string, birth: string) => {
@@ -391,7 +391,7 @@ async function writeExcel(plan: LotPlan, path: string) {
       entityType: "persona giuridica",
       name: company.name,
       companyType: "srl",
-      cf: fault?.kind === "bad_uscc" ? brokenUscc(company.uscc) : company.uscc,
+      cf: fault?.kind === "bad_uscc" ? brokenTaxCode(company.vat) : company.vat,
       vat: company.vat,
       legalRep: company.legalRep,
       street: company.address,
@@ -400,7 +400,7 @@ async function writeExcel(plan: LotPlan, path: string) {
       postalCode: "",
       province: "",
       country: "Cina",
-      mainOffice: "Sì",
+      mainOffice: "",
       pec: company.pec,
     };
     COLUMN_KEYS.forEach((key, index) => {
@@ -469,7 +469,7 @@ const plans: LotPlan[] = [
     faults: new Map([
       [3, { kind: "missing_ubo", expected: "manca la Dichiarazione del titolare effettivo (UBO)" }],
       [7, { kind: "other_company", expected: "i documenti dello ZIP sono di un'altra società" }],
-      [11, { kind: "bad_uscc", expected: "Codice di credito sociale non valido (e, di conseguenza, «i documenti dello ZIP sono di un'altra società»: nei documenti il codice è quello giusto)" }],
+      [11, { kind: "bad_uscc", expected: "Codice fiscale contraente non valido (e, di conseguenza, «i documenti dello ZIP sono di un'altra società»: nei documenti il codice è quello giusto)" }],
       [15, { kind: "no_zip", expected: "ZIP 15.zip non caricato" }],
     ]),
     opaqueNames: new Set(),

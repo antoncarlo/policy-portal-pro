@@ -73,6 +73,7 @@ export function buildPrefillValues(practice: PrefillPractice, aml: AmlData = {})
   const fields = (extractNotesSections(practice.notes).specificFields ?? {}) as Record<string, unknown>;
   const uscc = text(fields.vies_uscc);
   const vat = text(practice.owner_tax_code);
+  const taxCode = text(fields.vies_codice_fiscale_contraente);
   const representative = text(fields.vies_rappresentante_fiscale);
   const realPolicy = practice.policy_number && !/^VIES-/i.test(practice.policy_number) ? practice.policy_number : "";
   const chinese = Boolean(uscc);
@@ -86,7 +87,7 @@ export function buildPrefillValues(practice: PrefillPractice, aml: AmlData = {})
     dichiarante: text(fields.vies_amministratore_rappresentante) || representative,
     pratica: realPolicy ? `${practice.practice_number} · polizza ${realPolicy}` : practice.practice_number,
     contraente: text(practice.client_name),
-    cf: [vat, uscc ? `USCC ${uscc}` : ""].filter(Boolean).join(" · "),
+    cf: [taxCode ? `C.F. ${taxCode}` : "", vat && vat !== taxCode ? `P.IVA ${vat}` : "", uscc ? `USCC ${uscc}` : ""].filter(Boolean).join(" · "),
     prodotto: PREFILL_PRODUCT,
     firmatario: representative,
     firmatario_cf: text(fields.vies_codice_fiscale_rappresentante),
