@@ -899,6 +899,10 @@ const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; she
         raw,
       };
 
+      // For the foreign company the C.F. and the VAT number are the same Italian number: one fills in the other.
+      if (!record.partitaIvaContraente && /^\d{11}$/.test(record.codiceFiscaleContraente)) record.partitaIvaContraente = record.codiceFiscaleContraente;
+      if (!record.codiceFiscaleContraente && record.partitaIvaContraente) record.codiceFiscaleContraente = record.partitaIvaContraente;
+
       return record;
     })
     // A practice row has a company name or code, or at least some data besides the
@@ -2023,17 +2027,21 @@ const Vies = () => {
     if (record.nomeZip && !/^([1-9]|1\d|20)$/.test(record.nomeZip.trim())) {
       errors.push(`Numero ZIP non valido (${record.nomeZip}): atteso un numero da 1 a ${VIES_MAX_PRACTICES_PER_SHEET}`);
     }
-    if (record.partitaIvaContraente && !isValidItalianVat(record.partitaIvaContraente)) {
-      errors.push("Partita IVA contraente non valida");
-    }
-    // An 18-character code is a Chinese Unified Social Credit Code and must pass its check;
-    // other foreign formats (e.g. Hong Kong BR numbers) are kept as given.
-    if (record.uscc.length === 18 && !isValidUscc(record.uscc)) errors.push("Codice di credito sociale non valido");
-    if (record.codiceFiscaleContraente && !isValidItalianTaxCode(record.codiceFiscaleContraente)) {
-      errors.push("Codice fiscale contraente non valido");
-    }
-    if (!record.partitaIvaContraente && !record.uscc && !record.codiceFiscaleContraente) {
-      errors.push("Identificativo fiscale mancante (C.F., P.IVA o codice di credito sociale)");
+    // The Chinese contraente is identified only by the Italian VAT number the Revenue Agency assigned to it
+    // (the C.F. is the same number): its Unified Social Credit Code never goes in these columns.
+    const looksLikeUscc = (value: string) => value.length === 18 && isValidUscc(value.toUpperCase());
+    if (looksLikeUscc(record.partitaIvaContraente) || looksLikeUscc(record.codiceFiscaleContraente) || record.partitaIvaContraente.length > 11) {
+      errors.push("Nelle colonne C.F. e P.IVA va la partita IVA italiana assegnata dall'Agenzia delle Entrate, non il codice di credito sociale");
+    } else {
+      if (record.partitaIvaContraente && !isValidItalianVat(record.partitaIvaContraente)) {
+        errors.push("Partita IVA contraente non valida");
+      }
+      if (record.codiceFiscaleContraente && !isValidItalianTaxCode(record.codiceFiscaleContraente)) {
+        errors.push("Codice fiscale contraente non valido");
+      }
+      if (!record.partitaIvaContraente && !record.codiceFiscaleContraente) {
+        errors.push("Partita IVA italiana mancante (colonna P.IVA o C.F.): è l'unico identificativo del contraente");
+      }
     }
     if (!record.beneficiario) errors.push("Beneficiario mancante");
     if (!record.indirizzoBeneficiario) errors.push("Indirizzo beneficiario mancante");

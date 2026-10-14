@@ -67,6 +67,8 @@ Prima versione numerata. Riepilogo di ciò che il portale fa oggi:
 
 ### Modificato
 
+- Excel del lotto: il contraente cinese si identifica solo con la partita IVA italiana assegnata dall'Agenzia delle Entrate (in P.IVA o in C.F., è lo stesso numero); un codice di credito sociale in quelle colonne è respinto con un messaggio chiaro.
+
 - Documenti da firmare: un solo MUP unico (MUP, incarico di consulenza, raccomandazione, dichiarazione di consegna, informativa privacy e questionario antiriciclaggio, testo del rappresentante fiscale) su carta intestata Tecno, compilato per ogni cliente; sostituisce privacy, MUP e antiriciclaggio separati. Si firmano solo la polizza (copia Compagnia) e il MUP unico. Consensi precompilati come nel vecchio MUP firmato: dati e supporto durevole sì, comunicazioni commerciali no, motivo della raccomandazione «Specificità di alcune garanzie».
 - Excel del lotto: nuove colonne (ZIP, ID, Tipo Anagrafica, Ragione Sociale, Tipo Società, C.F., P.IVA, Legale rappresentante, Indirizzo, Numero civico, Città, CAP, Provincia, Nazione, Sede principale, PEC). L'ID è il numero interno del rappresentante fiscale; il C.F. è il codice fiscale assegnato alla società estera dall'Agenzia delle Entrate con la partita IVA; l'indirizzo resta scomposto nelle sue voci anche sulla pratica; «Sede principale» è un campo da compilare; i vecchi file con le colonne precedenti si leggono ancora.
 
