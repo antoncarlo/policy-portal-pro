@@ -6,6 +6,7 @@ type Row = Record<string, any>;
 export class FakeDb {
   tables: Record<string, Row[]> = {};
   objects: Record<string, Map<string, { bytes: Buffer; contentType?: string }>> = {};
+  strictSignedUrls = false;
   failNextUpload = false;
   defaults: Record<string, Row> = { outbound_deliveries: { attempts: 0, status: "pending" }, notification_events: { attempts: 0, payload: {} } };
   /** auth.uid() seen by the triggers (null: the service role). */
@@ -54,6 +55,8 @@ export class FakeDb {
             return { data: [], error: null };
           },
           async createSignedUrl(path: string, ttl: number) {
+            // With `strictSignedUrls` a link exists only for an object that is really there (like the real storage).
+            if (db.strictSignedUrls && !store.has(path)) return { data: null, error: { message: "Object not found" } };
             return { data: { signedUrl: `https://fake.supabase.co/storage/v1/object/sign/${bucket}/${path}?token=t&ttl=${ttl}` }, error: null };
           },
           async createSignedUploadUrl(path: string) {

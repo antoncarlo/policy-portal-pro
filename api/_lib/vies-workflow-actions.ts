@@ -3,7 +3,7 @@ import { isPaid, stageOf } from '../../src/lib/practiceStages.js';
 import { isSigningStage, missingSignatures, SIGNED_DOCUMENT_TYPES } from '../../src/lib/signingDocuments.js';
 import { getMailProvider } from './mailer.js';
 import { logActivity } from './audit.js';
-import { attributeQueuedEvents, dispatchNotifications } from './notification-dispatch.js';
+import { attributeQueuedEvents, dispatchNotifications, suppressQueuedEvents } from './notification-dispatch.js';
 import {
   assertPublicHttpsUrl,
   emitLotEvent,
@@ -17,7 +17,9 @@ import * as crypto from 'crypto';
 import { getPublicBaseUrl, isAdmin, readPortalRegistry } from './vies-orchestrator.js';
 import { applyWorkflowEvent, defaultInfoDueDate, loadPractice, parseInfoDueDate, WorkflowError, type WorkflowEvent } from './vies-workflow.js';
 import { recordPolicyNumber } from './policy-number.js';
-import type { IncomingDocument } from './vies-documents.js';
+import { registerPracticePayment } from './practice-payment.js';
+import { afterSignaturesComplete, isLotAction, runLotAction } from './vies-lot-cycle.js';
+import { attachPracticeDocument, DocumentError, type IncomingDocument, type StoredDocumentType } from './vies-documents.js';
 
 /**
  * What an administrator does to a practice by hand, whether or not a portal is connected:
@@ -41,6 +43,12 @@ export const WORKFLOW_ACTIONS = [
   'workflow_register_payment',
   'workflow_send_signed',
   'workflow_set_policy_number',
+  'workflow_attach_document',
+  'lot_record_step',
+  'lot_confirm_drafts',
+  'lot_submit_payment',
+  'lot_confirm_payment',
+  'lot_mark_sent',
   'workflow_bulk_status',
   'portal_status',
   'intake_link',
@@ -206,7 +214,10 @@ async function runWorkflowActionInner(
   const admin = await isAdmin(supabase, userId);
   // The signed copies are sent by whoever signed them too: the practice's owner (the fiscal representative).
   if (action === 'workflow_send_signed') return sendSignedCopies(supabase, userId, admin, body);
+  // The lot's steps check their own permissions: the collaborator confirms the drafts and sends the payment.
+  if (isLotAction(action)) return runLotAction(supabase, userId, admin, action, body);
   if (!admin) throw new WorkflowError(403, 'forbidden', 'Solo gli amministratori possono gestire il flusso delle pratiche');
+  if (action === 'workflow_attach_document') return attachDocumentAction(supabase, userId, body);
 
   // Connections as configured on the server: what is ready, never a URL, key or secret.
   if (action === 'portal_status') {
@@ -459,44 +470,66 @@ async function runWorkflowActionInner(
       return { ok: true, changed: true, practiceId: practice.id, policyNumber: number };
     }
     case 'workflow_register_payment': {
-      const startedAt = new Date();
-      const practice = await loadPractice(supabase, practiceId);
-      if (practice.status !== 'approvata') throw new WorkflowError(409, 'invalid_transition', 'Il pagamento si registra su una pratica deliberata');
       const paidAt = optionalDate(body.paymentDate, 'paymentDate') ?? new Date().toISOString().slice(0, 10);
-      if (isPaid(practice.financial_status)) return { ok: true, changed: false, practiceId: practice.id };
-      const { data, error } = await supabase
-        .from('practices')
-        .update({ financial_status: 'incassata', payment_date: paidAt })
-        .eq('id', practice.id)
-        .eq('status', 'approvata')
-        .select('id');
-      if (error) throw new WorkflowError(500, 'database', `Registrazione del pagamento non riuscita: ${error.message}`);
-      if (!data?.length) throw new WorkflowError(409, 'conflict', 'La pratica è stata modificata nel frattempo: riprova');
-      await supabase.from('practice_events').insert({
-        practice_id: practice.id,
-        event_type: 'workflow_paid',
-        description: `Pagamento registrato (${paidAt.split('-').reverse().join('/')}) · ${context.actor.label}`,
-        created_by: userId,
-      });
-      await attributeQueuedEvents(supabase, practice.id, userId, startedAt);
-      // The company learns that the payment is in: it can issue the policy.
-      await Promise.all([emitPracticeEvent(supabase, { practiceId: practice.id, kind: 'paid', origin: 'admin' }), dispatchNotifications(supabase)]);
-      return { ok: true, changed: true, practiceId: practice.id, stage: 'da_emettere' };
+      return registerPracticePayment(supabase, userId, context.actor.label, practiceId, paidAt);
     }
     default:
       throw new WorkflowError(400, 'invalid_action', 'Azione non supportata');
   }
 
+  // An operation done for a whole lot (`quiet`) sends no email per practice: the lot's step tells the representative once.
+  const quiet = body.quiet === true;
+  const startedAt = new Date();
   const result = await applyWorkflowEvent(supabase, practiceId, event, context);
   await recordPolicyNumber(supabase, practiceId, policyNumber);
   // A second answer for a practice already deliberated (new draft, new date) is passed on to the company too.
   const changed = result.changed || action === 'workflow_deliberate';
+  if (quiet) await suppressQueuedEvents(supabase, practiceId, startedAt);
   await Promise.all([
     announce && changed ? emitPracticeEvent(supabase, { practiceId, kind: announce.kind, origin: 'admin', details: announce.details }) : null,
     // The people concerned by email: the queue was filled by the database when the status changed.
-    dispatchNotifications(supabase),
+    quiet ? null : dispatchNotifications(supabase),
   ]);
   return { ok: true, ...result };
+}
+
+const ATTACH_KINDS: Record<string, { type: StoredDocumentType; label: string }> = {
+  draft: { type: 'bozza_deliberata', label: 'Bozza della compagnia' },
+  company_copy: { type: 'polizza_copia_compagnia', label: 'Polizza copia Compagnia' },
+  issued_copy: { type: 'polizza_emessa', label: 'Polizza emessa' },
+};
+
+/**
+ * An administrator adds the company's draft, the policy copy to sign or an issued copy to a practice, without
+ * touching its section: the lot's bulk uploads use it. The history keeps who added what.
+ */
+async function attachDocumentAction(supabase: SupabaseClient, userId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const practiceId = required(body.practiceId, 64, 'practiceId obbligatorio');
+  const kind = ATTACH_KINDS[text(body.kind, 30) ?? ''];
+  if (!kind) throw new WorkflowError(422, 'invalid_payload', 'kind non valido (draft, company_copy, issued_copy)');
+  const document = parseDraft(body.document);
+  if (!document) throw new WorkflowError(422, 'invalid_payload', 'document obbligatorio');
+  const practice = await loadPractice(supabase, practiceId);
+  const startedAt = new Date();
+  const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', userId).maybeSingle();
+  const label = (profile?.full_name as string | undefined)?.trim() || 'Amministratore';
+  let stored: { id: string; file_name: string };
+  try {
+    stored = await attachPracticeDocument(supabase, practice, document, kind.type, { uploadedBy: userId });
+  } catch (error) {
+    if (error instanceof DocumentError) throw new WorkflowError(422, 'invalid_document', error.message);
+    throw error;
+  }
+  await supabase.from('practice_events').insert({
+    practice_id: practice.id,
+    event_type: 'workflow_document_attached',
+    description: `${kind.label} allegata: ${stored.file_name} · ${label}`,
+    created_by: userId,
+  });
+  if (kind.type === 'polizza_copia_compagnia') await recordPolicyNumber(supabase, practice.id, text(body.policyNumber, 100));
+  // The lot's upload step tells the representative once: no email for each document.
+  if (body.quiet === true) await suppressQueuedEvents(supabase, practice.id, startedAt);
+  return { ok: true, changed: true, practiceId: practice.id, documentId: stored.id };
 }
 
 /**
@@ -542,11 +575,13 @@ async function sendSignedCopies(supabase: SupabaseClient, userId: string, admin:
   // The company receives the signed copies as links; the representative's portal is told too.
   const delivery = await emitPracticeEvent(supabase, { practiceId: practice.id, kind: 'signed', origin: 'admin' });
   await dispatchNotifications(supabase);
+  // When every practice of the lot has its signatures, the administrators are told the lot is ready to be sent.
+  await afterSignaturesComplete(supabase, practice.id, userId);
   return { ok: true, changed: true, practiceId: practice.id, sentAt, stage, delivered: delivery.delivered, queued: delivery.queued };
 }
 
 const PRACTICE_ACTIONS = new Set<WorkflowActionName>([
-  'workflow_deliberate', 'workflow_reject', 'workflow_request_info', 'workflow_provide_info', 'workflow_issue', 'workflow_reopen', 'workflow_mark_sent', 'workflow_register_payment', 'workflow_send_signed', 'workflow_set_policy_number',
+  'workflow_deliberate', 'workflow_reject', 'workflow_request_info', 'workflow_provide_info', 'workflow_issue', 'workflow_reopen', 'workflow_mark_sent', 'workflow_register_payment', 'workflow_send_signed', 'workflow_set_policy_number', 'workflow_attach_document',
 ]);
 
 /**

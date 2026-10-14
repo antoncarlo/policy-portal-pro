@@ -18,6 +18,7 @@ import { ApiKeyMappingSettings } from "@/components/settings/admin/ApiKeyMapping
 import { ConnectionsSettings } from "@/components/settings/admin/ConnectionsSettings";
 import { SigningTemplatesSettings } from "@/components/settings/admin/SigningTemplatesSettings";
 import { SessionsSettings } from "@/components/settings/SessionsSettings";
+import { CommunicationEmails } from "@/components/settings/CommunicationEmails";
 import { MyWorkStatistics } from "@/components/settings/MyWorkStatistics";
 import { MyWorkLog } from "@/components/settings/MyWorkLog";
 import { MyWorkSigning } from "@/components/settings/MyWorkSigning";
@@ -180,6 +181,7 @@ const Settings = () => {
 
           <TabsContent value="preferences" className="space-y-4">
             <PreferencesSettings />
+            <CommunicationEmails />
           </TabsContent>
 
           <TabsContent value="sessions" className="space-y-4">

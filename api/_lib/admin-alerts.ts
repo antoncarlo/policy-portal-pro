@@ -29,11 +29,9 @@ export interface AlertContent {
 
 const unique = <T>(values: T[]) => [...new Set(values)];
 
-export async function adminRecipients(supabase: SupabaseClient): Promise<AdminRecipient[]> {
-  const { data: roles, error } = await supabase.from('user_roles').select('user_id').eq('role', 'admin');
-  if (error) throw new Error(`user_roles: ${error.message}`);
-  const ids = unique((roles ?? []).map((row: { user_id: string }) => row.user_id));
-
+/** Where the email of each of these users goes: the addresses chosen in "Gestione utenti", else the sign-in email. */
+export async function recipientsForUsers(supabase: SupabaseClient, userIds: string[], options: { withOfficeMailboxes?: boolean } = {}): Promise<AdminRecipient[]> {
+  const ids = unique(userIds);
   const recipients = new Map<string, AdminRecipient>();
   if (ids.length > 0) {
     const [profiles, settings] = await Promise.all([
@@ -48,19 +46,26 @@ export async function adminRecipients(supabase: SupabaseClient): Promise<AdminRe
       for (const address of addresses) recipients.set(address.toLowerCase(), { email: address.toLowerCase(), language });
     }
   }
-  for (const address of extraAddresses()) if (!recipients.has(address)) recipients.set(address, { email: address, language: 'it' });
+  if (options.withOfficeMailboxes) for (const address of extraAddresses()) if (!recipients.has(address)) recipients.set(address, { email: address, language: 'it' });
   return [...recipients.values()];
 }
 
-/** Sends one alert to every administrator, written in each one's language. Never throws. */
-export async function alertAdmins(
+export async function adminRecipients(supabase: SupabaseClient): Promise<AdminRecipient[]> {
+  const { data: roles, error } = await supabase.from('user_roles').select('user_id').eq('role', 'admin');
+  if (error) throw new Error(`user_roles: ${error.message}`);
+  return recipientsForUsers(supabase, (roles ?? []).map((row: { user_id: string }) => row.user_id), { withOfficeMailboxes: true });
+}
+
+/** Sends one alert to these recipients, written in each one's language. Never throws. */
+export async function alertRecipients(
   supabase: SupabaseClient,
+  loadRecipients: () => Promise<AdminRecipient[]>,
   build: (language: Language) => AlertContent,
   meta: { template: string; practiceId?: string | null },
 ): Promise<{ sent: number; failed: number; recipients: number; reason?: string }> {
   try {
     if (getMailProvider() === 'none') return { sent: 0, failed: 0, recipients: 0, reason: 'no_mail_provider' };
-    const recipients = await adminRecipients(supabase);
+    const recipients = await loadRecipients();
     const byLanguage = new Map<Language, string[]>();
     for (const recipient of recipients) byLanguage.set(recipient.language, [...(byLanguage.get(recipient.language) ?? []), recipient.email]);
 
@@ -83,12 +88,27 @@ export async function alertAdmins(
       if (result.success) sent += 1;
       else {
         failed += 1;
-        console.error(`Avviso agli amministratori (${meta.template}) non inviato:`, result.error);
+        console.error(`Avviso (${meta.template}) non inviato:`, result.error);
       }
     }
     return { sent, failed, recipients: recipients.length };
   } catch (error) {
-    console.error(`Avviso agli amministratori (${meta.template}) non riuscito:`, error instanceof Error ? error.message : error);
+    console.error(`Avviso (${meta.template}) non riuscito:`, error instanceof Error ? error.message : error);
     return { sent: 0, failed: 1, recipients: 0, reason: error instanceof Error ? error.message : 'error' };
   }
 }
+
+/** Sends one alert to every administrator, written in each one's language. Never throws. */
+export const alertAdmins = (
+  supabase: SupabaseClient,
+  build: (language: Language) => AlertContent,
+  meta: { template: string; practiceId?: string | null },
+) => alertRecipients(supabase, () => adminRecipients(supabase), build, meta);
+
+/** Sends one alert to these users (the people a lot belongs to). Never throws. */
+export const alertUsers = (
+  supabase: SupabaseClient,
+  userIds: string[],
+  build: (language: Language) => AlertContent,
+  meta: { template: string; practiceId?: string | null },
+) => alertRecipients(supabase, () => recipientsForUsers(supabase, userIds), build, meta);

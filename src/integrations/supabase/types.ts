@@ -1651,6 +1651,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      set_my_notification_emails: {
+        Args: { p_emails: string[] }
+        Returns: string[]
+      }
       auth_user_for_email: {
         Args: { p_email: string }
         Returns: {

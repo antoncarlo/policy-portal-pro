@@ -3,6 +3,20 @@ import { defineMessages } from "@/i18n";
 /** Impostazioni di agenti e collaboratori: statistiche, log e documenti da firmare del proprio lavoro. */
 export const myWorkMessages = defineMessages({
   it: {
+    emails: {
+      title: "E-mail per le comunicazioni",
+      intro: "Gli avvisi del portale (bozze da verificare, pagamento confermato, documenti da firmare, polizze emesse, cambi di stato) arrivano a questi indirizzi. Puoi indicarne fino a 3. Se non ne indichi nessuno, si usa l'e-mail di accesso.",
+      placeholder: "indirizzo@esempio.it",
+      add: "Aggiungi un indirizzo",
+      remove: "Togli",
+      save: "Salva",
+      saved: "Indirizzi salvati",
+      savedText: (count: number) => (count === 0 ? "Gli avvisi arrivano all'e-mail di accesso." : count === 1 ? "Gli avvisi arrivano a 1 indirizzo." : `Gli avvisi arrivano a ${count} indirizzi.`),
+      invalid: "Indirizzo e-mail non valido",
+      tooMany: "Al massimo 3 indirizzi",
+      error: "Indirizzi non salvati",
+      loginAddress: (email: string) => `E-mail di accesso: ${email}`,
+    },
     stats: {
       title: "Le tue statistiche",
       intro: "Numeri delle pratiche che segui: le tue e, se sei un agente, quelle dei tuoi collaboratori. Non comprendono altri utenti.",
@@ -53,6 +67,20 @@ export const myWorkMessages = defineMessages({
     },
   },
   en: {
+    emails: {
+      title: "Email addresses for communications",
+      intro: "The portal's notices (drafts to verify, payment confirmed, documents to sign, issued policies, status changes) go to these addresses. You can enter up to 3. If you enter none, the sign-in email is used.",
+      placeholder: "address@example.com",
+      add: "Add an address",
+      remove: "Remove",
+      save: "Save",
+      saved: "Addresses saved",
+      savedText: (count: number) => (count === 0 ? "Notices go to the sign-in email." : count === 1 ? "Notices go to 1 address." : `Notices go to ${count} addresses.`),
+      invalid: "Invalid email address",
+      tooMany: "At most 3 addresses",
+      error: "Addresses not saved",
+      loginAddress: (email: string) => `Sign-in email: ${email}`,
+    },
     stats: {
       title: "Your statistics",
       intro: "Numbers for the practices you follow: your own and, if you are an agent, your collaborators'. Other users are not included.",
@@ -103,6 +131,20 @@ export const myWorkMessages = defineMessages({
     },
   },
   zh: {
+    emails: {
+      title: "通知邮箱",
+      intro: "门户的通知（待核对草稿、付款确认、待签署文件、已出具保单、状态变更）会发送到这些地址。最多可填写 3 个；若不填写，则使用登录邮箱。",
+      placeholder: "地址@example.com",
+      add: "添加地址",
+      remove: "删除",
+      save: "保存",
+      saved: "地址已保存",
+      savedText: (count: number) => (count === 0 ? "通知将发送到登录邮箱。" : `通知将发送到 ${count} 个地址。`),
+      invalid: "邮箱地址无效",
+      tooMany: "最多 3 个地址",
+      error: "地址未保存",
+      loginAddress: (email: string) => `登录邮箱：${email}`,
+    },
     stats: {
       title: "您的统计",
       intro: "您负责的申请数据：自己的申请，若您是代理人则包括您的协作人的申请。不含其他用户。",

@@ -683,6 +683,20 @@ export async function attributeQueuedEvents(supabase: SupabaseClient, practiceId
 }
 
 /** Names the API client that sent a practice in (no signed-in person acted), for the email to the administrators. */
+/**
+ * Marks as handled the emails queued for a practice by an operation done for a whole lot (drafts, payment,
+ * documents): the lot gets one email for the whole step instead of one per practice.
+ */
+export async function suppressQueuedEvents(supabase: SupabaseClient, practiceId: string, since: Date) {
+  const { error } = await supabase
+    .from('notification_events')
+    .update({ processed_at: new Date().toISOString(), last_error: 'sent_for_the_lot' })
+    .eq('practice_id', practiceId)
+    .is('processed_at', null)
+    .gte('created_at', new Date(since.getTime() - 15_000).toISOString());
+  if (error) console.error('notifiche: avvisi della pratica non soppressi:', error.message);
+}
+
 export async function labelQueuedEvents(supabase: SupabaseClient, practiceId: string, source: string) {
   const label = source.trim().slice(0, 100);
   if (!label) return;
