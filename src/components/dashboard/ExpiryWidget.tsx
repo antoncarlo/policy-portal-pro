@@ -87,7 +87,7 @@ export const ExpiryWidget = () => {
           {expiries.map((expiry) => (
             <div
               key={expiry.practice_id}
-              className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+              className="flex items-center justify-between p-3 bg-white/40 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
               onClick={() => navigate(`/practices/${expiry.practice_id}`)}
             >
               <div className="flex-1">

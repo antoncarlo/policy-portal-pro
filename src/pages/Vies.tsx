@@ -2659,7 +2659,7 @@ const Vies = () => {
         </div>
 
         {VIES_ALLOW_DUPLICATE_PRACTICES && (
-          <div className="flex gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+          <div className="flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 backdrop-blur-sm p-3 text-sm text-amber-950">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
               <span className="font-semibold">{m.header.testModeTitle}</span> {m.header.testModeText}
@@ -2856,7 +2856,7 @@ const Vies = () => {
                       <Label htmlFor="vies-visura-amministratore">{m.step2.visuraAdmin}</Label>
                       <select
                         id="vies-visura-amministratore"
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        className="flex h-10 w-full rounded-lg border border-white/70 bg-white/60 px-3 py-2 text-sm backdrop-blur-md"
                         value={visuraAdminIndex}
                         disabled={sheetLocked}
                         onChange={(event) => applyVisuraAdministrator(visuraData, Number(event.target.value))}
@@ -2996,7 +2996,7 @@ const Vies = () => {
                                 {reconciliation.vatCheck === "verified" && <Badge variant="secondary">{m.step3.verified}</Badge>}
                                 {reconciliation.vatCheck === "mismatch" && <Badge variant="destructive">{m.step3.mismatch}</Badge>}
                                 {reconciliation.vatCheck === "unverifiable" && (
-                                  <Badge variant="outline" className="border-amber-300 text-amber-900">
+                                  <Badge variant="outline" className="border-amber-500/30 text-amber-900">
                                     {m.step3.unverifiable}
                                   </Badge>
                                 )}
@@ -3004,7 +3004,7 @@ const Vies = () => {
                               </TableCell>
                               <TableCell className="text-right">
                                 {pendingScans ? (
-                                  <Badge variant="outline" className="border-amber-300 text-amber-900">
+                                  <Badge variant="outline" className="border-amber-500/30 text-amber-900">
                                     <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                                     {m.step3.checking}
                                   </Badge>
@@ -3070,7 +3070,7 @@ const Vies = () => {
                   </Table>
                 </div>
                 {unmatchedZips.length > 0 && (
-                  <div className="mt-4 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                  <div className="mt-4 flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 backdrop-blur-sm p-3 text-amber-900">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                     <div className="space-y-1 text-sm">
                       <p className="font-medium">
@@ -3128,7 +3128,7 @@ const Vies = () => {
             ))}
 
             {missingRequirements.length > 0 && documents.length > 0 && (
-              <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900 md:col-span-2">
+              <div className="flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 backdrop-blur-sm p-3 text-amber-900 md:col-span-2">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 <p className="text-sm">
                   {m.step4.missingTypes(missingRequirements.length)}
@@ -3151,7 +3151,7 @@ const Vies = () => {
           <CardContent>
             <div className="space-y-3">
               {persistedBatchId && !savingBatch ? (
-                <div className="flex flex-col gap-3 rounded-lg border border-green-200 bg-green-50 p-4 text-green-950 md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-col gap-3 rounded-lg border border-green-500/30 bg-green-500/10 backdrop-blur-sm p-4 text-green-950 md:flex-row md:items-center md:justify-between">
                   <div className="flex gap-2">
                     <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
                     <div className="text-sm">
@@ -3180,7 +3180,7 @@ const Vies = () => {
                     {savingBatch ? m.step5.creating : m.step5.create(readyRowCount)}
                   </Button>
                   {records.length > 0 && excludedRows.length > 0 && (
-                    <div className="space-y-1 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+                    <div className="space-y-1 rounded-lg border border-red-500/30 bg-red-500/10 backdrop-blur-sm p-3 text-sm text-red-900">
                       <p className="font-medium">
                         {m.step5.excluded(excludedRows.length)}
                       </p>
@@ -3194,7 +3194,7 @@ const Vies = () => {
                     </div>
                   )}
                   {creationBlockedReason && (
-                    <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                    <div className="flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 backdrop-blur-sm p-3 text-sm text-amber-900">
                       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                       <p>{creationBlockedReason}</p>
                     </div>
@@ -3203,7 +3203,7 @@ const Vies = () => {
               )}
 
               {(savingBatch || (batchUploadStatus && !persistedBatchId)) && (
-                <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+                <div className="space-y-2 rounded-lg border border-blue-500/30 bg-blue-500/10 backdrop-blur-sm p-3 text-sm text-blue-900">
                   <div className="flex items-center justify-between gap-3">
                     <span>{batchUploadStatus ?? m.step5.preparing}</span>
                     <span className="font-mono">{batchUploadProgress}%</span>
@@ -3324,7 +3324,7 @@ const Vies = () => {
                       <Label htmlFor="vies-portal">{m.step6.portal}</Label>
                       <select
                         id="vies-portal"
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        className="flex h-10 w-full rounded-lg border border-white/70 bg-white/60 px-3 py-2 text-sm backdrop-blur-md"
                         value={selectedPortalId}
                         onChange={(event) => setSelectedPortalId(event.target.value)}
                         disabled={Boolean(controlLoading)}
@@ -3385,7 +3385,7 @@ const Vies = () => {
                     ))}
                   </div>
                   {lastWorkerSummary?.notice && (
-                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">{translateViesText(lastWorkerSummary.notice)}</div>
+                    <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 backdrop-blur-sm p-3 text-sm text-blue-950">{translateViesText(lastWorkerSummary.notice)}</div>
                   )}
                   {jobMonitor.length > 0 && (
                     <div className="overflow-x-auto rounded-lg border">

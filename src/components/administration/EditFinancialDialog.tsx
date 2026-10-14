@@ -158,7 +158,7 @@ export const EditFinancialDialog = ({
             </div>
           </div>
 
-          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className="bg-blue-500/10 backdrop-blur-sm dark:bg-blue-950 border border-blue-500/30 dark:border-blue-800 rounded-lg p-4">
             <p className="text-sm text-blue-800 dark:text-blue-200">
               <strong>{m.calculated}</strong> €{calculatedCommission}
             </p>

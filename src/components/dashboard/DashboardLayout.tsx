@@ -39,6 +39,8 @@ interface DashboardLayoutProps {
   children: ReactNode;
 }
 
+const NAV_ITEM = "rounded-xl";
+
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -169,7 +171,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                     <Link to={item.path} className="min-w-0 flex-1">
                       <Button
                         variant={onPractices && !activeStage ? "secondary" : "ghost"}
-                        className="h-auto min-h-10 w-full justify-start whitespace-normal text-left leading-snug"
+                        className={cn(NAV_ITEM, "h-auto min-h-10 w-full justify-start whitespace-normal text-left leading-snug")}
                       >
                         <Icon className="mr-2 h-4 w-4 shrink-0" />
                         <span className="min-w-0 break-words">{item.label}</span>
@@ -225,7 +227,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               <Link key={item.path} to={item.path}>
                 <Button
                   variant={isActive(item.path) ? "secondary" : "ghost"}
-                  className="h-auto min-h-10 w-full justify-start whitespace-normal text-left leading-snug"
+                  className={cn(NAV_ITEM, "h-auto min-h-10 w-full justify-start whitespace-normal text-left leading-snug")}
                 >
                   <Icon className="mr-2 h-4 w-4 shrink-0" />
                   <span className="min-w-0 break-words">{item.label}</span>
@@ -257,7 +259,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   <Link key={item.path} to={item.path}>
                     <Button
                       variant={isActive(item.path) ? "secondary" : "ghost"}
-                      className="h-auto min-h-10 w-full justify-start whitespace-normal text-left leading-snug"
+                      className={cn(NAV_ITEM, "h-auto min-h-10 w-full justify-start whitespace-normal text-left leading-snug")}
                     >
                       <Icon className="mr-2 h-4 w-4 shrink-0" />
                       <span className="min-w-0 break-words">{item.label}</span>
@@ -286,14 +288,14 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   return (
     <div className="flex min-h-screen">
       {isDesktop ? (
-        <aside data-testid="sidebar" className="fixed inset-y-0 left-0 z-30 w-64 border-r border-white/60 bg-card/60 backdrop-blur-xl dark:border-white/10">
+        <aside data-testid="sidebar" className="fixed inset-y-0 left-0 z-30 w-64 border-r border-white/70 bg-white/35 shadow-[8px_0_40px_-24px_rgba(15,58,92,0.35)] backdrop-blur-2xl dark:border-white/10">
           {renderPanel({ withBell: true })}
         </aside>
       ) : (
         <>
           <header
             data-testid="mobile-header"
-            className="fixed inset-x-0 top-0 z-40 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center gap-2 border-b border-white/60 bg-card/70 px-2 backdrop-blur-xl dark:border-white/10 pt-[env(safe-area-inset-top)]"
+            className="fixed inset-x-0 top-0 z-40 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center gap-2 border-b border-white/70 bg-white/50 px-2 backdrop-blur-xl dark:border-white/10 pt-[env(safe-area-inset-top)]"
           >
             <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" data-testid="mobile-menu-button" aria-label={m.nav.menu} onClick={() => setMenuOpen(true)}>
               <Menu className="h-6 w-6" />

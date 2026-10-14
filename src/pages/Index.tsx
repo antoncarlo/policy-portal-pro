@@ -29,9 +29,9 @@ const Index = () => {
   const featureIcons = [Upload, Clock, Shield, Users, FileText, CheckCircle];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       {/* Header */}
-      <header className="border-b border-border bg-card">
+      <header className="border-b border-white/70 bg-white/50 backdrop-blur-xl">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center">
             <img src="/logo.svg" alt="Tecno Advance MGA" className="h-12" />
@@ -89,7 +89,7 @@ const Index = () => {
       </section>
 
       {/* Features Section */}
-      <section className="bg-card px-4 py-12 sm:py-16">
+      <section className="bg-white/30 px-4 py-12 sm:py-16">
         <div className="container mx-auto">
           <h2 className="mb-8 text-center text-2xl font-bold text-foreground sm:mb-12 sm:text-3xl">
             {m.featuresTitle}
@@ -98,7 +98,7 @@ const Index = () => {
             {m.features.map((feature, index) => {
               const Icon = featureIcons[index];
               return (
-                <div key={feature.title} className="p-6 rounded-lg bg-background border border-border hover:shadow-lg transition-shadow">
+                <div key={feature.title} className="p-6 rounded-xl bg-white/50 backdrop-blur-xl border border-white/70 hover:shadow-lg transition-shadow">
                   <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                     <Icon className="h-6 w-6 text-primary" />
                   </div>
@@ -112,7 +112,7 @@ const Index = () => {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border py-8 px-4 bg-card">
+      <footer className="border-t border-border py-8 px-4 bg-white/40 backdrop-blur-xl">
         <div className="container mx-auto text-center text-muted-foreground">
           <p>© 2024 Tecno Advance MGA Broker SRL. {m.rights}</p>
         </div>

@@ -299,7 +299,7 @@ const Administration = () => {
           <TabsContent value="contabilita" className="space-y-6">
         {summary && <FinancialStats stats={summary} />}
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg border p-6 space-y-4">
+        <div className="rounded-xl border border-white/70 bg-white/40 p-6 shadow-[0_10px_30px_-18px_rgba(15,58,92,0.35)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.06] space-y-4">
           <h2 className="text-xl font-semibold">{m.filters}</h2>
           <div className="grid md:grid-cols-3 gap-4">
             {(currentUserRole === "admin" || currentUserRole === "agente") && (

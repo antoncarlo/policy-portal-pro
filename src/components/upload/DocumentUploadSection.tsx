@@ -132,7 +132,7 @@ export const DocumentUploadSection = ({
   return (
     <div className="space-y-4">
       {questionnaireDocuments.length > 0 && (
-        <Card className="p-4 border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
+        <Card className="p-4 border-amber-500/30 bg-amber-500/10 backdrop-blur-sm dark:border-amber-800 dark:bg-amber-950">
           <div className="space-y-3">
             <div className="flex items-start gap-3">
               <FileText className="h-5 w-5 text-amber-700 dark:text-amber-300 mt-0.5" />
@@ -150,7 +150,7 @@ export const DocumentUploadSection = ({
               {questionnaireDocuments.map((doc) => (
                 <div
                   key={doc.id}
-                  className="grid gap-3 rounded-lg border border-amber-200 bg-white p-3 dark:border-amber-800 dark:bg-background md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
+                  className="grid gap-3 rounded-lg border border-amber-500/30 bg-white p-3 dark:border-amber-800 dark:bg-background md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
                 >
                   <div className="min-w-0 space-y-1">
                     <p className="break-words text-sm font-medium leading-snug">{doc.label}</p>
@@ -271,11 +271,11 @@ export const DocumentUploadSection = ({
           </div>
 
           {missingDocuments.length === 0 ? (
-            <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
+            <div className="rounded-lg border border-green-500/30 bg-green-500/10 backdrop-blur-sm p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
               <strong>{m.allAttached}</strong> {m.allAttachedNext}
             </div>
           ) : (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 backdrop-blur-sm p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
               <strong>{m.stillMissing}</strong>{" "}
               <span className="break-words">{missingDocuments.map((doc) => doc.label).join(", ")}</span>
             </div>

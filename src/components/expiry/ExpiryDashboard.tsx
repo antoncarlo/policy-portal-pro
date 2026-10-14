@@ -206,7 +206,7 @@ export const ExpiryDashboard = () => {
     <div className="space-y-6">
       {/* Summary Cards */}
       <div className="grid md:grid-cols-3 gap-4">
-        <Card className="p-4 bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800">
+        <Card className="p-4 bg-red-500/10 backdrop-blur-sm dark:bg-red-950 border-red-500/30 dark:border-red-800">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-red-600 dark:text-red-400 font-medium">{m.urgentCount}</p>
@@ -216,7 +216,7 @@ export const ExpiryDashboard = () => {
           </div>
         </Card>
 
-        <Card className="p-4 bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
+        <Card className="p-4 bg-amber-500/10 backdrop-blur-sm dark:bg-amber-950 border-amber-500/30 dark:border-amber-800">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">{m.soonCount}</p>
@@ -226,7 +226,7 @@ export const ExpiryDashboard = () => {
           </div>
         </Card>
 
-        <Card className="p-4 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+        <Card className="p-4 bg-blue-500/10 backdrop-blur-sm dark:bg-blue-950 border-blue-500/30 dark:border-blue-800">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">{m.futureCount}</p>

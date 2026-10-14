@@ -65,7 +65,7 @@ export const LoginDialog = ({ open, onOpenChange }: LoginDialogProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md border-slate-200 bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-50">
+      <DialogContent className="sm:max-w-md text-slate-900 dark:text-slate-50">
         <DialogHeader>
           <div className="flex items-center justify-center mb-4">
             <img src="/logo.svg" alt="Tecno Advance MGA" className="h-16" />

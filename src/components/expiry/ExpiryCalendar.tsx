@@ -107,7 +107,7 @@ export const ExpiryCalendar = () => {
 
     // Empty cells for days before month starts
     for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="h-24 bg-gray-50 dark:bg-gray-900"></div>);
+      days.push(<div key={`empty-${i}`} className="h-24 bg-white/40 dark:bg-gray-900"></div>);
     }
 
     // Days of the month

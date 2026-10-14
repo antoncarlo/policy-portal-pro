@@ -169,11 +169,17 @@ Accent: Bronze/Gold (#B08968 / #C9A882)
   body {
     @apply bg-background text-foreground;
     /* Sfondo tenue nei colori del marchio, su cui le schede di vetro si leggono. */
-    background-image: linear-gradient(135deg, #e8eef3 0%, #f3efe9 50%, #dde6ee 100%);
+    background-image:
+      radial-gradient(60rem 40rem at 90% -5%, rgba(15, 58, 92, 0.24), transparent 60%),
+      radial-gradient(50rem 36rem at 10% 105%, rgba(176, 137, 104, 0.34), transparent 60%),
+      linear-gradient(135deg, #e6edf3 0%, #f3efe9 50%, #d9e3ec 100%);
     background-attachment: fixed;
   }
   .dark body {
-    background-image: linear-gradient(135deg, #0d1b27 0%, #121c26 50%, #0b1722 100%);
+    background-image:
+      radial-gradient(60rem 40rem at 90% -5%, rgba(40, 110, 160, 0.25), transparent 60%),
+      radial-gradient(50rem 36rem at 10% 105%, rgba(176, 137, 104, 0.14), transparent 60%),
+      linear-gradient(135deg, #0d1b27 0%, #121c26 50%, #0b1722 100%);
   }
   h1, h2 {
     font-family: var(--font-serif);

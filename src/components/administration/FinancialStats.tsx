@@ -22,32 +22,28 @@ export const FinancialStats = ({ stats }: FinancialStatsProps) => {
       value: formatCurrency(stats.total_premium_amount),
       icon: Euro,
       color: "text-blue-600",
-      bgColor: "bg-blue-50 dark:bg-blue-950",
-      borderColor: "border-blue-200 dark:border-blue-800",
+      chip: "bg-blue-500/10",
     },
     {
       title: m.totalCommissions,
       value: formatCurrency(stats.total_commission_amount),
       icon: TrendingUp,
       color: "text-purple-600",
-      bgColor: "bg-purple-50 dark:bg-purple-950",
-      borderColor: "border-purple-200 dark:border-purple-800",
+      chip: "bg-purple-500/10",
     },
     {
       title: m.toReceive,
       value: formatCurrency(stats.incassate_commission),
       icon: Clock,
       color: "text-orange-600",
-      bgColor: "bg-orange-50 dark:bg-orange-950",
-      borderColor: "border-orange-200 dark:border-orange-800",
+      chip: "bg-orange-500/10",
     },
     {
       title: m.received,
       value: formatCurrency(stats.provvigioni_ricevute_amount),
       icon: CheckCircle,
       color: "text-green-600",
-      bgColor: "bg-green-50 dark:bg-green-950",
-      borderColor: "border-green-200 dark:border-green-800",
+      chip: "bg-green-500/10",
     },
   ];
 
@@ -58,18 +54,20 @@ export const FinancialStats = ({ stats }: FinancialStatsProps) => {
         return (
           <Card
             key={index}
-            className={`p-6 border-2 ${stat.borderColor} ${stat.bgColor}`}
+            className="p-6"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">
+                <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
                   {stat.title}
                 </p>
-                <p className={`text-2xl font-bold ${stat.color} mt-2`}>
+                <p className={`font-serif text-2xl font-semibold tracking-tight ${stat.color} mt-2`}>
                   {stat.value}
                 </p>
               </div>
-              <Icon className={`h-10 w-10 ${stat.color}`} />
+              <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${stat.chip}`}>
+                <Icon className={`h-6 w-6 ${stat.color}`} />
+              </div>
             </div>
           </Card>
         );

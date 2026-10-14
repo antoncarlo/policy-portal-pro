@@ -161,7 +161,7 @@ export const AssignAgentDialog = ({
 
         <div className="space-y-4 py-4">
           {user.agent_name && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <div className="p-3 bg-blue-500/10 backdrop-blur-sm border border-blue-500/30 rounded-md">
               <p className="text-sm text-blue-800">
                 <strong>{m.current}</strong> {user.agent_name}
               </p>
@@ -194,7 +194,7 @@ export const AssignAgentDialog = ({
                   {filteredAgents.map((agent) => (
                     <div
                       key={agent.user_id}
-                      className={`flex items-center space-x-3 p-4 border-b last:border-b-0 cursor-pointer hover:bg-gray-50 ${
+                      className={`flex items-center space-x-3 p-4 border-b last:border-b-0 cursor-pointer hover:bg-white/40 ${
                         selectedAgentId === agent.user_id ? "bg-primary/5" : ""
                       }`}
                       onClick={() => setSelectedAgentId(agent.user_id)}

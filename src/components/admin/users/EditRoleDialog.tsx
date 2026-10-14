@@ -116,7 +116,7 @@ export const EditRoleDialog = ({
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label>{m.editRole.current}</Label>
-            <div className="p-3 bg-gray-50 rounded-md">
+            <div className="p-3 bg-white/40 rounded-md">
               <span className="font-medium">
                 {roles.find(r => r.value === user.role)?.label || user.role}
               </span>
@@ -157,7 +157,7 @@ export const EditRoleDialog = ({
             </RadioGroup>
           </div>
 
-          <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+          <div className="flex items-start gap-2 p-3 bg-yellow-500/10 backdrop-blur-sm border border-yellow-500/30 rounded-md">
             <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-yellow-800">
               {m.editRole.warning}

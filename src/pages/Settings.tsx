@@ -64,7 +64,7 @@ const Settings = () => {
   const showAdminTabs = isAdmin;
   // Agenti e collaboratori vedono statistiche, log e documenti da firmare del proprio lavoro (mai quelli di altri).
   const showMyWorkTabs = userRole !== null && !isAdmin;
-  const TAB_CLASS = "group h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2";
+  const TAB_CLASS = "group h-10 shrink-0 rounded-lg border border-white/70 bg-white/55 px-3 shadow-sm backdrop-blur-md data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2";
 
   return (
     <DashboardLayout>
@@ -78,30 +78,30 @@ const Settings = () => {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="flex h-auto min-h-10 w-full flex-wrap items-start justify-start gap-2 rounded-none bg-transparent p-0 text-muted-foreground">
-            <TabsTrigger value="profile" className="group h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.profile} title={m.tabs.profile}>
+            <TabsTrigger value="profile" className="group h-10 shrink-0 rounded-lg border border-white/70 bg-white/55 px-3 shadow-sm backdrop-blur-md data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.profile} title={m.tabs.profile}>
               <User className="h-4 w-4" />
               <span className="hidden group-data-[state=active]:inline sm:inline">{m.tabs.profile}</span>
             </TabsTrigger>
-            <TabsTrigger value="security" className="group h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.security} title={m.tabs.security}>
+            <TabsTrigger value="security" className="group h-10 shrink-0 rounded-lg border border-white/70 bg-white/55 px-3 shadow-sm backdrop-blur-md data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.security} title={m.tabs.security}>
               <Lock className="h-4 w-4" />
               <span className="hidden group-data-[state=active]:inline sm:inline">{m.tabs.security}</span>
             </TabsTrigger>
-            <TabsTrigger value="preferences" className="group h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.preferences} title={m.tabs.preferences}>
+            <TabsTrigger value="preferences" className="group h-10 shrink-0 rounded-lg border border-white/70 bg-white/55 px-3 shadow-sm backdrop-blur-md data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.preferences} title={m.tabs.preferences}>
               <Settings2 className="h-4 w-4" />
               <span className="hidden group-data-[state=active]:inline sm:inline">{m.tabs.preferences}</span>
             </TabsTrigger>
-            <TabsTrigger value="sessions" className="group h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.sessions} title={m.tabs.sessions}>
+            <TabsTrigger value="sessions" className="group h-10 shrink-0 rounded-lg border border-white/70 bg-white/55 px-3 shadow-sm backdrop-blur-md data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.sessions} title={m.tabs.sessions}>
               <Monitor className="h-4 w-4" />
               <span className="hidden group-data-[state=active]:inline sm:inline">{m.tabs.sessions}</span>
             </TabsTrigger>
 
             {showAgentTabs && (
               <>
-                <TabsTrigger value="collaborators" className="group h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.collaborators} title={m.tabs.collaborators}>
+                <TabsTrigger value="collaborators" className="group h-10 shrink-0 rounded-lg border border-white/70 bg-white/55 px-3 shadow-sm backdrop-blur-md data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.collaborators} title={m.tabs.collaborators}>
                   <Users className="h-4 w-4" />
                   <span className="hidden group-data-[state=active]:inline sm:inline">{m.tabs.collaborators}</span>
                 </TabsTrigger>
-                <TabsTrigger value="templates" className="group h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.templates} title={m.tabs.templates}>
+                <TabsTrigger value="templates" className="group h-10 shrink-0 rounded-lg border border-white/70 bg-white/55 px-3 shadow-sm backdrop-blur-md data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.templates} title={m.tabs.templates}>
                   <FileText className="h-4 w-4" />
                   <span className="hidden group-data-[state=active]:inline sm:inline">{m.tabs.templates}</span>
                 </TabsTrigger>
@@ -110,43 +110,43 @@ const Settings = () => {
 
             {showAdminTabs && (
               <>
-                <TabsTrigger value="system" className="group h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.system} title={m.tabs.system}>
+                <TabsTrigger value="system" className="group h-10 shrink-0 rounded-lg border border-white/70 bg-white/55 px-3 shadow-sm backdrop-blur-md data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.system} title={m.tabs.system}>
                   <Shield className="h-4 w-4" />
                   <span className="hidden group-data-[state=active]:inline sm:inline">{m.tabs.system}</span>
                 </TabsTrigger>
-                <TabsTrigger value="statistics" className="group h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.statistics} title={m.tabs.statistics}>
+                <TabsTrigger value="statistics" className="group h-10 shrink-0 rounded-lg border border-white/70 bg-white/55 px-3 shadow-sm backdrop-blur-md data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.statistics} title={m.tabs.statistics}>
                   <BarChart3 className="h-4 w-4" />
                   <span className="hidden group-data-[state=active]:inline sm:inline">{m.tabs.statistics}</span>
                 </TabsTrigger>
-                <TabsTrigger value="logs" className="group h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.logs} title={m.tabs.logs}>
+                <TabsTrigger value="logs" className="group h-10 shrink-0 rounded-lg border border-white/70 bg-white/55 px-3 shadow-sm backdrop-blur-md data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.logs} title={m.tabs.logs}>
                   <Activity className="h-4 w-4" />
                   <span className="hidden group-data-[state=active]:inline sm:inline">{m.tabs.logs}</span>
                 </TabsTrigger>
-                <TabsTrigger value="backup" className="group h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.backup} title={m.tabs.backup}>
+                <TabsTrigger value="backup" className="group h-10 shrink-0 rounded-lg border border-white/70 bg-white/55 px-3 shadow-sm backdrop-blur-md data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.backup} title={m.tabs.backup}>
                   <Database className="h-4 w-4" />
                   <span className="hidden group-data-[state=active]:inline sm:inline">{m.tabs.backup}</span>
                 </TabsTrigger>
-                <TabsTrigger value="smtp" className="group h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.email} title={m.tabs.email}>
+                <TabsTrigger value="smtp" className="group h-10 shrink-0 rounded-lg border border-white/70 bg-white/55 px-3 shadow-sm backdrop-blur-md data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.email} title={m.tabs.email}>
                   <Mail className="h-4 w-4" />
                   <span className="hidden group-data-[state=active]:inline sm:inline">{m.tabs.email}</span>
                 </TabsTrigger>
-                <TabsTrigger value="api-logs" className="group h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.apiLogs} title={m.tabs.apiLogs}>
+                <TabsTrigger value="api-logs" className="group h-10 shrink-0 rounded-lg border border-white/70 bg-white/55 px-3 shadow-sm backdrop-blur-md data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.apiLogs} title={m.tabs.apiLogs}>
                   <Webhook className="h-4 w-4" />
                   <span className="hidden group-data-[state=active]:inline sm:inline">{m.tabs.apiLogs}</span>
                 </TabsTrigger>
-                <TabsTrigger value="api-keys" className="group h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.apiKeys} title={m.tabs.apiKeys}>
+                <TabsTrigger value="api-keys" className="group h-10 shrink-0 rounded-lg border border-white/70 bg-white/55 px-3 shadow-sm backdrop-blur-md data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.apiKeys} title={m.tabs.apiKeys}>
                   <Key className="h-4 w-4" />
                   <span className="hidden group-data-[state=active]:inline sm:inline">{m.tabs.apiKeys}</span>
                 </TabsTrigger>
-                <TabsTrigger value="api-mapping" className="group h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.apiMapping} title={m.tabs.apiMapping}>
+                <TabsTrigger value="api-mapping" className="group h-10 shrink-0 rounded-lg border border-white/70 bg-white/55 px-3 shadow-sm backdrop-blur-md data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={m.tabs.apiMapping} title={m.tabs.apiMapping}>
                   <Link2 className="h-4 w-4" />
                   <span className="hidden group-data-[state=active]:inline sm:inline">{m.tabs.apiMapping}</span>
                 </TabsTrigger>
-                <TabsTrigger value="connections" className="group h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={connections.title} title={connections.title}>
+                <TabsTrigger value="connections" className="group h-10 shrink-0 rounded-lg border border-white/70 bg-white/55 px-3 shadow-sm backdrop-blur-md data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={connections.title} title={connections.title}>
                   <Cable className="h-4 w-4" />
                   <span className="hidden group-data-[state=active]:inline sm:inline">{connections.title}</span>
                 </TabsTrigger>
-                <TabsTrigger value="signing" className="group h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={signing.settings.tab} title={signing.settings.tab} data-testid="settings-tab-signing">
+                <TabsTrigger value="signing" className="group h-10 shrink-0 rounded-lg border border-white/70 bg-white/55 px-3 shadow-sm backdrop-blur-md data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2" aria-label={signing.settings.tab} title={signing.settings.tab} data-testid="settings-tab-signing">
                   <FileSignature className="h-4 w-4" />
                   <span className="hidden group-data-[state=active]:inline sm:inline">{signing.settings.tab}</span>
                 </TabsTrigger>

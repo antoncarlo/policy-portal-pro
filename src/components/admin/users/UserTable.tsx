@@ -160,7 +160,7 @@ export const UserTable = ({
           <div className="rounded-lg border py-8 text-center text-gray-500">{m.empty}</div>
         ) : (
           users.map((user) => (
-            <div key={user.id} className="rounded-lg border bg-card p-3" data-testid="user-card">
+            <div key={user.id} className="rounded-xl border border-white/70 bg-white/45 p-3 backdrop-blur-xl" data-testid="user-card">
               <div className="flex items-start gap-3">
                 <Avatar className="shrink-0">
                   <AvatarImage src={user.avatar_url || undefined} />

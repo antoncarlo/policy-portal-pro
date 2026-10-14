@@ -140,7 +140,7 @@ export const ClientsTable = ({
         <p className="py-8 text-center text-muted-foreground">{m.empty}</p>
       ) : (
         clients.map((client) => (
-          <div key={client.id} className="rounded-lg border bg-card p-3" data-testid="client-card">
+          <div key={client.id} className="rounded-xl border border-white/70 bg-white/45 p-3 backdrop-blur-xl" data-testid="client-card">
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
                 <div className="break-words font-medium">{client.full_name}</div>

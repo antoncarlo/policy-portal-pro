@@ -67,6 +67,8 @@ Prima versione numerata. Riepilogo di ciò che il portale fa oggi:
 
 ### Modificato
 
+- Stile di vetro completato: sfondo con aloni blu e bronzo, menu laterale e barre traslucidi, campi, schede, tab, pulsanti e avvisi colorati in vetro; riquadri di Amministrazione (Premi, Provvigioni, Da ricevere, Ricevute) nello stesso stile della dashboard.
+
 - Stile di vetro su tutta la piattaforma: sfondo tenue nei colori del marchio, schede, popup, menu e barre traslucidi, titoli in Lora.
 - Nel lotto aperto tolte le tre voci «Scarica tutto il lotto», «Scarica documenti da firmare» e «Carica documenti firmati»: le stesse azioni sono nei passaggi della guida del ciclo (restano nel menu ⋮ della lista dei lotti).
 

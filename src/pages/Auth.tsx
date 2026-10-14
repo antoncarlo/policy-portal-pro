@@ -117,7 +117,7 @@ const Auth = () => {
   };
 
   return (
-    <div className="relative min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="relative min-h-screen flex items-center justify-center p-4">
       <LanguageSwitcher className="absolute right-4 top-4" />
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center mb-8">

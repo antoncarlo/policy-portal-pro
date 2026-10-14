@@ -151,7 +151,7 @@ export const PetInsuranceCalculator = ({ onQuoteGenerated }: PetInsuranceCalcula
                 </div>
                 <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">{m.alwaysIncluded}</span>
               </div>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="bg-green-500/10 backdrop-blur-sm border border-green-500/30 rounded-lg p-4">
                 <p className="text-sm text-green-800">
                   {petCoverageDescription(assistenza, language)}
                 </p>
@@ -301,7 +301,7 @@ export const PetInsuranceCalculator = ({ onQuoteGenerated }: PetInsuranceCalcula
             <div className={`border-2 rounded-lg p-6 space-y-4 ${
               hasAnyCoverage 
                 ? 'bg-primary/5 border-primary' 
-                : 'bg-amber-50 border-amber-300'
+                : 'bg-amber-500/10 backdrop-blur-sm border-amber-500/30'
             }`}>
               <div className="space-y-2">
                 <div className="text-sm font-medium text-muted-foreground">{m.selected}</div>

@@ -50,7 +50,7 @@ const Questionnaires = () => {
           </p>
         </div>
 
-        <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
+        <Card className="border-blue-500/30 bg-blue-500/10 backdrop-blur-sm dark:border-blue-800 dark:bg-blue-950">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-blue-900 dark:text-blue-100">
               <FileText className="h-5 w-5" />
