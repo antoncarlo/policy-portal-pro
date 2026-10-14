@@ -67,6 +67,9 @@ Prima versione numerata. Riepilogo di ciò che il portale fa oggi:
 
 ### Modificato
 
+- Stile di vetro su tutta la piattaforma: sfondo tenue nei colori del marchio, schede, popup, menu e barre traslucidi, titoli in Lora.
+- Nel lotto aperto tolte le tre voci «Scarica tutto il lotto», «Scarica documenti da firmare» e «Carica documenti firmati»: le stesse azioni sono nei passaggi della guida del ciclo (restano nel menu ⋮ della lista dei lotti).
+
 - Ciclo del lotto con riquadri di vetro nei colori del marchio (pannello dei passaggi e popup), titoli in Lora, contrasto alto; i contatori delle schede delle Pratiche (Da lavorare, Pagate, Emesse…) si aggiornano a ogni passaggio del lotto.
 - Popup «Delibera e carica le bozze» e «Carica le polizze copia Compagnia»: il portale legge il contenuto dei PDF, non solo il nome del file, e assegna ogni file al cliente che vi è scritto (numero pratica, partita IVA o codice unificato, numero di polizza, nome del contraente anche con «S.r.l.», «Co., Ltd» scritti in modo diverso). Una bozza o una copia per pratica: due file non possono avere lo stesso cliente (resta il riconosciuto meglio, l'altro si assegna a mano) e, scegliendo a mano, il cliente assegnato sparisce dalle liste degli altri file, che si restringono a ogni assegnazione. Per le polizze emesse (più copie per pratica) la lista non si restringe. `src/lib/lotRecognition.ts`.
 - Estratto conto del lotto per il rappresentante fiscale: lo firma chi paga (riquadro «Per accettazione e conferma del saldo» con il suo nome e «Firma del rappresentante fiscale»), non più Tecno Advance MGA Broker; l'estratto delle provvigioni (uso interno) conserva la firma dell'agenzia. `src/lib/viesStatementPdf.ts`.

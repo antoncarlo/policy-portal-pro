@@ -269,7 +269,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           )}
         </nav>
 
-        <div className="shrink-0 space-y-2 border-t border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="shrink-0 space-y-2 border-t border-border bg-transparent p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <LanguageSwitcher className="w-full justify-start" align="start" />
           <Button 
             variant="ghost" 
@@ -284,16 +284,16 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   );
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen">
       {isDesktop ? (
-        <aside data-testid="sidebar" className="fixed inset-y-0 left-0 z-30 w-64 border-r border-border bg-card">
+        <aside data-testid="sidebar" className="fixed inset-y-0 left-0 z-30 w-64 border-r border-white/60 bg-card/60 backdrop-blur-xl dark:border-white/10">
           {renderPanel({ withBell: true })}
         </aside>
       ) : (
         <>
           <header
             data-testid="mobile-header"
-            className="fixed inset-x-0 top-0 z-40 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center gap-2 border-b border-border bg-card px-2 pt-[env(safe-area-inset-top)]"
+            className="fixed inset-x-0 top-0 z-40 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center gap-2 border-b border-white/60 bg-card/70 px-2 backdrop-blur-xl dark:border-white/10 pt-[env(safe-area-inset-top)]"
           >
             <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" data-testid="mobile-menu-button" aria-label={m.nav.menu} onClick={() => setMenuOpen(true)}>
               <Menu className="h-6 w-6" />

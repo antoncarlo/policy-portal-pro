@@ -921,45 +921,7 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
             </Badge>
           )}
           {lotId && lots.get(lotId) && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1.5"
-              disabled={downloadingLot === lotId}
-              onClick={() => void handleDownloadLot(lots.get(lotId) as PracticeLot, lotTitle(lots.get(lotId) as PracticeLot, lotText.lotName))}
-              data-testid="lot-download-chip"
-            >
-              {downloadingLot === lotId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              {lotText.downloadAll}
-            </Button>
-          )}
-          {lotId && lots.get(lotId) && (
             <>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5"
-                disabled={downloadingLot === lotId}
-                onClick={() => void handleDownloadSigning(lots.get(lotId) as PracticeLot, lotTitle(lots.get(lotId) as PracticeLot, lotText.lotName))}
-                data-testid="lot-download-signing-chip"
-              >
-                <FileSignature className="h-4 w-4" />
-                {signingText.bundle.downloadAction}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5"
-                disabled={downloadingLot === lotId}
-                onClick={() => document.getElementById(`${signedInputId(lots.get(lotId) as PracticeLot)}-chip`)?.click()}
-                data-testid="lot-upload-signed-chip"
-              >
-                <Upload className="h-4 w-4" />
-                {signingText.bundle.uploadAction}
-              </Button>
               <input
                 id={`${signedInputId(lots.get(lotId) as PracticeLot)}-chip`}
                 type="file"

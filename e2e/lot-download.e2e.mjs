@@ -156,13 +156,6 @@ const [filteredDownload] = await Promise.all([page.waitForEvent("download", { ti
 const filteredNames = Object.keys((await zipOf(filteredDownload)).files).filter((name) => /^Pratiche\/[^/]+\/.+/.test(name));
 check("2 lo ZIP ha comunque i documenti di tutte le pratiche del lotto", filteredNames.some((n) => /0001-22222222/.test(n)) && filteredNames.some((n) => /0002-22222222/.test(n)) && filteredNames.some((n) => /0004-22222222/.test(n)) === false /* only the unreadable one */, JSON.stringify(filteredNames));
 
-// 3) the same from the list filtered on the lot
-await page.getByPlaceholder(/Cerca per numero pratica/).fill("");
-await page.goto(`${BASE}/practices?lot=${LOT}`, { waitUntil: "networkidle" });
-await page.waitForSelector("[data-testid=lot-download-chip]");
-const [chipDownload] = await Promise.all([page.waitForEvent("download", { timeout: 30000 }), page.locator("[data-testid=lot-download-chip]").click()]);
-check("3 anche dal filtro sul lotto un clic scarica lo ZIP", /\.zip$/.test(chipDownload.suggestedFilename()));
-
 // 4) on a phone the card of the lot has the same menu
 await page.setViewportSize({ width: 390, height: 844 });
 await page.goto(`${BASE}/practices`, { waitUntil: "networkidle" });

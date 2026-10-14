@@ -223,8 +223,8 @@ const text = async (page) => (await page.locator("body").innerText()).replace(/\
 {
   const { ctx, page, pageErrors } = await open({ admin: false });
   await page.goto(`${BASE}/practices?lot=${LOT}`, { waitUntil: "networkidle" });
-  await page.waitForSelector("[data-testid=lot-download-signing-chip]", { timeout: 10000 });
-  check("5 lotto aperto: 'Scarica documenti da firmare' e 'Carica documenti firmati'", (await page.getByTestId("lot-download-signing-chip").count()) === 1 && (await page.getByTestId("lot-upload-signed-chip").count()) === 1);
+  await page.waitForSelector("[data-testid=lot-cycle]", { timeout: 10000 });
+  check("5 lotto aperto: le tre voci in blocco non sono piu' sopra la lista (c'e' la guida del ciclo)", (await page.getByTestId("lot-download-signing-chip").count()) === 0 && (await page.getByTestId("lot-upload-signed-chip").count()) === 0 && (await page.getByTestId("lot-download-chip").count()) === 0);
   check("5 nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
   await ctx.close();
 }
@@ -241,7 +241,7 @@ const text = async (page) => (await page.locator("body").innerText()).replace(/\
   const buffer = await zip.generateAsync({ type: "nodebuffer" });
   const { ctx, page, log, pageErrors } = await open({ admin: true });
   await page.goto(`${BASE}/practices?lot=${LOT}`, { waitUntil: "networkidle" });
-  await page.waitForSelector("[data-testid=lot-upload-signed-chip]", { timeout: 10000 });
+  await page.waitForSelector("[data-testid=lot-cycle]", { timeout: 10000 });
   await page.locator(`#signed-upload-${LOT}-chip`).setInputFiles({ name: "firmati.zip", mimeType: "application/zip", buffer });
   await page.waitForTimeout(2500);
   const docs = log.inserts.filter((i) => i.table === "practice_documents").map((i) => i.body);
