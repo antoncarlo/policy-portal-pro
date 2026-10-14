@@ -28,6 +28,7 @@ import { commonMessages } from "@/i18n/messages/common";
 import { shellMessages } from "@/i18n/messages/shell";
 import { workflowMessages } from "@/i18n/messages/workflow";
 import { usePracticeStageCounts } from "@/hooks/usePracticeStageCounts";
+import { useExpiryAlert } from "@/hooks/useExpiryAlert";
 import { PracticeLotsMenu } from "@/components/dashboard/PracticeLotsMenu";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { recordSessionEvent } from "@/lib/audit";
@@ -118,6 +119,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   }, [onPractices]);
   const stageParam = new URLSearchParams(location.search).get("stage");
   const activeStage = location.pathname === "/practices" && isPracticeStage(stageParam) ? stageParam : null;
+
+  const expiringSoon = useExpiryAlert().data ?? 0;
 
   const navItems = [
     { path: "/dashboard", icon: LayoutDashboard, label: m.nav.dashboard },
@@ -226,6 +229,16 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 >
                   <Icon className="mr-2 h-4 w-4 shrink-0" />
                   <span className="min-w-0 break-words">{item.label}</span>
+                  {item.path === "/expiry" && expiringSoon > 0 && (
+                    <span
+                      className="ml-auto shrink-0 rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-destructive-foreground"
+                      title={m.nav.expiryAlert(expiringSoon)}
+                      aria-label={m.nav.expiryAlert(expiringSoon)}
+                      data-testid="nav-expiry-alert"
+                    >
+                      {expiringSoon}
+                    </span>
+                  )}
                 </Button>
               </Link>
             );

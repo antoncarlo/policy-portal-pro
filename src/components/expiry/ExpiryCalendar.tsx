@@ -27,6 +27,8 @@ interface ExpiryPractice {
   days_until_expiry: number;
 }
 
+const CALENDAR_DAYS_AHEAD = 1830;
+
 export const ExpiryCalendar = () => {
   const { toast } = useToast();
   const m = useMessages(clientsMessages).expiry;
@@ -36,6 +38,10 @@ export const ExpiryCalendar = () => {
   const [expiries, setExpiries] = useState<ExpiryPractice[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedPracticeType, setSelectedPracticeType] = useState<string>("all");
+
+  // Il calendario carica una volta sola le scadenze dei prossimi cinque anni: una polizza VIES dura 36 mesi e
+  // deve comparire quando si va al mese della sua scadenza, senza ricaricare a ogni cambio di mese.
+  const daysAhead = CALENDAR_DAYS_AHEAD;
 
   useEffect(() => {
     loadExpiries();
@@ -50,7 +56,7 @@ export const ExpiryCalendar = () => {
 
       const { data, error } = await supabase.rpc("get_upcoming_expiries", {
         p_user_id: user.id,
-        p_days_ahead: 365, // Load full year for calendar
+        p_days_ahead: daysAhead,
         p_practice_type: selectedPracticeType === "all" ? null : selectedPracticeType,
       });
 
@@ -77,7 +83,8 @@ export const ExpiryCalendar = () => {
   };
 
   const getExpiriesForDate = (date: Date) => {
-    const dateStr = date.toISOString().split("T")[0];
+    // Giorno locale: toISOString() converte in UTC e, la notte in Italia, sposta la data al giorno prima.
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     return expiries.filter((e) => e.policy_end_date === dateStr);
   };
 
@@ -193,6 +200,7 @@ export const ExpiryCalendar = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{m.allPolicies}</SelectItem>
+                <SelectItem value="vies">{practiceTypeLabel("vies")}</SelectItem>
                 {[
                   "Fidejussioni", "Car", "Postuma Decennale", "All Risk", "RC", "Pet", "Fotovoltaico", "Catastrofali",
                   "Azienda", "Casa", "Risparmio", "Salute",
