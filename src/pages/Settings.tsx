@@ -18,6 +18,9 @@ import { ApiKeyMappingSettings } from "@/components/settings/admin/ApiKeyMapping
 import { ConnectionsSettings } from "@/components/settings/admin/ConnectionsSettings";
 import { SigningTemplatesSettings } from "@/components/settings/admin/SigningTemplatesSettings";
 import { SessionsSettings } from "@/components/settings/SessionsSettings";
+import { MyWorkStatistics } from "@/components/settings/MyWorkStatistics";
+import { MyWorkLog } from "@/components/settings/MyWorkLog";
+import { MyWorkSigning } from "@/components/settings/MyWorkSigning";
 import { signingMessages } from "@/i18n/messages/signing";
 import { User, Lock, Settings2, Users, FileText, FileSignature, Shield, BarChart3, Activity, Database, Mail, Monitor, Webhook, Key, Link2, Cable } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,6 +61,9 @@ const Settings = () => {
   const isAdmin = userRole === "admin";
   const showAgentTabs = isAgent || isAdmin;
   const showAdminTabs = isAdmin;
+  // Agenti e collaboratori vedono statistiche, log e documenti da firmare del proprio lavoro (mai quelli di altri).
+  const showMyWorkTabs = userRole !== null && !isAdmin;
+  const TAB_CLASS = "group h-10 shrink-0 rounded-lg border border-border/70 bg-card px-3 shadow-sm data-[state=active]:border-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2";
 
   return (
     <DashboardLayout>
@@ -145,6 +151,22 @@ const Settings = () => {
                 </TabsTrigger>
               </>
             )}
+            {showMyWorkTabs && (
+              <>
+                <TabsTrigger value="statistics" className={TAB_CLASS} aria-label={m.tabs.statistics} title={m.tabs.statistics} data-testid="settings-tab-my-statistics">
+                  <BarChart3 className="h-4 w-4" />
+                  <span className="hidden group-data-[state=active]:inline sm:inline">{m.tabs.statistics}</span>
+                </TabsTrigger>
+                <TabsTrigger value="logs" className={TAB_CLASS} aria-label={m.tabs.logs} title={m.tabs.logs} data-testid="settings-tab-my-log">
+                  <Activity className="h-4 w-4" />
+                  <span className="hidden group-data-[state=active]:inline sm:inline">{m.tabs.logs}</span>
+                </TabsTrigger>
+                <TabsTrigger value="signing" className={TAB_CLASS} aria-label={signing.settings.tab} title={signing.settings.tab} data-testid="settings-tab-my-signing">
+                  <FileSignature className="h-4 w-4" />
+                  <span className="hidden group-data-[state=active]:inline sm:inline">{signing.settings.tab}</span>
+                </TabsTrigger>
+              </>
+            )}
           </TabsList>
 
           <TabsContent value="profile" className="space-y-4">
@@ -172,6 +194,22 @@ const Settings = () => {
 
               <TabsContent value="templates" className="space-y-4">
                 <PracticeTemplatesSettings />
+              </TabsContent>
+            </>
+          )}
+
+          {showMyWorkTabs && (
+            <>
+              <TabsContent value="statistics" className="space-y-4">
+                <MyWorkStatistics />
+              </TabsContent>
+
+              <TabsContent value="logs" className="space-y-4">
+                <MyWorkLog />
+              </TabsContent>
+
+              <TabsContent value="signing" className="space-y-4">
+                <MyWorkSigning />
               </TabsContent>
             </>
           )}
