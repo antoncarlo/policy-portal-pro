@@ -81,7 +81,7 @@ const ITEM_LABELS: Labels = {
   vies_documento_legale_rappresentante: { en: "Legal representative's document", zh: "法定代表人证件" },
   vies_data_nascita_legale_rappresentante: { en: "Legal representative's date of birth", zh: "法定代表人出生日期" },
   vies_domicilio_fiscale_contraente: { en: "Tax domicile in Italy", zh: "意大利税务住所" },
-  vies_sede_contraente: { en: "Registered office (abroad)", zh: "注册地址（境外）" },
+  vies_sede_contraente: { en: "Office in Italy (fiscal representative)", zh: "意大利地址（税务代表）" },
   vies_email: { en: "Email", zh: "电子邮箱" },
   vies_rappresentante_fiscale: { en: "Company", zh: "公司" },
   vies_codice_fiscale_rappresentante: { en: "Tax code / VAT number", zh: "税号 / 增值税号" },

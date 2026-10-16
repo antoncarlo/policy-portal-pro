@@ -512,7 +512,7 @@ function buildViesSummary(input: PracticeSummaryInput): PracticeSummary {
   pushItem(contraente, "vies_documento_legale_rappresentante", "Documento legale rappresentante", str("vies_documento_legale_rappresentante"));
   pushItem(contraente, "vies_data_nascita_legale_rappresentante", "Data di nascita legale rappresentante", str("vies_data_nascita_legale_rappresentante"));
   pushItem(contraente, "vies_domicilio_fiscale_contraente", "Domicilio fiscale in Italia", str("vies_domicilio_fiscale"));
-  pushItem(contraente, "vies_sede_contraente", "Sede legale (estero)", str("vies_sede_contraente"));
+  pushItem(contraente, "vies_sede_contraente", "Sede in Italia (rappresentante fiscale)", str("vies_sede_contraente"));
   pushItem(contraente, "vies_indirizzo_via", "Indirizzo", str("vies_indirizzo_via"));
   pushItem(contraente, "vies_indirizzo_civico", "Numero civico", str("vies_indirizzo_civico"));
   pushItem(contraente, "vies_indirizzo_citta", "Città", str("vies_indirizzo_citta"));
