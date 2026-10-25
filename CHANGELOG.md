@@ -67,6 +67,8 @@ Prima versione numerata. Riepilogo di ciò che il portale fa oggi:
 
 ### Modificato
 
+- Excel del lotto: da oggi si usa solo il modello combinato con la compagnia (fogli CONTRAENTE, RAPPRESENTANTE FISCALE, BENEFICIARIO, intestazioni invariate, più la colonna ZIP in testa al foglio CONTRAENTE). Il portale legge rappresentante fiscale e beneficiario dai due fogli; senza colonna ZIP i clienti si abbinano agli ZIP in ordine di riga; il codice fiscale dell'amministratore del rappresentante non è più obbligatorio. Il vecchio modello (PRATICHE + DATI FOGLIO) si legge ancora. L'identità del cliente si verifica con la partita IVA italiana che deve comparire nei documenti dello ZIP (certificato di attribuzione dell'Agenzia delle Entrate); i codici di credito sociale nei documenti non bloccano più la pratica. Guida operativa aggiornata.
+
 - Excel del lotto: il contraente cinese si identifica solo con la partita IVA italiana assegnata dall'Agenzia delle Entrate (in P.IVA o in C.F., è lo stesso numero); un codice di credito sociale in quelle colonne è respinto con un messaggio chiaro.
 
 - Documenti da firmare: un solo MUP unico (MUP, incarico di consulenza, raccomandazione, dichiarazione di consegna, informativa privacy e questionario antiriciclaggio, testo del rappresentante fiscale) su carta intestata Tecno, compilato per ogni cliente; sostituisce privacy, MUP e antiriciclaggio separati. Si firmano solo la polizza (copia Compagnia) e il MUP unico. Consensi precompilati come nel vecchio MUP firmato: dati e supporto durevole sì, comunicazioni commerciali no, motivo della raccomandazione «Specificità di alcune garanzie».

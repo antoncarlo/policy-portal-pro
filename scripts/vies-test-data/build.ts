@@ -181,7 +181,7 @@ const company = (index: number, zip: number): Company => {
   const birth = `${year}${String(month).padStart(2, "0")}${String(day).padStart(2, "0")}`;
   const legalRep = `${SURNAMES[(index * 7) % SURNAMES.length]} ${GIVEN[(index * 4 + 3) % GIVEN.length]}`;
   const slug = `${brandPy}${tradePy.split(" ")[0]}`.toLowerCase();
-  const withVat = index % 4 === 1;
+  const withVat = true; // il modello della compagnia identifica il cliente solo con la partita IVA italiana
   return {
     zip,
     name: `${city.py} ${brandPy} ${tradePy} YouXian GongSi`,
@@ -372,51 +372,58 @@ interface LotPlan {
   opaqueNames: Set<number>;
 }
 
-const COLUMN_KEYS = [
-  "zip", "id", "entityType", "name", "companyType", "cf", "vat", "legalRep", "street", "streetNumber", "city", "postalCode", "province", "country", "mainOffice", "pec",
-] as const;
+/** "ROMA (RM) VIA DEI CONDOTTI 10 CAP 00187" → le voci separate che chiede il modello. */
+const splitAddress = (address: string) => {
+  const match = /^(.+?) \((\w{2})\) (.+?) (\d+[A-Za-z]?) CAP (\d{5})$/.exec(address);
+  if (!match) return { street: address, number: "", city: "", province: "", postalCode: "" };
+  const [, city, province, street, number, postalCode] = match;
+  return { street, number, city: city[0] + city.slice(1).toLowerCase(), province, postalCode };
+};
 
 async function writeExcel(plan: LotPlan, path: string) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(TEMPLATE);
-  const sheet = workbook.worksheets[0];
-  const data = workbook.worksheets[1];
-  const reference = sheet.getRow(9);
+  const sheet = workbook.getWorksheet("CONTRAENTE") as ExcelJS.Worksheet;
+  const repSheet = workbook.worksheets.find((candidate) => candidate.name.trim().startsWith("RAPPRESENTANTE")) as ExcelJS.Worksheet;
+  const rep = plan.rep;
+  const repAddress = splitAddress(rep.address);
+  const reference = sheet.getRow(2);
+  // Il foglio CONTRAENTE: una riga per cliente, con la sede del rappresentante fiscale (e' il domicilio fiscale in Italia).
   for (const company of plan.companies) {
-    const row = sheet.getRow(company.zip + 6);
+    const row = sheet.getRow(company.zip + 1);
     const fault = plan.faults.get(company.zip);
-    const values: Record<(typeof COLUMN_KEYS)[number], string | number> = {
-      zip: company.zip,
-      id: `RF-${String(company.zip).padStart(4, "0")}`,
-      entityType: "persona giuridica",
-      name: company.name,
-      companyType: "srl",
-      cf: fault?.kind === "bad_uscc" ? brokenTaxCode(company.vat) : company.vat,
-      vat: company.vat,
-      legalRep: company.legalRep,
-      street: company.address,
-      streetNumber: "",
-      city: "",
-      postalCode: "",
-      province: "",
-      country: "Cina",
-      mainOffice: "",
-      pec: company.pec,
-    };
-    COLUMN_KEYS.forEach((key, index) => {
+    const values: Array<string | number> = [
+      company.zip,
+      "persona giuridica",
+      company.name,
+      "srl",
+      fault?.kind === "bad_uscc" ? brokenTaxCode(company.vat) : company.vat,
+      company.vat,
+      company.legalRep,
+      repAddress.street,
+      repAddress.number,
+      repAddress.city,
+      repAddress.postalCode,
+      repAddress.province,
+      "Italia",
+      "Sì",
+      company.pec,
+    ];
+    values.forEach((value, index) => {
       const cell = row.getCell(index + 1);
-      // The template's two example rows are grey: the rows of the lot use the plain look of the other rows.
-      if (company.zip <= 2) cell.style = { ...reference.getCell(index + 1).style };
-      cell.value = values[key] === "" ? null : values[key];
+      cell.style = { ...reference.getCell(index + 1).style };
+      cell.value = value === "" ? null : value;
     });
     row.commit();
   }
-  // Foglio DATI FOGLIO: rappresentante fiscale (righe 11-16); il beneficiario resta quello del modello.
-  const rep = plan.rep;
-  const sheetData: Array<[number, string]> = [
-    [11, rep.name], [12, rep.taxCode], [13, rep.adminName], [14, rep.adminTaxCode], [15, rep.address], [16, rep.pec],
+  // Foglio RAPPRESENTANTE FISCALE: una sola riga; il beneficiario resta quello del modello.
+  const repRow = repSheet.getRow(2);
+  const repValues = [
+    "persona giuridica", rep.name, "SRL", rep.taxCode, rep.taxCode, rep.adminName,
+    repAddress.street, repAddress.number, repAddress.city, repAddress.postalCode, repAddress.province, "Italia", "Sì", rep.pec,
   ];
-  for (const [rowNumber, value] of sheetData) data.getCell(rowNumber, 2).value = value;
+  repValues.forEach((value, index) => (repRow.getCell(index + 1).value = value));
+  repRow.commit();
   workbook.created = FIXED_DATE;
   workbook.modified = FIXED_DATE;
   await workbook.xlsx.writeFile(path);
@@ -480,7 +487,7 @@ const plans: LotPlan[] = [
 const intruder: Company = { ...company(59, 7), name: "Tianjin Hongda Jixie YouXian GongSi", nameCn: "天津宏达机械有限公司", legalRep: "SUN HAO" };
 intruder.uscc = uscc("120100");
 intruder.idNumber = chineseId("120100", "19800702");
-intruder.vat = "";
+intruder.vat = vatWithCheck("1987654321");
 
 for (const plan of plans) {
   for (const c of plan.companies) {

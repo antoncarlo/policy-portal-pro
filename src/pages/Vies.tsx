@@ -767,16 +767,48 @@ const parseSheetDataSheet = (worksheet: XLSX.WorkSheet | undefined): Partial<Vie
   return result;
 };
 
+// One-row sheets of the company template (RAPPRESENTANTE FISCALE, BENEFICIARIO): same columns as the clients' sheet.
+const parseEntitySheet = (worksheet: XLSX.WorkSheet | undefined) => {
+  if (!worksheet) return null;
+  const usedRange = getUsedRange(worksheet);
+  if (!usedRange) return null;
+  const rows = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1, defval: "", range: usedRange });
+  const headerIndex = findHeaderRowIndex(rows);
+  if (headerIndex === -1) return null;
+  const headers = rows[headerIndex].map((cell, index) => String(cell || `Colonna ${index + 1}`).trim());
+  const row = rows.slice(headerIndex + 1).find((candidate) => candidate.some((cell) => String(cell ?? "").trim()));
+  if (!row) return null;
+  const raw = headers.reduce<Record<string, string>>((acc, header, position) => {
+    acc[header] = String(row[position] ?? "").trim();
+    return acc;
+  }, {});
+  const clean = (value: string) => value.replace(/\s+/g, " ").trim();
+  const cell = (aliases: string[]) => clean(getCellByAliases(raw, aliases, { exactOnly: true }));
+  const taxCode = normalizeText(cell(["c.f.", "cf", "codice fiscale"])).replace(/\s+/g, "").toUpperCase();
+  const vatNumber = normalizeText(cell(["p.iva", "p. iva", "partita iva"])).replace(/\s+/g, "").toUpperCase();
+  return {
+    name: cell(["ragione sociale", "denominazione"]),
+    taxCode: taxCode || vatNumber,
+    legalRepresentative: cell(["legale rappresentante", "legale rappre"]),
+    address: composeCompanyAddress(readCompanyAddress(raw)),
+    pec: cell(["pec"]),
+  };
+};
+
 const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; sheetData: Partial<ViesSheetData> }> => {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array" });
-  // Sheet names may carry translations after the Italian one ("PRATICHE · APPLICATIONS · 申请").
-  const sheetDataName = workbook.SheetNames.find((name) => normalizeText(name).startsWith("dati foglio"));
+  const sheetNamed = (...prefixes: string[]) => workbook.SheetNames.find((name) => prefixes.some((prefix) => normalizeText(name).startsWith(prefix)));
+  // The company's template has the sheets CONTRAENTE, RAPPRESENTANTE FISCALE and BENEFICIARIO; the previous one
+  // had PRATICHE (with the beneficiary and the representative in DATI FOGLIO). Sheet names may carry translations.
+  const sheetDataName = sheetNamed("dati foglio");
+  const representativeName = sheetNamed("rappresentante fiscale");
+  const beneficiaryName = sheetNamed("beneficiario");
   const firstSheetName =
-    workbook.SheetNames.find((name) => normalizeText(name).startsWith("pratiche")) ??
-    workbook.SheetNames.find((name) => name !== sheetDataName) ??
+    sheetNamed("contraente", "pratiche") ??
+    workbook.SheetNames.find((name) => name !== sheetDataName && name !== representativeName && name !== beneficiaryName) ??
     workbook.SheetNames[0];
-  const worksheet = workbook.Sheets[firstSheetName];
+const worksheet = workbook.Sheets[firstSheetName];
   const usedRange = getUsedRange(worksheet);
   if (!usedRange) {
     throw new Error(viesText().errors.emptySheet);
@@ -921,7 +953,25 @@ const parseExcelFile = async (file: File): Promise<{ records: ExcelRecord[]; she
     throw new Error(viesText().errors.tooManyRows(parsedRecords.length, VIES_MAX_PRACTICES_PER_SHEET));
   }
 
-  return { records: parsedRecords, sheetData: parseSheetDataSheet(sheetDataName ? workbook.Sheets[sheetDataName] : undefined) };
+  // Without a ZIP column the clients are matched to the ZIPs by order: the first client is 1.zip, the second 2.zip…
+  const numbered = parsedRecords.map((record, index) => (record.nomeZip ? record : { ...record, nomeZip: String(index + 1) }));
+  const representative = parseEntitySheet(representativeName ? workbook.Sheets[representativeName] : undefined);
+  const beneficiary = parseEntitySheet(beneficiaryName ? workbook.Sheets[beneficiaryName] : undefined);
+  const fromSheets: Partial<ViesSheetData> = {};
+  if (representative) {
+    if (representative.name) fromSheets.rappresentanteFiscale = representative.name;
+    if (representative.taxCode) fromSheets.codiceFiscaleRappresentante = representative.taxCode;
+    if (representative.legalRepresentative) fromSheets.amministratoreRappresentante = representative.legalRepresentative;
+    if (representative.address) fromSheets.indirizzoRappresentanteFiscale = representative.address;
+    if (representative.pec) fromSheets.pecRappresentante = representative.pec;
+  }
+  if (beneficiary) {
+    if (beneficiary.name) fromSheets.beneficiario = beneficiary.name;
+    if (beneficiary.taxCode) fromSheets.codiceFiscaleBeneficiario = beneficiary.taxCode;
+    if (beneficiary.address) fromSheets.indirizzoBeneficiario = beneficiary.address;
+    if (beneficiary.pec) fromSheets.pecBeneficiario = beneficiary.pec;
+  }
+  return { records: numbered, sheetData: { ...parseSheetDataSheet(sheetDataName ? workbook.Sheets[sheetDataName] : undefined), ...fromSheets } };
 };
 
 // Files added by the operating system when zipping (macOS resource forks, Finder
@@ -1426,7 +1476,12 @@ const Vies = () => {
       const rowDocuments = zipKey && matchedZipFiles.length
         ? documents.filter((document) => document.sourceZipKey === zipKey)
         : [];
-      const zipVatNumbers = [...(identifiersByZipKey.get(zipKey) ?? [])].filter((identifier) => !sharedIdentifiers.has(identifier));
+      // The company's Excel identifies the client only by its Italian VAT number: the Chinese credit code that
+      // the documents carry (18 characters) is then not evidence of another company, just not the identifier asked for.
+      const italianOnly = !record.uscc;
+      const zipVatNumbers = [...(identifiersByZipKey.get(zipKey) ?? [])].filter(
+        (identifier) => !sharedIdentifiers.has(identifier) && !(italianOnly && identifier.length === 18),
+      );
       let vatCheck: ViesReconciliationRow["vatCheck"] = "not_applicable";
       if (matchedZipFiles.length && expectedIdentifiers.length) {
         if (expectedIdentifiers.some((identifier) => zipVatNumbers.includes(identifier))) {
@@ -1438,7 +1493,11 @@ const Vies = () => {
           );
         } else {
           vatCheck = "unverifiable";
-          errors.push("Nei documenti dello ZIP non compare nessun codice leggibile della società: identità non verificabile");
+          errors.push(
+            italianOnly
+              ? "Nei documenti dello ZIP non compare la partita IVA italiana della società: identità non verificabile. Aggiungere il certificato di attribuzione dell'Agenzia delle Entrate (o un documento che la riporta)"
+              : "Nei documenti dello ZIP non compare nessun codice leggibile della società: identità non verificabile",
+          );
         }
       }
       // Only this company's codes may appear: codes found in several ZIPs of the upload
@@ -2054,8 +2113,8 @@ const Vies = () => {
       errors.push("Codice fiscale rappresentante fiscale non valido");
     }
     if (!record.amministratoreRappresentante) errors.push("Amministratore del rappresentante fiscale mancante");
-    if (!record.codiceFiscaleAmministratore) errors.push("Codice fiscale amministratore mancante");
-    else if (!isValidItalianTaxCode(record.codiceFiscaleAmministratore)) errors.push("Codice fiscale amministratore non valido");
+    // The company's Excel has no tax code of the representative's administrator: it is optional (the visura gives it).
+    if (record.codiceFiscaleAmministratore && !isValidItalianTaxCode(record.codiceFiscaleAmministratore)) errors.push("Codice fiscale amministratore non valido");
     if (!record.indirizzoRappresentanteFiscale) errors.push("Domicilio fiscale del rappresentante mancante");
     if (!record.pec) errors.push("PEC mancante (né del contraente né del rappresentante fiscale)");
     else if (!isPlausibleEmail(record.pec)) errors.push("PEC non valida");
