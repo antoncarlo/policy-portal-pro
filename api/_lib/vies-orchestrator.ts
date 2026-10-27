@@ -326,7 +326,7 @@ export function buildPortalPayload(
           url: `${getPublicBaseUrl()}/api/vies-portal-callback`,
           portal_id: portal.id,
           signature: 'HMAC-SHA256: X-Signature = "sha256=" + hex(HMAC(secret, X-Timestamp + "." + raw body))',
-          events: ['practice.received', 'practice.info_requested', 'practice.deliberated', 'practice.rejected', 'practice.issued'],
+          events: ['practice.received', 'practice.info_requested', 'practice.deliberated', 'practice.policy_copy', 'practice.rejected', 'practice.issued'],
         }
       : null,
     job_id: job.id,

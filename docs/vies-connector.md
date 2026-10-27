@@ -73,7 +73,7 @@ Content-Type: application/json
     "url": "https://portale.tecnomga.com/api/vies-portal-callback",
     "portal_id": "alfa",
     "signature": "HMAC-SHA256 …",
-    "events": ["practice.received", "practice.info_requested", "practice.deliberated", "practice.rejected", "practice.issued"]
+    "events": ["practice.received", "practice.info_requested", "practice.deliberated", "practice.policy_copy", "practice.rejected", "practice.issued"]
   },
   "job_id": "…", "batch_id": "…", "row_number": 1,
   "contraente": "…", "partita_iva_contraente": "…", "beneficiario": "…", "pec": "…", "raw_payload": { }
@@ -115,10 +115,11 @@ La firma copre i **byte esatti** del corpo: non ri-serializzare il JSON dopo ave
 | `practice.received` | — (serve `practice.reference`) | Registra la presa in carico e il riferimento; lo stato non cambia |
 | `practice.info_requested` | `message` (obbligatorio), `due_date` (AAAA-MM-GG, facoltativo) | → Integrazioni richieste; il titolare riceve notifica ed email. Senza `due_date` (o se è nel passato) il termine è di 7 giorni |
 | `practice.deliberated` | `payment_due_date` (AAAA-MM-GG), `note`, `draft`, `policy_copy`, `policy_number` (facoltativo, di solito arriva dopo con la copia) | → Deliberate · da pagare; bozza (si controlla) e polizza nella copia per la Compagnia (si firma) allegate alla pratica |
+| `practice.policy_copy` | `policy_copy` (obbligatorio; anche `.p7m`), `policy_number` | Dopo il pagamento: la copia di polizza per la Compagnia da firmare viene allegata come `polizza_copia_compagnia` (vale l'ultima), il numero di polizza registrato; lo stato non cambia. Solo per pratiche deliberate e non ancora emesse (altrimenti `409`) |
 | `practice.rejected` | `reason` (obbligatorio) | → Non deliberate, con il motivo |
 | `practice.issued` | `policy_number`, `document` oppure `documents` (fino a 10 copie: contraente, beneficiario, compagnia) | → Emesse (richiede il pagamento già registrato); ogni copia è allegata come `polizza_emessa` |
 
-`draft`, `policy_copy`, `document` e ogni elemento di `documents` sono `{ "file_name", "mime_type", "content_base64" }` per file piccoli (corpo massimo 4 MB), oppure `{ "file_name", "mime_type", "url" }` con un indirizzo **https** il cui host sia quello del portale o uno di `documentHosts`. Tipi ammessi: PDF, ZIP, JPEG, PNG; massimo 12 MB; l'intestazione del file deve corrispondere al tipo dichiarato.
+`draft`, `policy_copy`, `document` e ogni elemento di `documents` sono `{ "file_name", "mime_type", "content_base64" }` per file piccoli (corpo massimo 4 MB), oppure `{ "file_name", "mime_type", "url" }` con un indirizzo **https** il cui host sia quello del portale o uno di `documentHosts`. Tipi ammessi: PDF, ZIP, JPEG, PNG e file firmati digitalmente `.p7m`; massimo 12 MB; l'intestazione del file deve corrispondere al tipo dichiarato.
 
 Risposte: `200` applicato (o già applicato), `400` corpo non valido (`invalid_json`, `invalid_payload`), `401` portale o firma non validi (stessa risposta per portale sconosciuto, senza segreto e firma errata), `403 practice_not_assigned` (la pratica non risulta inviata a questo portale: vale la riga di flusso o l'invio completato verso di lui; una pratica segnata «inviata a mano» non è assegnata a nessun portale), `404 practice_not_found`, `409 invalid_transition` o `conflict`, `422 invalid_document`, `429`, `503`. Un evento fallito può essere **rinviato con lo stesso `event_id`**: viene riapplicato.
 
@@ -255,7 +256,7 @@ node scripts/vies-portal-simulator.mjs callback --url https://portale.tecnomga.c
 node scripts/vies-portal-simulator.mjs receive --port 4011 --secret whsec_… [--fail 500]
 ```
 
-Eventi: `received`, `info_requested`, `deliberated`, `rejected`, `issued`. Per provare in locale con un portale raggiungibile da Internet serve un tunnel verso `--port`.
+Eventi: `received`, `info_requested`, `deliberated`, `policy_copy`, `rejected`, `issued`. Per provare in locale con un portale raggiungibile da Internet serve un tunnel verso `--port`.
 
 ## SECTION 05 — Controlli e rischi
 

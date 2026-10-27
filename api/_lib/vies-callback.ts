@@ -6,6 +6,7 @@ import type { IncomingDocument } from './vies-documents.js';
 import { dispatchNotifications } from './notification-dispatch.js';
 import { emitPracticeEvent, type OutboundKind } from './vies-outbound.js';
 import { portalDocumentHosts, type ViesPortal } from './vies-orchestrator.js';
+import { attachPracticeDocument, DocumentError } from './vies-documents.js';
 import { applyWorkflowEvent, findPracticeForPortal, loadPractice, parseInfoDueDate, WorkflowError, type WorkflowEvent } from './vies-workflow.js';
 import { recordPolicyNumber } from './policy-number.js';
 
@@ -26,6 +27,7 @@ export const CALLBACK_EVENT_TYPES = [
   'practice.received',
   'practice.info_requested',
   'practice.deliberated',
+  'practice.policy_copy',
   'practice.rejected',
   'practice.issued',
 ] as const;
@@ -114,6 +116,14 @@ export function parseCallbackEvent(body: unknown): { ok: true; event: CallbackEv
         event.policyNumber = text(data.policy_number, 100) ?? null;
         event.document = parseDocument(data.draft, 'data.draft');
         event.companyCopy = parseDocument(data.policy_copy, 'data.policy_copy');
+        break;
+      }
+      case 'practice.policy_copy': {
+        // After the payment the company sends the copy of the policy for the company (usually a .p7m) that the
+        // representative signs; the number of the policy may come with it.
+        event.policyNumber = text(data.policy_number, 100) ?? null;
+        event.companyCopy = parseDocument(data.policy_copy ?? data.document, 'data.policy_copy');
+        if (!event.companyCopy) throw new Error('data.policy_copy obbligatorio');
         break;
       }
       case 'practice.rejected':
@@ -287,6 +297,27 @@ export async function handlePortalCallback(
         });
         await settle('processed', practice.id);
         return reply(200, { ok: true, event_id: event.eventId, practice_id: practice.id, practice_number: practice.practice_number });
+      }
+      case 'practice.policy_copy': {
+        const practice = await loadPractice(supabase, practiceId);
+        if (practice.status !== 'approvata') {
+          throw new WorkflowError(409, 'invalid_transition', 'La polizza copia Compagnia si invia dopo la deliberazione e prima dell\'emissione');
+        }
+        try {
+          await attachPracticeDocument(supabase, practice, event.companyCopy as IncomingDocument, 'polizza_copia_compagnia', { documentHosts: hosts });
+        } catch (documentError) {
+          if (documentError instanceof DocumentError) throw new WorkflowError(422, 'invalid_document', documentError.message);
+          throw documentError;
+        }
+        await recordPolicyNumber(supabase, practice.id, event.policyNumber);
+        await supabase.from('practice_events').insert({
+          practice_id: practice.id,
+          event_type: 'workflow_policy_copy',
+          description: `Polizza copia Compagnia ricevuta dal portale ${portal.name}${event.policyNumber ? ` (polizza ${event.policyNumber})` : ''}`,
+          created_by: practice.user_id,
+        });
+        await settle('processed', practice.id);
+        return reply(200, { ok: true, event_id: event.eventId, practice_id: practice.id, practice_number: practice.practice_number, changed: true });
       }
       case 'practice.info_requested':
         workflowEvent = { type: 'info_requested', message: event.message ?? '', dueDate: usableDueDate(event.dueDate) };

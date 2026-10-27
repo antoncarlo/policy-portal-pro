@@ -17,7 +17,7 @@
 //       --policy-copy la copia per la Compagnia da firmare; con issued --pdf si puo' ripetere, una
 //       copia della polizza emessa per volta (data.documents).
 //
-// Eventi: received, info_requested, deliberated, rejected, issued. Nessuna dipendenza: solo Node 18+.
+// Eventi: received, info_requested, deliberated, policy_copy (copia di polizza da firmare, anche .p7m, dopo il pagamento), rejected, issued. Nessuna dipendenza: solo Node 18+.
 
 import { createHmac, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
@@ -34,9 +34,9 @@ for (let i = 0; i < rest.length; i += 1) {
   else { args[name] = next; i += 1; }
 }
 
-const pdfAttachment = (path) => ({ file_name: String(path).split("/").pop(), mime_type: "application/pdf", content_base64: readFileSync(path).toString("base64") });
+const pdfAttachment = (path) => ({ file_name: String(path).split("/").pop(), mime_type: /\.p7m$/i.test(String(path)) ? "application/pkcs7-mime" : "application/pdf", content_base64: readFileSync(path).toString("base64") });
 
-const EVENT_TYPES = { received: "practice.received", info_requested: "practice.info_requested", deliberated: "practice.deliberated", rejected: "practice.rejected", issued: "practice.issued" };
+const EVENT_TYPES = { received: "practice.received", info_requested: "practice.info_requested", deliberated: "practice.deliberated", policy_copy: "practice.policy_copy", rejected: "practice.rejected", issued: "practice.issued" };
 
 /** Firma: "sha256=" + HMAC-SHA256(secret, timestamp + "." + corpo grezzo). */
 export function sign(secret, timestamp, rawBody) {
@@ -65,6 +65,11 @@ export function buildEvent(options) {
     if (options.due) data.payment_due_date = options.due;
     if (options.note) data.note = options.note;
     if (options.pdf) data.draft = pdfAttachment([].concat(options.pdf)[0]);
+    if (options["policy-copy"]) data.policy_copy = pdfAttachment([].concat(options["policy-copy"])[0]);
+  }
+  if (options.event === "policy_copy") {
+    // After the payment: the copy of the policy for the company to be signed (a .p7m file is sent as such).
+    if (options["policy-number"]) data.policy_number = options["policy-number"];
     if (options["policy-copy"]) data.policy_copy = pdfAttachment([].concat(options["policy-copy"])[0]);
   }
   if (options.event === "rejected") data.reason = options.reason || "Rischio non assicurabile";

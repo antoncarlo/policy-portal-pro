@@ -35,7 +35,10 @@ const ALLOWED_TYPES: Record<string, (bytes: Buffer) => boolean> = {
   'application/zip': (bytes) => bytes.subarray(0, 2).toString('latin1') === 'PK',
   'image/jpeg': (bytes) => bytes[0] === 0xff && bytes[1] === 0xd8,
   'image/png': (bytes) => bytes.subarray(1, 4).toString('latin1') === 'PNG',
+  // Digitally signed file (CAdES .p7m): DER (starts with a SEQUENCE) or its base64 text.
+  'application/pkcs7-mime': (bytes) => bytes[0] === 0x30 || bytes.subarray(0, 2).toString('latin1') === 'MI' || bytes.subarray(0, 10).toString('latin1') === '-----BEGIN',
 };
+const P7M_TYPES = new Set(['', 'application/octet-stream', 'application/x-pkcs7-mime', 'application/pkcs7-mime']);
 
 export const safeFileName = (name: string) =>
   name
@@ -47,7 +50,7 @@ export const safeFileName = (name: string) =>
     .slice(-120) || 'documento';
 
 const guessMime = (fileName: string) =>
-  /\.pdf$/i.test(fileName) ? 'application/pdf' : /\.zip$/i.test(fileName) ? 'application/zip' : /\.png$/i.test(fileName) ? 'image/png' : /\.jpe?g$/i.test(fileName) ? 'image/jpeg' : 'application/pdf';
+  /\.p7m$/i.test(fileName) ? 'application/pkcs7-mime' : /\.pdf$/i.test(fileName) ? 'application/pdf' : /\.zip$/i.test(fileName) ? 'application/zip' : /\.png$/i.test(fileName) ? 'image/png' : /\.jpe?g$/i.test(fileName) ? 'image/jpeg' : 'application/pdf';
 
 async function downloadFromPortal(url: string, allowedHosts: string[]): Promise<Buffer> {
   let parsed: URL;
@@ -101,7 +104,9 @@ function checkDocumentBytes(bytes: Buffer, declaredType: string | undefined, fil
   if (!bytes.length) throw new DocumentError('Il documento è vuoto');
   if (bytes.length > MAX_DOCUMENT_BYTES) throw new DocumentError('Documento troppo grande (massimo 12 MB)');
 
-  const mimeType = (declaredType ?? '').toLowerCase().split(';')[0].trim() || guessMime(fileName);
+  const declared = (declaredType ?? '').toLowerCase().split(';')[0].trim();
+  // A .p7m file is declared in several ways by different systems: they all mean the same signed envelope.
+  const mimeType = /\.p7m$/i.test(fileName) && P7M_TYPES.has(declared) ? 'application/pkcs7-mime' : declared || guessMime(fileName);
   const check = ALLOWED_TYPES[mimeType];
   if (!check) throw new DocumentError(`Tipo di documento non consentito: ${mimeType}`);
   if (!check(bytes)) throw new DocumentError('Il contenuto del documento non corrisponde al tipo dichiarato');

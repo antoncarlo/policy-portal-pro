@@ -8,9 +8,10 @@
 
 ## 1. In breve
 
+- **Chi fa cosa.** Noi **carichiamo i lotti e i documenti** e li mandiamo alla compagnia. **Approvare o declinare una pratica lo fa solo la compagnia**, rispondendo dal suo portale: con il collegamento attivo noi non deliberiamo, non rifiutiamo e non emettiamo (i pulsanti manuali restano per le emergenze e ogni uso viene registrato). Dopo la delibera noi controlliamo le bozze, il pagamento lo carica il collaboratore (o lo carichiamo noi), la compagnia emette la copia di polizza da firmare (in formato `.p7m`), noi la facciamo firmare insieme al MUP unico e rimandiamo i file firmati, e la compagnia ci restituisce le quattro copie della polizza emessa: il cerchio si chiude.
 - Il collegamento funziona in **due direzioni**, con messaggi JSON su HTTPS:
   - **Noi → compagnia**: inviamo ogni pratica (con i documenti come link) e, a ogni passaggio che la compagnia non può sapere da sola, un **evento** (pagamento registrato, firme caricate, integrazioni inviate, pratica riaperta).
-  - **Compagnia → noi**: la compagnia risponde con **cinque eventi** firmati: presa in carico, richiesta di integrazioni, deliberazione (con bozza e polizza da firmare), rifiuto, emissione (con tutte le copie della polizza).
+  - **Compagnia → noi**: la compagnia risponde con **sei eventi** firmati: presa in carico, richiesta di integrazioni, deliberazione (con le bozze), rifiuto, **copia di polizza da firmare** (dopo il pagamento, anche `.p7m`) ed emissione (con tutte le copie della polizza).
 - Le risposte della compagnia sono **autenticate con una firma HMAC-SHA256** su un segreto condiviso; gli invii nostri portano una chiave `Authorization: Bearer`.
 - Ogni messaggio ha un **identificativo di evento** che serve da chiave di idempotenza: lo stesso messaggio può arrivare più volte e va applicato una volta sola.
 - Non servono VPN né indirizzi fissi: bastano due indirizzi HTTPS raggiungibili da Internet (uno per ricevere le pratiche, uno facoltativo per gli eventi) e una chiave.
@@ -36,12 +37,12 @@ Una pratica VIES corrisponde a una società cliente. Le pratiche viaggiano in lo
 |---|---|---|---|---|
 | **1. Invio** | L'amministratore carica il lotto (Excel + ZIP) e invia le pratiche valide | `POST` della pratica con i documenti come link (§4) | Risposta `200` con il vostro riferimento; poi `practice.received` | Da lavorare → **In valutazione** |
 | **2. Valutazione** | La compagnia studia la pratica | — | `practice.info_requested` (se servono documenti) oppure `practice.rejected` | In valutazione / **Integrazioni richieste** / **Non deliberate** |
-| **3. Delibera e bozze** | La compagnia delibera e prepara le bozze | Evento `practice.info_provided` se arrivano le integrazioni | `practice.deliberated` con scadenza di pagamento, **bozza** (`draft`) e **polizza nella copia per la Compagnia** (`policy_copy`) | **Deliberate · da pagare** |
-| **4. Pagamento** | Il rappresentante fiscale paga l'estratto conto del lotto; l'amministratore conferma l'incasso | `practice.paid` con la data del pagamento | — (la compagnia può ora emettere) | **Pagate · in emissione** |
-| **5. Firme e invio** | Il rappresentante fiscale firma **la polizza (copia Compagnia) e il MUP unico**; il portale le trasmette | `practice.signed` con le copie firmate come link | — | Pagate · in emissione |
-| **6. Emissione** | La compagnia emette e restituisce tutte le copie | — | `practice.issued` con il numero di polizza e le copie (fino a 10 file) | **Emesse** |
+| **3. Delibera e bozze** | **La compagnia** approva e invia le bozze; **noi controlliamo che siano corrette** (il collaboratore le conferma) | `practice.info_provided` se arrivano integrazioni | `practice.deliberated` con scadenza di pagamento e **bozza** (`draft`) | **Deliberate · da pagare** |
+| **4. Pagamento** | Il collaboratore carica il pagamento (o lo carichiamo noi) e l'amministratore conferma l'incasso | `practice.paid` con la data del pagamento | — (la compagnia può ora preparare la polizza) | **Pagate · in emissione** |
+| **5. Copia di polizza, firme e invio** | La compagnia emette la **copia di polizza per la Compagnia in `.p7m`**; noi la scarichiamo, la facciamo firmare insieme al **MUP unico** (che contiene anche la privacy), carichiamo i file firmati e il portale li trasmette | `practice.signed` con le copie firmate come link | `practice.policy_copy` con la copia da firmare (`.p7m`) e il numero di polizza | Pagate · in emissione |
+| **6. Emissione** | La compagnia emette e restituisce **tutte e quattro le copie** della polizza: il cerchio si chiude | — | `practice.issued` con il numero di polizza e le copie (fino a 10 file; di norma 4) | **Emesse** |
 
-Percorsi consentiti (le altre richieste ricevono `409 invalid_transition`):
+Percorsi consentiti (le altre richieste ricevono `409 invalid_transition`). La copia di polizza da firmare (`practice.policy_copy`) non cambia lo stato: si può mandare dopo la delibera, di norma dopo il pagamento, e fino all'emissione.
 
 ```
 da lavorare ─inviata→ in valutazione ─deliberata→ deliberata ─pagamento→ pagata ─emissione→ emessa
@@ -63,7 +64,7 @@ Nel portale il lotto ha otto passaggi visibili (bozze, verifica, pagamento, conf
 
 **Da parte della compagnia:**
 
-1. Un indirizzo HTTPS che riceve le pratiche (`POST` JSON): rispondete in pochi secondi, il nostro invio gira in una funzione che dura al massimo 60 secondi.
+1. Un indirizzo HTTPS che riceve le pratiche (`POST` JSON). Rispondete entro pochi secondi: il nostro servizio di invio ha un limite complessivo di 60 secondi.
 2. Facoltativo: un secondo indirizzo per gli eventi (pagamento, firme…). Se manca, usiamo il primo. Gli eventi hanno un limite di **6 secondi** per la risposta: accettate il messaggio e lavoratelo dopo.
 3. Una **chiave API** che il nostro portale invia in `Authorization: Bearer <chiave>`.
 4. Se i documenti restituiti sono ospitati da voi: l'elenco dei **domini** da cui potremo scaricarli (`documentHosts`).
@@ -108,14 +109,20 @@ Content-Type: application/json
   "callback": {
     "url": "https://portale.tecnomga.com/api/vies-portal-callback",
     "portal_id": "alfa",
-    "signature": "HMAC-SHA256 …",
-    "events": ["practice.received", "practice.info_requested", "practice.deliberated", "practice.rejected", "practice.issued"]
+    "signature": "HMAC-SHA256: X-Signature = \"sha256=\" + hex(HMAC(secret, X-Timestamp + \".\" + raw body))",
+    "events": ["practice.received", "practice.info_requested", "practice.deliberated", "practice.policy_copy", "practice.rejected", "practice.issued"]
   },
-  "job_id": "…", "batch_id": "…", "row_number": 3,
+  "job_id": "…", "batch_id": "…", "row_number": 3, "progressivo": null,
   "contraente": "Hangzhou Haichen KeJi YouXian GongSi",
   "partita_iva_contraente": "07010712714",
+  "indirizzo_rappresentante_fiscale": "VIA DEGLI SCIPIONI 157, 00192 Roma (RM), Italia",
   "beneficiario": "AGENZIA DELLE ENTRATE",
+  "indirizzo_beneficiario": "VIA GIORGIONE 106, 00147 Roma (RM), Italia",
+  "partita_iva_beneficiario": "06363391001",
+  "pec_beneficiario": null,
   "pec": "haichenkeji@pec.example.it",
+  "pagamento": null,
+  "documenti_indicati": null,
   "raw_payload": { }
 }
 ```
@@ -125,7 +132,8 @@ Cosa contiene:
 - `practice`: identificativo e numero della pratica (`VIES-ANNO-RIGA-CODICE`). Il **numero** è quello da usare nelle risposte.
 - `documents`: lo ZIP della pratica (licenza, documenti d'identità, report sul credito, dichiarazioni, UBO, mandato, visura, bilancio, statuto) come **link validi tre giorni**.
 - `partita_iva_contraente`: **la partita IVA italiana** assegnata dall'Agenzia delle Entrate alla società cinese; è l'unico identificativo fiscale del contraente (mai il codice di credito sociale).
-- `callback`: dove e come rispondere. È `null` se per il vostro portale non è configurato il segreto.
+- `callback`: dove rispondere, l'id del vostro portale, la regola di firma (in chiaro, come promemoria: il segreto non viaggia mai) e gli eventi accettati. È `null` se per il vostro portale non è configurato il segreto.
+- `raw_payload`: la riga dell'Excel del lotto così come è stata letta (colonne del modello), per controllo.
 - I campi piatti (`job_id`, `contraente`, …) sono quelli della prima versione e restano invariati.
 
 **Cosa ci aspettiamo come risposta:**
@@ -140,7 +148,7 @@ A invio riuscito la pratica passa a **In valutazione** e registra portale e rife
 
 ---
 
-## 5. Compagnia → noi: le risposte (fasi 1, 2, 3 e 6)
+## 5. Compagnia → noi: le risposte (fasi 1, 2, 3, 5 e 6)
 
 ### 5.1 Autenticazione e firma
 
@@ -223,7 +231,7 @@ Quando il rappresentante fornisce le integrazioni, **noi vi mandiamo** `practice
   "practice": { "reference": "ALFA-9981" }, "data": { "reason": "Rischio non assumibile" } }
 ```
 
-**Fase 3 — delibera.** La pratica passa a *Deliberate · da pagare*. Contiene la **scadenza del pagamento**, la **bozza** (si controlla, non si firma) e la **polizza nella copia per la Compagnia** (è quella che si firma).
+**Fase 3 — delibera (è la compagnia che approva).** La pratica passa a *Deliberate · da pagare*. Contiene la **scadenza del pagamento** e la **bozza** (si controlla, non si firma). La copia per la Compagnia da firmare, se già pronta, può essere nello stesso messaggio (`policy_copy`); di norma arriva dopo il pagamento con l'evento successivo. Se la bozza risulta sbagliata, ve lo segnaliamo per via ordinaria: **rinviate una nuova `practice.deliberated`** (prima del pagamento) con la bozza corretta. La nuova bozza viene allegata alla pratica e vale l'ultima; la nuova conferma da parte del collaboratore la avvia il nostro amministratore. Dopo il pagamento la delibera non si può più cambiare (`409`).
 
 ```json
 {
@@ -233,14 +241,29 @@ Quando il rappresentante fornisce le integrazioni, **noi vi mandiamo** `practice
     "payment_due_date": "2026-11-20",
     "note": "Premio confermato",
     "draft":       { "file_name": "bozza_ALFA-9981.pdf",  "mime_type": "application/pdf", "content_base64": "JVBERi0x…" },
-    "policy_copy": { "file_name": "polizza_copia_compagnia_ALFA-9981.pdf", "mime_type": "application/pdf",
-                     "url": "https://files.alfa.example/doc/9981-copia.pdf" },
     "policy_number": "POL-2026-000123"
   }
 }
 ```
 
-`policy_number` è facoltativo: spesso arriva dopo, con la copia per la Compagnia (si può mandare in una nuova `practice.deliberated` o in `practice.issued`). Un numero già registrato non viene sovrascritto.
+`policy_number` e `policy_copy` sono facoltativi in questo messaggio: di norma arrivano più tardi con `practice.policy_copy`. Un numero già registrato non viene sovrascritto.
+
+**Fase 5 — copia di polizza da firmare.** Dopo il pagamento la compagnia emette la **copia di polizza per la Compagnia**, di norma firmata digitalmente (**`.p7m`**, CAdES). È il documento che il rappresentante fiscale ci restituisce firmato insieme al MUP unico. Il messaggio non cambia lo stato della pratica (che resta *Pagate · in emissione*); si può inviare solo per pratiche deliberate e non ancora emesse (altrimenti `409 invalid_transition`). Una copia mandata una seconda volta sostituisce la precedente: vale l'ultima.
+
+```json
+{
+  "event_id": "evt-4b", "event_type": "practice.policy_copy", "occurred_at": "2026-11-19T10:00:00Z",
+  "practice": { "reference": "ALFA-9981" },
+  "data": {
+    "policy_number": "POL-2026-000123",
+    "policy_copy": { "file_name": "polizza_copia_compagnia_POL-2026-000123.pdf.p7m",
+                     "mime_type": "application/pkcs7-mime",
+                     "url": "https://files.alfa.example/doc/9981-copia.pdf.p7m" }
+  }
+}
+```
+
+I file `.p7m` si accettano con `mime_type` `application/pkcs7-mime` (o `application/x-pkcs7-mime`, o anche `application/octet-stream` se il nome finisce in `.p7m`) e devono essere una busta di firma valida (DER, oppure il suo testo base64): un file qualunque rinominato `.p7m` viene rifiutato con `422 invalid_document`.
 
 **Fase 6 — emissione.** Richiede il pagamento già registrato (altrimenti `409 invalid_transition`). Si manda `document` oppure `documents` (**fino a 10 copie**: contraente, beneficiario, compagnia…). Ogni copia viene allegata alla pratica come polizza emessa. (La chiusura del lotto nel portale resta un passaggio dell'amministratore: vedi §10.)
 
@@ -267,7 +290,7 @@ Quando il rappresentante fornisce le integrazioni, **noi vi mandiamo** `practice
 | `{ "file_name", "mime_type", "content_base64" }` | File piccoli | Il corpo intero non supera **4 MB** |
 | `{ "file_name", "mime_type", "url" }` | File grandi | `https`, con host **uguale a quello del vostro portale** o elencato in `documentHosts`; link raggiungibile da Internet |
 
-Tipi ammessi: **PDF, ZIP, JPEG, PNG**; massimo **12 MB** per file; l'intestazione del file deve corrispondere al tipo dichiarato (un PDF che non inizia con `%PDF` viene rifiutato con `422 invalid_document`).
+Tipi ammessi: **PDF, ZIP, JPEG, PNG** e file firmati digitalmente **`.p7m`**; massimo **12 MB** per file; l'intestazione del file deve corrispondere al tipo dichiarato (un PDF che non inizia con `%PDF` viene rifiutato con `422 invalid_document`).
 
 ### 5.5 Risposte e codici di errore
 
@@ -294,6 +317,7 @@ Authorization: Bearer <chiave>
 X-Portal-Id: alfa
 X-Event-Type: practice.paid
 Idempotency-Key: <event_id>
+X-Delivery-Attempt: 1               # numero del tentativo
 X-Timestamp: 1761800000           # solo se è configurato il segreto
 X-Signature: sha256=…             # HMAC-SHA256(segreto, X-Timestamp + "." + corpo grezzo): stessa regola e stesso segreto delle risposte
 Content-Type: application/json
@@ -304,7 +328,7 @@ Forma comune: `schema_version: 2`, `event_id`, `event_type`, `occurred_at`, `pra
 | `event_type` | Fase | Quando | `data` |
 |---|---|---|---|
 | `practice.info_provided` | 2–3 | Il rappresentante ha inviato le integrazioni richieste | `message`, `documents` (i documenti della pratica, link validi tre giorni) |
-| `practice.paid` | 4 | L'amministratore ha registrato il pagamento: **la compagnia può emettere** | `payment_date` (AAAA-MM-GG) |
+| `practice.paid` | 4 | Il pagamento è stato registrato (caricato dal collaboratore o da noi, poi confermato dall'amministratore): **la compagnia può preparare la polizza** | `payment_date` (AAAA-MM-GG) |
 | `practice.signed` | 5 | Le copie firmate sono complete e trasmesse | `signed_at`, `documents` (le copie firmate come link) |
 | `practice.reopened` | qualsiasi | La pratica è stata riaperta e non è più da considerare in valutazione | `reason` |
 | `practice.test` | — | Prova dalle impostazioni | `message` |
@@ -323,7 +347,7 @@ Il pagamento è dell'**intero lotto** (un unico bonifico dell'estratto conto), m
 
 ### Firme (fase 5)
 
-Per ogni pratica il rappresentante fiscale firma **due documenti**: la **polizza nella copia per la Compagnia** e il **MUP unico** (MUP, incarico di consulenza, raccomandazione, dichiarazione di consegna, informativa privacy e questionario antiriciclaggio in un solo file). Con entrambi caricati, il portale trasmette:
+Per ogni pratica il rappresentante fiscale firma **due documenti**: la **copia di polizza per la Compagnia** (quella `.p7m` che avete emesso) e il **MUP unico** (MUP, incarico di consulenza, raccomandazione, dichiarazione di consegna, informativa privacy e questionario antiriciclaggio in un solo file). Con entrambi caricati, il portale trasmette:
 
 ```json
 {
@@ -358,8 +382,8 @@ Le firme possono essere **digitali CAdES** (`.p7m`, anche `documento.pdf.p7m`, `
 | 1 | In valutazione | In valutazione | «Documenti ricevuti, in attesa della deliberazione» |
 | 2 | Integrazioni richieste / Non deliberate | idem | Il messaggio e la scadenza per rispondere; per il rifiuto, il motivo |
 | 3 | Deliberate · da pagare | Deliberate (con avviso se la scadenza è entro 7 giorni) | La bozza da controllare e il pulsante per confermarla; l'estratto conto del lotto da saldare |
-| 4 | Pagate · in emissione | Pagate | Pagamento registrato |
-| 5 | Pagate · in emissione | idem | Lo ZIP dei documenti da firmare (polizza copia Compagnia + MUP unico, già compilati) e il caricamento delle firme |
+| 4 | Pagate · in emissione | Pagate | Il caricamento del pagamento (o lo carichiamo noi) e poi «Pagamento registrato» |
+| 5 | Pagate · in emissione | idem | Lo ZIP dei documenti da firmare (copia di polizza `.p7m` della compagnia + MUP unico già compilato) e il caricamento delle firme |
 | 6 | Emesse | Emesse | Tutte le copie della polizza, scaricabili (il lotto si chiude quando l'amministratore conferma le polizze emesse) |
 
 Il portale invia anche le **e-mail**: una per passaggio del lotto, solo ai collaboratori interessati. Le API non cambiano questo comportamento.
@@ -374,10 +398,15 @@ Nel repository del portale c'è un simulatore (solo Node) che fa da portale dell
 # Fase 1: riceve le pratiche e risponde da solo ("received" dopo mezzo secondo, "deliberated" dopo 5 secondi)
 node scripts/vies-portal-simulator.mjs listen --port 4010 --key CHIAVE --secret SEGRETO --portal-id alfa --auto-reply
 
-# Fase 3: delibera con bozza e copia per la Compagnia
+# Fase 3: delibera con la bozza
 node scripts/vies-portal-simulator.mjs callback --url https://portale.tecnomga.com/api/vies-portal-callback \
   --portal-id alfa --secret SEGRETO --event deliberated --practice-number VIES-2026-0003-ab12cd34 \
-  --due 2026-12-31 --note "Premio confermato" --pdf bozza.pdf --policy-copy copia_compagnia.pdf
+  --due 2026-12-31 --note "Premio confermato" --pdf bozza.pdf
+
+# Fase 5: dopo il pagamento, la copia di polizza da firmare (file .p7m)
+node scripts/vies-portal-simulator.mjs callback --url https://portale.tecnomga.com/api/vies-portal-callback \
+  --portal-id alfa --secret SEGRETO --event policy_copy --practice-number VIES-2026-0003-ab12cd34 \
+  --policy-number POL-2026-123 --policy-copy polizza_copia_compagnia.pdf.p7m
 
 # Fase 6: emissione con tutte le copie (--pdf ripetuto)
 node scripts/vies-portal-simulator.mjs callback --url https://portale.tecnomga.com/api/vies-portal-callback \
@@ -397,13 +426,14 @@ node scripts/vies-portal-simulator.mjs receive --port 4011 --secret SEGRETO [--f
 | 3 | Lo stesso evento due volte | La seconda risposta riporta `"duplicate": true` |
 | 4 | `practice.info_requested` poi risposta del rappresentante | Noi inviamo `practice.info_provided` |
 | 5 | `practice.rejected` su una pratica | Pratica in *Non deliberate* con il motivo |
-| 6 | `practice.deliberated` con bozza e copia per la Compagnia | Pratiche in *Deliberate · da pagare*, documenti allegati |
+| 6 | `practice.deliberated` con la bozza | Pratiche in *Deliberate · da pagare*, bozza allegata |
 | 7 | Pagamento del lotto registrato dall'amministratore | Arrivano 4 eventi `practice.paid` (uno per pratica) |
 | 8 | `practice.issued` **prima** del pagamento (prova negativa) | `409 invalid_transition` |
-| 9 | Firme caricate | Arriva `practice.signed` con due documenti firmati (polizza e MUP unico) |
-| 10 | `practice.issued` con 4 copie | Pratica *Emessa*, 4 file allegati, numero di polizza registrato |
-| 11 | Firma sbagliata / orologio sfasato / segreto errato | `401` identico in tutti i casi |
-| 12 | Il vostro endpoint risponde `500` | Ritentativi dopo 1, 5, 30 minuti… visibili nel registro delle consegne |
+| 9 | `practice.policy_copy` con un file `.p7m` dopo il pagamento | Copia allegata, numero di polizza registrato, stato invariato; con un file finto `.p7m`: `422 invalid_document` |
+| 10 | Firme caricate (copia di polizza `.p7m` firmata + MUP unico) | Arriva `practice.signed` con due documenti firmati |
+| 11 | `practice.issued` con 4 copie | Pratica *Emessa*, 4 file allegati |
+| 12 | Firma sbagliata / orologio sfasato / segreto errato | `401` identico in tutti i casi |
+| 13 | Il vostro endpoint risponde `500` | Ritentativi dopo 1, 5, 30 minuti… visibili nel registro delle consegne |
 
 ---
 
@@ -424,17 +454,31 @@ Il collegamento aggiorna **le pratiche**: stato, documenti, scadenze, numero di 
 
 - la conferma del passaggio «bozze caricate» (anche se le bozze sono già arrivate con `practice.deliberated`);
 - la conferma del pagamento del lotto (che genera gli eventi `practice.paid`);
-- il caricamento in blocco delle copie per la compagnia e delle polizze emesse, e la **chiusura del lotto**: oggi le polizze emesse che arrivano con `practice.issued` aggiornano la pratica (stato *Emessa*, documenti) ma non completano da sole l'ultimo passaggio del lotto;
+- i passaggi «copie per la compagnia» e «polizze emesse» e la **chiusura del lotto**: oggi la copia `.p7m` ricevuta con `practice.policy_copy` e le copie ricevute con `practice.issued` aggiornano la pratica (documenti, stato *Emessa*) ma non completano da sole il passaggio corrispondente del lotto, che l'amministratore conferma;
 - l'invio delle firme alla compagnia come passaggio del lotto (il messaggio `practice.signed` parte invece già quando le firme di quella pratica sono complete).
 
-Se la compagnia desidera che anche questi passaggi si chiudano **da soli** alla ricezione degli eventi, è una modifica concordabile (nessun cambio per voi: cambia il nostro comportamento interno).
+Se desiderate che anche questi passaggi si chiudano **da soli** alla ricezione degli eventi, è una modifica concordabile (nessun cambio per voi: cambia il nostro comportamento interno).
 
 ---
 
-## 11. Da concordare con la compagnia
+## 11. Statistiche e scadenzario (facoltativo)
+
+Se la compagnia lo desidera possiamo condividere le **statistiche delle polizze VIES** e lo **scadenzario** con due servizi di sola lettura, già disponibili. Si usano con una chiave API (`X-API-Key`) **di sola lettura**, associata all'utente Tecno che vede le pratiche da condividere (le risposte contengono solo le pratiche di quella chiave e di quell'utente):
+
+| Servizio | Cosa restituisce | Parametri |
+|---|---|---|
+| `GET /api/get-reports` | Totali di produzione, distribuzione per tipologia e per stato, andamento mensile, KPI con confronto sul periodo precedente | `start_date`, `end_date` (AAAA-MM-GG), `period` (`week`, `month`, `quarter`, `year`) |
+| `GET /api/get-expiries` | **Scadenzario**: polizze in scadenza, con urgenza (`expired`, `urgent` ≤ 7 giorni, `soon` ≤ 30, `upcoming`) e stato degli avvisi 90/60/30/7 giorni | `days_ahead` (default 90, max 365), `practice_type=vies`, `status`, `include_expired=true` |
+| `GET /api/get-practices`, `GET /api/get-practice-status` | Elenco delle pratiche e dettaglio di una pratica (sezione, bozza, documenti da firmare, copie emesse) | filtri per stato e tipologia |
+
+Si concorda con la compagnia: quali dati (solo VIES o tutto), con che frequenza li legge e a chi appartiene la chiave. I servizi sono documentati nella pagina pubblica `/api-docs` del portale.
+
+---
+
+## 12. Da concordare con la compagnia
 
 1. Indirizzi (prova e produzione), chiave, segreto, `documentHosts`.
-2. Se `external_reference` è disponibile già alla risposta di invio o solo con `practice.received`.
+2. Se `external_reference` è disponibile già alla risposta di invio o solo con `practice.received`; quando la compagnia manda la **copia di polizza `.p7m`** dopo il pagamento (`practice.policy_copy`) e con quali nomi di file.
 3. Tempi massimi di risposta per fase (presa in carico, delibera, emissione).
 4. Formato delle polizze emesse (numero di copie, nome dei file) e firme accettate (PDF e/o CAdES `.p7m`).
 5. Un contatto tecnico reperibile nei primi giorni e un indirizzo per i problemi di consegna.

@@ -234,6 +234,15 @@ await check("a file the browser uploaded to the practice folder is checked and l
   assert.equal(db.rows("practices").find((x) => x.id === other.id)!.status, "in_attesa");
   await rejects(() => runWorkflowAction(sb(db), ADMIN, "workflow_deliberate", { practiceId: other.id, draft: { file_name: "x.pdf" } }), "invalid_payload", 422);
 });
+await check("signed .p7m documents from the company are accepted (policy copy, issued copies)", async () => {
+  const der = Buffer.concat([Buffer.from([0x30, 0x82, 0x01, 0x00]), Buffer.alloc(256, 1)]);
+  for (const mime of ["application/pkcs7-mime", "application/x-pkcs7-mime", "application/octet-stream", undefined]) {
+    const read = await readIncomingDocument({ file_name: "polizza_copia_compagnia.pdf.p7m", mime_type: mime, content_base64: der.toString("base64") });
+    assert.equal(read.mimeType, "application/pkcs7-mime");
+  }
+  // Not a signed envelope: refused, whatever the name says.
+  await assert.rejects(readIncomingDocument({ file_name: "finto.pdf.p7m", content_base64: Buffer.from("not signed").toString("base64") }), /non corrisponde/);
+});
 await check("document limits: size, address, host", async () => {
   await assert.rejects(readIncomingDocument({ file_name: "big.pdf", content_base64: Buffer.concat([Buffer.from("%PDF-"), Buffer.alloc(MAX_DOCUMENT_BYTES)]).toString("base64") }), /troppo grande/);
   await assert.rejects(readIncomingDocument({ file_name: "a.pdf", url: "http://files.example.test/a.pdf" }, { documentHosts: ["files.example.test"] }), /https/);
@@ -389,6 +398,32 @@ await check("rejected, info requested, issued", async () => {
   const early = await handlePortalCallback(sb(db), portals, signed({ event_id: "x2", event_type: "practice.issued", practice: { id: d.id }, data: {} }));
   assert.equal(early.status, 409);
   assert.equal(db.rows("practices").find((x) => x.id === d.id)!.status, "approvata");
+});
+await check("policy_copy: after the payment the company sends the signed .p7m copy to sign; no change of state", async () => {
+  const { db, practice } = sentWorld();
+  const paid = practice("approvata", "incassata"), early = practice("in_attesa"), done = practice("completata", "incassata");
+  const p7m = { file_name: "polizza_copia_compagnia.pdf.p7m", mime_type: "application/pkcs7-mime", content_base64: Buffer.concat([Buffer.from([0x30, 0x82, 0x01, 0x00]), Buffer.alloc(200, 7)]).toString("base64") };
+  const ok = await handlePortalCallback(sb(db), portals, signed({ event_id: "pc1", event_type: "practice.policy_copy", practice: { id: paid.id }, data: { policy_number: "POL-88", policy_copy: p7m } }));
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  const stored = db.rows("practice_documents").filter((d) => d.practice_id === paid.id);
+  assert.equal(stored.length, 1); assert.equal(stored[0].document_type, "polizza_copia_compagnia"); assert.equal(stored[0].mime_type, "application/pkcs7-mime");
+  assert.equal(db.rows("practices").find((x) => x.id === paid.id)!.policy_number, "POL-88");
+  assert.equal(db.rows("practices").find((x) => x.id === paid.id)!.status, "approvata");
+  assert.equal(events(db, paid.id, "workflow_policy_copy").length, 1);
+  // the same event twice is applied once
+  const again = await handlePortalCallback(sb(db), portals, signed({ event_id: "pc1", event_type: "practice.policy_copy", practice: { id: paid.id }, data: { policy_copy: p7m } }));
+  assert.equal(again.status, 200); assert.equal(again.body.duplicate, true);
+  assert.equal(db.rows("practice_documents").filter((d) => d.practice_id === paid.id).length, 1);
+  // not deliberated yet, or already issued: refused
+  for (const p of [early, done]) {
+    const r = await handlePortalCallback(sb(db), portals, signed({ event_id: `pc-${p.id}`, event_type: "practice.policy_copy", practice: { id: p.id }, data: { policy_copy: p7m } }));
+    assert.equal(r.status, 409, JSON.stringify(r.body));
+  }
+  // no document, or a file that is not a signed envelope
+  const none = await handlePortalCallback(sb(db), portals, signed({ event_id: "pc3", event_type: "practice.policy_copy", practice: { id: paid.id }, data: {} }));
+  assert.equal(none.status, 400);
+  const fake = await handlePortalCallback(sb(db), portals, signed({ event_id: "pc4", event_type: "practice.policy_copy", practice: { id: paid.id }, data: { policy_copy: { ...p7m, content_base64: Buffer.from("not signed").toString("base64") } } }));
+  assert.equal(fake.status, 422); assert.equal(fake.body.error, "invalid_document");
 });
 await check("received: stores the portal's reference, then it can be used to find the practice", async () => {
   const { db, practice } = sentWorld();
