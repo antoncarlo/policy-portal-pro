@@ -1,7 +1,8 @@
 // Genera il PDF della guida all'integrazione API da docs/api/GuidaIntegrazioneAPI-PolicyPortalPro-aggiornata.md
 // su carta intestata Tecno Advance MGA.
 //
-//   npm run docs:api-pdf [-- file-di-uscita.pdf]
+//   npm run docs:api-pdf [-- file-di-uscita.pdf [file-sorgente.md]]
+//   (con la guida al collegamento della compagnia: npm run docs:api-pdf -- docs/api/GuidaCollegamentoPortaleCompagnia.pdf docs/api/GuidaCollegamentoPortaleCompagnia.md)
 //
 // Il testo sta nel file Markdown: si modifica lì e si rigenera il PDF (in docs/api/ se non si indica un'uscita).
 // Richiede Chromium di Playwright (`npx playwright install chromium`).
@@ -13,8 +14,8 @@ import { marked } from "marked";
 import { chromium } from "playwright";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SOURCE = resolve(HERE, "../../docs/api/GuidaIntegrazioneAPI-PolicyPortalPro-aggiornata.md");
-const OUT = resolve(process.argv[2] ?? resolve(HERE, "../../docs/api/GuidaIntegrazioneAPI-PolicyPortalPro-aggiornata.pdf"));
+const SOURCE = resolve(process.argv[3] ?? resolve(HERE, "../../docs/api/GuidaIntegrazioneAPI-PolicyPortalPro-aggiornata.md"));
+const OUT = resolve(process.argv[2] ?? SOURCE.replace(/\.md$/, ".pdf"));
 const LOGO = `data:image/png;base64,${readFileSync(resolve(HERE, "../vies-template/logo.png")).toString("base64")}`;
 
 const NAVY = "#1a2547";
