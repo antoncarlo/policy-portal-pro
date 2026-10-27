@@ -21,11 +21,13 @@
 | | Indirizzo |
 |---|---|
 | Portale Tecno (produzione) | `https://portale.tecnomga.com` |
+| Portale Tecno (**ambiente di prova / sandbox**) | `https://sandbox.tecnomga.com` — dati e credenziali separati dalla produzione |
+| **Dove la compagnia ci risponde (sandbox)** | `POST https://sandbox.tecnomga.com/api/vies-portal-callback` |
 | **Dove la compagnia ci risponde** | `POST https://portale.tecnomga.com/api/vies-portal-callback` |
 | Dove noi inviamo le pratiche | l'indirizzo della compagnia che ci comunicate (es. `https://portale.alfa.example/api/practices`) |
 | Dove noi inviamo gli eventi | `eventsUrl` della compagnia; se manca, lo stesso indirizzo di invio |
 
-Prima della produzione concordiamo un **ambiente di prova** della compagnia e ci scambiamo chiave e segreto separati.
+Il collaudo si fa **sulla nostra sandbox**, collegata al vostro ambiente di prova: stesso codice e stesse regole della produzione, con database, chiavi e segreto di firma propri. Nella sandbox le e-mail sono spente e i ritentativi automatici dei nostri invii non partono da soli (si ritentano a mano). Solo dopo il collaudo si configurano indirizzi e chiavi di produzione.
 
 ---
 
