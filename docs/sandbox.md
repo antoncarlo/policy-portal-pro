@@ -22,8 +22,19 @@ Il database della sandbox ha **tutte le 75 migrazioni** del repository, applicat
 |---|---|---|
 | `admin.sandbox@tecnomga.com` | Amministratore | VIES |
 | `collaboratore.sandbox@tecnomga.com` | Collaboratore (rappresentante fiscale) | VIES |
+| `compagnia.admin@tecnosandbox.app` | Amministratore, **consegnato alla compagnia** per il collaudo | tutti |
+| `compagnia.collaboratore@tecnosandbox.app` | Collaboratore, **consegnato alla compagnia** (fa la parte del rappresentante fiscale) | VIES |
 
-Le password sono state consegnate a parte e non sono scritte nel repository. Gli utenti esistono solo nella sandbox.
+Le password sono state consegnate a parte e non sono scritte nel repository. Gli utenti esistono solo nella sandbox. Gli utenti della compagnia sono stati creati con il cambio password obbligatorio al primo accesso.
+
+Credenziali di collegamento consegnate alla compagnia (valori nella *scheda credenziali* riservata, mai nel repository):
+
+| Cosa | Dove si gestisce |
+|---|---|
+| Chiave API `Compagnia – collaudo sandbox` (prefisso `tmga_`), associata a `compagnia.collaboratore@tecnosandbox.app` | Impostazioni → Chiavi API del portale di prova (si disattiva o si rigenera da lì) |
+| Id portale `compagnia-test` e segreto di firma | Variabili `VIES_PORTALS` e `VIES_PORTAL_COMPAGNIA_TEST_SECRET` del progetto Vercel `tecnomga-sandbox` |
+
+Il kit consegnato alla compagnia è `docs/api/GuidaSandboxCompagnia.pdf` (kit di collaudo seguito dalla guida completa al collegamento) con i lotti di prova (`npm run build:vies-test-data`), i documenti fittizi da restituire (bozza, copia `.p7m` firmata con un certificato di prova, quattro copie della polizza) e `scripts/vies-portal-simulator.mjs`.
 
 ## 3. Progetto Vercel `tecnomga-sandbox`
 
@@ -50,7 +61,9 @@ Variabili, tutte con ambiente **Production**:
 | `CRON_SECRET` | segreto casuale generato per la sandbox (almeno 32 caratteri), tipo **Sensitive**, diverso da quello di produzione |
 | `ADMIN_NOTIFICATION_EMAILS` | `none` |
 | `WEBHOOK_DEFAULT_USER_ID` | `1a6afa14-ac11-47af-9479-361bd4bba28f` (utente `admin.sandbox@tecnomga.com`) |
-| `VIES_PORTALS` | il portale di prova della compagnia (indirizzo di prova, chiave, segreto di firma), quando la compagnia li comunica |
+| `VIES_PORTALS` | `[{"id":"compagnia-test","name":"Compagnia (collaudo)","url":"<indirizzo di prova della compagnia>","apiKeyEnv":"VIES_PORTAL_COMPAGNIA_TEST_KEY","callbackSecretEnv":"VIES_PORTAL_COMPAGNIA_TEST_SECRET","documentHosts":[],"eventsUrl":""}]`: finché la compagnia non comunica l'indirizzo, `url` resta vuoto (le risposte firmate funzionano, gli invii no) |
+| `VIES_PORTAL_COMPAGNIA_TEST_SECRET` | segreto di firma della sandbox consegnato alla compagnia, tipo **Sensitive** |
+| `VIES_PORTAL_COMPAGNIA_TEST_KEY` | la chiave che l'indirizzo di prova della compagnia accetta, tipo **Sensitive** (quando la comunica) |
 
 Nessuna chiave o segreto della produzione va copiato in questo progetto (né il contrario). Le variabili del ramo `sandbox` create in precedenza nel progetto `policy-portal-pro` (ambiente Preview) non servono più e si possono cancellare.
 
