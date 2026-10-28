@@ -34,7 +34,7 @@ export const viesMessages = defineMessages({
     step1: {
       title: "1. File del lotto",
       description: (max: number) =>
-        `Un Excel con al massimo ${max} pratiche e uno ZIP per pratica, chiamato con il numero della colonna ZIP (1.zip, 2.zip …). Si può caricare anche un unico ZIP che li contiene tutti (1.zip … 20.zip, oppure cartelle 1 … 20): viene scompattato in automatico.`,
+        `Un Excel con al massimo ${max} pratiche e uno ZIP per pratica, chiamato come la colonna ZIP: un numero, un codice cliente o una sigla (1.zip, CNTBA03717.zip …; maiuscole e minuscole indifferenti). Si può caricare anche un unico ZIP che li contiene tutti (uno ZIP o una cartella per pratica, con lo stesso nome): viene scompattato in automatico. Caricare prima l'Excel.`,
       excel: "File Excel",
       reading: "Lettura in corso...",
       noExcel: "Nessun Excel selezionato",
@@ -84,7 +84,7 @@ export const viesMessages = defineMessages({
     step3: {
       title: "3. Controllo pratiche",
       description:
-        "Ogni riga Excel viene abbinata allo ZIP indicato nella colonna ZIP (es. 1 → 1.zip). Una riga bloccata non diventa una pratica: va corretta e caricata in un nuovo lotto. Le altre righe del foglio procedono normalmente.",
+        "Ogni riga Excel viene abbinata allo ZIP con il nome indicato nella colonna ZIP (es. 1 → 1.zip, CNTBA03717 → cntba03717.zip). Una riga bloccata non diventa una pratica: va corretta e caricata in un nuovo lotto. Le altre righe del foglio procedono normalmente.",
       empty: "Carica l'Excel per vedere il controllo di riconciliazione.",
       inSheet: (count: number) => `${count} pratiche nel foglio`,
       ready: (count: number) => `${count} pronte`,
@@ -327,8 +327,8 @@ export const viesMessages = defineMessages({
     },
     fix: {
       uploadZip: (name: string) => `Caricare il file ${name}.zip insieme agli altri ZIP.`,
-      writeZipNumber: "Scrivere nell'Excel, colonna ZIP, il numero dello ZIP di questa società.",
-      fixZipNumber: (max: number) => `Correggere nell'Excel il numero nella colonna ZIP (da 1 a ${max}).`,
+      writeZipNumber: "Scrivere nell'Excel, colonna ZIP, il nome dello ZIP di questa società (numero o codice).",
+      fixZipNumber: (max: number) => `Correggere nell'Excel il nome nella colonna ZIP: lettere o numeri, al massimo ${max} caratteri, come il nome del file ZIP.`,
       uniqueZipNumber: "Correggere nell'Excel: ogni riga deve avere un numero ZIP diverso.",
       singleZip: "Caricare un solo ZIP con questo numero.",
       replaceZip: "Sostituire lo ZIP con quello che contiene i documenti di questa società.",
@@ -396,7 +396,7 @@ export const viesMessages = defineMessages({
     step1: {
       title: "1. Batch files",
       description: (max: number) =>
-        `One Excel file with at most ${max} applications and one ZIP per application, named with the number in the ZIP column (1.zip, 2.zip …). You can also upload a single ZIP containing all of them (1.zip … 20.zip, or folders 1 … 20): it is unpacked automatically.`,
+        `One Excel file with at most ${max} applications and one ZIP per application, named as in the ZIP column: a number, a client code or an acronym (1.zip, CNTBA03717.zip …; upper and lower case are the same). You can also upload a single ZIP containing all of them (one ZIP or one folder per application, with the same name): it is unpacked automatically. Upload the Excel file first.`,
       excel: "Excel file",
       reading: "Reading...",
       noExcel: "No Excel file selected",
@@ -446,7 +446,7 @@ export const viesMessages = defineMessages({
     step3: {
       title: "3. Application check",
       description:
-        "Each Excel row is matched with the ZIP given in the ZIP column (e.g. 1 → 1.zip). A blocked row does not become an application: it must be corrected and uploaded in a new batch. The other rows of the sheet go ahead normally.",
+        "Each Excel row is matched with the ZIP named in the ZIP column (e.g. 1 → 1.zip, CNTBA03717 → cntba03717.zip). A blocked row does not become an application: it must be corrected and uploaded in a new batch. The other rows of the sheet go ahead normally.",
       empty: "Upload the Excel file to see the reconciliation check.",
       inSheet: (count: number) => `${count} applications in the sheet`,
       ready: (count: number) => `${count} ready`,
@@ -683,8 +683,8 @@ export const viesMessages = defineMessages({
     },
     fix: {
       uploadZip: (name: string) => `Upload the file ${name}.zip together with the other ZIPs.`,
-      writeZipNumber: "Write this company's ZIP number in the ZIP column of the Excel file.",
-      fixZipNumber: (max: number) => `Correct the number in the ZIP column of the Excel file (from 1 to ${max}).`,
+      writeZipNumber: "Write the name of this company's ZIP (number or code) in the ZIP column of the Excel file.",
+      fixZipNumber: (max: number) => `Correct the name in the ZIP column of the Excel file: letters or digits, at most ${max} characters, as the name of the ZIP file.`,
       uniqueZipNumber: "Correct the Excel file: each row must have a different ZIP number.",
       singleZip: "Upload only one ZIP with this number.",
       replaceZip: "Replace the ZIP with the one containing this company's documents.",
@@ -750,7 +750,7 @@ export const viesMessages = defineMessages({
     step1: {
       title: "1. 批次文件",
       description: (max: number) =>
-        `一个 Excel 最多 ${max} 笔申请，每笔申请一个 ZIP，文件名为 ZIP 列中的编号（1.zip、2.zip …）。也可以上传一个包含全部文件的 ZIP（1.zip … 20.zip，或文件夹 1 … 20），系统会自动解压。`,
+        `一个 Excel 最多 ${max} 笔申请，每笔申请一个 ZIP，文件名与 ZIP 列一致：数字、客户代码或缩写（1.zip、CNTBA03717.zip …；不区分大小写）。也可以上传一个包含全部文件的 ZIP（每笔申请一个 ZIP 或一个文件夹，名称相同），系统会自动解压。请先上传 Excel。`,
       excel: "Excel 文件",
       reading: "正在读取...",
       noExcel: "未选择 Excel 文件",
@@ -799,7 +799,7 @@ export const viesMessages = defineMessages({
     step3: {
       title: "3. 申请审核",
       description:
-        "每一行 Excel 会与 ZIP 列中指定的 ZIP 对应（例如 1 → 1.zip）。被阻止的行不会生成申请：需修改后在新批次中重新上传。表格中的其他行正常处理。",
+        "每一行 Excel 会与 ZIP 列中所写名称的 ZIP 对应（例如 1 → 1.zip，CNTBA03717 → cntba03717.zip）。被阻止的行不会生成申请：需修改后在新批次中重新上传。表格中的其他行正常处理。",
       empty: "请上传 Excel 以查看对账审核结果。",
       inSheet: (count: number) => `表格中共 ${count} 笔申请`,
       ready: (count: number) => `${count} 笔就绪`,
@@ -1021,8 +1021,8 @@ export const viesMessages = defineMessages({
     },
     fix: {
       uploadZip: (name: string) => `请将文件 ${name}.zip 与其他 ZIP 一起上传。`,
-      writeZipNumber: "请在 Excel 的 ZIP 列中填写该公司的 ZIP 编号。",
-      fixZipNumber: (max: number) => `请修改 Excel 中 ZIP 列的编号（1 至 ${max}）。`,
+      writeZipNumber: "请在 Excel 的 ZIP 列中填写该公司 ZIP 的名称（数字或代码）。",
+      fixZipNumber: (max: number) => `请修改 Excel 中 ZIP 列的名称：字母或数字，最多 ${max} 个字符，与 ZIP 文件名一致。`,
       uniqueZipNumber: "请修改 Excel：每一行的 ZIP 编号必须不同。",
       singleZip: "请只上传一个该编号的 ZIP。",
       replaceZip: "请将 ZIP 替换为包含该公司文件的 ZIP。",

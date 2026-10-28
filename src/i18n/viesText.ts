@@ -107,6 +107,11 @@ const RULES: Rule[] = [
     en: (m) => `Invalid ZIP number (${m[1]}): a number from 1 to ${m[2]} is expected`,
     zh: (m) => `ZIP 编号无效（${m[1]}）：应为 1 至 ${m[2]} 的数字`,
   },
+  {
+    pattern: /^Nome ZIP non valido \((.+)\): usare lettere o numeri, al massimo (\d+) caratteri$/,
+    en: (m) => `Invalid ZIP name (${m[1]}): use letters or digits, at most ${m[2]} characters`,
+    zh: (m) => `ZIP 名称无效（${m[1]}）：请使用字母或数字，最多 ${m[2]} 个字符`,
+  },
   { pattern: /^Partita IVA contraente non valida$/, ...same("Policyholder's VAT number is invalid", "投保人增值税号无效") },
   { pattern: /^Codice di credito sociale non valido$/, ...same("Invalid Unified Social Credit Code", "统一社会信用代码无效") },
   {
@@ -194,6 +199,7 @@ const RULES: Rule[] = [
     zh: (m) => `ZIP 中出现另一家公司的代码：${m[1]}`,
   },
   { pattern: /^Numero ZIP non valido: (.+)$/, en: (m, t, v) => `Invalid ZIP number: ${v(m[1])}`, zh: (m, t, v) => `ZIP 编号无效：${v(m[1])}` },
+  { pattern: /^Nome ZIP non valido: (.+)$/, en: (m, t, v) => `Invalid ZIP name: ${v(m[1])}`, zh: (m, t, v) => `ZIP 名称无效：${v(m[1])}` },
   {
     pattern: /^Lo ZIP della riga è (.+), atteso (.+)$/,
     en: (m, t, v) => `The row's ZIP is ${v(m[1])}, expected ${m[2]}`,
