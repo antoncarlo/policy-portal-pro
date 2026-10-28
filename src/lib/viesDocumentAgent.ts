@@ -26,7 +26,8 @@ export interface AgentDocumentResult {
 }
 
 export type AgentCallOutcome =
-  | { status: "ok"; result: AgentDocumentResult }
+  /** excerpt: the agent read only the first pages and the last one of the document. */
+  | { status: "ok"; result: AgentDocumentResult; excerpt?: boolean }
   | { status: "unavailable"; message: string }
   | { status: "error"; message: string };
 
@@ -80,16 +81,48 @@ const toFailure = async (error: Error): Promise<AgentFailure> => {
 const AGENT_RETRY_DELAYS_MS = [3000, 8000, 20000];
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// The first reading of a PDF sends only its first pages and the last one (signature, stamp): the API bills
+// every page it receives, and that is where a document says what it is and whose it is. The whole document
+// is read only when its ZIP still misses a required document (second look).
+const EXCERPT_FIRST_PAGES = 2;
+
+export interface PdfExcerpt {
+  bytes: Uint8Array;
+  /** 1-based numbers of the pages kept; null when the document is sent whole. */
+  pages: number[] | null;
+  totalPages: number | null;
+}
+
+export const excerptPdf = async (bytes: Uint8Array): Promise<PdfExcerpt> => {
+  try {
+    const { PDFDocument } = await import("pdf-lib");
+    const source = await PDFDocument.load(bytes, { ignoreEncryption: true });
+    const totalPages = source.getPageCount();
+    if (totalPages <= EXCERPT_FIRST_PAGES + 1) return { bytes, pages: null, totalPages };
+    const indices = [...Array.from({ length: EXCERPT_FIRST_PAGES }, (_, index) => index), totalPages - 1];
+    const excerpt = await PDFDocument.create();
+    for (const page of await excerpt.copyPages(source, indices)) excerpt.addPage(page);
+    return { bytes: await excerpt.save(), pages: indices.map((index) => index + 1), totalPages };
+  } catch {
+    // A PDF pdf-lib cannot rewrite is sent as it is.
+    return { bytes, pages: null, totalPages: null };
+  }
+};
+
 // Readings already done in this tab, by file content: uploading the ZIPs again after adding the missing
 // documents sends the agent only the new files. Kept in the browser tab (memory and sessionStorage, which
-// survives a reload of the page), never on the server. The version changes with the agent's document types.
-const READING_CACHE_PREFIX = "vies-agent-reading:v2:";
+// survives a reload of the page), never on the server. The version changes with the agent's model and
+// document types; an excerpt and the whole document are two readings.
+const READING_CACHE_PREFIX = "vies-agent-reading:v3:";
 const readingCache = new Map<string, AgentDocumentResult>();
 
-const readingKey = async (bytes: Uint8Array, mediaType: string) => {
+const contentHash = async (bytes: Uint8Array) => {
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>));
-  return `${READING_CACHE_PREFIX}${mediaType}:${Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+  return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
 };
+
+const readingKey = (hash: string, mediaType: string, excerpt: boolean) =>
+  `${READING_CACHE_PREFIX}${mediaType}:${excerpt ? "excerpt:" : ""}${hash}`;
 
 const cachedReading = (key: string) => {
   const cached = readingCache.get(key);
@@ -122,17 +155,35 @@ export const probeViesDocumentAgent = async (): Promise<{ ready: true } | Exclud
   return failure.status === "unavailable" ? { status: "unavailable", message: failure.message } : { status: "error", message: failure.message };
 };
 
-export const callViesDocumentAgent = async (bytes: Uint8Array, mediaType: string, fileName: string): Promise<AgentCallOutcome> => {
-  const key = await readingKey(bytes, mediaType).catch(() => null);
-  const cached = key ? cachedReading(key) : null;
-  if (cached) return { status: "ok", result: cached };
-  const body = { file_name: fileName, media_type: mediaType, data: toBase64(bytes) };
+/** wholeDocument: send every page of a PDF (second look); otherwise only its first pages and the last one. */
+export const callViesDocumentAgent = async (
+  bytes: Uint8Array,
+  mediaType: string,
+  fileName: string,
+  wholeDocument = false,
+): Promise<AgentCallOutcome> => {
+  const hash = await contentHash(bytes).catch(() => null);
+  const mayExcerpt = mediaType === "application/pdf" && !wholeDocument;
+  // A reading done earlier in this tab: of the whole file first, else (first reading) of its excerpt.
+  for (const excerpt of mayExcerpt ? [false, true] : [false]) {
+    const cached = hash ? cachedReading(readingKey(hash, mediaType, excerpt)) : null;
+    if (cached) return { status: "ok", result: cached, excerpt };
+  }
+  const sent = mayExcerpt ? await excerptPdf(bytes) : { bytes, pages: null, totalPages: null };
+  const excerpt = sent.pages !== null;
+  const key = hash ? readingKey(hash, mediaType, excerpt) : null;
+  const body = {
+    file_name: fileName,
+    media_type: mediaType,
+    data: toBase64(sent.bytes),
+    ...(excerpt ? { excerpt: { pages: sent.pages, total_pages: sent.totalPages } } : {}),
+  };
   for (let attempt = 0; ; attempt += 1) {
     const { data, error } = await invokeAgent(body);
     if (!error) {
       const result = (data as { result: AgentDocumentResult }).result;
       if (key) rememberReading(key, result);
-      return { status: "ok", result };
+      return { status: "ok", result, excerpt };
     }
     const failure = await toFailure(error);
     if (!failure.retryable || attempt >= AGENT_RETRY_DELAYS_MS.length) {
