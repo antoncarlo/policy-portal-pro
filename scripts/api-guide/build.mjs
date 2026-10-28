@@ -3,6 +3,8 @@
 //
 //   npm run docs:api-pdf [-- file-di-uscita.pdf [file-sorgente.md]]
 //   (con la guida al collegamento della compagnia: npm run docs:api-pdf -- docs/api/GuidaCollegamentoPortaleCompagnia.pdf docs/api/GuidaCollegamentoPortaleCompagnia.md)
+//   (kit della sandbox, seguito dalla guida completa: npm run docs:api-pdf -- docs/api/GuidaSandboxCompagnia.pdf docs/api/GuidaSandboxCompagnia.md docs/api/GuidaCollegamentoPortaleCompagnia.md)
+//   I file Markdown dopo il primo si accodano senza il loro titolo principale.
 //
 // Il testo sta nel file Markdown: si modifica lì e si rigenera il PDF (in docs/api/ se non si indica un'uscita).
 // Richiede Chromium di Playwright (`npx playwright install chromium`).
@@ -19,7 +21,9 @@ const OUT = resolve(process.argv[2] ?? SOURCE.replace(/\.md$/, ".pdf"));
 const LOGO = `data:image/png;base64,${readFileSync(resolve(HERE, "../vies-template/logo.png")).toString("base64")}`;
 
 const NAVY = "#1a2547";
-const markdown = readFileSync(SOURCE, "utf8");
+const APPENDED = process.argv.slice(4).map((file) => readFileSync(resolve(file), "utf8").replace(/^# .*\n/, ""));
+const markdown = [readFileSync(SOURCE, "utf8"), ...APPENDED].join("\n\n");
+const footerTitle = /<!--\s*footer:\s*(.+?)\s*-->/.exec(markdown)?.[1] ?? "Guida all'Integrazione API";
 const version = /\*\*Versione:\*\*\s*([0-9.]+)/.exec(markdown)?.[1] ?? "";
 
 marked.use({ gfm: true, breaks: false });
@@ -88,7 +92,7 @@ try {
     displayHeaderFooter: true,
     headerTemplate: "<span></span>",
     footerTemplate: `<div style="width:100%;font-size:7.5pt;color:#6b7280;padding:0 18mm;display:flex;justify-content:space-between;font-family:Helvetica,Arial,sans-serif">
-      <span>Policy Portal Pro · Guida all'Integrazione API${version ? ` · versione ${version}` : ""}</span>
+      <span>Policy Portal Pro · ${footerTitle}${version ? ` · versione ${version}` : ""}</span>
       <span><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>`,
     margin: { top: "18mm", bottom: "20mm", left: "18mm", right: "18mm" },
   });
