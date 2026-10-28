@@ -22,7 +22,7 @@ Il database della sandbox ha **tutte le 75 migrazioni** del repository, applicat
 |---|---|---|
 | `admin.sandbox@tecnomga.com` | Amministratore | VIES |
 | `collaboratore.sandbox@tecnomga.com` | Collaboratore (rappresentante fiscale) | VIES |
-| `compagnia.admin@tecnosandbox.app` | Amministratore, **consegnato alla compagnia** per il collaudo | tutti |
+| `compagnia.admin@tecnosandbox.app` | Amministratore creato per la compagnia, **disattivato** (le operazioni da amministratore nel collaudo le facciamo noi) | tutti |
 | `compagnia.collaboratore@tecnosandbox.app` | Collaboratore, **consegnato alla compagnia** (fa la parte del rappresentante fiscale) | VIES |
 
 Le password sono state consegnate a parte e non sono scritte nel repository. Gli utenti esistono solo nella sandbox. Gli utenti della compagnia sono stati creati con il cambio password obbligatorio al primo accesso.
@@ -34,7 +34,7 @@ Credenziali di collegamento consegnate alla compagnia (valori nella *scheda cred
 | Chiave API `Compagnia – collaudo sandbox` (prefisso `tmga_`), associata a `compagnia.collaboratore@tecnosandbox.app` | Impostazioni → Chiavi API del portale di prova (si disattiva o si rigenera da lì) |
 | Id portale `compagnia-test` e segreto di firma | Variabili `VIES_PORTALS` e `VIES_PORTAL_COMPAGNIA_TEST_SECRET` del progetto Vercel `tecnomga-sandbox` |
 
-Il kit consegnato alla compagnia è `docs/api/GuidaSandboxCompagnia.pdf` (kit di collaudo seguito dalla guida completa al collegamento) con i lotti di prova (`npm run build:vies-test-data`), i documenti fittizi da restituire (bozza, copia `.p7m` firmata con un certificato di prova, quattro copie della polizza) e `scripts/vies-portal-simulator.mjs`.
+Il kit consegnato alla compagnia è `docs/api/GuidaSandboxCompagnia.pdf` (kit di collaudo seguito dalla guida completa al collegamento) con i lotti di prova (`npm run build:vies-test-data`), i documenti fittizi da restituire (bozza, copia `.p7m` firmata con un certificato di prova, quattro copie della polizza). Il simulatore `scripts/vies-portal-simulator.mjs` resta interno: alla compagnia si danno i comandi `curl` + `openssl` della guida.
 
 ## 3. Progetto Vercel `tecnomga-sandbox`
 
