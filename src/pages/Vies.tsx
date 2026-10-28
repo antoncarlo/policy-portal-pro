@@ -57,7 +57,14 @@ import {
   scanPdf,
   type VisuraData,
 } from "@/lib/viesDocumentScan";
-import { VIES_DOCUMENT_TYPES, classifyDocumentText, type ViesDocumentType } from "@/lib/viesDocumentTypes";
+import {
+  VIES_DOCUMENT_TYPES,
+  VIES_REQUIRED_DOCUMENT_TYPES,
+  classifyDocumentText,
+  missingRequiredDocuments,
+  typesSatisfying,
+  type ViesDocumentType,
+} from "@/lib/viesDocumentTypes";
 import { MAX_ZIP_NAME_LENGTH, isPracticeZipName, isValidZipName, planZipBundle, practiceZipKeys, zipKeyOf } from "@/lib/viesZipKeys";
 import {
   agentMediaType,
@@ -222,11 +229,12 @@ type ViesAccessStatus = "checking" | "allowed" | "denied";
 
 type DocumentRequirement = ViesDocumentType;
 
-// Required documents, recognised from their content (see viesDocumentTypes).
-const documentRequirements: DocumentRequirement[] = VIES_DOCUMENT_TYPES;
+// Required documents, recognised from their content (see viesDocumentTypes): the client's only.
+const documentRequirements: DocumentRequirement[] = VIES_REQUIRED_DOCUMENT_TYPES;
 
+// A Hong Kong company's certificates count for the Chinese business licence and credit report.
 const documentMatchesRequirement = (document: ZipDocument, requirement: DocumentRequirement) =>
-  document.documentType === requirement.id || document.extraDocumentTypes.includes(requirement.id);
+  typesSatisfying(requirement.id).some((id) => document.documentType === id || document.extraDocumentTypes.includes(id));
 
 const normalizeText = (value: unknown) =>
   String(value ?? "")
@@ -1130,7 +1138,8 @@ const readZipRecursive = async (file: File): Promise<{ documents: ZipDocument[];
   return { documents, agentCandidates };
 };
 
-const AGENT_CONCURRENCY = 3;
+// Scans read by the agent at the same time: a 20-practice lot has 150-200 of them, about 10 s each.
+const AGENT_CONCURRENCY = 10;
 
 /** Applies the agent's reading to a document; codes count only with a valid check character. */
 // Second look: in a ZIP where a required document type was not found, the agent
@@ -1144,7 +1153,7 @@ const findSecondLookDocuments = (documents: ZipDocument[]) => {
   const selected: ZipDocument[] = [];
   for (const zipDocuments of byZip.values()) {
     const found = new Set(zipDocuments.flatMap((document) => [document.documentType, ...document.extraDocumentTypes]));
-    const missing = VIES_DOCUMENT_TYPES.filter((type) => !found.has(type.id));
+    const missing = missingRequiredDocuments(found);
     if (!missing.length) continue;
     const needsClient = missing.some((type) => !REPRESENTATIVE_TYPE_IDS.has(type.id));
     const needsRepresentative = missing.some((type) => REPRESENTATIVE_TYPE_IDS.has(type.id));
@@ -1193,6 +1202,7 @@ const FIX_INSTRUCTIONS: Array<[RegExp, (fix: FixMessages, match: RegExpMatchArra
   [/letto non valid/, (fix) => fix.checkCode],
   [/legale rappresentante non corrispondente/, (fix) => fix.fixIdDocument],
   [/Documento d'identità scaduto/, (fix) => fix.validId],
+  [/Business Registration Certificate di Hong Kong scaduto/, (fix) => fix.validBusinessRegistration],
   [/^Esiste già la pratica VIES/, (fix) => fix.alreadyExists],
   [/beneficiario/i, (fix) => fix.beneficiary],
   [/rappresentante fiscale|amministratore|Domicilio fiscale/i, (fix) => fix.representative],
@@ -1513,10 +1523,14 @@ const Vies = () => {
       if (expectedId && isValidChineseId(expectedId) && idsInDocuments.length && !idsInDocuments.includes(expectedId)) {
         errors.push(`Documento del legale rappresentante non corrispondente: nei documenti ${idsInDocuments.join(", ")}`);
       }
-      // Expired identity document (expiry read by the agent).
-      for (const document of rowDocuments.filter((candidate) => candidate.documentType === "documento_identita")) {
+      // Expired identity document or Hong Kong business registration (expiry read by the agent).
+      for (const document of rowDocuments) {
         const expiry = parseItalianDate(document.agentExpiryDate);
-        if (expiry && expiry < new Date()) errors.push(`Documento d'identità scaduto il ${document.agentExpiryDate}`);
+        if (!expiry || expiry >= new Date()) continue;
+        if (document.documentType === "documento_identita") errors.push(`Documento d'identità scaduto il ${document.agentExpiryDate}`);
+        if (document.documentType === "certificato_registrazione_hk") {
+          errors.push(`Business Registration Certificate di Hong Kong scaduto il ${document.agentExpiryDate}`);
+        }
       }
 
       // A type the agent found bundled in a file counts only if that document carries
@@ -1541,9 +1555,7 @@ const Vies = () => {
 
       // Checked per ZIP: a document in another client's ZIP must not hide a gap in this one.
       const missingRequirements = matchedZipFiles.length
-        ? documentRequirements.filter(
-            (requirement) => !rowDocuments.some((document) => acceptedTypes.get(documentKey(document))?.includes(requirement.id)),
-          )
+        ? missingRequiredDocuments(rowDocuments.flatMap((document) => acceptedTypes.get(documentKey(document)) ?? []))
         : [];
 
       return {

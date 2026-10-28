@@ -78,6 +78,11 @@ const RULES: Rule[] = [
     zh: (m) => `身份证件已于 ${m[1]} 过期`,
   },
   {
+    pattern: /^Business Registration Certificate di Hong Kong scaduto il (.+)$/,
+    en: (m) => `Hong Kong Business Registration Certificate expired on ${m[1]}`,
+    zh: (m) => `香港商业登记证已于 ${m[1]} 过期`,
+  },
+  {
     pattern: /^Verifica approfondita dell'agent non riuscita: i documenti mancanti non sono stati ricercati di nuovo$/,
     ...same(
       "The agent's in-depth check failed: the missing documents were not searched for again",
