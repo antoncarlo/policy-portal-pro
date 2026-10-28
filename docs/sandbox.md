@@ -6,7 +6,7 @@
 
 | | Produzione | Sandbox |
 |---|---|---|
-| Indirizzo | `https://portale.tecnomga.com` | `https://sandbox.tecnomga.com` |
+| Indirizzo | `https://portale.tecnomga.com` | `https://tecnosandbox.app` |
 | Database Supabase | `nesblhtjqiavdfsrtfom` | `zwbvpfmdccbdockwksoy` (`policy-portal-sandbox`, Irlanda) |
 | Codice | ramo `main` | ramo `sandbox` (stesso codice, aggiornato da `main`) |
 | Vercel | ambiente *Production* | ambiente *Preview* del ramo `sandbox`, con variabili proprie |
@@ -32,14 +32,14 @@ Le password sono state consegnate a parte e non sono scritte nel repository. Gli
 | `VITE_SUPABASE_URL`, `SUPABASE_URL` | `https://zwbvpfmdccbdockwksoy.supabase.co` |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | chiave pubblica (anon) del progetto sandbox |
 | `SUPABASE_SERVICE_ROLE_KEY` | chiave di servizio del progetto sandbox (**sensibile**: si copia dal pannello Supabase, Project Settings → API) |
-| `PORTAL_URL` | `https://sandbox.tecnomga.com` |
+| `PORTAL_URL` | `https://tecnosandbox.app` |
 | `CRON_SECRET` | segreto casuale della sandbox |
 | `ADMIN_NOTIFICATION_EMAILS` | `none` |
 | `VIES_PORTALS` | il portale di prova della compagnia (indirizzo di prova, chiave, segreto di firma), quando la compagnia li comunica |
 
 Le variabili della produzione restano limitate all'ambiente *Production*: un'anteprima di un altro ramo non deve mai puntare alla sandbox né la sandbox alla produzione. **Il ramo `sandbox` si pubblica solo dopo che queste variabili esistono**, altrimenti Vercel costruirebbe l'anteprima con le variabili di default.
 
-L'indirizzo `sandbox.tecnomga.com` è un dominio del progetto Vercel collegato al ramo `sandbox` (record DNS `CNAME sandbox → cname.vercel-dns.com`). Le anteprime Vercel sono protette dall'accesso Vercel; il dominio della sandbox ne è escluso, altrimenti la compagnia non potrebbe chiamare `/api/vies-portal-callback`.
+L'indirizzo `tecnosandbox.app` è un dominio acquistato su Vercel (DNS gestito da Vercel) e collegato come dominio del progetto al ramo `sandbox`. Le anteprime Vercel sono protette dall'accesso Vercel, anche sugli indirizzi `*.vercel.app`; i domini personalizzati ne sono esclusi, per questo la compagnia può chiamare `/api/vies-portal-callback` solo su `tecnosandbox.app`.
 
 ## 4. Come si aggiorna
 
