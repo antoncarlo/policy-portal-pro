@@ -84,8 +84,13 @@ const openLogs = async (page) => {
   await dialog.waitFor();
   const detail = (await dialog.innerText()).replace(/\s+/g, " ");
   check("1 il dettaglio mostra prima e dopo di ogni campo cambiato", /status/.test(detail) && /in_attesa/.test(detail) && /approvata/.test(detail) && /111/.test(detail) && /222/.test(detail), detail);
-  await page.keyboard.press("Escape");
-  await page.waitForTimeout(300);
+  // An Escape sent in the same frame the dialog opens can arrive before the dialog listens for it: the dialog
+  // then stays open and keeps the focus, and the next filters typed below never reach their fields.
+  for (let attempt = 0; attempt < 5 && (await dialog.count()) > 0; attempt += 1) {
+    await page.keyboard.press("Escape");
+    await dialog.waitFor({ state: "detached", timeout: 1000 }).catch(() => {});
+  }
+  check("1 il dettaglio si chiude con Esc", (await dialog.count()) === 0);
 
   await page.locator("#audit-table").selectOption("practices");
   await page.waitForTimeout(500);
