@@ -58,6 +58,7 @@ import {
   type VisuraData,
 } from "@/lib/viesDocumentScan";
 import { VIES_DOCUMENT_TYPES, classifyDocumentText, type ViesDocumentType } from "@/lib/viesDocumentTypes";
+import { MAX_ZIP_NAME_LENGTH, isPracticeZipName, isValidZipName, planZipBundle, practiceZipKeys, zipKeyOf } from "@/lib/viesZipKeys";
 import {
   agentMediaType,
   callViesDocumentAgent,
@@ -579,11 +580,8 @@ const formatBytes = (bytes: number) => {
   return `${(bytes / Math.pow(1024, index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 };
 
-const getZipReconciliationKey = (fileName: string) =>
-  normalizeText(fileName)
-    .replace(/\.zip$/i, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+// "CNTBA03717", "cntba03717.zip" and " CNTBA03717 " are the same ZIP.
+const getZipReconciliationKey = (fileName: string) => zipKeyOf(fileName);
 
 const getSafeFileNameParts = (fileName: string) => {
   const extension = fileName.includes(".") ? `.${fileName.split(".").pop()}` : "";
@@ -981,61 +979,45 @@ const isSystemZipEntry = (path: string) => {
   return path.split("/").includes("__MACOSX") || name.startsWith("._") || name === ".DS_Store" || name.toLowerCase() === "thumbs.db";
 };
 
-const PRACTICE_NUMBER_PATTERN = /^([1-9]|1\d|20)$/;
-
 /**
- * A single uploaded ZIP may contain the whole batch: the practice ZIPs 1.zip … 20.zip,
- * or folders 1 … 20 with each practice's documents. Such a bundle is split into one
- * File per practice ("3.zip"), so the rest of the flow sees one ZIP per practice.
- * A ZIP named with a practice number, or without practice ZIPs/folders inside, is kept as is.
+ * A single uploaded ZIP may contain the whole batch: one ZIP or one folder per practice, named as in the
+ * Excel's ZIP column (CNTBA03717.zip or CNTBA03717/, 1.zip … 20.zip or folders 1 … 20; any letter case).
+ * Such a bundle is split into one File per practice ("CNTBA03717.zip"), so the rest of the flow sees one ZIP
+ * per practice. Among several uploaded ZIPs, one named after a practice is that practice's ZIP and is not opened.
  */
-const expandZipBundles = async (files: File[]): Promise<{ files: File[]; bundles: string[] }> => {
+const expandZipBundles = async (files: File[], practiceKeys: ReadonlySet<string>): Promise<{ files: File[]; bundles: string[] }> => {
   const expanded: File[] = [];
   const bundles: string[] = [];
 
   for (const file of files) {
-    if (PRACTICE_NUMBER_PATTERN.test(file.name.replace(/\.zip$/i, "").trim())) {
+    if (files.length > 1 && isPracticeZipName(file.name, practiceKeys)) {
       expanded.push(file);
       continue;
     }
     const zip = await JSZip.loadAsync(await file.arrayBuffer());
-    const entries = Object.values(zip.files).filter((entry) => !entry.dir && !isSystemZipEntry(entry.name));
-    // A bundle zipped from a parent folder ("lotto/1.zip") has one common root folder.
-    const roots = new Set(entries.map((entry) => (entry.name.includes("/") ? entry.name.split("/")[0] : "")));
-    const commonRoot = roots.size === 1 && !roots.has("") ? `${[...roots][0]}/` : "";
-    const practiceZips = new Map<string, JSZip.JSZipObject>();
-    const practiceFolders = new Map<string, JSZip.JSZipObject[]>();
-
-    for (const entry of entries) {
-      const relativePath = entry.name.slice(commonRoot.length);
-      const segments = relativePath.split("/");
-      const zipNumber = segments.length === 1 ? /^(\d{1,2})\.zip$/i.exec(segments[0].trim())?.[1] : undefined;
-      if (zipNumber && PRACTICE_NUMBER_PATTERN.test(zipNumber)) {
-        practiceZips.set(zipNumber, entry);
-      } else if (segments.length > 1 && PRACTICE_NUMBER_PATTERN.test(segments[0].trim())) {
-        const folder = segments[0].trim();
-        practiceFolders.set(folder, [...(practiceFolders.get(folder) ?? []), entry]);
-      }
-    }
-
-    if (!practiceZips.size && !practiceFolders.size) {
+    const entries = new Map(
+      Object.values(zip.files)
+        .filter((entry) => !entry.dir && !isSystemZipEntry(entry.name))
+        .map((entry) => [entry.name, entry]),
+    );
+    const parts = planZipBundle(file.name, [...entries.keys()], practiceKeys);
+    if (!parts) {
       expanded.push(file);
       continue;
     }
 
     bundles.push(file.name);
-    for (const [number, entry] of practiceZips) {
-      expanded.push(new File([await entry.async("arraybuffer")], `${number}.zip`, { type: "application/zip" }));
-    }
-    for (const [number, folderEntries] of practiceFolders) {
-      if (practiceZips.has(number)) continue;
+    for (const part of parts) {
+      if ("zipEntry" in part) {
+        expanded.push(new File([await entries.get(part.zipEntry)!.async("arraybuffer")], part.fileName, { type: "application/zip" }));
+        continue;
+      }
       const practiceZip = new JSZip();
-      for (const entry of folderEntries) {
-        const innerPath = entry.name.slice(commonRoot.length).split("/").slice(1).join("/");
-        practiceZip.file(innerPath, await entry.async("arraybuffer"));
+      for (const { entry, path } of part.folderEntries) {
+        practiceZip.file(path, await entries.get(entry)!.async("arraybuffer"));
       }
       const bytes = await practiceZip.generateAsync({ type: "arraybuffer", compression: "STORE" });
-      expanded.push(new File([bytes], `${number}.zip`, { type: "application/zip" }));
+      expanded.push(new File([bytes], part.fileName, { type: "application/zip" }));
     }
   }
 
@@ -1200,7 +1182,7 @@ type FixMessages = ReturnType<typeof viesText>["fix"];
 const FIX_INSTRUCTIONS: Array<[RegExp, (fix: FixMessages, match: RegExpMatchArray) => string]> = [
   [/^ZIP (.+)\.zip non caricato/, (fix, match) => fix.uploadZip(match[1])],
   [/^Numero ZIP mancante/, (fix) => fix.writeZipNumber],
-  [/^Numero ZIP non valido/, (fix) => fix.fixZipNumber(VIES_MAX_PRACTICES_PER_SHEET)],
+  [/^(Numero|Nome) ZIP non valido/, (fix) => fix.fixZipNumber(MAX_ZIP_NAME_LENGTH)],
   [/è indicato su più righe/, (fix) => fix.uniqueZipNumber],
   [/^ZIP duplicato/, (fix) => fix.singleZip],
   [/sono di un'altra società/, (fix) => fix.replaceZip],
@@ -1321,6 +1303,8 @@ const Vies = () => {
   const locale = useLocale();
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [zipFiles, setZipFiles] = useState<File[]>([]);
+  // The ZIPs as the user chose them, before a whole-lot ZIP is split into one ZIP per practice.
+  const [zipSources, setZipSources] = useState<File[]>([]);
   const [parsedRecords, setRecords] = useState<ExcelRecord[]>([]);
   const [sheetData, setSheetData] = useState<ViesSheetData>(initialSheetData);
   const [visuraFile, setVisuraFile] = useState<File | null>(null);
@@ -1637,9 +1621,9 @@ const Vies = () => {
 
     startNewLot();
     setActiveIntakeLot(lot);
-    await handleExcelUpload(excelFile);
+    const lotRecords = await handleExcelUpload(excelFile);
     await handleVisuraUpload(visuraDownload);
-    await handleZipUpload(zipDownloads);
+    await handleZipUpload(zipDownloads, practiceZipKeys((lotRecords ?? []).map((record) => record.nomeZip)));
     if (lot.status === "received") {
       await supabase.from("vies_intake_lots").update({ status: "processing" }).eq("id", lot.id).eq("status", "received");
     }
@@ -1685,8 +1669,9 @@ const Vies = () => {
     }
   };
 
-  const handleExcelUpload = async (file: File | undefined) => {
-    if (!file) return;
+  /** The rows read from the Excel, or null when it could not be read. */
+  const handleExcelUpload = async (file: File | undefined): Promise<ExcelRecord[] | null> => {
+    if (!file) return null;
     setExcelFile(file);
     setLoadingExcel(true);
 
@@ -1700,6 +1685,7 @@ const Vies = () => {
         title: viesText().toast.excelReadTitle,
         description: viesText().toast.excelReadText(parsedRecords.length),
       });
+      return parsedRecords;
     } catch (error) {
       setRecords([]);
       toast({
@@ -1707,12 +1693,26 @@ const Vies = () => {
         title: viesText().toast.excelErrorTitle,
         description: error instanceof Error ? error.message : viesText().toast.fileUnreadable,
       });
+      return null;
     } finally {
       setLoadingExcel(false);
     }
   };
 
-  const handleZipUpload = async (files: FileList | File[] | null | undefined) => {
+  // ZIPs chosen before the Excel: a whole-lot ZIP named with client codes can be split only once
+  // the names in the ZIP column are known. The ZIPs are read again only if the split changes.
+  const resplitZipsForExcel = async (excelRecords: ExcelRecord[]) => {
+    if (!zipSources.length || loadingZip) return;
+    const practiceKeys = practiceZipKeys(excelRecords.map((record) => record.nomeZip));
+    const names = (files: File[]) => files.map((file) => file.name).join("|");
+    const expanded = await expandZipBundles(zipSources, practiceKeys).catch(() => null);
+    if (expanded && names(expanded.files) !== names(zipFiles)) await handleZipUpload(zipSources, practiceKeys);
+  };
+
+  const handleZipUpload = async (
+    files: FileList | File[] | null | undefined,
+    practiceKeys: ReadonlySet<string> = practiceZipKeys(parsedRecords.map((record) => record.nomeZip)),
+  ) => {
     const uploadedFiles = Array.from(files ?? []).filter((file) => file.name.toLowerCase().endsWith(".zip"));
     if (!uploadedFiles.length) return;
 
@@ -1721,7 +1721,7 @@ const Vies = () => {
     setLoadingZip(true);
     setZipProcessingStatus(viesText().status.openingZips);
     try {
-      ({ files: selectedFiles, bundles } = await expandZipBundles(uploadedFiles));
+      ({ files: selectedFiles, bundles } = await expandZipBundles(uploadedFiles, practiceKeys));
     } catch (error) {
       setLoadingZip(false);
       setZipProcessingStatus(null);
@@ -1743,6 +1743,7 @@ const Vies = () => {
       return;
     }
 
+    setZipSources(uploadedFiles);
     setZipFiles(selectedFiles);
     setDocuments([]);
     setLoadingZip(true);
@@ -2083,8 +2084,9 @@ const Vies = () => {
     const errors: string[] = [];
 
     if (!record.contraente) errors.push("Contraente mancante");
-    if (record.nomeZip && !/^([1-9]|1\d|20)$/.test(record.nomeZip.trim())) {
-      errors.push(`Numero ZIP non valido (${record.nomeZip}): atteso un numero da 1 a ${VIES_MAX_PRACTICES_PER_SHEET}`);
+    // Any name works (number, client code, acronym, any letter case): it must just be able to name a file.
+    if (record.nomeZip && !isValidZipName(record.nomeZip)) {
+      errors.push(`Nome ZIP non valido (${record.nomeZip}): usare lettere o numeri, al massimo ${MAX_ZIP_NAME_LENGTH} caratteri`);
     }
     // The Chinese contraente is identified only by the Italian VAT number the Revenue Agency assigned to it
     // (the C.F. is the same number): its Unified Social Credit Code never goes in these columns.
@@ -2856,9 +2858,10 @@ const Vies = () => {
                 <Input
                   type="file"
                   accept=".xlsx,.xls"
-                  onChange={(event) => {
+                  onChange={async (event) => {
                     startNewLot();
-                    handleExcelUpload(event.target.files?.[0]);
+                    const excelRecords = await handleExcelUpload(event.target.files?.[0]);
+                    if (excelRecords) await resplitZipsForExcel(excelRecords);
                   }}
                   disabled={loadingExcel || savingBatch}
                 />

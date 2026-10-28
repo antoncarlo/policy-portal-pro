@@ -112,13 +112,13 @@ export const GUIDE = {
           { t: "h3", x: "Foglio CONTRAENTE: una riga per cliente" },
           {
             t: "p",
-            x: "La colonna ZIP indica il file del cliente: la riga con ZIP 3 corrisponde al file 3.zip. Se la colonna ZIP è vuota, i clienti si abbinano agli ZIP in ordine di riga (il primo cliente a 1.zip, il secondo a 2.zip…).",
+            x: "La colonna ZIP indica il file del cliente: la riga con ZIP 3 corrisponde al file 3.zip, la riga con ZIP CNTBA03717 al file CNTBA03717.zip. Maiuscole e minuscole non contano. Se la colonna ZIP è vuota, i clienti si abbinano agli ZIP in ordine di riga (il primo cliente a 1.zip, il secondo a 2.zip…).",
           },
           {
             t: "table",
             head: ["Colonna", "Cosa inserire", "Obbligatoria"],
             rows: [
-              ["<strong>ZIP</strong>", "Numero del file ZIP del cliente, da 1 a 20.", "Sì"],
+              ["<strong>ZIP</strong>", "Nome del file ZIP del cliente: un numero, un codice cliente o una sigla (lettere e cifre), diverso per ogni riga.", "Sì"],
               ["<strong>Tipo Anagrafica, Tipo Società</strong>", "Per esempio persona giuridica; srl, snc o nessuna.", "No"],
               ["<strong>Ragione Sociale</strong>", "Denominazione della società cliente, come nella licenza commerciale.", "Sì"],
               ["<strong>C.F., P.IVA</strong>", "Partita IVA italiana assegnata alla società cinese dall'Agenzia delle Entrate (certificato di attribuzione): è lo stesso numero nelle due colonne. Mai il codice di credito sociale cinese.", "Uno tra C.F. e P.IVA"],
@@ -135,7 +135,7 @@ export const GUIDE = {
             x: "Valgono per tutte le pratiche del lotto. Nel foglio RAPPRESENTANTE FISCALE si indicano denominazione, codice fiscale o P.IVA, legale rappresentante, sede (è anche il domicilio fiscale in Italia delle società clienti) e PEC, come risultano dalla visura. Il foglio BENEFICIARIO è già compilato con l'Agenzia delle Entrate; la sua PEC è facoltativa.",
           },
           { t: "h3", x: "File ZIP: uno per pratica" },
-          { t: "p", x: "Ogni ZIP si chiama solo con il numero della riga: 1.zip, 2.zip … 20.zip." },
+          { t: "p", x: "Ogni ZIP si chiama come la colonna ZIP della sua riga: 1.zip, 2.zip … oppure CNTBA03717.zip, CNTBA03718.zip …" },
           {
             t: "table",
             head: ["Di chi", "Documenti"],
@@ -164,7 +164,7 @@ export const GUIDE = {
             rows: [
               [
                 "<strong>1. File del lotto</strong>",
-                "Caricare l'Excel e gli ZIP (anche un unico ZIP che contiene 1.zip … 20.zip).",
+                "Caricare l'Excel e poi gli ZIP (anche un unico ZIP che contiene uno ZIP o una cartella per cliente, con il nome della colonna ZIP).",
                 "Legge l'Excel, scompatta gli ZIP e indicizza i documenti, anche quelli dentro ZIP annidati.",
               ],
               [
@@ -395,13 +395,13 @@ export const GUIDE = {
           { t: "h3", x: "CONTRAENTE sheet: one row per client" },
           {
             t: "p",
-            x: "The ZIP column gives the client's file: the row with ZIP 3 corresponds to the file 3.zip. If the ZIP column is empty, the clients are matched to the ZIPs in row order (the first client to 1.zip, the second to 2.zip…).",
+            x: "The ZIP column gives the client's file: the row with ZIP 3 corresponds to the file 3.zip, the row with ZIP CNTBA03717 to the file CNTBA03717.zip. Upper and lower case do not matter. If the ZIP column is empty, the clients are matched to the ZIPs in row order (the first client to 1.zip, the second to 2.zip…).",
           },
           {
             t: "table",
             head: ["Column", "What to enter", "Required"],
             rows: [
-              ["<strong>ZIP</strong>", "Number of the client's ZIP file, from 1 to 20.", "Yes"],
+              ["<strong>ZIP</strong>", "Name of the client's ZIP file: a number, a client code or an acronym (letters and digits), different on every row.", "Yes"],
               ["<strong>Tipo Anagrafica, Tipo Società</strong> (entity type, company type)", "For example persona giuridica; srl, snc or nessuna.", "No"],
               ["<strong>Ragione Sociale</strong> (company name)", "Name of the client company, as in the business licence.", "Yes"],
               ["<strong>C.F., P.IVA</strong> (tax code, VAT number)", "The Italian VAT number the Italian Revenue Agency assigned to the Chinese company (attribution certificate): the same number in both columns. Never the Chinese Unified Social Credit Code.", "One of C.F. and P.IVA"],
@@ -418,7 +418,7 @@ export const GUIDE = {
             x: "They apply to every application of the batch. In the RAPPRESENTANTE FISCALE sheet enter company name, tax code or VAT number, legal representative, office (it is also the Italian tax domicile of the client companies) and PEC, as shown in the registry extract (visura). The BENEFICIARIO sheet is already filled in with the Italian Revenue Agency; its PEC is optional.",
           },
           { t: "h3", x: "ZIP files: one per application" },
-          { t: "p", x: "Each ZIP is named only with the row number: 1.zip, 2.zip … 20.zip." },
+          { t: "p", x: "Each ZIP is named as the ZIP column of its row: 1.zip, 2.zip … or CNTBA03717.zip, CNTBA03718.zip …" },
           {
             t: "table",
             head: ["Of", "Documents"],
@@ -447,7 +447,7 @@ export const GUIDE = {
             rows: [
               [
                 "<strong>1. Batch files</strong>",
-                "Upload the Excel file and the ZIP files (or a single ZIP containing 1.zip … 20.zip).",
+                "Upload the Excel file, then the ZIP files (or a single ZIP containing one ZIP or one folder per client, named as in the ZIP column).",
                 "Reads the Excel file, unpacks the ZIPs and indexes the documents, including those inside nested ZIPs.",
               ],
               [
@@ -677,13 +677,13 @@ export const GUIDE = {
           { t: "h3", x: "CONTRAENTE 工作表：每个客户一行" },
           {
             t: "p",
-            x: "ZIP 列表示客户的文件：ZIP 为 3 的那一行对应文件 3.zip。如果 ZIP 列为空，则按行的顺序与 ZIP 对应（第一个客户对应 1.zip，第二个对应 2.zip……）。",
+            x: "ZIP 列表示客户的文件：ZIP 为 3 的那一行对应文件 3.zip，ZIP 为 CNTBA03717 的那一行对应文件 CNTBA03717.zip。不区分大小写。如果 ZIP 列为空，则按行的顺序与 ZIP 对应（第一个客户对应 1.zip，第二个对应 2.zip……）。",
           },
           {
             t: "table",
             head: ["列", "填写内容", "是否必填"],
             rows: [
-              ["<strong>ZIP</strong>", "客户 ZIP 文件的编号，1 至 20。", "是"],
+              ["<strong>ZIP</strong>", "客户 ZIP 文件的名称：数字、客户代码或缩写（字母和数字），每行不同。", "是"],
               ["<strong>Tipo Anagrafica, Tipo Società</strong>（主体类型、公司类型）", "例如 persona giuridica；srl、snc 或 nessuna。", "否"],
               ["<strong>Ragione Sociale</strong>（公司名称）", "客户公司名称，与营业执照一致。", "是"],
               ["<strong>C.F., P.IVA</strong>（税号、增值税号）", "意大利税务局分配给中国公司的意大利增值税号（分配证明）：两列相同。切勿填写中国统一社会信用代码。", "C.F. 与 P.IVA 二选一"],
@@ -700,7 +700,7 @@ export const GUIDE = {
             x: "适用于本批次的所有申请。在 RAPPRESENTANTE FISCALE 工作表中，按商会注册证明（visura）填写公司名称、税号或增值税号、法定代表人、地址（也是客户公司在意大利的税务住所）和 PEC。BENEFICIARIO 工作表已填写意大利税务局；其 PEC 为可选项。",
           },
           { t: "h3", x: "ZIP 文件：每笔申请一个" },
-          { t: "p", x: "每个 ZIP 仅以行号命名：1.zip、2.zip … 20.zip。" },
+          { t: "p", x: "每个 ZIP 的名称与其所在行的 ZIP 列一致：1.zip、2.zip … 或 CNTBA03717.zip、CNTBA03718.zip …" },
           {
             t: "table",
             head: ["归属", "文件"],
@@ -729,7 +729,7 @@ export const GUIDE = {
             rows: [
               [
                 "<strong>1. 批次文件</strong>",
-                "上传 Excel 和各 ZIP（也可上传一个包含 1.zip … 20.zip 的总 ZIP）。",
+                "先上传 Excel，再上传各 ZIP（也可上传一个总 ZIP，内含每个客户一个 ZIP 或一个文件夹，名称与 ZIP 列一致）。",
                 "读取 Excel、解压 ZIP 并为文件建立索引，包括嵌套 ZIP 内的文件。",
               ],
               [

@@ -699,7 +699,8 @@ Content-Type: application/json
           <p style={styles.p}>
             Esattamente un file <code style={styles.inlineCode}>excel</code> (.xlsx/.xls), al più una
             <code style={styles.inlineCode}> visura</code> (.pdf) e gli <code style={styles.inlineCode}>zip</code> con i nomi
-            richiesti dal modello (1.zip, 2.zip, …). I nomi vengono normalizzati (gli spazi diventano «_»): fa fede il
+            della colonna ZIP dell'Excel (1.zip, CNTBA03717.zip, …; maiuscole e minuscole indifferenti). I nomi vengono
+            normalizzati (gli spazi diventano «_»): fa fede il
             <code style={styles.inlineCode}> file_name</code> restituito. Se indicate <code style={styles.inlineCode}>size</code>,
             il file caricato deve avere esattamente quella dimensione. Ripetere la chiamata con lo stesso
             <code style={styles.inlineCode}> source_reference</code> mentre il lotto è ancora «uploading» rilascia nuovi indirizzi.

@@ -8,6 +8,7 @@
 
 import { extractNotesSections } from "./practiceSummary.js";
 import { isValidItalianTaxCode, isValidItalianVat, isValidUscc } from "./viesCodes.js";
+import { isValidZipName, zipKeyOf } from "./viesZipKeys.js";
 import {
   VIES_ALLOW_DUPLICATE_PRACTICES,
   VIES_DURATION_MONTHS,
@@ -30,7 +31,6 @@ export const VIES_REQUIRED_DOCUMENT_IDS = [
   "statuto_rappresentante",
 ] as const;
 
-const ZIP_NUMBER = /^([1-9]|1\d|20)$/;
 // "processing": the worker re-runs the check on a job it has just taken, right before sending it.
 const SENDABLE_STATUSES = new Set(["ready", "queued", "failed", "processing"]);
 
@@ -236,12 +236,14 @@ export function verifyViesBatch(input: ControllerInput): ControllerReport {
       const foreignCodes = foundCodes.filter((code) => !expectedCodes.includes(code) && (codeOccurrences.get(code) ?? 0) < 2);
       if (foreignCodes.length) fail(`Nello ZIP compaiono codici di un'altra società: ${foreignCodes.join(", ")}`);
 
-      // 5. Numero ZIP coerente in riga, pratica e allegato.
+      // 5. Nome ZIP coerente in riga, pratica e allegato (numero, codice cliente o sigla; maiuscole indifferenti).
       const nomeZip = str(job.nome_zip);
+      const zipKey = zipKeyOf(nomeZip);
       const expectedZipName = `${nomeZip}.zip`;
-      if (!ZIP_NUMBER.test(nomeZip)) fail(`Numero ZIP non valido: ${nomeZip || "mancante"}`);
-      if (str(job.zip_file_name) !== expectedZipName) fail(`Lo ZIP della riga è ${str(job.zip_file_name) || "mancante"}, atteso ${expectedZipName}`);
-      if (str(fields.vies_zip_file) !== expectedZipName) fail(`Lo ZIP registrato nella pratica è ${str(fields.vies_zip_file) || "mancante"}, atteso ${expectedZipName}`);
+      const isExpectedZip = (name: unknown) => Boolean(zipKey) && zipKeyOf(name) === zipKey;
+      if (!isValidZipName(nomeZip)) fail(`Nome ZIP non valido: ${nomeZip || "mancante"}`);
+      if (!isExpectedZip(job.zip_file_name)) fail(`Lo ZIP della riga è ${str(job.zip_file_name) || "mancante"}, atteso ${expectedZipName}`);
+      if (!isExpectedZip(fields.vies_zip_file)) fail(`Lo ZIP registrato nella pratica è ${str(fields.vies_zip_file) || "mancante"}, atteso ${expectedZipName}`);
 
       // 6. Allegati della pratica: esattamente lo ZIP giusto (la bozza non esiste finché la compagnia non delibera).
       const attachments = documentsByPractice.get(practice.id) ?? [];
@@ -250,8 +252,11 @@ export function verifyViesBatch(input: ControllerInput): ControllerReport {
         fail(zipAttachments.length ? `Alla pratica sono allegati ${zipAttachments.length} ZIP: ${zipAttachments.map((document) => document.file_name).join(", ")}` : "Lo ZIP non è allegato alla pratica");
       } else {
         const [zip] = zipAttachments;
-        if (zip.file_name !== expectedZipName) fail(`Alla pratica è allegato ${zip.file_name} invece di ${expectedZipName}`);
-        if (!zip.file_path.startsWith("vies-batch-files://") || !zip.file_path.endsWith(`/${input.batchId}/zip-nominativi/${expectedZipName}`)) {
+        if (!isExpectedZip(zip.file_name)) fail(`Alla pratica è allegato ${zip.file_name} invece di ${expectedZipName}`);
+        // Lo ZIP e' archiviato col nome in minuscolo: "CNTBA03717.zip" diventa ".../zip-nominativi/cntba03717.zip".
+        const archivedFolder = `/${input.batchId}/zip-nominativi/`;
+        const archivedName = zip.file_path.slice(zip.file_path.lastIndexOf("/") + 1);
+        if (!zip.file_path.startsWith("vies-batch-files://") || !zip.file_path.includes(archivedFolder) || !isExpectedZip(archivedName)) {
           fail(`Lo ZIP allegato non è quello archiviato con questo lotto (${zip.file_path})`);
         }
         if (!zip.file_size) fail("Lo ZIP allegato risulta vuoto");
@@ -260,7 +265,7 @@ export function verifyViesBatch(input: ControllerInput): ControllerReport {
       // 7. Documenti obbligatori, ricontati dall'indice dei documenti dello ZIP.
       const indexed = indexedByPractice.get(practice.id) ?? [];
       if (!indexed.length) fail("Nessun documento indicizzato per lo ZIP di questa pratica");
-      const otherZip = indexed.find((document) => str(document.zip_file_name) !== expectedZipName);
+      const otherZip = indexed.find((document) => !isExpectedZip(document.zip_file_name));
       if (otherZip) fail(`Tra i documenti della pratica ce n'è uno di ${str(otherZip.zip_file_name) || "un altro ZIP"}`);
       if (indexed.some((document) => document.status === "error")) fail("Uno dei documenti dello ZIP non è leggibile");
       const covered = new Set(indexed.flatMap((document) => document.requirement_matches ?? []));
@@ -295,7 +300,7 @@ export function verifyViesBatch(input: ControllerInput): ControllerReport {
       for (const other of activeJobs) {
         if (other.id === job.id) continue;
         const otherPractice = other.external_reference ? practicesById.get(other.external_reference) : undefined;
-        if (str(other.nome_zip) === nomeZip) fail(`Il numero ZIP ${nomeZip} è usato anche dalla riga ${other.row_number}`);
+        if (zipKey && zipKeyOf(other.nome_zip) === zipKey) fail(`Il numero ZIP ${nomeZip} è usato anche dalla riga ${other.row_number}`);
         if (otherPractice) {
           const otherCodes = practiceCompanyCodes(otherPractice);
           if ((uscc && otherCodes.uscc === uscc) || (vat && otherCodes.vat === vat)) {
