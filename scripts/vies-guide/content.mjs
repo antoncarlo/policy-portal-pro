@@ -142,7 +142,7 @@ export const GUIDE = {
             rows: [
               [
                 "<strong>Cliente</strong>",
-                "Licenza commerciale con traduzione; documento d'identità del legale rappresentante con traduzione; report sul credito d'impresa con traduzione; dichiarazione sostitutiva a supporto della fideiussione; dichiarazione UBO; mandato di rappresentanza fiscale. Società di Hong Kong: al posto di licenza commerciale e report sul credito, il Certificate of Incorporation e/o il Business Registration Certificate (in corso di validità).",
+                "Licenza commerciale con traduzione; documento d'identità del legale rappresentante con traduzione; report sul credito d'impresa con traduzione; dichiarazione sostitutiva a supporto della fideiussione; dichiarazione UBO; mandato di rappresentanza fiscale. Società di Hong Kong: al posto di licenza commerciale e report sul credito, il Certificate of Incorporation e/o il Business Registration Certificate. Un Business Registration Certificate scaduto blocca la pratica, se nello ZIP non c'è anche il Certificate of Incorporation; se c'è, resta solo un avviso nella pratica.",
               ],
               ["<strong>Rappresentante fiscale</strong>", "Nessun documento obbligatorio nello ZIP: visura, bilancio e statuto, se presenti, vengono riconosciuti."],
             ],
@@ -425,7 +425,7 @@ export const GUIDE = {
             rows: [
               [
                 "<strong>Client</strong>",
-                "Business licence with translation; legal representative's identity document with translation; corporate credit report with translation; self-certification supporting the guarantee; UBO declaration; fiscal representation mandate. Hong Kong companies: instead of the business licence and the credit report, the Certificate of Incorporation and/or the Business Registration Certificate (valid).",
+                "Business licence with translation; legal representative's identity document with translation; corporate credit report with translation; self-certification supporting the guarantee; UBO declaration; fiscal representation mandate. Hong Kong companies: instead of the business licence and the credit report, the Certificate of Incorporation and/or the Business Registration Certificate. An expired Business Registration Certificate blocks the application unless the ZIP also holds the Certificate of Incorporation; if it does, it is only a warning in the application.",
               ],
               ["<strong>Fiscal representative</strong>", "No document is required in the ZIP: the registry extract (visura), financial statements and articles are recognised if present."],
             ],
@@ -707,7 +707,7 @@ export const GUIDE = {
             rows: [
               [
                 "<strong>客户</strong>",
-                "营业执照及翻译件；法定代表人身份证件及翻译件；企业信用信息报告及翻译件；担保所需声明（替代声明）；最终受益人（UBO）声明；税务代表授权书。香港公司：以公司注册证明书和/或商业登记证（须在有效期内）代替营业执照和企业信用信息报告。",
+                "营业执照及翻译件；法定代表人身份证件及翻译件；企业信用信息报告及翻译件；担保所需声明（替代声明）；最终受益人（UBO）声明；税务代表授权书。香港公司：以公司注册证明书和/或商业登记证代替营业执照和企业信用信息报告。商业登记证过期时，若 ZIP 中没有公司注册证明书，申请将被阻止；若有，则仅在申请中提示。",
               ],
               ["<strong>税务代表</strong>", "ZIP 中无需提供任何文件：如提供公司注册证明（visura）、财务报表、公司章程，系统会识别。"],
             ],

@@ -92,6 +92,11 @@ const RULES: Rule[] = [
     zh: (m) => `身份证件已于 ${m[1]} 过期`,
   },
   {
+    pattern: /^Business Registration Certificate di Hong Kong scaduto il (.+): vale il Certificate of Incorporation, chiedere il rinnovo$/,
+    en: (m) => `Hong Kong Business Registration Certificate expired on ${m[1]}: the Certificate of Incorporation applies, ask for the renewal`,
+    zh: (m) => `香港商业登记证已于 ${m[1]} 过期：以公司注册证明书为准，请索取续期后的商业登记证`,
+  },
+  {
     pattern: /^Business Registration Certificate di Hong Kong scaduto il (.+)$/,
     en: (m) => `Hong Kong Business Registration Certificate expired on ${m[1]}`,
     zh: (m) => `香港商业登记证已于 ${m[1]} 过期`,

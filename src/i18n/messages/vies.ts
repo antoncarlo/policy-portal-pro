@@ -344,7 +344,8 @@ export const viesMessages = defineMessages({
       fixIdDocument:
         "Correggere nell'Excel il numero del documento del legale rappresentante, oppure chiedere al cliente il documento giusto.",
       validId: "Chiedere al cliente un documento d'identità in corso di validità.",
-      validBusinessRegistration: "Chiedere al cliente il Business Registration Certificate rinnovato (in corso di validità).",
+      validBusinessRegistration:
+        "Chiedere al cliente il Business Registration Certificate rinnovato (in corso di validità), oppure aggiungere allo ZIP il Certificate of Incorporation.",
       alreadyExists: "Nessuna nuova pratica: la società ne ha già una. Toglierla dall'Excel.",
       beneficiary: "Completare i dati del beneficiario nei fogli RAPPRESENTANTE FISCALE e BENEFICIARIO o al punto 2.",
       representative: "Completare i dati del rappresentante fiscale al punto 2 (o dalla visura).",
@@ -704,7 +705,7 @@ export const viesMessages = defineMessages({
       checkCode: "Check the document by eye: the printed code cannot be read with certainty; if needed, ask for a sharper copy.",
       fixIdDocument: "Correct the legal representative's ID document number in the Excel file, or ask the client for the right document.",
       validId: "Ask the client for a valid identity document.",
-      validBusinessRegistration: "Ask the client for the renewed (valid) Business Registration Certificate.",
+      validBusinessRegistration: "Ask the client for the renewed (valid) Business Registration Certificate, or add the Certificate of Incorporation to the ZIP.",
       alreadyExists: "No new application: the company already has one. Remove it from the Excel file.",
       beneficiary: "Complete the beneficiary data in the RAPPRESENTANTE FISCALE and BENEFICIARIO sheets or in step 2.",
       representative: "Complete the fiscal representative data in step 2 (or from the registry extract).",
@@ -1047,7 +1048,7 @@ export const viesMessages = defineMessages({
       checkCode: "请人工检查该文件：打印的代码无法确定读取；如有需要，请索取更清晰的副本。",
       fixIdDocument: "请修改 Excel 中法定代表人的证件号码，或向客户索取正确的证件。",
       validId: "请向客户索取有效期内的身份证件。",
-      validBusinessRegistration: "请向客户索取已续期（有效期内）的商业登记证。",
+      validBusinessRegistration: "请向客户索取已续期（有效期内）的商业登记证，或在 ZIP 中加入公司注册证明书。",
       alreadyExists: "不会新建申请：该公司已有申请。请从 Excel 中删除该行。",
       beneficiary: "请在 RAPPRESENTANTE FISCALE 和 BENEFICIARIO 工作表或第 2 步中补全受益人信息。",
       representative: "请在第 2 步中补全税务代表信息（或通过注册证明填写）。",
