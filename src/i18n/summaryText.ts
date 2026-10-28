@@ -101,6 +101,7 @@ const ITEM_LABELS: Labels = {
   vies_documenti_zip: { en: "Documents in the ZIP", zh: "ZIP 中的文件数" },
   vies_verifica_piva: { en: "Identity check", zh: "身份核验" },
   vies_piva_trovate: { en: "Company codes in the documents", zh: "文件中的公司代码" },
+  vies_ragione_sociale_documenti: { en: "Company name in the documents", zh: "文件中的公司名称" },
   vies_documenti_mancanti: { en: "Missing documents", zh: "缺少的文件" },
   vies_avvisi: { en: "Validation warnings", zh: "审核提示" },
   vies_note_documenti: { en: "Agent notes on the documents", zh: "识别助手对文件的说明" },
@@ -122,6 +123,10 @@ const VALUE_TEXTS: Labels = {
   "Nessuno ZIP collegato": { en: "No ZIP linked", zh: "未关联 ZIP" },
   Nessuno: { en: "None", zh: "无" },
   "Da lasciare in bianco": { en: "To be left blank", zh: "留空" },
+  "Verificata per ragione sociale: nessun codice della società nei documenti, che ne riportano il nome come nell'Excel": {
+    en: "Verified by company name: no company code in the documents, which print its name as in the Excel",
+    zh: "已按公司名称核验：文件中没有该公司的代码，但公司名称与 Excel 一致",
+  },
   "Verificata: il codice della società compare nei documenti dello ZIP": {
     en: "Verified: the company's code appears in the ZIP documents",
     zh: "已核验：ZIP 文件中出现该公司的代码",

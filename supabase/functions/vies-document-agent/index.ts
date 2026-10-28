@@ -93,6 +93,7 @@ Ricevi un solo file. Classifica il documento principale in document_type e, in c
 Un documento di Hong Kong non è mai licenza_commerciale né report_credito, anche se il nome del file lo dice.
 
 Trascrivi i dati esattamente come stampati, carattere per carattere; scrivi una stringa vuota se un dato non è presente o non è leggibile con certezza. Non dedurre, non completare e non correggere codici: il portale ne verifica la cifra di controllo.
+- company_name_latin / company_name_chinese: ragione sociale della società cinese o di Hong Kong (mai quella del rappresentante fiscale) in caratteri latini (pinyin o inglese) e in caratteri cinesi, come stampata; il portale la confronta con l'anagrafica quando nei documenti non c'è la partita IVA italiana.
 - unified_social_credit_code: codice unificato di credito sociale di 18 caratteri della società cinese.
 - italian_vat_number: partita IVA italiana di 11 cifre della società cinese, se presente (non quella del rappresentante fiscale).
 - fiscal_representative_name / fiscal_representative_tax_code: società di rappresentanza fiscale italiana citata e il suo codice fiscale.

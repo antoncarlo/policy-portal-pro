@@ -35,6 +35,7 @@ import { viesMessages } from "@/i18n/messages/vies";
 import { getDocumentTypeLabel, translateViesText, viesText } from "@/i18n/viesText";
 import { composeNotes } from "@/lib/practiceSummary";
 import { extractPdfText } from "@/lib/pdfText";
+import { companyNameMatches } from "@/lib/viesCompanyNames";
 import type { ControllerReport } from "@/lib/viesController";
 import {
   VIES_ALLOW_DUPLICATE_PRACTICES,
@@ -146,6 +147,8 @@ type ZipDocument = {
   agentIssues: string[];
   /** Identity document expiry read by the agent (DD/MM/YYYY). */
   agentExpiryDate: string;
+  /** Names of the company the agent read in the document (Latin and Chinese). */
+  companyNames: string[];
 };
 
 type AgentCandidate = {
@@ -206,8 +209,11 @@ type ViesReconciliationRow = {
   documents: ZipDocument[];
   missingRequirements: DocumentRequirement[];
   linkedByVat: boolean;
-  vatCheck: "verified" | "unverifiable" | "mismatch" | "not_applicable";
+  /** "verified_by_name": no code of the company in the documents, but they carry its name as in the Excel. */
+  vatCheck: "verified" | "verified_by_name" | "unverifiable" | "mismatch" | "not_applicable";
   zipVatNumbers: string[];
+  /** Company names the agent read in the ZIP's documents. */
+  zipCompanyNames: string[];
   /** Document types each document of the ZIP counts for (documentKey → types). */
   acceptedTypes: Map<string, string[]>;
   errors: string[];
@@ -543,6 +549,7 @@ const buildViesSpecificFields = ({
   vies_documenti_zip: reconciliation?.zipFile ? String(reconciliation.documents.length) : null,
   vies_verifica_piva: reconciliation?.vatCheck ?? "not_applicable",
   vies_piva_trovate: reconciliation?.zipVatNumbers ?? [],
+  vies_ragione_sociale_documenti: reconciliation?.zipCompanyNames ?? [],
   vies_documenti_mancanti: reconciliation?.missingRequirements.map((requirement) => requirement.label) ?? [],
   vies_avvisi: validationErrors.filter((error) => !error.startsWith("Requisito documentale mancante")),
   vies_note_documenti: (reconciliation?.documents ?? [])
@@ -1101,6 +1108,7 @@ const readZipRecursive = async (file: File): Promise<{ documents: ZipDocument[];
         agentStatus: null,
         agentIssues: [],
         agentExpiryDate: "",
+        companyNames: [],
       });
 
       if (isZip) {
@@ -1128,6 +1136,7 @@ const readZipRecursive = async (file: File): Promise<{ documents: ZipDocument[];
             agentStatus: null,
             agentIssues: [],
             agentExpiryDate: "",
+            companyNames: [],
           });
         }
       }
@@ -1195,8 +1204,9 @@ const FIX_INSTRUCTIONS: Array<[RegExp, (fix: FixMessages, match: RegExpMatchArra
   [/è indicato su più righe/, (fix) => fix.uniqueZipNumber],
   [/^ZIP duplicato/, (fix) => fix.singleZip],
   [/sono di un'altra società/, (fix) => fix.replaceZip],
-  [/compaiono anche codici di un'altra società/, (fix) => fix.removeForeign],
+  [/compaiono anche codici di un'altra società|codici di più società/, (fix) => fix.removeForeign],
   [/nessun codice leggibile/, (fix) => fix.readableCodes],
+  [/né la ragione sociale della società/, (fix) => fix.matchCompanyName],
   [/non verificati dall'agent/, (fix) => fix.reloadZips],
   [new RegExp(`^${SECOND_LOOK_FAILED}`), (fix) => fix.reloadForAgent],
   [/letto non valid/, (fix) => fix.checkCode],
@@ -1262,6 +1272,9 @@ const applyAgentOutcome = (document: ZipDocument, outcome: AgentCallOutcome): Zi
     chineseIds: [...new Set([...document.chineseIds, ...verified.chineseIds])],
     agentIssues: [...result.issues, ...verified.issues],
     agentExpiryDate: result.expiry_date,
+    companyNames: [
+      ...new Set([...document.companyNames, result.company_name_latin, result.company_name_chinese].map((name) => name.trim()).filter(Boolean)),
+    ],
   };
 };
 
@@ -1476,6 +1489,7 @@ const Vies = () => {
       const zipVatNumbers = [...(identifiersByZipKey.get(zipKey) ?? [])].filter(
         (identifier) => !sharedIdentifiers.has(identifier) && !(italianOnly && identifier.length === 18),
       );
+      const zipCompanyNames = [...new Set(rowDocuments.flatMap((document) => document.companyNames))];
       let vatCheck: ViesReconciliationRow["vatCheck"] = "not_applicable";
       if (matchedZipFiles.length && expectedIdentifiers.length) {
         if (expectedIdentifiers.some((identifier) => zipVatNumbers.includes(identifier))) {
@@ -1485,11 +1499,20 @@ const Vies = () => {
           errors.push(
             `I documenti dello ZIP sono di un'altra società: ${expectedIdentifiers.join(" / ")} non compare, trovati ${zipVatNumbers.join(", ")}`,
           );
+        } else if (companyNameMatches([record.contraente, record.denominazioneCn], zipCompanyNames)) {
+          // No code of the company in the documents (the Italian VAT number is often assigned after they are
+          // signed): they must carry its name as in the Excel, and the credit codes of one company only. A credit
+          // code is always a client's, never the representative's: one also found in another ZIP is a mix-up.
+          vatCheck = "verified_by_name";
+          const zipUsccs = [...(identifiersByZipKey.get(zipKey) ?? [])].filter((code) => code.length === 18 && !sharedIdentifiers.has(code));
+          if (zipUsccs.length > 1) errors.push(`Nello ZIP compaiono i codici di più società: ${zipUsccs.join(", ")}`);
         } else {
           vatCheck = "unverifiable";
           errors.push(
             italianOnly
-              ? "Nei documenti dello ZIP non compare la partita IVA italiana della società: identità non verificabile. Aggiungere il certificato di attribuzione dell'Agenzia delle Entrate (o un documento che la riporta)"
+              ? `Nei documenti dello ZIP non compaiono né la partita IVA italiana né la ragione sociale della società: identità non verificabile${
+                  zipCompanyNames.length ? `. Nei documenti la società risulta ${zipCompanyNames.join(" / ")}` : ""
+                }`
               : "Nei documenti dello ZIP non compare nessun codice leggibile della società: identità non verificabile",
           );
         }
@@ -1566,6 +1589,7 @@ const Vies = () => {
         linkedByVat,
         vatCheck,
         zipVatNumbers,
+        zipCompanyNames,
         acceptedTypes,
         errors,
       };
@@ -2172,7 +2196,7 @@ const Vies = () => {
   // found and read, no error. Everything else is left out of the batch entirely.
   const isRowReady = (reconciliation: ViesReconciliationRow) =>
     Boolean(reconciliation.zipFile) &&
-    reconciliation.vatCheck === "verified" &&
+    (reconciliation.vatCheck === "verified" || reconciliation.vatCheck === "verified_by_name") &&
     reconciliation.missingRequirements.length === 0 &&
     getPendingScanCount(reconciliation) === 0 &&
     getRowBlockingErrors(reconciliation).length === 0;
@@ -3137,6 +3161,9 @@ const Vies = () => {
                               </TableCell>
                               <TableCell className="whitespace-nowrap">
                                 {reconciliation.vatCheck === "verified" && <Badge variant="secondary">{m.step3.verified}</Badge>}
+                                {reconciliation.vatCheck === "verified_by_name" && (
+                                  <Badge variant="secondary">{m.step3.verifiedByName}</Badge>
+                                )}
                                 {reconciliation.vatCheck === "mismatch" && <Badge variant="destructive">{m.step3.mismatch}</Badge>}
                                 {reconciliation.vatCheck === "unverifiable" && (
                                   <Badge variant="outline" className="border-amber-500/30 text-amber-900">
