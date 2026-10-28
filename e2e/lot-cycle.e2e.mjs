@@ -149,7 +149,8 @@ const apiCalls = (log, action) => log.api.filter((c) => c.body.action === action
   check("2 verificate le bozze: tocca al pagamento", s.verify === "done" && s.payment === "current", JSON.stringify(s));
   await page.getByTestId("lot-action-payment").click();
   await page.waitForSelector("[data-testid=lot-payment-amount]", { timeout: 10000 });
-  check("2 l'estratto conto si prepara: 2 polizze deliberate, totale premi 2.000", /2 polizze/.test(await page.getByTestId("lot-payment-amount").innerText()) && /2\.000/.test(await page.getByTestId("lot-payment-amount").innerText()), await page.getByTestId("lot-payment-amount").innerText());
+  // 2.000 € or 2000 €: the browser's Italian locale data decides whether four-digit amounts are grouped.
+  check("2 l'estratto conto si prepara: 2 polizze deliberate, totale premi 2.000", /2 polizze/.test(await page.getByTestId("lot-payment-amount").innerText()) && /\b2\.?000,00\b/.test(await page.getByTestId("lot-payment-amount").innerText()), await page.getByTestId("lot-payment-amount").innerText());
   const [download] = await Promise.all([page.waitForEvent("download", { timeout: 10000 }), page.getByTestId("lot-payment-statement").click()]);
   check("2 l'estratto conto si scarica come PDF 'Estratto conto Excel Lotto 3'", /^Estratto conto Excel Lotto 3 - Rappresentante Srl\.pdf$/.test(download.suggestedFilename()), download.suggestedFilename());
   check("2 senza i due file non si invia", await page.getByTestId("lot-payment-send").isDisabled());
