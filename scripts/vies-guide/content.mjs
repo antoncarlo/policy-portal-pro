@@ -142,9 +142,9 @@ export const GUIDE = {
             rows: [
               [
                 "<strong>Cliente</strong>",
-                "Licenza commerciale con traduzione; documento d'identità del legale rappresentante con traduzione; report sul credito d'impresa con traduzione; dichiarazione sostitutiva a supporto della fideiussione; dichiarazione UBO; mandato di rappresentanza fiscale.",
+                "Licenza commerciale con traduzione; documento d'identità del legale rappresentante con traduzione; report sul credito d'impresa con traduzione; dichiarazione sostitutiva a supporto della fideiussione; dichiarazione UBO; mandato di rappresentanza fiscale. Società di Hong Kong: al posto di licenza commerciale e report sul credito, il Certificate of Incorporation e/o il Business Registration Certificate (in corso di validità).",
               ],
-              ["<strong>Rappresentante fiscale</strong>", "Visura; bilancio; statuto."],
+              ["<strong>Rappresentante fiscale</strong>", "Nessun documento obbligatorio nello ZIP: visura, bilancio e statuto, se presenti, vengono riconosciuti."],
             ],
             widths: ["26%", "74%"],
           },
@@ -425,9 +425,9 @@ export const GUIDE = {
             rows: [
               [
                 "<strong>Client</strong>",
-                "Business licence with translation; legal representative's identity document with translation; corporate credit report with translation; self-certification supporting the guarantee; UBO declaration; fiscal representation mandate.",
+                "Business licence with translation; legal representative's identity document with translation; corporate credit report with translation; self-certification supporting the guarantee; UBO declaration; fiscal representation mandate. Hong Kong companies: instead of the business licence and the credit report, the Certificate of Incorporation and/or the Business Registration Certificate (valid).",
               ],
-              ["<strong>Fiscal representative</strong>", "Registry extract (visura); financial statements; articles of association."],
+              ["<strong>Fiscal representative</strong>", "No document is required in the ZIP: the registry extract (visura), financial statements and articles are recognised if present."],
             ],
             widths: ["26%", "74%"],
           },
@@ -707,9 +707,9 @@ export const GUIDE = {
             rows: [
               [
                 "<strong>客户</strong>",
-                "营业执照及翻译件；法定代表人身份证件及翻译件；企业信用信息报告及翻译件；担保所需声明（替代声明）；最终受益人（UBO）声明；税务代表授权书。",
+                "营业执照及翻译件；法定代表人身份证件及翻译件；企业信用信息报告及翻译件；担保所需声明（替代声明）；最终受益人（UBO）声明；税务代表授权书。香港公司：以公司注册证明书和/或商业登记证（须在有效期内）代替营业执照和企业信用信息报告。",
               ],
-              ["<strong>税务代表</strong>", "公司注册证明（visura）；财务报表；公司章程。"],
+              ["<strong>税务代表</strong>", "ZIP 中无需提供任何文件：如提供公司注册证明（visura）、财务报表、公司章程，系统会识别。"],
             ],
             widths: ["26%", "74%"],
           },

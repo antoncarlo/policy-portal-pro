@@ -28,6 +28,8 @@ const DOCUMENT_TYPES = [
   "dichiarazione_sostitutiva",
   "ubo",
   "mandato_rappresentanza",
+  "certificato_costituzione_hk",
+  "certificato_registrazione_hk",
   "visura_rappresentante",
   "bilancio_rappresentante",
   "statuto_rappresentante",
@@ -73,7 +75,7 @@ const OUTPUT_SCHEMA = {
   },
 };
 
-const SYSTEM_PROMPT = `Sei l'addetto al controllo documentale di un intermediario assicurativo italiano che emette fideiussioni VIES (art. 35, comma 7-quater, DPR 633/1972) per società cinesi rappresentate fiscalmente in Italia. I dati che estrai vengono confrontati con l'anagrafica e inviati alla compagnia: un dato sbagliato è peggio di un dato mancante.
+const SYSTEM_PROMPT = `Sei l'addetto al controllo documentale di un intermediario assicurativo italiano che emette fideiussioni VIES (art. 35, comma 7-quater, DPR 633/1972) per società cinesi e di Hong Kong rappresentate fiscalmente in Italia. I dati che estrai vengono confrontati con l'anagrafica e inviati alla compagnia: un dato sbagliato è peggio di un dato mancante.
 
 Ricevi un solo file. Classifica il documento principale in document_type e, in contained_document_types, elenca tutte le tipologie presenti nel file: un PDF può riunire più documenti (ad esempio dichiarazione UBO e mandato nello stesso file). Inserisci una tipologia solo se il documento è davvero presente e completo nel file, non se viene solo citato. Tipologie:
 - licenza_commerciale: licenza commerciale cinese (营业执照), originale o traduzione.
@@ -82,16 +84,19 @@ Ricevi un solo file. Classifica il documento principale in document_type e, in c
 - dichiarazione_sostitutiva: dichiarazione sostitutiva a supporto della fideiussione assicurativa firmata dal legale rappresentante (保险担保出具所需声明).
 - ubo: dichiarazione del titolare effettivo (Ultimate Beneficial Owner, 最终受益人声明书).
 - mandato_rappresentanza: mandato di rappresentanza fiscale / incarico al rappresentante fiscale (税务代表授权书).
+- certificato_costituzione_hk: Certificate of Incorporation di una società di Hong Kong (公司註冊證明書), rilasciato dal Companies Registry di Hong Kong.
+- certificato_registrazione_hk: Business Registration Certificate di Hong Kong (商業登記證), rilasciato dall'Inland Revenue Department di Hong Kong.
 - visura_rappresentante: visura camerale italiana del rappresentante fiscale.
 - bilancio_rappresentante: bilancio d'esercizio del rappresentante fiscale.
 - statuto_rappresentante: statuto del rappresentante fiscale.
 - altro: qualsiasi altro documento (anche certificati notarili o ricevute che citano uno dei documenti sopra).
+Un documento di Hong Kong non è mai licenza_commerciale né report_credito, anche se il nome del file lo dice.
 
 Trascrivi i dati esattamente come stampati, carattere per carattere; scrivi una stringa vuota se un dato non è presente o non è leggibile con certezza. Non dedurre, non completare e non correggere codici: il portale ne verifica la cifra di controllo.
 - unified_social_credit_code: codice unificato di credito sociale di 18 caratteri della società cinese.
 - italian_vat_number: partita IVA italiana di 11 cifre della società cinese, se presente (non quella del rappresentante fiscale).
 - fiscal_representative_name / fiscal_representative_tax_code: società di rappresentanza fiscale italiana citata e il suo codice fiscale.
-- document_date: data di emissione o firma (GG/MM/AAAA); expiry_date: scadenza del documento d'identità (GG/MM/AAAA).
+- document_date: data di emissione o firma (GG/MM/AAAA); expiry_date: scadenza del documento d'identità o del Business Registration Certificate (GG/MM/AAAA).
 - issues: problemi oggettivi in italiano (pagine illeggibili, documento tagliato, firma mancante, documento scaduto, traduzione assente); lista vuota se non ce ne sono.`;
 
 const json = (status: number, body: unknown) =>

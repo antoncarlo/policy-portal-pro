@@ -76,8 +76,43 @@ const toFailure = async (error: Error): Promise<AgentFailure> => {
   return unavailable ? { status: "unavailable", message } : { status: "error", message, retryable };
 };
 
-const AGENT_RETRY_DELAYS_MS = [3000, 8000];
+// With several readings in parallel the API may answer 429 for a while: three more attempts, spaced out.
+const AGENT_RETRY_DELAYS_MS = [3000, 8000, 20000];
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Readings already done in this tab, by file content: uploading the ZIPs again after adding the missing
+// documents sends the agent only the new files. Kept in the browser tab (memory and sessionStorage, which
+// survives a reload of the page), never on the server. The version changes with the agent's document types.
+const READING_CACHE_PREFIX = "vies-agent-reading:v2:";
+const readingCache = new Map<string, AgentDocumentResult>();
+
+const readingKey = async (bytes: Uint8Array, mediaType: string) => {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>));
+  return `${READING_CACHE_PREFIX}${mediaType}:${Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+};
+
+const cachedReading = (key: string) => {
+  const cached = readingCache.get(key);
+  if (cached) return cached;
+  try {
+    const stored = sessionStorage.getItem(key);
+    if (!stored) return null;
+    const result = JSON.parse(stored) as AgentDocumentResult;
+    readingCache.set(key, result);
+    return result;
+  } catch {
+    return null;
+  }
+};
+
+const rememberReading = (key: string, result: AgentDocumentResult) => {
+  readingCache.set(key, result);
+  try {
+    sessionStorage.setItem(key, JSON.stringify(result));
+  } catch {
+    // Storage full or blocked: the reading stays in memory for this page.
+  }
+};
 
 /** Quick check, without any document, that the agent is deployed and has its API key. */
 export const probeViesDocumentAgent = async (): Promise<{ ready: true } | Exclude<AgentCallOutcome, { status: "ok" }>> => {
@@ -88,10 +123,17 @@ export const probeViesDocumentAgent = async (): Promise<{ ready: true } | Exclud
 };
 
 export const callViesDocumentAgent = async (bytes: Uint8Array, mediaType: string, fileName: string): Promise<AgentCallOutcome> => {
+  const key = await readingKey(bytes, mediaType).catch(() => null);
+  const cached = key ? cachedReading(key) : null;
+  if (cached) return { status: "ok", result: cached };
   const body = { file_name: fileName, media_type: mediaType, data: toBase64(bytes) };
   for (let attempt = 0; ; attempt += 1) {
     const { data, error } = await invokeAgent(body);
-    if (!error) return { status: "ok", result: (data as { result: AgentDocumentResult }).result };
+    if (!error) {
+      const result = (data as { result: AgentDocumentResult }).result;
+      if (key) rememberReading(key, result);
+      return { status: "ok", result };
+    }
     const failure = await toFailure(error);
     if (!failure.retryable || attempt >= AGENT_RETRY_DELAYS_MS.length) {
       return failure.status === "unavailable"

@@ -8,6 +8,7 @@
 
 import { extractNotesSections } from "./practiceSummary.js";
 import { isValidItalianTaxCode, isValidItalianVat, isValidUscc } from "./viesCodes.js";
+import { VIES_REQUIRED_DOCUMENT_TYPES, missingRequiredDocuments } from "./viesDocumentTypes.js";
 import { isValidZipName, zipKeyOf } from "./viesZipKeys.js";
 import {
   VIES_ALLOW_DUPLICATE_PRACTICES,
@@ -18,18 +19,8 @@ import {
   VIES_PREMIUM_TAXES,
 } from "./viesTerms.js";
 
-/** Tipologie di documento obbligatorie in ogni ZIP (id di viesDocumentTypes). */
-export const VIES_REQUIRED_DOCUMENT_IDS = [
-  "licenza_commerciale",
-  "documento_identita",
-  "report_credito",
-  "dichiarazione_sostitutiva",
-  "ubo",
-  "mandato_rappresentanza",
-  "visura_rappresentante",
-  "bilancio_rappresentante",
-  "statuto_rappresentante",
-] as const;
+/** Tipologie di documento obbligatorie in ogni ZIP: solo quelle del cliente (vedi viesDocumentTypes). */
+export const VIES_REQUIRED_DOCUMENT_IDS = VIES_REQUIRED_DOCUMENT_TYPES.map((type) => type.id);
 
 // "processing": the worker re-runs the check on a job it has just taken, right before sending it.
 const SENDABLE_STATUSES = new Set(["ready", "queued", "failed", "processing"]);
@@ -269,7 +260,8 @@ export function verifyViesBatch(input: ControllerInput): ControllerReport {
       if (otherZip) fail(`Tra i documenti della pratica ce n'è uno di ${str(otherZip.zip_file_name) || "un altro ZIP"}`);
       if (indexed.some((document) => document.status === "error")) fail("Uno dei documenti dello ZIP non è leggibile");
       const covered = new Set(indexed.flatMap((document) => document.requirement_matches ?? []));
-      const missing = VIES_REQUIRED_DOCUMENT_IDS.filter((id) => !covered.has(id));
+      // Per una società di Hong Kong i suoi certificati valgono per licenza e report di credito.
+      const missing = missingRequiredDocuments(covered).map((type) => type.id);
       if (missing.length) fail(`Documenti obbligatori non trovati: ${missing.join(", ")}`);
 
       // 8. Condizioni economiche e durata.
