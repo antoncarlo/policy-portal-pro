@@ -478,6 +478,7 @@ function pushItem(items: SummaryItem[], key: string, label: string, value: strin
 
 const VIES_VAT_CHECK_LABELS: Record<string, string> = {
   verified: "Verificata: il codice della società compare nei documenti dello ZIP",
+  verified_by_name: "Verificata per ragione sociale: nessun codice della società nei documenti, che ne riportano il nome come nell'Excel",
   mismatch: "Non corrisponde: lo ZIP contiene documenti di un'altra società",
   unverifiable: "Non verificabile: nessun codice leggibile nei documenti",
   not_applicable: "Non eseguita (nessuno ZIP collegato)",
@@ -576,6 +577,7 @@ function buildViesSummary(input: PracticeSummaryInput): PracticeSummary {
   const vatCheck = str("vies_verifica_piva");
   pushItem(documentazione, "vies_verifica_piva", "Verifica identità", vatCheck ? VIES_VAT_CHECK_LABELS[vatCheck] ?? vatCheck : null);
   pushItem(documentazione, "vies_piva_trovate", "Codici della società nei documenti", listOrNull(f.vies_piva_trovate));
+  pushItem(documentazione, "vies_ragione_sociale_documenti", "Ragione sociale nei documenti", listOrNull(f.vies_ragione_sociale_documenti));
   pushItem(
     documentazione,
     "vies_documenti_mancanti",

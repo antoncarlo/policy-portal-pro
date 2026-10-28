@@ -58,9 +58,23 @@ const RULES: Rule[] = [
     ),
   },
   {
+    pattern:
+      /^Nei documenti dello ZIP non compaiono né la partita IVA italiana né la ragione sociale della società: identità non verificabile(?:\. Nei documenti la società risulta (.+))?$/,
+    en: (m) =>
+      `Neither the Italian VAT number nor the company name appears in the ZIP documents: identity cannot be verified${
+        m[1] ? `. The documents name the company ${m[1]}` : ""
+      }`,
+    zh: (m) => `ZIP 文件中既没有意大利增值税号，也没有该公司名称：无法核验身份${m[1] ? `。文件中的公司名称为 ${m[1]}` : ""}`,
+  },
+  {
     pattern: /^Nello ZIP compaiono anche codici di un'altra società: (.+)$/,
     en: (m) => `The ZIP also contains codes of another company: ${m[1]}`,
     zh: (m) => `ZIP 中还出现了另一家公司的代码：${m[1]}`,
+  },
+  {
+    pattern: /^Nello ZIP compaiono i codici di più società: (.+)$/,
+    en: (m) => `The ZIP contains the codes of more than one company: ${m[1]}`,
+    zh: (m) => `ZIP 中出现多家公司的代码：${m[1]}`,
   },
   {
     pattern: /^(\d+) documenti non verificati dall'agent: (.+)$/,
@@ -202,6 +216,10 @@ const RULES: Rule[] = [
     pattern: /^Nello ZIP compaiono codici di un'altra società: (.+)$/,
     en: (m) => `The ZIP contains codes of another company: ${m[1]}`,
     zh: (m) => `ZIP 中出现另一家公司的代码：${m[1]}`,
+  },
+  {
+    pattern: /^La ragione sociale della società non compare nei documenti dello ZIP$/,
+    ...same("The company name does not appear in the ZIP documents", "ZIP 文件中未出现该公司名称"),
   },
   { pattern: /^Numero ZIP non valido: (.+)$/, en: (m, t, v) => `Invalid ZIP number: ${v(m[1])}`, zh: (m, t, v) => `ZIP 编号无效：${v(m[1])}` },
   { pattern: /^Nome ZIP non valido: (.+)$/, en: (m, t, v) => `Invalid ZIP name: ${v(m[1])}`, zh: (m, t, v) => `ZIP 名称无效：${v(m[1])}` },

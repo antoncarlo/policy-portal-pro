@@ -8,6 +8,7 @@
 
 import { extractNotesSections } from "./practiceSummary.js";
 import { isValidItalianTaxCode, isValidItalianVat, isValidUscc } from "./viesCodes.js";
+import { companyNameMatches } from "./viesCompanyNames.js";
 import { VIES_REQUIRED_DOCUMENT_TYPES, missingRequiredDocuments } from "./viesDocumentTypes.js";
 import { isValidZipName, zipKeyOf } from "./viesZipKeys.js";
 import {
@@ -218,10 +219,16 @@ export function verifyViesBatch(input: ControllerInput): ControllerReport {
       // 4. I documenti dello ZIP sono di questa società, e solo di questa.
       const expectedCodes = [uscc, vat].filter((code): code is string => Boolean(code));
       const foundCodes = [...new Set(list(fields.vies_piva_trovate))];
-      if (str(fields.vies_verifica_piva) !== "verified") {
+      const identityCheck = str(fields.vies_verifica_piva);
+      if (identityCheck === "verified_by_name") {
+        // Nessun codice della società nei documenti: devono riportarne la ragione sociale come nella pratica.
+        if (!companyNameMatches([practice.client_name, fields.vies_denominazione_cn], list(fields.vies_ragione_sociale_documenti))) {
+          fail("La ragione sociale della società non compare nei documenti dello ZIP");
+        }
+      } else if (identityCheck !== "verified") {
         fail("L'identità della società non è stata verificata nei documenti dello ZIP");
       }
-      if (!foundCodes.some((code) => expectedCodes.includes(code))) {
+      if (identityCheck !== "verified_by_name" && !foundCodes.some((code) => expectedCodes.includes(code))) {
         fail(`Nei documenti dello ZIP non compare il codice della società (${expectedCodes.join(" / ") || "nessuno"})`);
       }
       const foreignCodes = foundCodes.filter((code) => !expectedCodes.includes(code) && (codeOccurrences.get(code) ?? 0) < 2);
