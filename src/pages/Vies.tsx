@@ -149,6 +149,8 @@ type ZipDocument = {
   agentExpiryDate: string;
   /** Names of the company the agent read in the document (Latin and Chinese). */
   companyNames: string[];
+  /** The agent read only the first pages and the last one: the second look reads the whole document. */
+  agentExcerpt: boolean;
 };
 
 type AgentCandidate = {
@@ -1114,6 +1116,7 @@ const readZipRecursive = async (file: File): Promise<{ documents: ZipDocument[];
         agentIssues: [],
         agentExpiryDate: "",
         companyNames: [],
+        agentExcerpt: false,
       });
 
       if (isZip) {
@@ -1142,6 +1145,7 @@ const readZipRecursive = async (file: File): Promise<{ documents: ZipDocument[];
             agentIssues: [],
             agentExpiryDate: "",
             companyNames: [],
+            agentExcerpt: false,
           });
         }
       }
@@ -1157,8 +1161,9 @@ const AGENT_CONCURRENCY = 10;
 
 /** Applies the agent's reading to a document; codes count only with a valid check character. */
 // Second look: in a ZIP where a required document type was not found, the agent
-// re-reads the documents it has not read yet, because one PDF can bundle several
-// documents. Only documents that may hold the missing types are sent.
+// reads the documents it has not read yet, or has read only in excerpt, whole,
+// because one PDF can bundle several documents. Only documents that may hold the
+// missing types are sent.
 const REPRESENTATIVE_TYPE_IDS = new Set(VIES_DOCUMENT_TYPES.filter((type) => type.subject === "rappresentante").map((type) => type.id));
 
 const findSecondLookDocuments = (documents: ZipDocument[]) => {
@@ -1172,7 +1177,7 @@ const findSecondLookDocuments = (documents: ZipDocument[]) => {
     const needsClient = missing.some((type) => !REPRESENTATIVE_TYPE_IDS.has(type.id));
     const needsRepresentative = missing.some((type) => REPRESENTATIVE_TYPE_IDS.has(type.id));
     for (const document of zipDocuments) {
-      if (document.agentStatus === "ok" || !agentMediaType(document.extension) || document.isNestedZip && document.extension === "zip") continue;
+      if ((document.agentStatus === "ok" && !document.agentExcerpt) || !agentMediaType(document.extension) || document.isNestedZip && document.extension === "zip") continue;
       const isRepresentativeDocument = document.documentType ? REPRESENTATIVE_TYPE_IDS.has(document.documentType) : null;
       if (isRepresentativeDocument === true && !needsRepresentative) continue;
       if (isRepresentativeDocument === false && !needsClient) continue;
@@ -1258,25 +1263,28 @@ const applyAgentOutcome = (document: ZipDocument, outcome: AgentCallOutcome): Zi
   const verified = verifiedAgentIdentifiers(result);
   const isKnown = (id: string) => VIES_DOCUMENT_TYPES.some((type) => type.id === id);
   const known = isKnown(result.document_type);
-  const primaryType = known ? result.document_type : document.documentType ?? "altro";
+  // A document already classified from its text keeps that type; the agent adds what else the file contains.
+  // Reading the whole document replaces the agent's reading of its excerpt.
+  const previousType = document.recognisedBy === "agent" && document.agentExcerpt ? null : document.documentType;
+  const primaryType = known ? result.document_type : previousType ?? "altro";
   return {
     ...document,
-    // A document already classified from its text keeps that type; the agent adds what else the file contains.
-    documentType: document.documentType ?? primaryType,
+    documentType: previousType ?? primaryType,
     extraDocumentTypes: [
       ...new Set(
         [result.document_type, ...(result.contained_document_types ?? [])].filter(
-          (id) => isKnown(id) && id !== (document.documentType ?? primaryType),
+          (id) => isKnown(id) && id !== (previousType ?? primaryType),
         ),
       ),
     ],
-    recognisedBy: document.documentType ? document.recognisedBy : "agent",
+    recognisedBy: previousType ? document.recognisedBy : "agent",
     agentStatus: "ok",
     usccs: [...new Set([...document.usccs, ...verified.usccs])],
     vatNumbers: [...new Set([...document.vatNumbers, ...verified.vatNumbers])],
     chineseIds: [...new Set([...document.chineseIds, ...verified.chineseIds])],
     agentIssues: [...result.issues, ...verified.issues],
     agentExpiryDate: result.expiry_date,
+    agentExcerpt: Boolean(outcome.excerpt),
     companyNames: [
       ...new Set([...document.companyNames, result.company_name_latin, result.company_name_chinese].map((name) => name.trim()).filter(Boolean)),
     ],
@@ -1837,7 +1845,7 @@ const Vies = () => {
         );
         agentUnavailable = "status" in probe && probe.status === "unavailable" ? probe.message : null;
       };
-      const runAgentPass = async (candidates: AgentCandidate[], label: string) => {
+      const runAgentPass = async (candidates: AgentCandidate[], label: string, wholeDocument = false) => {
         await ensureAgentChecked();
         const outcomes = new Map<string, AgentCallOutcome>();
         let done = 0;
@@ -1847,7 +1855,7 @@ const Vies = () => {
           setZipProcessingStatus(viesText().status.agentPass(label, done, candidates.length));
           const outcome: AgentCallOutcome = agentUnavailable
             ? { status: "unavailable", message: agentUnavailable }
-            : await callViesDocumentAgent(candidate.bytes, candidate.mediaType, candidate.name).catch(
+            : await callViesDocumentAgent(candidate.bytes, candidate.mediaType, candidate.name, wholeDocument).catch(
                 (error: unknown): AgentCallOutcome => ({
                   status: "error",
                   message: error instanceof Error ? error.message : "Agent non raggiungibile.",
@@ -1892,7 +1900,7 @@ const Vies = () => {
           }
           if (candidates.length) {
             markPending(new Set(candidates.map((candidate) => candidate.key)));
-            const outcomes = await runAgentPass(candidates, viesText().status.agentSecondLook);
+            const outcomes = await runAgentPass(candidates, viesText().status.agentSecondLook, true);
             parsedDocuments = parsedDocuments.map((document) => {
               const outcome = outcomes.get(documentKey(document));
               if (!outcome) return document;

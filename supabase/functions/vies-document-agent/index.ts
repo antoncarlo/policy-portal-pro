@@ -16,7 +16,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const MODEL = "claude-opus-5-5";
+const MODEL = "claude-sonnet-5-5";
 const MAX_BASE64_LENGTH = 30 * 1024 * 1024;
 const MEDIA_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/gif"] as const;
 type MediaType = (typeof MEDIA_TYPES)[number];
@@ -109,7 +109,14 @@ Deno.serve(async (req) => {
 
   // The body is read before any early return: answering while a large upload is
   // still in flight leaves the connection hanging until the gateway times out.
-  let body: { file_name?: string; media_type?: string; data?: string; probe?: boolean };
+  let body: {
+    file_name?: string;
+    media_type?: string;
+    data?: string;
+    probe?: boolean;
+    // First reading of a long PDF: only these pages (1-based) of total_pages were sent.
+    excerpt?: { pages?: unknown; total_pages?: unknown };
+  };
   try {
     body = await req.json();
   } catch {
@@ -142,6 +149,14 @@ Deno.serve(async (req) => {
       ? ({ type: "document", source: { type: "base64", media_type: "application/pdf", data: body.data } } as const)
       : ({ type: "image", source: { type: "base64", media_type: mediaType, data: body.data } } as const);
 
+  const sentPages = body.excerpt?.pages;
+  const excerptPages = Array.isArray(sentPages) ? sentPages.filter((page) => Number.isInteger(page)) : [];
+  const totalPages = Number(body.excerpt?.total_pages);
+  const excerptNote =
+    excerptPages.length && Number.isInteger(totalPages)
+      ? `\nEstratto del documento: sono incluse solo le pagine ${excerptPages.join(", ")} di ${totalPages}. Le pagine mancanti non sono un difetto del documento: non segnalarle tra gli issues.`
+      : "";
+
   const client = new Anthropic({ apiKey });
   try {
     const response = await client.beta.messages.create({
@@ -154,7 +169,7 @@ Deno.serve(async (req) => {
       messages: [
         {
           role: "user",
-          content: [source, { type: "text", text: `Nome del file (può essere fuorviante): ${body.file_name ?? "sconosciuto"}` }],
+          content: [source, { type: "text", text: `Nome del file (può essere fuorviante): ${body.file_name ?? "sconosciuto"}${excerptNote}` }],
         },
       ],
     });
