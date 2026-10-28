@@ -1,6 +1,7 @@
 // Pagina VIES, identità del cliente senza partita IVA nei documenti (come nei lotti reali: la procura è firmata prima
 // dell'attribuzione): l'identità è verificata se i documenti letti dall'agent riportano la Ragione Sociale dell'Excel;
 // la riga resta bloccata se il nome è un altro o se nello ZIP compaiono codici di credito sociale di più società.
+// Un Business Registration Certificate scaduto con il Certificate of Incorporation nello ZIP è solo un avviso.
 // Un unico ZIP con le cartelle dei clienti, tutte scansioni lette dall'agent, Excel senza colonna USCC.
 import JSZip from "jszip";
 import { chromium } from "playwright";
@@ -22,7 +23,7 @@ const CLIENTS = [
   // Cina continentale: il nome in pinyin come nell'Excel, il codice di credito sociale in tutti i documenti.
   { zip: "CNTBA00011", name: "Shen Zhen Shi Zhu Huan Xin Ji Shu You Xian Gong Si", vat: "18678521008", files: MAINLAND,
     read: { latin: "Shen Zhen Shi Zhu Huan Xin Ji Shu You Xian Gong Si", chinese: "深圳市珠嬛新技术有限公司", uscc: "91440300MA5GX639XR" } },
-  // Hong Kong: nessun codice, il nome con un'altra grafia.
+  // Hong Kong: nessun codice, il nome con un'altra grafia; Business Registration Certificate scaduto, ma c'è il Certificate of Incorporation.
   { zip: "CNTBA00012", name: "CLARITON INNOVATION CO., LIMITED", vat: "18678691009", files: ["registrazione_hk", "costituzione_hk", "identita", "dichiarazione", "ubo", "mandato"],
     read: { latin: "Clariton Innovation Co., Limited", chinese: "克萊通創新有限公司" } },
   // I documenti sono di un'altra società.
@@ -64,7 +65,7 @@ const reading = (fileName) => {
     // The procura cites the fiscal representative, never the client's Italian VAT number (not yet assigned).
     italian_vat_number: "", legal_representative_name: "", legal_representative_id_number: "",
     fiscal_representative_name: kind === "mandato" ? "Rappresentante Srl" : "", fiscal_representative_tax_code: kind === "mandato" ? "13489331002" : "",
-    document_date: "", expiry_date: kind === "registrazione_hk" ? "05/11/2099" : "", has_italian_translation: false, is_signed: true, issues: [],
+    document_date: "", expiry_date: kind === "registrazione_hk" ? "22/10/2026" : "", has_italian_translation: false, is_signed: true, issues: [],
   };
 };
 
@@ -124,6 +125,11 @@ const row = (control, zip) => {
   check("1 due pratiche pronte e due bloccate", /2 pronte/.test(control) && /2 bloccate/.test(control), control.slice(0, 400));
   check("1 Cina: senza P.IVA nei documenti, verificata per ragione sociale", /Verificata per ragione sociale/.test(row(control, "CNTBA00011")) && /Pronta/.test(row(control, "CNTBA00011")), row(control, "CNTBA00011"));
   check("1 Hong Kong: nome con un'altra grafia, verificata per ragione sociale", /Verificata per ragione sociale/.test(row(control, "CNTBA00012")) && /Pronta/.test(row(control, "CNTBA00012")), row(control, "CNTBA00012"));
+  check(
+    "1 Hong Kong: BR scaduto con il Certificate of Incorporation, pronta con l'avviso",
+    /Business Registration Certificate di Hong Kong scaduto il 22\/10\/2026: vale il Certificate of Incorporation, chiedere il rinnovo/.test(row(control, "CNTBA00012")) && !/Bloccata/.test(row(control, "CNTBA00012")),
+    row(control, "CNTBA00012"),
+  );
   check(
     "1 documenti di un'altra società: bloccata, con il nome letto",
     /Bloccata/.test(row(control, "CNTBA00013")) &&

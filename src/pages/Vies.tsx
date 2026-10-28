@@ -217,6 +217,8 @@ type ViesReconciliationRow = {
   /** Document types each document of the ZIP counts for (documentKey → types). */
   acceptedTypes: Map<string, string[]>;
   errors: string[];
+  /** Do not block the row: shown next to it and kept in the practice. */
+  warnings: string[];
 };
 
 type WorkerSummary = {
@@ -551,7 +553,10 @@ const buildViesSpecificFields = ({
   vies_piva_trovate: reconciliation?.zipVatNumbers ?? [],
   vies_ragione_sociale_documenti: reconciliation?.zipCompanyNames ?? [],
   vies_documenti_mancanti: reconciliation?.missingRequirements.map((requirement) => requirement.label) ?? [],
-  vies_avvisi: validationErrors.filter((error) => !error.startsWith("Requisito documentale mancante")),
+  vies_avvisi: [
+    ...validationErrors.filter((error) => !error.startsWith("Requisito documentale mancante")),
+    ...(reconciliation?.warnings ?? []),
+  ],
   vies_note_documenti: (reconciliation?.documents ?? [])
     .filter((document) => document.agentIssues.length)
     .map((document) => `${document.name}: ${document.agentIssues.join("; ")}`),
@@ -1547,13 +1552,12 @@ const Vies = () => {
         errors.push(`Documento del legale rappresentante non corrispondente: nei documenti ${idsInDocuments.join(", ")}`);
       }
       // Expired identity document or Hong Kong business registration (expiry read by the agent).
+      const expiredRegistrations: string[] = [];
       for (const document of rowDocuments) {
         const expiry = parseItalianDate(document.agentExpiryDate);
         if (!expiry || expiry >= new Date()) continue;
         if (document.documentType === "documento_identita") errors.push(`Documento d'identità scaduto il ${document.agentExpiryDate}`);
-        if (document.documentType === "certificato_registrazione_hk") {
-          errors.push(`Business Registration Certificate di Hong Kong scaduto il ${document.agentExpiryDate}`);
-        }
+        if (document.documentType === "certificato_registrazione_hk") expiredRegistrations.push(document.agentExpiryDate);
       }
 
       // A type the agent found bundled in a file counts only if that document carries
@@ -1571,6 +1575,19 @@ const Vies = () => {
           documentKey(document),
           [...new Set([document.documentType, ...extras])].filter((type): type is string => Boolean(type) && type !== "altro"),
         );
+      }
+      // An expired Hong Kong Business Registration Certificate blocks the row, unless the ZIP also has the
+      // Certificate of Incorporation: then it is only a warning, kept in the practice (the renewal to ask for).
+      const warnings: string[] = [];
+      const hasIncorporation = rowDocuments.some((document) =>
+        acceptedTypes.get(documentKey(document))?.includes("certificato_costituzione_hk"),
+      );
+      for (const date of expiredRegistrations) {
+        if (hasIncorporation) {
+          warnings.push(`Business Registration Certificate di Hong Kong scaduto il ${date}: vale il Certificate of Incorporation, chiedere il rinnovo`);
+        } else {
+          errors.push(`Business Registration Certificate di Hong Kong scaduto il ${date}`);
+        }
       }
       if (rowDocuments.some((document) => document.agentIssues.some((issue) => issue.startsWith(SECOND_LOOK_FAILED)))) {
         errors.push(`${SECOND_LOOK_FAILED}: i documenti mancanti non sono stati ricercati di nuovo`);
@@ -1592,6 +1609,7 @@ const Vies = () => {
         zipCompanyNames,
         acceptedTypes,
         errors,
+        warnings,
       };
     });
   }, [documents, records, zipFiles]);
@@ -3150,6 +3168,11 @@ const Vies = () => {
                                   {reconciliation.record.partitaIvaContraente && <span>P.IVA {reconciliation.record.partitaIvaContraente}</span>}
                                   {reconciliation.record.uscc && <span>USCC {reconciliation.record.uscc}</span>}
                                 </div>
+                                {reconciliation.warnings.map((warning) => (
+                                  <p key={warning} className="mt-1 break-words text-xs text-amber-800">
+                                    {translateViesText(warning)}
+                                  </p>
+                                ))}
                               </TableCell>
                               <TableCell className="whitespace-nowrap">
                                 <p>{reconciliation.zipFile?.name ?? m.step3.zipNotUploaded}</p>
