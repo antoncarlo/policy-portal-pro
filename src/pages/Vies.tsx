@@ -1156,8 +1156,9 @@ const readZipRecursive = async (file: File): Promise<{ documents: ZipDocument[];
   return { documents, agentCandidates };
 };
 
-// Scans read by the agent at the same time: a 20-practice lot has 150-200 of them, about 10 s each.
-const AGENT_CONCURRENCY = 10;
+// Scans read by the agent at the same time: a 20-practice lot has 150-200 of them, about 7 s each, so
+// the agent pass takes about a minute. Rate limits answer 429, which the agent client retries.
+const AGENT_CONCURRENCY = 20;
 
 /** Applies the agent's reading to a document; codes count only with a valid check character. */
 // Second look: in a ZIP where a required document type was not found, the agent
