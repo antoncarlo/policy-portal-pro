@@ -9,6 +9,7 @@
 
 import Anthropic from "npm:@anthropic-ai/sdk@^0.131.0";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isOutOfCredit, NO_CREDIT_MESSAGE } from "../_shared/agent-errors.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -158,6 +159,19 @@ Deno.serve(async (req) => {
       : "";
 
   const client = new Anthropic({ apiKey });
+  const startedAt = Date.now();
+  // One line per reading in the function's logs: what each lot costs and how long it takes (no file names: they can carry people's names).
+  const logReading = (fields: Record<string, unknown>) =>
+    console.log(
+      JSON.stringify({
+        event: "vies_agent_reading",
+        media_type: mediaType,
+        kb: Math.round((body.data!.length * 3) / 4 / 1024),
+        pages: excerptPages.length ? `${excerptPages.length}/${totalPages}` : null,
+        ms: Date.now() - startedAt,
+        ...fields,
+      }),
+    );
   try {
     const response = await client.beta.messages.create({
       model: MODEL,
@@ -173,6 +187,12 @@ Deno.serve(async (req) => {
         },
       ],
     });
+    logReading({
+      model: response.model,
+      stop_reason: response.stop_reason,
+      input_tokens: response.usage.input_tokens,
+      output_tokens: response.usage.output_tokens,
+    });
 
     if (response.stop_reason === "refusal") {
       return json(422, { error: "L'agent non ha elaborato il documento.", code: "AGENT_REFUSAL" });
@@ -185,6 +205,11 @@ Deno.serve(async (req) => {
 
     return json(200, { model: response.model, result: JSON.parse(text.text) });
   } catch (error) {
+    logReading({ error: error instanceof Anthropic.APIError ? error.status ?? "connection" : "exception", message: error instanceof Error ? error.message.slice(0, 300) : null });
+    // No credit stops every reading, not this document: the portal stops and says so.
+    if (error instanceof Anthropic.APIError && isOutOfCredit(error.status, error.message)) {
+      return json(503, { error: NO_CREDIT_MESSAGE, code: "AGENT_NO_CREDIT" });
+    }
     if (error instanceof Anthropic.RateLimitError) return json(429, { error: "Agent occupato: riprovare tra poco.", code: "AGENT_RATE_LIMITED" });
     if (error instanceof Anthropic.AuthenticationError) return json(503, { error: "Chiave API dell'agent non valida.", code: "AGENT_NOT_CONFIGURED" });
     if (error instanceof Anthropic.BadRequestError) return json(400, { error: `Documento non elaborabile: ${error.message}`, code: "AGENT_BAD_REQUEST" });

@@ -1218,6 +1218,7 @@ const FIX_INSTRUCTIONS: Array<[RegExp, (fix: FixMessages, match: RegExpMatchArra
   [/compaiono anche codici di un'altra società|codici di più società/, (fix) => fix.removeForeign],
   [/nessun codice leggibile/, (fix) => fix.readableCodes],
   [/né la ragione sociale della società/, (fix) => fix.matchCompanyName],
+  [/Credito API dell'agent esaurito/, (fix) => fix.rechargeCredit],
   [/non verificati dall'agent/, (fix) => fix.reloadZips],
   [new RegExp(`^${SECOND_LOOK_FAILED}`), (fix) => fix.reloadForAgent],
   [/letto non valid/, (fix) => fix.checkCode],
@@ -1504,8 +1505,12 @@ const Vies = () => {
         (identifier) => !sharedIdentifiers.has(identifier) && !(italianOnly && identifier.length === 18),
       );
       const zipCompanyNames = [...new Set(rowDocuments.flatMap((document) => document.companyNames))];
+      // Scans still being read, or not read because the agent cannot work (no API key, no credit): the codes,
+      // the company name and the document types they carry are not known yet. Identity and missing documents are
+      // judged once they are read, never on the unread ones: the client is not asked for documents that are there.
+      const awaitingAgent = rowDocuments.some((document) => document.agentStatus === "pending" || document.agentStatus === "unavailable");
       let vatCheck: ViesReconciliationRow["vatCheck"] = "not_applicable";
-      if (matchedZipFiles.length && expectedIdentifiers.length) {
+      if (matchedZipFiles.length && expectedIdentifiers.length && !awaitingAgent) {
         if (expectedIdentifiers.some((identifier) => zipVatNumbers.includes(identifier))) {
           vatCheck = "verified";
         } else if (zipVatNumbers.length) {
@@ -1603,7 +1608,7 @@ const Vies = () => {
       }
 
       // Checked per ZIP: a document in another client's ZIP must not hide a gap in this one.
-      const missingRequirements = matchedZipFiles.length
+      const missingRequirements = matchedZipFiles.length && !awaitingAgent
         ? missingRequiredDocuments(rowDocuments.flatMap((document) => acceptedTypes.get(documentKey(document)) ?? []))
         : [];
 

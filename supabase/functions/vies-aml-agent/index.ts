@@ -8,6 +8,7 @@
 
 import Anthropic from "npm:@anthropic-ai/sdk@^0.131.0";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isOutOfCredit, NO_CREDIT_MESSAGE } from "../_shared/agent-errors.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -130,6 +131,18 @@ Deno.serve(async (req) => {
       output_config: { effort: "medium", format: { type: "json_schema", schema: OUTPUT_SCHEMA } },
       messages: [{ role: "user", content: content as never }],
     });
+    // One line per reading in the function's logs, for the cost of the questionnaires (no file names).
+    console.log(
+      JSON.stringify({
+        event: "vies_aml_reading",
+        documents: documents.length,
+        kb: Math.round((total * 3) / 4 / 1024),
+        model: response.model,
+        stop_reason: response.stop_reason,
+        input_tokens: response.usage.input_tokens,
+        output_tokens: response.usage.output_tokens,
+      }),
+    );
 
     if (response.stop_reason === "refusal") return json(422, { error: "L'agent non ha elaborato i documenti.", code: "AGENT_REFUSAL" });
     if (response.stop_reason === "max_tokens") return json(502, { error: "Risposta dell'agent incompleta.", code: "AGENT_TRUNCATED" });
@@ -137,6 +150,9 @@ Deno.serve(async (req) => {
     if (!text || text.type !== "text") return json(502, { error: "Risposta dell'agent vuota.", code: "AGENT_EMPTY" });
     return json(200, { model: response.model, result: JSON.parse(text.text) });
   } catch (error) {
+    if (error instanceof Anthropic.APIError && isOutOfCredit(error.status, error.message)) {
+      return json(503, { error: NO_CREDIT_MESSAGE, code: "AGENT_NO_CREDIT" });
+    }
     if (error instanceof Anthropic.RateLimitError) return json(429, { error: "Agent occupato: riprovare tra poco.", code: "AGENT_RATE_LIMITED" });
     if (error instanceof Anthropic.AuthenticationError) return json(503, { error: "Chiave API dell'agent non valida.", code: "AGENT_NOT_CONFIGURED" });
     if (error instanceof Anthropic.BadRequestError) return json(400, { error: `Documenti non elaborabili: ${error.message}`, code: "AGENT_BAD_REQUEST" });
