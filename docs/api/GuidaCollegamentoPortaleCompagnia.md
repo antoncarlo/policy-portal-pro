@@ -394,30 +394,7 @@ Il portale invia anche le **e-mail**: una per passaggio del lotto, solo ai colla
 
 ## 8. Collaudo prima della produzione
 
-Nel repository del portale c'è un simulatore (solo Node) che fa da portale della compagnia, per provare ogni fase senza coinvolgerla:
-
-```bash
-# Fase 1: riceve le pratiche e risponde da solo ("received" dopo mezzo secondo, "deliberated" dopo 5 secondi)
-node scripts/vies-portal-simulator.mjs listen --port 4010 --key CHIAVE --secret SEGRETO --portal-id alfa --auto-reply
-
-# Fase 3: delibera con la bozza
-node scripts/vies-portal-simulator.mjs callback --url https://portale.tecnomga.com/api/vies-portal-callback \
-  --portal-id alfa --secret SEGRETO --event deliberated --practice-number VIES-2026-0003-ab12cd34 \
-  --due 2026-12-31 --note "Premio confermato" --pdf bozza.pdf
-
-# Fase 5: dopo il pagamento, la copia di polizza da firmare (file .p7m)
-node scripts/vies-portal-simulator.mjs callback --url https://portale.tecnomga.com/api/vies-portal-callback \
-  --portal-id alfa --secret SEGRETO --event policy_copy --practice-number VIES-2026-0003-ab12cd34 \
-  --policy-number POL-2026-123 --policy-copy polizza_copia_compagnia.pdf.p7m
-
-# Fase 6: emissione con tutte le copie (--pdf ripetuto)
-node scripts/vies-portal-simulator.mjs callback --url https://portale.tecnomga.com/api/vies-portal-callback \
-  --portal-id alfa --secret SEGRETO --event issued --practice-number VIES-2026-0003-ab12cd34 \
-  --policy-number POL-2026-123 --pdf copia1.pdf --pdf copia2.pdf --pdf copia3.pdf --pdf copia4.pdf
-
-# Eventi in uscita (pagamento, firme): fa da portale ricevente e verifica la firma
-node scripts/vies-portal-simulator.mjs receive --port 4011 --secret SEGRETO [--fail 500]
-```
+Il collaudo si fa sulla nostra sandbox (`https://tecnosandbox.app`), seguendo il **kit di collaudo** che vi consegniamo insieme alle credenziali di prova: contiene i lotti di prova, i documenti da restituirci e i comandi pronti (`curl` + `openssl`, oppure Python) per firmare e inviare ogni evento senza software aggiuntivo. Dal nostro lato usiamo un simulatore interno che fa da portale della compagnia, per riprodurre le vostre segnalazioni.
 
 **Prova generale consigliata (un lotto da 5 pratiche), nell'ordine:**
 

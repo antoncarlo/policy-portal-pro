@@ -9,7 +9,7 @@
 
 ## 0. Proprietà, licenza d'uso e riservatezza
 
-**Leggere prima dell'uso.** Il portale Tecno Advance MGA, comprese la sua versione di prova (`https://tecnosandbox.app`), le interfacce, i flussi di lavoro, la logica applicativa, i modelli di documento, le API e la relativa documentazione, questa guida, i file di prova e il software di prova (simulatore), è di **proprietà esclusiva di Tecno Advance MGA Broker S.r.l.** ed è tutelato dalle norme sul diritto d'autore, sulla protezione del software e dei segreti commerciali.
+**Leggere prima dell'uso.** Il portale Tecno Advance MGA, comprese la sua versione di prova (`https://tecnosandbox.app`), le interfacce, i flussi di lavoro, la logica applicativa, i modelli di documento, le API e la relativa documentazione, questa guida e i file di prova, è di **proprietà esclusiva di Tecno Advance MGA Broker S.r.l.** ed è tutelato dalle norme sul diritto d'autore, sulla protezione del software e dei segreti commerciali.
 
 L'accesso è concesso alla compagnia con una **licenza d'uso limitata, personale, gratuita, non esclusiva, non trasferibile e revocabile**, al **solo scopo del collaudo del collegamento** tra i portali delle due parti. In particolare:
 
@@ -117,14 +117,37 @@ Risposte: `200`/`201` con `"success": true`; `401` chiave mancante, non valida, 
 | `documenti-compagnia/polizza_copia_compagnia_PROVA.pdf.p7m` | La copia di polizza da firmare, busta CAdES valida (firmata con un certificato di prova), da mandare con `practice.policy_copy` |
 | `documenti-compagnia/FINTO_non_firmato.pdf.p7m` | Un PDF rinominato `.p7m`: deve essere **rifiutato** (`422 invalid_document`) |
 | `documenti-compagnia/polizza_copia1…4_*.pdf` | Le quattro copie della polizza emessa, da mandare con `practice.issued` |
-| `vies-portal-simulator.mjs` | Simulatore senza dipendenze (Node 18+): firma e invia i vostri eventi, oppure fa da vostro portale per ricevere i nostri invii e verificarne la firma |
+| `comandi-di-prova.txt` | Tutti i comandi di questa sezione e della 5, in testo semplice da copiare |
 
-I comandi delle prove usano queste variabili:
+Per le prove non serve alcun software nostro: bastano `curl` e `openssl` (presenti su Linux e macOS; su Windows in WSL o Git Bash), oppure Python 3. Le righe seguenti si incollano una volta nel terminale e definiscono il comando `invia`, che firma un evento scritto in un file JSON e lo manda alla sandbox:
 
 ```bash
 SANDBOX=https://tecnosandbox.app/api/vies-portal-callback
 PORTAL=compagnia-test
 SECRET='…'        # segreto di firma dalla scheda credenziali
+
+invia() {         # uso: invia evento.json
+  TS=$(date +%s); BODY=$(cat "$1")
+  SIG=$(printf '%s.%s' "$TS" "$BODY" | openssl dgst -sha256 -hmac "$SECRET" | sed 's/^.*= //')
+  curl -s -X POST "$SANDBOX" -H "Content-Type: application/json" -H "X-Portal-Id: $PORTAL" \
+    -H "X-Timestamp: $TS" -H "X-Signature: sha256=$SIG" --data-binary "$BODY"; echo
+}
+b64() { base64 < "$1" | tr -d '\n'; }   # contenuto di un file in base64, per allegarlo
+```
+
+La stessa firma in Python 3, senza librerie esterne:
+
+```python
+import hmac, hashlib, json, time, urllib.request
+SECRET = "…"   # dalla scheda credenziali
+event = {"event_id": "prova-firma-1", "event_type": "practice.received", "occurred_at": "2026-11-01T09:00:00Z",
+         "practice": {"number": "VIES-2026-9999-00000000", "reference": "PROVA-1"}, "data": {}}
+raw = json.dumps(event).encode(); ts = str(int(time.time()))
+sig = "sha256=" + hmac.new(SECRET.encode(), ts.encode() + b"." + raw, hashlib.sha256).hexdigest()
+req = urllib.request.Request("https://tecnosandbox.app/api/vies-portal-callback", data=raw, method="POST",
+      headers={"Content-Type": "application/json", "X-Portal-Id": "compagnia-test", "X-Timestamp": ts, "X-Signature": sig})
+try: print(urllib.request.urlopen(req).status)
+except urllib.error.HTTPError as e: print(e.code, e.read().decode())
 ```
 
 ---
@@ -140,13 +163,21 @@ SECRET='…'        # segreto di firma dalla scheda credenziali
 | A3 | Chiave sbagliata | Stessa chiamata con una chiave inventata | `401 API Key non valida.` |
 | A4 | Firma corretta | `practice.received` firmato per una pratica inesistente (comando sotto) | `404 practice_not_found`: la firma è stata accettata. Senza `practice.reference` la risposta è `400 invalid_payload` (il riferimento è obbligatorio in `practice.received`) |
 | A5 | Firma sbagliata | Lo stesso con un segreto diverso, oppure `X-Timestamp` di 10 minuti fa | `401 unauthorized` (risposta identica in tutti i casi) |
-| A6 | Ricezione dei nostri eventi | Avviate il vostro ricevitore (o `simulator receive`) e chiedeteci un `practice.test` | Arriva l'evento con firma verificabile |
+| A6 | Ricezione dei nostri eventi | Comunicateci l'indirizzo del vostro ricevitore e chiedeteci un `practice.test` | Arriva l'evento con firma verificabile con lo stesso segreto |
 
 ```bash
 # A4: firma corretta su una pratica che non esiste → 404 practice_not_found
-node vies-portal-simulator.mjs callback --url $SANDBOX --portal-id $PORTAL --secret "$SECRET" \
-  --event received --practice-number VIES-2026-9999-00000000 --reference PROVA-1
+cat > a4.json <<'EOF'
+{"event_id":"prova-firma-1","event_type":"practice.received","occurred_at":"2026-11-01T09:00:00Z",
+ "practice":{"number":"VIES-2026-9999-00000000","reference":"PROVA-1"},"data":{}}
+EOF
+invia a4.json
+
+# A5: stesso messaggio con un segreto sbagliato → 401
+SECRET=sbagliato invia a4.json
 ```
+
+Esiti verificati da noi sulla sandbox con questi comandi: A4 `404 practice_not_found`, A5 `401 unauthorized`.
 
 ### 5.2 Prova generale (con il vostro indirizzo di prova collegato)
 
@@ -171,50 +202,96 @@ Chi fa che cosa nel portale: **RF** = utente rappresentante fiscale di prova del
 | 15 | voi | Il vostro indirizzo eventi risponde `500` per qualche minuto | Noi ritentiamo dopo 1, 5, 30 minuti…: i tentativi risultano nel nostro registro e si possono ripetere a mano |
 | 16 | voi | Servizi di lettura su una pratica del lotto (`get-practice-status`, `get-reports`) | I dati corrispondono a quelli del portale |
 
-Comandi pronti per le prove 3, 5, 7, 9, 11, 12 e 14 (sostituite il numero della pratica con quello ricevuto nella prova 2):
+Nella prova generale gli eventi li manda il vostro portale. Per controllare il formato potete prima mandarli a mano con il comando `invia` (sostituite il numero della pratica con quello ricevuto nella prova 2; ogni `event_id` deve essere nuovo, tranne nella prova 4):
 
 ```bash
 N=VIES-2026-0001-ab12cd34
+D=documenti-compagnia
 
-# 3. presa in carico
-node vies-portal-simulator.mjs callback --url $SANDBOX --portal-id $PORTAL --secret "$SECRET" \
-  --event received --practice-number $N --reference VOSTRO-RIF-1 --event-id evt-$N-received
+# 3. presa in carico (practice.reference obbligatorio)
+cat > e3.json <<EOF
+{"event_id":"evt-$N-received",
+ "event_type":"practice.received",
+ "occurred_at":"2026-11-01T09:00:00Z",
+ "practice":{"number":"$N","reference":"VOSTRO-RIF-1"},
+ "data":{}}
+EOF
+invia e3.json      # 4. rilanciato uguale: "duplicate": true
 
 # 5. richiesta di integrazioni
-node vies-portal-simulator.mjs callback --url $SANDBOX --portal-id $PORTAL --secret "$SECRET" \
-  --event info_requested --practice-number $N --note "Manca la traduzione dello statuto"
+cat > e5.json <<EOF
+{"event_id":"evt-$N-info",
+ "event_type":"practice.info_requested",
+ "occurred_at":"2026-11-01T10:00:00Z",
+ "practice":{"number":"$N"},
+ "data":{"message":"Manca la traduzione dello statuto",
+         "due_date":"2026-12-15"}}
+EOF
+invia e5.json
 
-# 7. rifiuto (su un'altra pratica)
-node vies-portal-simulator.mjs callback --url $SANDBOX --portal-id $PORTAL --secret "$SECRET" \
-  --event rejected --practice-number VIES-2026-0002-… --reason "Rischio non assumibile (prova)"
+# 7. rifiuto (su un'altra pratica: cambiate il numero)
+cat > e7.json <<EOF
+{"event_id":"evt-rifiuto-1",
+ "event_type":"practice.rejected",
+ "occurred_at":"2026-11-01T11:00:00Z",
+ "practice":{"number":"VIES-2026-0002-…"},
+ "data":{"reason":"Rischio non assumibile (prova)"}}
+EOF
+invia e7.json
 
 # 9. delibera con la bozza
-node vies-portal-simulator.mjs callback --url $SANDBOX --portal-id $PORTAL --secret "$SECRET" \
-  --event deliberated --practice-number $N --due 2026-12-31 --note "Premio confermato" \
-  --pdf documenti-compagnia/bozza_polizza_PROVA.pdf
+cat > e9.json <<EOF
+{"event_id":"evt-$N-deliberated",
+ "event_type":"practice.deliberated",
+ "occurred_at":"2026-11-02T09:00:00Z",
+ "practice":{"number":"$N"},
+ "data":{"payment_due_date":"2026-12-31",
+  "note":"Premio confermato",
+  "draft":{"file_name":"bozza.pdf",
+   "mime_type":"application/pdf",
+   "content_base64":"$(b64 $D/bozza_polizza_PROVA.pdf)"}}}
+EOF
+invia e9.json
 
 # 11. copia di polizza da firmare (.p7m), dopo il pagamento
-node vies-portal-simulator.mjs callback --url $SANDBOX --portal-id $PORTAL --secret "$SECRET" \
-  --event policy_copy --practice-number $N --policy-number POL-TEST-000001 \
-  --policy-copy documenti-compagnia/polizza_copia_compagnia_PROVA.pdf.p7m
+P7M=polizza_copia_compagnia_PROVA.pdf.p7m
+cat > e11.json <<EOF
+{"event_id":"evt-$N-copy",
+ "event_type":"practice.policy_copy",
+ "occurred_at":"2026-11-05T09:00:00Z",
+ "practice":{"number":"$N"},
+ "data":{"policy_number":"POL-TEST-000001",
+  "policy_copy":{"file_name":"$P7M",
+   "mime_type":"application/pkcs7-mime",
+   "content_base64":"$(b64 $D/$P7M)"}}}
+EOF
+invia e11.json
 
-# 12. stesso evento con un falso .p7m → 422
-node vies-portal-simulator.mjs callback --url $SANDBOX --portal-id $PORTAL --secret "$SECRET" \
-  --event policy_copy --practice-number $N --policy-number POL-TEST-000001 \
-  --policy-copy documenti-compagnia/FINTO_non_firmato.pdf.p7m
+# 12. ripetete il blocco 11 con P7M=FINTO_non_firmato.pdf.p7m
+#     e un nuovo event_id (es. evt-$N-copy-2): 422 invalid_document
 
 # 14. emissione con le quattro copie
-node vies-portal-simulator.mjs callback --url $SANDBOX --portal-id $PORTAL --secret "$SECRET" \
-  --event issued --practice-number $N --policy-number POL-TEST-000001 \
-  --pdf documenti-compagnia/polizza_copia1_contraente_PROVA.pdf --pdf documenti-compagnia/polizza_copia2_beneficiario_PROVA.pdf \
-  --pdf documenti-compagnia/polizza_copia3_compagnia_PROVA.pdf --pdf documenti-compagnia/polizza_copia4_intermediario_PROVA.pdf
-
-# Ricevere i nostri invii ed eventi senza il vostro portale (verifica anche la firma)
-node vies-portal-simulator.mjs listen  --port 4010 --key LA_VOSTRA_CHIAVE --secret "$SECRET" --portal-id $PORTAL
-node vies-portal-simulator.mjs receive --port 4011 --secret "$SECRET" [--fail 500]
+C=polizza_copia
+cat > e14.json <<EOF
+{"event_id":"evt-$N-issued",
+ "event_type":"practice.issued",
+ "occurred_at":"2026-11-10T09:00:00Z",
+ "practice":{"number":"$N"},
+ "data":{"policy_number":"POL-TEST-000001",
+  "documents":[
+   {"file_name":"copia1.pdf","mime_type":"application/pdf",
+    "content_base64":"$(b64 $D/${C}1_contraente_PROVA.pdf)"},
+   {"file_name":"copia2.pdf","mime_type":"application/pdf",
+    "content_base64":"$(b64 $D/${C}2_beneficiario_PROVA.pdf)"},
+   {"file_name":"copia3.pdf","mime_type":"application/pdf",
+    "content_base64":"$(b64 $D/${C}3_compagnia_PROVA.pdf)"},
+   {"file_name":"copia4.pdf","mime_type":"application/pdf",
+    "content_base64":"$(b64 $D/${C}4_intermediario_PROVA.pdf)"}]}}
+EOF
+invia e14.json
 ```
 
-Il simulatore mostra la richiesta inviata e la risposta del nostro portale: è anche un esempio di codice per la firma. Il vostro portale deve produrre messaggi equivalenti (Parte 2, §5).
+I comandi vanno lanciati dalla cartella del kit (quella che contiene `documenti-compagnia/`). Gli stessi comandi sono nel file `comandi-di-prova.txt` del kit, da copiare da lì anziché dal PDF. Il vostro portale deve produrre messaggi equivalenti (Parte 2, §5); per i documenti grandi si usa `url` al posto di `content_base64` (Parte 2, §5.4).
 
 ### 5.3 Esito del collaudo
 
