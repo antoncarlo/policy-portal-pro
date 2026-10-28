@@ -1,9 +1,27 @@
 # Ambiente di prova (sandbox) — kit di collaudo per la compagnia
-<!-- footer: Sandbox · kit di collaudo per la compagnia -->
+<!-- footer: Kit di collaudo sandbox · RISERVATO · © Tecno Advance MGA Broker S.r.l. -->
 
 **Versione:** 1.0 · ottobre 2026 · prodotto VIES (fideiussione art. 35, comma 7-quater, DPR 633/1972)
 
 *A chi è rivolto: ai tecnici della compagnia (o del suo fornitore) che collegano il proprio portale di prova al portale Tecno Advance MGA. La prima parte dice dove collegarsi, con quali credenziali, quali servizi esistono e quali prove fare, nell'ordine. La seconda parte è la guida completa al collegamento (messaggi, firme, errori), valida identica per la produzione.*
+
+---
+
+## 0. Proprietà, licenza d'uso e riservatezza
+
+**Leggere prima dell'uso.** Il portale Tecno Advance MGA, comprese la sua versione di prova (`https://tecnosandbox.app`), le interfacce, i flussi di lavoro, la logica applicativa, i modelli di documento, le API e la relativa documentazione, questa guida, i file di prova e il software di prova (simulatore), è di **proprietà esclusiva di Tecno Advance MGA Broker S.r.l.** ed è tutelato dalle norme sul diritto d'autore, sulla protezione del software e dei segreti commerciali.
+
+L'accesso è concesso alla compagnia con una **licenza d'uso limitata, personale, gratuita, non esclusiva, non trasferibile e revocabile**, al **solo scopo del collaudo del collegamento** tra i portali delle due parti. In particolare:
+
+1. **Persone autorizzate.** Credenziali, documentazione e materiale di prova possono essere usati solo dalle persone indicate o approvate per iscritto da Tecno Advance MGA. Non possono essere ceduti, comunicati o resi accessibili a terzi, inclusi fornitori, consulenti o società del gruppo, senza nostra autorizzazione scritta.
+2. **Divieto di copia e riproduzione.** È vietato copiare, riprodurre, imitare o ricreare il portale, in tutto o in parte e **in qualsiasi forma**: codice, interfacce, schermate, flussi, logiche, testi, modelli di documento, strutture dei dati.
+3. **Divieto di analisi del software.** È vietato decompilare, disassemblare, analizzare, estrarre o tentare di ricostruire il codice, la logica o il funzionamento interno del portale (*reverse engineering*), salvo quanto inderogabilmente consentito dalla legge. Sono vietati anche le prove di sicurezza e i carichi di traffico non concordati.
+4. **Uso consentito.** Il materiale serve solo a sviluppare e collaudare il collegamento descritto in questa guida. Il formato dei messaggi qui descritto può essere implementato dalla compagnia nei propri sistemi esclusivamente per collegarsi al portale Tecno Advance MGA.
+5. **Riservatezza.** Tutte le informazioni ricevute sono riservate e lo restano anche dopo la fine del collaudo o del rapporto.
+6. **Revoca e restituzione.** Tecno Advance MGA può sospendere o revocare gli accessi in qualsiasi momento. Alla revoca, alla fine del collaudo o su richiesta, la compagnia cancella le copie del materiale ricevuto, salvo quanto debba conservare per legge.
+7. **Registrazione.** Gli accessi e le chiamate all'ambiente di prova sono registrati.
+
+L'uso delle credenziali vale come accettazione di queste condizioni, che si aggiungono agli eventuali accordi di riservatezza e ai contratti in essere tra le parti.
 
 ---
 
@@ -18,7 +36,7 @@ La sandbox è una copia completa del portale Tecno: **stesso codice e stesse reg
 | Servizi di lettura (statistiche, scadenzario, pratiche) | `https://tecnosandbox.app/api/…` | `https://portale.tecnomga.com/api/…` |
 | Documentazione dei servizi di lettura | `https://tecnosandbox.app/api-docs` | `https://portale.tecnomga.com/api-docs` |
 | Id del vostro portale (`X-Portal-Id`) | `compagnia-test` | concordato al passaggio in produzione |
-| Segreto di firma, chiave API, utenti | **nella scheda credenziali della sandbox** (documento separato e riservato) | nuovi, consegnati al passaggio in produzione |
+| Segreto di firma, chiave API, utente del portale | **nella scheda credenziali della sandbox** (documento separato e riservato) | nuovi, consegnati al passaggio in produzione |
 
 Differenze rispetto alla produzione, da sapere durante le prove:
 
@@ -36,10 +54,11 @@ Differenze rispetto alla produzione, da sapere durante le prove:
 |---|---|
 | Id portale `compagnia-test` + **segreto di firma** (64 caratteri esadecimali) | Firmare con HMAC-SHA256 i vostri eventi verso `/api/vies-portal-callback` e verificare la firma dei nostri eventi verso di voi |
 | **Chiave API** `tmga_…` | Leggere pratiche, statistiche e scadenzario con l'intestazione `X-API-Key` |
-| Utente **amministratore di prova** della compagnia | Vedere nel portale tutto il ciclo: lotti, pratiche, registro degli scambi (Impostazioni → Connessioni); inviare i lotti al vostro portale |
 | Utente **rappresentante fiscale di prova** della compagnia | Fare la parte del rappresentante: caricare un lotto (Excel + ZIP), confermare le bozze, caricare il pagamento e le firme |
 
 Al primo accesso il portale chiede di **cambiare la password**. La verifica in due passaggi (app di autenticazione) è facoltativa.
+
+Le operazioni da amministratore (invio dei lotti al vostro portale, conferma dei passaggi del lotto, registro degli scambi) le svolgiamo noi durante il collaudo e vi comunichiamo gli esiti.
 
 **Ci serve da voi** per collegare il vostro ambiente di prova (le prove della sezione 5.1 si possono fare anche prima):
 
@@ -116,7 +135,7 @@ SECRET='…'        # segreto di firma dalla scheda credenziali
 
 | # | Prova | Come | Esito atteso |
 |---|---|---|---|
-| A1 | Accesso al portale | Entrate su `https://tecnosandbox.app` con i due utenti della scheda | Cambio password al primo accesso, poi la dashboard |
+| A1 | Accesso al portale | Entrate su `https://tecnosandbox.app` con l'utente della scheda | Cambio password al primo accesso, poi la dashboard del rappresentante fiscale |
 | A2 | Chiave API | `GET /api/get-practices` con `X-API-Key` (§3.2) | `200`, elenco (vuoto finché non c'è un lotto) |
 | A3 | Chiave sbagliata | Stessa chiamata con una chiave inventata | `401 API Key non valida.` |
 | A4 | Firma corretta | `practice.received` firmato per una pratica inesistente (comando sotto) | `404 practice_not_found`: la firma è stata accettata. Senza `practice.reference` la risposta è `400 invalid_payload` (il riferimento è obbligatorio in `practice.received`) |
@@ -131,12 +150,12 @@ node vies-portal-simulator.mjs callback --url $SANDBOX --portal-id $PORTAL --sec
 
 ### 5.2 Prova generale (con il vostro indirizzo di prova collegato)
 
-Chi fa che cosa nel portale: **RF** = utente rappresentante fiscale di prova della compagnia; **AD** = utente amministratore di prova della compagnia (oppure noi); **voi** = il vostro portale di prova.
+Chi fa che cosa nel portale: **RF** = utente rappresentante fiscale di prova della compagnia; **AD** = noi (amministratore Tecno); **voi** = il vostro portale di prova.
 
 | # | Chi | Prova | Esito atteso |
 |---|---|---|---|
 | 1 | RF | Pagina **VIES**: carica `VIES_Lotto_2_corretto.xlsx` e poi `VIES_Lotto_2_corretto_ZIP.zip`; crea il lotto | 20 righe pronte su 20, lotto creato |
-| 2 | AD | Apre il lotto e lo **invia** al portale `compagnia-test` | Voi ricevete una `POST` per pratica (con `documents`, `partita_iva_contraente`, `callback`); rispondete `200` con `external_reference`. In Impostazioni → Connessioni le consegne risultano riuscite |
+| 2 | AD | Apre il lotto e lo **invia** al portale `compagnia-test` | Voi ricevete una `POST` per pratica (con `documents`, `partita_iva_contraente`, `callback`); rispondete `200` con `external_reference`. Nel nostro registro le consegne risultano riuscite |
 | 3 | voi | `practice.received` per ogni pratica, con il vostro riferimento in `practice.reference` | `200`, riferimento registrato, stato invariato |
 | 4 | voi | Lo stesso evento con lo stesso `event_id` | `200` con `"duplicate": true` |
 | 5 | voi | `practice.info_requested` su una pratica, con `message` | La pratica passa a *Integrazioni richieste* |
@@ -149,7 +168,7 @@ Chi fa che cosa nel portale: **RF** = utente rappresentante fiscale di prova del
 | 12 | voi | Lo stesso con `FINTO_non_firmato.pdf.p7m` | `422 invalid_document` |
 | 13 | RF | Scarica il pacchetto da firmare (copia `.p7m` + MUP unico) e carica i due file firmati | Voi ricevete `practice.signed` con i due documenti firmati |
 | 14 | voi | `practice.issued` con le quattro copie della polizza | Pratica *Emessa*, quattro file allegati |
-| 15 | voi | Il vostro indirizzo eventi risponde `500` per qualche minuto | Noi ritentiamo dopo 1, 5, 30 minuti…: i tentativi sono visibili in Impostazioni → Connessioni (anche il pulsante **Riprova**) |
+| 15 | voi | Il vostro indirizzo eventi risponde `500` per qualche minuto | Noi ritentiamo dopo 1, 5, 30 minuti…: i tentativi risultano nel nostro registro e si possono ripetere a mano |
 | 16 | voi | Servizi di lettura su una pratica del lotto (`get-practice-status`, `get-reports`) | I dati corrispondono a quelli del portale |
 
 Comandi pronti per le prove 3, 5, 7, 9, 11, 12 e 14 (sostituite il numero della pratica con quello ricevuto nella prova 2):
@@ -205,9 +224,11 @@ Il collaudo è superato quando le prove da 1 a 16 danno l'esito atteso. A quel p
 
 ## 6. Assistenza durante il collaudo
 
-- Ogni scambio è registrato in **Impostazioni → Connessioni** del portale di prova, con esito, codice e motivo dell'errore: è il primo posto dove guardare, anche per voi con l'utente amministratore di prova.
+- Ogni scambio è registrato nel nostro portale con esito, codice e motivo dell'errore: su richiesta vi mandiamo l'estratto del registro.
 - Per un errore comunicateci: ora (con fuso), `event_id` o numero di pratica, codice di risposta. Non mandate mai il segreto di firma per e-mail.
 - Possiamo ripristinare utenti, password e dati della sandbox in qualsiasi momento.
+
+Le condizioni d'uso dell'ambiente di prova e di questo materiale sono nella sezione 0 di questa guida.
 
 *Contatti tecnici Tecno Advance MGA: info@tecnomga.com · PEC tecnoadvancemgabroker@legalmail.it*
 

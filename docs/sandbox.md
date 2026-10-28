@@ -22,7 +22,7 @@ Il database della sandbox ha **tutte le 75 migrazioni** del repository, applicat
 |---|---|---|
 | `admin.sandbox@tecnomga.com` | Amministratore | VIES |
 | `collaboratore.sandbox@tecnomga.com` | Collaboratore (rappresentante fiscale) | VIES |
-| `compagnia.admin@tecnosandbox.app` | Amministratore, **consegnato alla compagnia** per il collaudo | tutti |
+| `compagnia.admin@tecnosandbox.app` | Amministratore creato per la compagnia, **disattivato** (le operazioni da amministratore nel collaudo le facciamo noi) | tutti |
 | `compagnia.collaboratore@tecnosandbox.app` | Collaboratore, **consegnato alla compagnia** (fa la parte del rappresentante fiscale) | VIES |
 
 Le password sono state consegnate a parte e non sono scritte nel repository. Gli utenti esistono solo nella sandbox. Gli utenti della compagnia sono stati creati con il cambio password obbligatorio al primo accesso.
