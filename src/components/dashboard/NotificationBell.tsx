@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,8 +34,12 @@ export const NotificationBell = () => {
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [failed, setFailed] = useState(false);
+  // Bumped whenever notifications are marked as read here: a reload asked before that answers with the
+  // old count and must not bring the number back on the bell.
+  const localChanges = useRef(0);
 
   const refresh = useCallback(async () => {
+    const changesBefore = localChanges.current;
     const [count, list] = await Promise.all([
       supabase.from("notifications").select("id", { count: "exact", head: true }).eq("read", false),
       supabase
@@ -44,6 +48,7 @@ export const NotificationBell = () => {
         .order("created_at", { ascending: false })
         .limit(LIST_SIZE),
     ]);
+    if (changesBefore !== localChanges.current) return;
     if (count.error || list.error) {
       setFailed(true);
       return;
@@ -66,6 +71,7 @@ export const NotificationBell = () => {
   }, [open, refresh]);
 
   const markRead = async (id: string) => {
+    localChanges.current += 1;
     setItems((current) => current.map((item) => (item.id === id ? { ...item, read: true } : item)));
     setUnread((current) => Math.max(0, current - 1));
     const { error } = await supabase.from("notifications").update({ read: true }).eq("id", id);
@@ -73,6 +79,7 @@ export const NotificationBell = () => {
   };
 
   const markAll = async () => {
+    localChanges.current += 1;
     setItems((current) => current.map((item) => ({ ...item, read: true })));
     setUnread(0);
     const { error } = await supabase.from("notifications").update({ read: true }).eq("read", false);

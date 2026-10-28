@@ -20,7 +20,8 @@ const fresh = () => [
 ];
 
 const browser = await chromium.launch();
-async function open({ language = "it", failList = false } = {}) {
+// slowCount: the count arrives late, with the state of when it was asked (a slow network).
+async function open({ language = "it", failList = false, slowCount = 0 } = {}) {
   const ctx = await browser.newContext({ locale: "it-IT", viewport: { width: 1360, height: 1000 } });
   const log = { patches: [] };
   let rows = fresh();
@@ -50,6 +51,7 @@ async function open({ language = "it", failList = false } = {}) {
       }
       if (method === "HEAD") {
         const unread = rows.filter((row) => !row.read).length;
+        if (slowCount) await new Promise((resolve) => setTimeout(resolve, slowCount));
         return route.fulfill({ status: 200, headers: { ...hdr, "content-range": unread ? `0-${unread - 1}/${unread}` : "*/0" } });
       }
       return reply(rows);
@@ -109,6 +111,19 @@ for (const [language, re, label] of [["en", /Practice status updated/, "en"], ["
   await page.waitForSelector("[data-testid=notification-item]");
   const panel = await page.getByTestId("notification-panel").innerText();
   check(`2 ${label}: notifiche tradotte (non l'italiano salvato nel database)`, re.test(panel) && !/Cambio Stato Pratica|Nuovo Documento Caricato/.test(panel), panel.replace(/\s+/g, " ").slice(0, 200));
+  await ctx.close();
+}
+
+{
+  // Opening the bell reloads the count; «Segna tutte come lette» clicked before that answer arrives must win.
+  const { ctx, page, pageErrors } = await open({ slowCount: 800 });
+  await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" });
+  await page.waitForSelector("[data-testid=notification-count]", { timeout: 10000 });
+  await page.getByTestId("notification-bell").click();
+  await page.getByTestId("notification-mark-all").click();
+  await page.waitForTimeout(1500);
+  check("4 rete lenta: dopo «Segna tutte come lette» il numero non torna", (await page.getByTestId("notification-count").count()) === 0);
+  check("4 nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
   await ctx.close();
 }
 
