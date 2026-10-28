@@ -119,14 +119,14 @@ SECRET='…'        # segreto di firma dalla scheda credenziali
 | A1 | Accesso al portale | Entrate su `https://tecnosandbox.app` con i due utenti della scheda | Cambio password al primo accesso, poi la dashboard |
 | A2 | Chiave API | `GET /api/get-practices` con `X-API-Key` (§3.2) | `200`, elenco (vuoto finché non c'è un lotto) |
 | A3 | Chiave sbagliata | Stessa chiamata con una chiave inventata | `401 API Key non valida.` |
-| A4 | Firma corretta | `practice.received` firmato per una pratica inesistente (comando sotto) | `404 practice_not_found`: la firma è stata accettata |
+| A4 | Firma corretta | `practice.received` firmato per una pratica inesistente (comando sotto) | `404 practice_not_found`: la firma è stata accettata. Senza `practice.reference` la risposta è `400 invalid_payload` (il riferimento è obbligatorio in `practice.received`) |
 | A5 | Firma sbagliata | Lo stesso con un segreto diverso, oppure `X-Timestamp` di 10 minuti fa | `401 unauthorized` (risposta identica in tutti i casi) |
 | A6 | Ricezione dei nostri eventi | Avviate il vostro ricevitore (o `simulator receive`) e chiedeteci un `practice.test` | Arriva l'evento con firma verificabile |
 
 ```bash
 # A4: firma corretta su una pratica che non esiste → 404 practice_not_found
 node vies-portal-simulator.mjs callback --url $SANDBOX --portal-id $PORTAL --secret "$SECRET" \
-  --event received --practice-number VIES-2026-9999-00000000
+  --event received --practice-number VIES-2026-9999-00000000 --reference PROVA-1
 ```
 
 ### 5.2 Prova generale (con il vostro indirizzo di prova collegato)
@@ -137,7 +137,7 @@ Chi fa che cosa nel portale: **RF** = utente rappresentante fiscale di prova del
 |---|---|---|---|
 | 1 | RF | Pagina **VIES**: carica `VIES_Lotto_2_corretto.xlsx` e poi `VIES_Lotto_2_corretto_ZIP.zip`; crea il lotto | 20 righe pronte su 20, lotto creato |
 | 2 | AD | Apre il lotto e lo **invia** al portale `compagnia-test` | Voi ricevete una `POST` per pratica (con `documents`, `partita_iva_contraente`, `callback`); rispondete `200` con `external_reference`. In Impostazioni → Connessioni le consegne risultano riuscite |
-| 3 | voi | `practice.received` per ogni pratica | `200`, riferimento registrato, stato invariato |
+| 3 | voi | `practice.received` per ogni pratica, con il vostro riferimento in `practice.reference` | `200`, riferimento registrato, stato invariato |
 | 4 | voi | Lo stesso evento con lo stesso `event_id` | `200` con `"duplicate": true` |
 | 5 | voi | `practice.info_requested` su una pratica, con `message` | La pratica passa a *Integrazioni richieste* |
 | 6 | RF | Risponde alla richiesta caricando un documento | Voi ricevete `practice.info_provided` con i documenti |
@@ -159,7 +159,7 @@ N=VIES-2026-0001-ab12cd34
 
 # 3. presa in carico
 node vies-portal-simulator.mjs callback --url $SANDBOX --portal-id $PORTAL --secret "$SECRET" \
-  --event received --practice-number $N --event-id evt-$N-received
+  --event received --practice-number $N --reference VOSTRO-RIF-1 --event-id evt-$N-received
 
 # 5. richiesta di integrazioni
 node vies-portal-simulator.mjs callback --url $SANDBOX --portal-id $PORTAL --secret "$SECRET" \
