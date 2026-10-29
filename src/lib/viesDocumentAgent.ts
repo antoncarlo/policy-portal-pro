@@ -68,9 +68,11 @@ const toFailure = async (error: Error): Promise<AgentFailure> => {
     }
   }
   const message = payload?.error ?? error.message ?? "Agent non raggiungibile.";
-  // Function not deployed, or deployed without its API key.
+  // Function not deployed, deployed without its API key, or the API credit is used up: no document can be read.
   const unavailable =
-    payload?.code === "AGENT_NOT_CONFIGURED" || (error instanceof FunctionsHttpError && error.context.status === 404);
+    payload?.code === "AGENT_NOT_CONFIGURED" ||
+    payload?.code === "AGENT_NO_CREDIT" ||
+    (error instanceof FunctionsHttpError && error.context.status === 404);
   // Temporary problems (rate limit, gateway, network) are worth another attempt.
   const status = error instanceof FunctionsHttpError ? error.context.status : null;
   const retryable = !unavailable && (status === null || status === 429 || status >= 500);

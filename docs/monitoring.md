@@ -43,3 +43,23 @@ Limiti da conoscere:
 - L'accesso lo fa Supabase direttamente dal browser: un tentativo fatto contro l'indirizzo di autenticazione di Supabase senza passare dalla schermata del portale non viene segnalato e resta solo nel registro di autenticazione di Supabase (Dashboard › Logs › Auth). Il controllo a livello di Supabase («Password verification hook») è disponibile solo nei piani Teams ed Enterprise.
 - La segnalazione è pubblica, quindi falsificabile: serve a leggere e a farsi avvisare, mai a bloccare un account. Si accettano 30 segnalazioni ogni dieci minuti per indirizzo IP e si scrivono al massimo 20 righe ogni dieci minuti per indirizzo.
 - Gli accessi riusciti e le uscite sono già nel registro (azioni «Accesso» e «Uscita»).
+
+## SECTION 07 — Costo dell'agent documentale VIES
+
+Ogni lettura dell'agent documentale (`vies-document-agent`) scrive nei log della funzione una riga `vies_agent_reading` con modello, token in entrata e in uscita, pagine inviate, dimensione, durata ed esito (mai il nome del file). Nei log Supabase (Logs › Explorer, oppure `query_logs`; finestra massima di 24 ore) questa query dà letture, errori, token, costo in dollari ai prezzi di listino (2 $ per milione di token in entrata, 10 $ in uscita) e durata media:
+
+```sql
+select JSONExtractString(event_message, 'model') as modello,
+       count() as letture,
+       countIf(JSONHas(event_message, 'error')) as errori,
+       sum(JSONExtractInt(event_message, 'input_tokens')) as token_in,
+       sum(JSONExtractInt(event_message, 'output_tokens')) as token_out,
+       round(sum(JSONExtractInt(event_message, 'input_tokens')) * 2 / 1e6
+           + sum(JSONExtractInt(event_message, 'output_tokens')) * 10 / 1e6, 2) as usd,
+       round(avg(JSONExtractInt(event_message, 'ms')) / 1000, 1) as secondi_medi
+from logs
+where source = 'function_logs' and event_message like '{"event":"vies_agent_reading"%'
+group by modello
+```
+
+Si raggruppa per modello perché, con il fallback lato server, una lettura rifiutata può essere completata da un altro modello, con un altro prezzo. Il costo del questionario antiriciclaggio (`vies-aml-agent`) è nelle righe `vies_aml_reading`, con gli stessi campi dei token. Il saldo del credito non è leggibile con la chiave dell'agent: si controlla nella Console Anthropic (Billing), dove conviene attivare la ricarica automatica o l'avviso di saldo basso.

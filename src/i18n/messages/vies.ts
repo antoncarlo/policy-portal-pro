@@ -338,6 +338,7 @@ export const viesMessages = defineMessages({
       matchCompanyName:
         "Se i documenti sono di questa società, scrivere nell'Excel la Ragione Sociale come compare nei documenti; altrimenti aggiungere allo ZIP il certificato di attribuzione della P.IVA dell'Agenzia delle Entrate.",
       reloadZips: "Ricaricare gli ZIP per ripetere la lettura; se si ripete, chiedere al cliente copie più leggibili.",
+      rechargeCredit: "Avvisare l'amministratore del portale di ricaricare il credito dell'agent, poi ricaricare gli ZIP: i documenti non vanno richiesti al cliente.",
       reloadForAgent: "Ricaricare gli ZIP per ripetere la verifica dell'agent.",
       checkCode:
         "Controllare a vista il documento: il codice stampato non si legge con certezza; se serve, chiedere una copia più nitida.",
@@ -701,6 +702,7 @@ export const viesMessages = defineMessages({
       matchCompanyName:
         "If the documents belong to this company, write its name in the Excel as the documents print it; otherwise add the Italian Revenue Agency's VAT number certificate to the ZIP.",
       reloadZips: "Upload the ZIPs again to repeat the reading; if it happens again, ask the client for clearer copies.",
+      rechargeCredit: "Ask the portal administrator to top up the agent's credit, then upload the ZIPs again: do not ask the client for the documents.",
       reloadForAgent: "Upload the ZIPs again to repeat the agent's check.",
       checkCode: "Check the document by eye: the printed code cannot be read with certainty; if needed, ask for a sharper copy.",
       fixIdDocument: "Correct the legal representative's ID document number in the Excel file, or ask the client for the right document.",
@@ -1044,6 +1046,7 @@ export const viesMessages = defineMessages({
       readableCodes: "请向客户索取能清楚看到统一社会信用代码或增值税号的文件（清晰的扫描件）。",
       matchCompanyName: "如文件属于该公司，请在 Excel 中按文件所示填写公司名称；否则请在 ZIP 中加入意大利税务局的增值税号分配证明。",
       reloadZips: "请重新上传 ZIP 以再次读取；如仍有问题，请向客户索取更清晰的副本。",
+      rechargeCredit: "请通知门户管理员为识别助手充值，然后重新上传 ZIP：无需向客户重新索取文件。",
       reloadForAgent: "请重新上传 ZIP，让识别助手再次核查。",
       checkCode: "请人工检查该文件：打印的代码无法确定读取；如有需要，请索取更清晰的副本。",
       fixIdDocument: "请修改 Excel 中法定代表人的证件号码，或向客户索取正确的证件。",

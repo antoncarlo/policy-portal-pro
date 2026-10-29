@@ -274,6 +274,11 @@ const RULES: Rule[] = [
     en: (m, t, v) => `Among the application's documents there is one from ${v(m[1])}`,
     zh: (m, t, v) => `申请文件中有一份来自 ${v(m[1])}`,
   },
+  {
+    pattern: /^Credito API dell'agent esaurito: l'amministratore del portale deve ricaricarlo nella Console Anthropic(.*)$/,
+    en: (m) => `The agent's API credit is used up: the portal administrator must top it up in the Anthropic Console${m[1]}`,
+    zh: (m) => `识别助手的 API 额度已用完：须由门户管理员在 Anthropic 控制台充值${m[1]}`,
+  },
   { pattern: /^Uno dei documenti dello ZIP non è leggibile$/, ...same("One of the ZIP documents cannot be read", "ZIP 中有一份文件无法读取") },
   {
     pattern: /^Documenti obbligatori non trovati: (.+)$/,
