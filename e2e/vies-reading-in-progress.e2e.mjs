@@ -129,6 +129,8 @@ await page.evaluate(() => {
     if (!window.__watchReading) return;
     const text = document.body.innerText.replace(/\s+/g, " ");
     const section = text.slice(text.indexOf("3. Controllo pratiche"), text.indexOf("4. Documenti obbligatori"));
+    // Before the ZIPs are chosen the rows are rightly blocked ("ZIP non caricato"): watched from the upload on.
+    if (/non caricato/.test(section)) return;
     for (const seen of section.match(/Bloccata|Documenti mancanti|\d+ bloccate/g) ?? []) {
       if (!window.__judgedTooEarly.includes(seen)) window.__judgedTooEarly.push(seen);
     }
