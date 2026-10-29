@@ -10,6 +10,7 @@
 import Anthropic from "npm:@anthropic-ai/sdk@^0.131.0";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { isOutOfCredit, NO_CREDIT_MESSAGE } from "../_shared/agent-errors.ts";
+import { readingSettings } from "./reading.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,7 +18,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const MODEL = "claude-sonnet-5-5";
+const MODEL = readingSettings(false).model;
 const MAX_BASE64_LENGTH = 30 * 1024 * 1024;
 const MEDIA_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/gif"] as const;
 type MediaType = (typeof MEDIA_TYPES)[number];
@@ -115,6 +116,8 @@ Deno.serve(async (req) => {
     media_type?: string;
     data?: string;
     probe?: boolean;
+    // The first reading gave a code with a wrong check character: read the same pages again (more capable model).
+    recheck?: boolean;
     // First reading of a long PDF: only these pages (1-based) of total_pages were sent.
     excerpt?: { pages?: unknown; total_pages?: unknown };
   };
@@ -158,6 +161,7 @@ Deno.serve(async (req) => {
       ? `\nEstratto del documento: sono incluse solo le pagine ${excerptPages.join(", ")} di ${totalPages}. Le pagine mancanti non sono un difetto del documento: non segnalarle tra gli issues.`
       : "";
 
+  const settings = readingSettings(body.recheck === true);
   const client = new Anthropic({ apiKey });
   const startedAt = Date.now();
   // One line per reading in the function's logs: what each lot costs and how long it takes (no file names: they can carry people's names).
@@ -168,22 +172,23 @@ Deno.serve(async (req) => {
         media_type: mediaType,
         kb: Math.round((body.data!.length * 3) / 4 / 1024),
         pages: excerptPages.length ? `${excerptPages.length}/${totalPages}` : null,
+        recheck: body.recheck === true,
         ms: Date.now() - startedAt,
         ...fields,
       }),
     );
   try {
     const response = await client.beta.messages.create({
-      model: MODEL,
-      max_tokens: 4096,
+      model: settings.model,
+      max_tokens: settings.maxTokens,
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       system: SYSTEM_PROMPT,
-      output_config: { effort: "medium", format: { type: "json_schema", schema: OUTPUT_SCHEMA } },
+      output_config: { effort: settings.effort, format: { type: "json_schema", schema: OUTPUT_SCHEMA } },
       messages: [
         {
           role: "user",
-          content: [source, { type: "text", text: `Nome del file (può essere fuorviante): ${body.file_name ?? "sconosciuto"}${excerptNote}` }],
+          content: [source, { type: "text", text: `Nome del file (può essere fuorviante): ${body.file_name ?? "sconosciuto"}${excerptNote}${settings.note}` }],
         },
       ],
     });
