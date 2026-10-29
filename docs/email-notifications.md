@@ -70,7 +70,7 @@ Il canale email è quello già configurato (`GMAIL_USER`/`GMAIL_APP_PASSWORD` op
 | Variabile | Effetto |
 |---|---|
 | `RESEND_WEBHOOK_SECRET` | segreto del webhook Resend (`whsec_…`); senza, `/api/resend-webhook` risponde 503 |
-| `ADMIN_NOTIFICATION_EMAILS` | caselle fisse dell'ufficio che ricevono **le nuove pratiche** (`info@tecnomga.com`, `antoncarlo@tecnomga.com`, `vies@tecnomga.com`). `none` le disattiva. Ricevono anche quando chi carica accede con una di esse (Admin Master con `info@tecnomga.com`); mai due volte lo stesso indirizzo, anche se un amministratore l'ha scelto tra i suoi. Con l'invio tramite Gmail, la casella che invia (`GMAIL_USER`) trova in «Posta inviata», non in arrivo, i messaggi indirizzati a se stessa: Gmail non li mostra in arrivo |
+| `ADMIN_NOTIFICATION_EMAILS` | caselle fisse dell'ufficio che ricevono **le nuove pratiche** (`info@tecnomga.com`, `antoncarlo@tecnomga.com`, `vies@tecnomga.com`). `none` le disattiva. Ricevono anche quando chi carica accede con una di esse (Admin Master con `info@tecnomga.com`); mai due volte lo stesso indirizzo, anche se un amministratore l'ha scelto tra i suoi. |
 
 ## SECTION 07 — Limiti noti
 
