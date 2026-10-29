@@ -58,6 +58,7 @@ import {
   scanPdf,
   type VisuraData,
 } from "@/lib/viesDocumentScan";
+import { isMisreadOf } from "@/lib/viesCodes";
 import {
   VIES_DOCUMENT_TYPES,
   VIES_REQUIRED_DOCUMENT_TYPES,
@@ -1465,6 +1466,8 @@ const Vies = () => {
       let matchedZipFiles = nameZipKey ? zipFilesByKey.get(nameZipKey) ?? [] : [];
       let linkedByVat = false;
       const errors: string[] = [];
+      // Kept in the practice, never blocking it.
+      const warnings: string[] = [];
 
       const expectedIdentifiers = [record.uscc, record.partitaIvaContraente, record.codiceFiscaleContraente].filter(Boolean);
       // The representative's and the beneficiary's codes appear in every ZIP: never evidence of the client.
@@ -1553,10 +1556,15 @@ const Vies = () => {
       if (unreadDocuments.length) {
         errors.push(`${unreadDocuments.length} documenti non verificati dall'agent: ${unreadDocuments[0].agentIssues[0] ?? "errore"}`);
       }
-      // Codes the agent read with a wrong check character: the document must be checked by hand.
+      // Codes the agent read with a wrong check character, even after the rereading: a badly scanned code says nothing
+      // about whose the document is (that is checked above, from the codes read well and the company name). It stays in
+      // the practice as a warning, with the same code read well in another document of the ZIP when there is one.
+      const codesReadWell = rowDocuments.flatMap((document) => [...document.usccs, ...document.chineseIds, ...document.vatNumbers]);
       for (const document of rowDocuments) {
         for (const issue of document.agentIssues.filter((text) => /letto non valid/i.test(text))) {
-          errors.push(`${document.name}: ${issue}`);
+          const read = issue.slice(issue.lastIndexOf(": ") + 2);
+          const confirmed = codesReadWell.find((code) => isMisreadOf(read, code));
+          warnings.push(`${document.name}: ${issue}${confirmed ? `; negli altri documenti lo stesso codice è letto bene: ${confirmed}` : ""}`);
         }
       }
       // Legal representative: the identity card in the documents must be the one in the Excel.
@@ -1592,7 +1600,6 @@ const Vies = () => {
       }
       // An expired Hong Kong Business Registration Certificate blocks the row, unless the ZIP also has the
       // Certificate of Incorporation: then it is only a warning, kept in the practice (the renewal to ask for).
-      const warnings: string[] = [];
       const hasIncorporation = rowDocuments.some((document) =>
         acceptedTypes.get(documentKey(document))?.includes("certificato_costituzione_hk"),
       );

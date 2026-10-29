@@ -118,6 +118,11 @@ const RULES: Rule[] = [
     en: (m) => `Unified Social Credit Code read as invalid: ${m[1]}`,
     zh: (m) => `读取到的统一社会信用代码无效：${m[1]}`,
   },
+  {
+    pattern: /^negli altri documenti lo stesso codice è letto bene: (.+)$/,
+    en: (m) => `the other documents carry the same code read correctly: ${m[1]}`,
+    zh: (m) => `其他文件已正确读取同一代码：${m[1]}`,
+  },
   { pattern: /^Partita IVA letta non valida: (.+)$/, en: (m) => `VAT number read as invalid: ${m[1]}`, zh: (m) => `读取到的增值税号无效：${m[1]}` },
   {
     pattern: /^Numero del documento d'identità letto non valido: (.+)$/,

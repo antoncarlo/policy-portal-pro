@@ -60,6 +60,23 @@ export const isValidChineseId = (value: string) => {
   return "10X98765432"[sum % 11] === code[17];
 };
 
+// Characters to add, drop or change to turn one code into the other (Levenshtein distance).
+const editDistance = (a: string, b: string) => {
+  let previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= a.length; i += 1) {
+    const current = [i];
+    for (let j = 1; j <= b.length; j += 1) {
+      current[j] = Math.min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    previous = current;
+  }
+  return previous[b.length];
+};
+
+// A code read with a wrong check character that differs from a valid one by at most two characters (one dropped,
+// doubled or misread, as in 9144030… for 91440300…): the same code read badly, never another company's.
+export const isMisreadOf = (read: string, valid: string) => editDistance(read, valid) <= 2;
+
 export const normalizeUscc = (value: unknown) => String(value ?? "").replace(/\s+/g, "").toUpperCase();
 
 // Excel stores a P.IVA typed as a number without its leading zeros.
