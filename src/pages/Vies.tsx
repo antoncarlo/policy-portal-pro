@@ -219,6 +219,8 @@ type ViesReconciliationRow = {
   zipCompanyNames: string[];
   /** Document types each document of the ZIP counts for (documentKey → types). */
   acceptedTypes: Map<string, string[]>;
+  /** Its documents are still being read (ZIPs being opened, or scans with the agent): the row is not judged yet. */
+  reading: boolean;
   errors: string[];
   /** Do not block the row: shown next to it and kept in the practice. */
   warnings: string[];
@@ -1508,10 +1510,12 @@ const Vies = () => {
         (identifier) => !sharedIdentifiers.has(identifier) && !(italianOnly && identifier.length === 18),
       );
       const zipCompanyNames = [...new Set(rowDocuments.flatMap((document) => document.companyNames))];
-      // Scans still being read, or not read because the agent cannot work (no API key, no credit): the codes,
+      // Documents still being read (the ZIPs are being opened, so their scans are not even queued for the agent yet,
+      // or the agent is reading them), or not read because the agent cannot work (no API key, no credit): the codes,
       // the company name and the document types they carry are not known yet. Identity and missing documents are
       // judged once they are read, never on the unread ones: the client is not asked for documents that are there.
-      const awaitingAgent = rowDocuments.some((document) => document.agentStatus === "pending" || document.agentStatus === "unavailable");
+      const reading = loadingZip || rowDocuments.some((document) => document.agentStatus === "pending");
+      const awaitingAgent = reading || rowDocuments.some((document) => document.agentStatus === "unavailable");
       let vatCheck: ViesReconciliationRow["vatCheck"] = "not_applicable";
       if (matchedZipFiles.length && expectedIdentifiers.length && !awaitingAgent) {
         if (expectedIdentifiers.some((identifier) => zipVatNumbers.includes(identifier))) {
@@ -1629,11 +1633,12 @@ const Vies = () => {
         zipVatNumbers,
         zipCompanyNames,
         acceptedTypes,
+        reading,
         errors,
         warnings,
       };
     });
-  }, [documents, records, zipFiles]);
+  }, [documents, loadingZip, records, zipFiles]);
 
   const readyReconciliations = reconciliationRows.filter((row) => row.errors.length === 0);
 
@@ -2237,11 +2242,14 @@ const Vies = () => {
     Boolean(reconciliation.zipFile) &&
     (reconciliation.vatCheck === "verified" || reconciliation.vatCheck === "verified_by_name") &&
     reconciliation.missingRequirements.length === 0 &&
-    getPendingScanCount(reconciliation) === 0 &&
+    !reconciliation.reading &&
     getRowBlockingErrors(reconciliation).length === 0;
 
   const readyRows = reconciliationRows.filter(isRowReady);
   const readyRowCount = readyRows.length;
+  // Rows whose documents are still being read are neither ready nor blocked yet.
+  const checkingRowCount = reconciliationRows.filter((reconciliation) => reconciliation.reading).length;
+  const blockedRowCount = reconciliationRows.length - readyRowCount - checkingRowCount;
   const excludedRows = reconciliationRows.filter((reconciliation) => !isRowReady(reconciliation));
 
   const handlePrepareBatch = async () => {
@@ -3152,9 +3160,13 @@ const Vies = () => {
                   <Badge variant="secondary" className="bg-emerald-100 text-emerald-900 hover:bg-emerald-100">
                     {m.step3.ready(readyRowCount)}
                   </Badge>
-                  {reconciliationRows.length - readyRowCount > 0 && (
-                    <Badge variant="destructive">{m.step3.blocked(reconciliationRows.length - readyRowCount)}</Badge>
+                  {checkingRowCount > 0 && (
+                    <Badge variant="outline" className="border-amber-500/30 text-amber-900">
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      {m.step3.checkingCount(checkingRowCount)}
+                    </Badge>
                   )}
+                  {blockedRowCount > 0 && <Badge variant="destructive">{m.step3.blocked(blockedRowCount)}</Badge>}
                 </div>
                 <div className="overflow-x-auto rounded-lg border">
                   <Table>
@@ -3170,9 +3182,10 @@ const Vies = () => {
                     <TableBody>
                       {reconciliationRows.map((reconciliation) => {
                         const pendingScans = getPendingScanCount(reconciliation);
+                        const checking = reconciliation.reading;
                         const rowErrors = getRowBlockingErrors(reconciliation);
-                        // While the agent is reading, a type may still be found: not "missing" yet.
-                        const missing = reconciliation.zipFile && !pendingScans ? reconciliation.missingRequirements : [];
+                        // While the documents are being read, a type may still be found: not "missing" yet.
+                        const missing = reconciliation.zipFile && !checking ? reconciliation.missingRequirements : [];
                         const ready = isRowReady(reconciliation);
                         return (
                           <Fragment key={`reconciliation-${reconciliation.record.rowNumber}`}>
@@ -3217,7 +3230,7 @@ const Vies = () => {
                                 {reconciliation.vatCheck === "not_applicable" && <span className="text-muted-foreground">—</span>}
                               </TableCell>
                               <TableCell className="text-right">
-                                {pendingScans ? (
+                                {checking ? (
                                   <Badge variant="outline" className="border-amber-500/30 text-amber-900">
                                     <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                                     {m.step3.checking}
@@ -3233,11 +3246,11 @@ const Vies = () => {
                               <TableRow className="hover:bg-transparent">
                                 <TableCell colSpan={5} className="pt-0">
                                   <div className="space-y-2 rounded-md bg-muted/40 p-3 text-sm">
-                                    {pendingScans > 0 && (
+                                    {checking && (
                                       <div className="flex gap-2 text-amber-900">
                                         <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
                                         <p className="min-w-0 break-words">
-                                          {m.step3.scansReading(pendingScans)}
+                                          {pendingScans > 0 ? m.step3.scansReading(pendingScans) : m.step3.documentsReading}
                                         </p>
                                       </div>
                                     )}
@@ -3268,7 +3281,7 @@ const Vies = () => {
                                         </div>
                                       </div>
                                     ))}
-                                    {!pendingScans && (
+                                    {!checking && (
                                       <p className="text-xs text-muted-foreground">
                                         {m.step3.rowNotCreated}
                                       </p>
@@ -3320,6 +3333,8 @@ const Vies = () => {
                   <div className="flex items-center gap-2">
                     {requirement.completed ? (
                       <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    ) : loadingZip ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-amber-700" />
                     ) : (
                       <XCircle className="h-4 w-4 text-destructive" />
                     )}
@@ -3331,17 +3346,23 @@ const Vies = () => {
                   {zipFiles.length > 0 && (
                     <p className="mt-1 break-words text-xs text-muted-foreground">
                       {m.step4.presentIn(requirement.coveredZipCount, zipFiles.length)}
-                      {requirement.zipsMissing.length > 0 && m.step4.missingIn(requirement.zipsMissing.join(", "))}
+                      {requirement.zipsMissing.length > 0 && !loadingZip && m.step4.missingIn(requirement.zipsMissing.join(", "))}
                     </p>
                   )}
                 </div>
-                <Badge variant={requirement.completed ? "secondary" : "destructive"} className="shrink-0">
-                  {requirement.completed ? m.step4.ok : m.step4.missing}
-                </Badge>
+                {requirement.completed || !loadingZip ? (
+                  <Badge variant={requirement.completed ? "secondary" : "destructive"} className="shrink-0">
+                    {requirement.completed ? m.step4.ok : m.step4.missing}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="shrink-0 border-amber-500/30 text-amber-900">
+                    {m.step3.checking}
+                  </Badge>
+                )}
               </div>
             ))}
 
-            {missingRequirements.length > 0 && documents.length > 0 && (
+            {missingRequirements.length > 0 && documents.length > 0 && !loadingZip && (
               <div className="flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 backdrop-blur-sm p-3 text-amber-900 md:col-span-2">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 <p className="text-sm">
