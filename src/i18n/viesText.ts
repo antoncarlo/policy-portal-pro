@@ -403,6 +403,20 @@ const RULES: Rule[] = [
     pattern: /^Documento troppo grande per l'agent \(massimo circa 22 MB\)\.$/,
     ...same("Document too large for the agent (about 22 MB at most).", "文件过大，识别助手无法处理（最大约 22 MB）。"),
   },
+  // Invio forzato dall'operatore (pagina VIES e scheda della pratica).
+  { pattern: /^Forzato da (.+) il (.+)$/, en: (m) => `Forced by ${m[1]} on ${m[2]}`, zh: (m) => `由 ${m[1]} 于 ${m[2]} 强制提交` },
+  { pattern: /^Forzato da (.+)$/, en: (m) => `Forced by ${m[1]}`, zh: (m) => `由 ${m[1]} 强制提交` },
+  { pattern: /^Motivo: (.+)$/, en: (m, t) => `Reason: ${t(m[1])}`, zh: (m, t) => `原因：${t(m[1])}` },
+  { pattern: /^Lettura dell'agent errata$/, ...same("Agent misread", "识别助手读取错误") },
+  { pattern: /^Documento verificato a mano dall'operatore$/, ...same("Document checked by hand by the operator", "操作员已人工核验文件") },
+  { pattern: /^Documento integrato dal cliente fuori portale$/, ...same("Document provided by the client outside the portal", "客户已在门户外补交文件") },
+  { pattern: /^Nota: (.+)$/, en: (m) => `Note: ${m[1]}`, zh: (m) => `备注：${m[1]}` },
+  { pattern: /^Blocco ignorato: (.+)$/, en: (m, t) => `Block ignored: ${t(m[1])}`, zh: (m, t) => `已忽略的阻止项：${t(m[1])}` },
+  {
+    pattern: /^Documento obbligatorio non trovato: (.+)$/,
+    en: (m) => `Required document not found: ${translateDocumentLabels(m[1], "en")}`,
+    zh: (m) => `未找到必备文件：${translateDocumentLabels(m[1], "zh")}`,
+  },
   {
     pattern: /^(.+) \(dopo (\d+) tentativi\)$/,
     en: (m, t) => `${t(m[1])} (after ${m[2]} attempts)`,

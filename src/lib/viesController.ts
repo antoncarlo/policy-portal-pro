@@ -10,6 +10,7 @@ import { extractNotesSections } from "./practiceSummary.js";
 import { isValidItalianTaxCode, isValidItalianVat, isValidUscc } from "./viesCodes.js";
 import { companyNameMatches } from "./viesCompanyNames.js";
 import { VIES_REQUIRED_DOCUMENT_TYPES, missingRequiredDocuments } from "./viesDocumentTypes.js";
+import { readViesForcing } from "./viesForcing.js";
 import { isValidZipName, zipKeyOf } from "./viesZipKeys.js";
 import {
   VIES_ALLOW_DUPLICATE_PRACTICES,
@@ -114,7 +115,8 @@ export interface ControllerReport {
   jobs: ControllerJobResult[];
 }
 
-export const VIES_CONTROLLER_RULES_VERSION = 1;
+// 2: a practice the operator forced (vies_forzatura) skips the checks on identity and documents.
+export const VIES_CONTROLLER_RULES_VERSION = 2;
 
 const str = (value: unknown) => (value === null || value === undefined ? "" : String(value).trim());
 const list = (value: unknown): string[] => (Array.isArray(value) ? value.map((item) => str(item)).filter(Boolean) : []);
@@ -216,23 +218,29 @@ export function verifyViesBatch(input: ControllerInput): ControllerReport {
       if (str(practice.owner_tax_code) !== (vat ?? "")) fail("La P.IVA della pratica non coincide con quella registrata");
       if (str(job.partita_iva_contraente) !== (vat ?? "")) fail("La P.IVA della riga non coincide con quella della pratica");
 
+      // Invio forzato dall'operatore, che si è assunto la responsabilità dei controlli sui documenti non superati:
+      // identità e documenti (punti 4 e 7) non si ricontrollano, tutto il resto sì.
+      const forced = readViesForcing(fields.vies_forzatura) !== null;
+
       // 4. I documenti dello ZIP sono di questa società, e solo di questa.
       const expectedCodes = [uscc, vat].filter((code): code is string => Boolean(code));
       const foundCodes = [...new Set(list(fields.vies_piva_trovate))];
       const identityCheck = str(fields.vies_verifica_piva);
-      if (identityCheck === "verified_by_name") {
-        // Nessun codice della società nei documenti: devono riportarne la ragione sociale come nella pratica.
-        if (!companyNameMatches([practice.client_name, fields.vies_denominazione_cn], list(fields.vies_ragione_sociale_documenti))) {
-          fail("La ragione sociale della società non compare nei documenti dello ZIP");
+      if (!forced) {
+        if (identityCheck === "verified_by_name") {
+          // Nessun codice della società nei documenti: devono riportarne la ragione sociale come nella pratica.
+          if (!companyNameMatches([practice.client_name, fields.vies_denominazione_cn], list(fields.vies_ragione_sociale_documenti))) {
+            fail("La ragione sociale della società non compare nei documenti dello ZIP");
+          }
+        } else if (identityCheck !== "verified") {
+          fail("L'identità della società non è stata verificata nei documenti dello ZIP");
         }
-      } else if (identityCheck !== "verified") {
-        fail("L'identità della società non è stata verificata nei documenti dello ZIP");
+        if (identityCheck !== "verified_by_name" && !foundCodes.some((code) => expectedCodes.includes(code))) {
+          fail(`Nei documenti dello ZIP non compare il codice della società (${expectedCodes.join(" / ") || "nessuno"})`);
+        }
+        const foreignCodes = foundCodes.filter((code) => !expectedCodes.includes(code) && (codeOccurrences.get(code) ?? 0) < 2);
+        if (foreignCodes.length) fail(`Nello ZIP compaiono codici di un'altra società: ${foreignCodes.join(", ")}`);
       }
-      if (identityCheck !== "verified_by_name" && !foundCodes.some((code) => expectedCodes.includes(code))) {
-        fail(`Nei documenti dello ZIP non compare il codice della società (${expectedCodes.join(" / ") || "nessuno"})`);
-      }
-      const foreignCodes = foundCodes.filter((code) => !expectedCodes.includes(code) && (codeOccurrences.get(code) ?? 0) < 2);
-      if (foreignCodes.length) fail(`Nello ZIP compaiono codici di un'altra società: ${foreignCodes.join(", ")}`);
 
       // 5. Nome ZIP coerente in riga, pratica e allegato (numero, codice cliente o sigla; maiuscole indifferenti).
       const nomeZip = str(job.nome_zip);
@@ -265,11 +273,13 @@ export function verifyViesBatch(input: ControllerInput): ControllerReport {
       if (!indexed.length) fail("Nessun documento indicizzato per lo ZIP di questa pratica");
       const otherZip = indexed.find((document) => !isExpectedZip(document.zip_file_name));
       if (otherZip) fail(`Tra i documenti della pratica ce n'è uno di ${str(otherZip.zip_file_name) || "un altro ZIP"}`);
-      if (indexed.some((document) => document.status === "error")) fail("Uno dei documenti dello ZIP non è leggibile");
-      const covered = new Set(indexed.flatMap((document) => document.requirement_matches ?? []));
-      // Per una società di Hong Kong i suoi certificati valgono per licenza e report di credito.
-      const missing = missingRequiredDocuments(covered).map((type) => type.id);
-      if (missing.length) fail(`Documenti obbligatori non trovati: ${missing.join(", ")}`);
+      if (!forced) {
+        if (indexed.some((document) => document.status === "error")) fail("Uno dei documenti dello ZIP non è leggibile");
+        const covered = new Set(indexed.flatMap((document) => document.requirement_matches ?? []));
+        // Per una società di Hong Kong i suoi certificati valgono per licenza e report di credito.
+        const missing = missingRequiredDocuments(covered).map((type) => type.id);
+        if (missing.length) fail(`Documenti obbligatori non trovati: ${missing.join(", ")}`);
+      }
 
       // 8. Condizioni economiche e durata.
       if (!sameMoney(practice.premium_gross, VIES_PREMIUM_GROSS)) fail(`Premio lordo ${practice.premium_gross ?? "mancante"}, atteso ${VIES_PREMIUM_GROSS}`);

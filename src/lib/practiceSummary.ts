@@ -4,6 +4,7 @@
 
 import { policyFieldsConfig, type PolicyField } from "../types/policyFields.js";
 import { getCoverageById, petCoverages, type PetCoverage } from "../data/petInsuranceData.js";
+import { describeViesForcing, readViesForcing } from "./viesForcing.js";
 
 export const SPECIFIC_FIELDS_SEPARATOR = "--- Dati Specifici Polizza ---";
 export const IDEMPOTENCY_PREFIX = "idempotency:";
@@ -586,6 +587,8 @@ function buildViesSummary(input: PracticeSummaryInput): PracticeSummary {
   );
   pushItem(documentazione, "vies_avvisi", "Avvisi di validazione", listOrNull(f.vies_avvisi));
   pushItem(documentazione, "vies_note_documenti", "Note dell'agent sui documenti", listOrNull(f.vies_note_documenti));
+  const forcing = readViesForcing(f.vies_forzatura);
+  pushItem(documentazione, "vies_forzatura", "Invio forzato", forcing ? describeViesForcing(forcing) : null);
   pushItem(documentazione, "vies_riga_excel", "Riga Excel / colonna ZIP", str("vies_riga_excel"));
   pushItem(documentazione, "vies_batch_id", "Lotto VIES", str("vies_batch_id"));
   sections.push({ id: "documentazione", title: "Documentazione e controlli", items: documentazione });

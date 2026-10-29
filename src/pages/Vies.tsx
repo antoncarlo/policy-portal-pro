@@ -12,6 +12,7 @@ import {
   PlayCircle,
   RefreshCw,
   Send,
+  ShieldAlert,
   ShieldCheck,
   UploadCloud,
   XCircle,
@@ -23,10 +24,14 @@ import { callWorkflow } from "@/lib/workflowApi";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { requestNotificationFlush } from "@/lib/portalActions";
@@ -37,6 +42,7 @@ import { composeNotes } from "@/lib/practiceSummary";
 import { extractPdfText } from "@/lib/pdfText";
 import { companyNameMatches } from "@/lib/viesCompanyNames";
 import type { ControllerReport } from "@/lib/viesController";
+import { VIES_FORCING_REASONS, isForceableError, type ViesForcingReason, type ViesForcingRecord } from "@/lib/viesForcing";
 import {
   VIES_ALLOW_DUPLICATE_PRACTICES,
   VIES_DURATION_MONTHS,
@@ -225,6 +231,9 @@ type ViesReconciliationRow = {
   /** Do not block the row: shown next to it and kept in the practice. */
   warnings: string[];
 };
+
+/** The operator's forcing of a row: the blocks it covers, as they were shown when the operator confirmed. */
+type ViesForcingChoice = Pick<ViesForcingRecord, "motivo" | "nota" | "data" | "blocchi">;
 
 type WorkerSummary = {
   workerId: string;
@@ -510,12 +519,15 @@ const buildViesSpecificFields = ({
   reconciliation,
   validationErrors,
   visura,
+  forcing,
 }: {
   batchId: string;
   record: ExcelRecord;
   reconciliation?: ViesReconciliationRow;
   validationErrors: string[];
   visura: VisuraData | null;
+  /** Sending forced by the operator: who, when, why and the blocks ignored. */
+  forcing?: ViesForcingRecord | null;
 }) => ({
   vies_sede_contraente: record.indirizzoContraente || null,
   vies_denominazione_cn: record.denominazioneCn || null,
@@ -565,6 +577,7 @@ const buildViesSpecificFields = ({
   vies_note_documenti: (reconciliation?.documents ?? [])
     .filter((document) => document.agentIssues.length)
     .map((document) => `${document.name}: ${document.agentIssues.join("; ")}`),
+  ...(forcing ? { vies_forzatura: forcing } : {}),
   vies_riga_excel: `Riga ${record.rowNumber}${record.nomeZip ? `, ZIP ${record.nomeZip}` : ""}`,
   vies_batch_id: batchId,
   vies_dati_excel: record.raw,
@@ -1363,6 +1376,12 @@ const Vies = () => {
   const [agentProgress, setAgentProgress] = useState<{ done: number; failed: number; total: number; unavailable: string | null } | null>(null);
   const [loadingExcel, setLoadingExcel] = useState(false);
   const [loadingZip, setLoadingZip] = useState(false);
+  // Rows whose sending the operator forced (row number → choice), and the row the forcing dialog is open on.
+  const [forcings, setForcings] = useState<Map<number, ViesForcingChoice>>(() => new Map());
+  const [forcingDialog, setForcingDialog] = useState<{ rowNumber: number; zipName: string; blocks: string[] } | null>(null);
+  const [forcingReason, setForcingReason] = useState<ViesForcingReason | "">("");
+  const [forcingNote, setForcingNote] = useState("");
+  const [forcingAccepted, setForcingAccepted] = useState(false);
   const [zipProcessingStatus, setZipProcessingStatus] = useState<string | null>(null);
   const [savingBatch, setSavingBatch] = useState(false);
   const [batchUploadStatus, setBatchUploadStatus] = useState<string | null>(null);
@@ -1758,6 +1777,7 @@ const Vies = () => {
     try {
       const { records: parsedRecords, sheetData: workbookSheetData } = await parseExcelFile(file);
       setRecords(parsedRecords);
+      setForcings(new Map());
       if (Object.keys(workbookSheetData).length) {
         setSheetData((current) => ({ ...current, ...workbookSheetData }));
       }
@@ -1826,6 +1846,7 @@ const Vies = () => {
     setZipSources(uploadedFiles);
     setZipFiles(selectedFiles);
     setDocuments([]);
+    setForcings(new Map());
     setLoadingZip(true);
     setZipProcessingStatus(viesText().status.zipsIndexed(selectedFiles.length));
 
@@ -2236,20 +2257,65 @@ const Vies = () => {
   const getPendingScanCount = (reconciliation: ViesReconciliationRow) =>
     reconciliation.documents.filter((document) => document.agentStatus === "pending").length;
 
-  // The only rows that become practices: ZIP present and verified, every document
-  // found and read, no error. Everything else is left out of the batch entirely.
-  const isRowReady = (reconciliation: ViesReconciliationRow) =>
+  // Rows that pass every check: ZIP present and verified, every document found and read, no error.
+  const passesChecks = (reconciliation: ViesReconciliationRow) =>
     Boolean(reconciliation.zipFile) &&
     (reconciliation.vatCheck === "verified" || reconciliation.vatCheck === "verified_by_name") &&
     reconciliation.missingRequirements.length === 0 &&
     !reconciliation.reading &&
     getRowBlockingErrors(reconciliation).length === 0;
 
+  // What blocks a row, when the operator may force it: only blocks read from the documents (identity, expired or
+  // missing documents, documents the agent could not read), on a row with its ZIP, read to the end. Null when the row
+  // passes, is still being read, or is blocked by anything else (Excel data, ZIP, a practice that already exists).
+  const getForceableBlocks = (reconciliation: ViesReconciliationRow): string[] | null => {
+    if (!reconciliation.zipFile || reconciliation.reading || reconciliation.vatCheck === "not_applicable" || passesChecks(reconciliation)) return null;
+    const errors = getRowBlockingErrors(reconciliation);
+    if (!errors.every(isForceableError)) return null;
+    const blocks = [...errors, ...reconciliation.missingRequirements.map((requirement) => `Documento obbligatorio non trovato: ${requirement.label}`)];
+    return blocks.length ? blocks : null;
+  };
+
+  // The operator's forcing, while it still covers every block of the row.
+  const getForcing = (reconciliation: ViesReconciliationRow) => {
+    const choice = forcings.get(reconciliation.record.rowNumber);
+    const blocks = choice ? getForceableBlocks(reconciliation) : null;
+    return choice && blocks?.every((block) => choice.blocchi.includes(block)) ? choice : null;
+  };
+
+  // The only rows that become practices: those that pass every check, and those the operator forced.
+  // Everything else is left out of the batch entirely.
+  const isRowReady = (reconciliation: ViesReconciliationRow) => passesChecks(reconciliation) || getForcing(reconciliation) !== null;
+
   const readyRows = reconciliationRows.filter(isRowReady);
   const readyRowCount = readyRows.length;
   // Rows whose documents are still being read are neither ready nor blocked yet.
   const checkingRowCount = reconciliationRows.filter((reconciliation) => reconciliation.reading).length;
   const blockedRowCount = reconciliationRows.length - readyRowCount - checkingRowCount;
+  const forcedRowCount = reconciliationRows.filter((reconciliation) => getForcing(reconciliation) !== null).length;
+
+  const openForcingDialog = (reconciliation: ViesReconciliationRow) => {
+    const blocks = getForceableBlocks(reconciliation);
+    if (!blocks) return;
+    setForcingDialog({ rowNumber: reconciliation.record.rowNumber, zipName: reconciliation.record.nomeZip || reconciliation.zipFile?.name || "", blocks });
+    setForcingReason("");
+    setForcingNote("");
+    setForcingAccepted(false);
+  };
+
+  const confirmForcing = () => {
+    if (!forcingDialog || !forcingReason || !forcingAccepted) return;
+    const choice: ViesForcingChoice = { motivo: forcingReason, nota: forcingNote.trim(), data: new Date().toISOString(), blocchi: forcingDialog.blocks };
+    setForcings((current) => new Map(current).set(forcingDialog.rowNumber, choice));
+    setForcingDialog(null);
+  };
+
+  const undoForcing = (rowNumber: number) =>
+    setForcings((current) => {
+      const next = new Map(current);
+      next.delete(rowNumber);
+      return next;
+    });
   const excludedRows = reconciliationRows.filter((reconciliation) => !isRowReady(reconciliation));
 
   const handlePrepareBatch = async () => {
@@ -2439,15 +2505,24 @@ const Vies = () => {
 
       const archivedZipCount = zipStoragePathByFileName.size;
       const reconciliationByRow = new Map(batchRows.map((row) => [row.record.rowNumber, row]));
+      // Rows the operator forced: who (the signed-in user), when, why and the blocks ignored go in the practice.
+      const forcingByRow = new Map<number, ViesForcingRecord>();
+      for (const row of batchRows) {
+        const choice = getForcing(row);
+        if (choice) forcingByRow.set(row.record.rowNumber, { operatore: userData.user.email ?? userId, ...choice });
+      }
       const jobPreparationRows = batchRecords.map((record) => {
         const validationErrors = getRecordValidationErrors(record);
         const reconciliation = reconciliationByRow.get(record.rowNumber);
-        const reconciliationValidationErrors = [
-          ...(reconciliation?.errors ?? []),
-          ...(reconciliation?.missingRequirements ?? []).map(
-            (requirement) => `Requisito documentale mancante: ${requirement.label}`,
-          ),
-        ];
+        // A forced row's blocks are the operator's responsibility, kept in the practice: not errors of its job.
+        const reconciliationValidationErrors = forcingByRow.has(record.rowNumber)
+          ? []
+          : [
+              ...(reconciliation?.errors ?? []),
+              ...(reconciliation?.missingRequirements ?? []).map(
+                (requirement) => `Requisito documentale mancante: ${requirement.label}`,
+              ),
+            ];
         const allValidationErrors = [...validationErrors, ...reconciliationValidationErrors];
 
         return {
@@ -2466,11 +2541,13 @@ const Vies = () => {
       const blockedJobCount = jobPreparationRows.length - validJobCount;
       const finalBatchStatus = validJobCount > 0 ? "queued" : "draft";
       const finalQueuedAt = validJobCount > 0 ? new Date().toISOString() : null;
-      const baseBatchNotes = blockedJobCount
-        ? validJobCount
-          ? `Batch VIES creato con ${validJobCount} job in coda e ${blockedJobCount} righe bloccate da validare.`
-          : "Batch creato in bozza: correggere i dati e i documenti bloccanti prima dell'orchestrazione."
-        : "Batch VIES pronto per orchestratore e agent operativi.";
+      const baseBatchNotes = `${
+        blockedJobCount
+          ? validJobCount
+            ? `Batch VIES creato con ${validJobCount} job in coda e ${blockedJobCount} righe bloccate da validare.`
+            : "Batch creato in bozza: correggere i dati e i documenti bloccanti prima dell'orchestrazione."
+          : "Batch VIES pronto per orchestratore e agent operativi."
+      }${forcingByRow.size ? ` ${forcingByRow.size} pratiche con invio forzato dall'operatore.` : ""}`;
       const storageWarningNotes = zipStorageFailures.length
         ? ` Archiviazione ZIP originale non completata per ${zipStorageFailures.length} file: ${zipStorageFailures.join("; ")}. Il batch non potrà proseguire finché gli ZIP non saranno caricati correttamente.`
         : "";
@@ -2575,6 +2652,7 @@ const Vies = () => {
               reconciliation: reconciliationByRow.get(record.rowNumber),
               validationErrors,
               visura: visuraData,
+              forcing: forcingByRow.get(record.rowNumber),
             }),
           }),
         };
@@ -3166,6 +3244,11 @@ const Vies = () => {
                       {m.step3.checkingCount(checkingRowCount)}
                     </Badge>
                   )}
+                  {forcedRowCount > 0 && (
+                    <Badge variant="outline" className="border-amber-500/40 bg-amber-50 text-amber-900">
+                      {m.step3.forcedCount(forcedRowCount)}
+                    </Badge>
+                  )}
                   {blockedRowCount > 0 && <Badge variant="destructive">{m.step3.blocked(blockedRowCount)}</Badge>}
                 </div>
                 <div className="overflow-x-auto rounded-lg border">
@@ -3187,9 +3270,11 @@ const Vies = () => {
                         // While the documents are being read, a type may still be found: not "missing" yet.
                         const missing = reconciliation.zipFile && !checking ? reconciliation.missingRequirements : [];
                         const ready = isRowReady(reconciliation);
+                        const forcing = getForcing(reconciliation);
+                        const forceable = !ready && !sheetLocked ? getForceableBlocks(reconciliation) : null;
                         return (
                           <Fragment key={`reconciliation-${reconciliation.record.rowNumber}`}>
-                            <TableRow className={ready ? undefined : "border-b-0"}>
+                            <TableRow className={ready && !forcing ? undefined : "border-b-0"}>
                               <TableCell className="font-mono text-base font-semibold">{reconciliation.record.nomeZip || "—"}</TableCell>
                               <TableCell className="min-w-48">
                                 <p className="break-words font-medium">{reconciliation.record.contraente || m.step3.toComplete}</p>
@@ -3235,6 +3320,8 @@ const Vies = () => {
                                     <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                                     {m.step3.checking}
                                   </Badge>
+                                ) : forcing ? (
+                                  <Badge className="whitespace-nowrap bg-amber-500 text-white hover:bg-amber-500">{m.step3.force.forcedBadge}</Badge>
                                 ) : ready ? (
                                   <Badge className="bg-emerald-600 hover:bg-emerald-600">{m.step3.readyBadge}</Badge>
                                 ) : (
@@ -3242,6 +3329,30 @@ const Vies = () => {
                                 )}
                               </TableCell>
                             </TableRow>
+                            {forcing && (
+                              <TableRow className="hover:bg-transparent">
+                                <TableCell colSpan={5} className="pt-0">
+                                  <div className="flex flex-col gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-950 sm:flex-row sm:items-start sm:justify-between">
+                                    <div className="flex min-w-0 gap-2">
+                                      <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                                      <div className="min-w-0 space-y-1 break-words">
+                                        <p className="font-medium">{m.step3.force.forcedText(m.step3.force.reasons[forcing.motivo])}</p>
+                                        {forcing.nota && <p className="text-xs">{forcing.nota}</p>}
+                                        <p className="text-xs">
+                                          <span className="font-medium">{m.step3.force.ignoredBlocks}</span>
+                                          {forcing.blocchi.map((block) => translateViesText(block)).join("; ")}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    {!sheetLocked && (
+                                      <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => undoForcing(reconciliation.record.rowNumber)}>
+                                        {m.step3.force.undo}
+                                      </Button>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
                             {!ready && (
                               <TableRow className="hover:bg-transparent">
                                 <TableCell colSpan={5} className="pt-0">
@@ -3285,6 +3396,21 @@ const Vies = () => {
                                       <p className="text-xs text-muted-foreground">
                                         {m.step3.rowNotCreated}
                                       </p>
+                                    )}
+                                    {forceable && (
+                                      <div className="flex flex-col gap-2 border-t pt-2 sm:flex-row sm:items-center sm:justify-between">
+                                        <p className="text-xs text-muted-foreground">{m.step3.force.hint}</p>
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          className="shrink-0 border-amber-500/50 text-amber-900 hover:bg-amber-50"
+                                          onClick={() => openForcingDialog(reconciliation)}
+                                        >
+                                          <ShieldAlert className="mr-1 h-4 w-4" />
+                                          {m.step3.force.button}
+                                        </Button>
+                                      </div>
                                     )}
                                   </div>
                                 </TableCell>
@@ -3717,6 +3843,69 @@ const Vies = () => {
           </CardContent>
         </Card>
       </div>
+      <Dialog open={forcingDialog !== null} onOpenChange={(open) => !open && setForcingDialog(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{m.step3.force.title(forcingDialog?.zipName ?? "")}</DialogTitle>
+            <DialogDescription>{m.step3.force.description}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            <div className="space-y-1">
+              <p className="font-medium">{m.step3.force.blocksTitle}</p>
+              <ul className="list-disc space-y-1 pl-5 text-destructive">
+                {(forcingDialog?.blocks ?? []).map((block) => (
+                  <li key={block} className="break-words">
+                    {translateViesText(block)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="space-y-2">
+              <Label>{m.step3.force.reasonLabel}</Label>
+              <RadioGroup value={forcingReason} onValueChange={(value) => setForcingReason(value as ViesForcingReason)}>
+                {VIES_FORCING_REASONS.map((reason) => (
+                  <div key={reason} className="flex items-center gap-2">
+                    <RadioGroupItem value={reason} id={`vies-forcing-${reason}`} />
+                    <Label htmlFor={`vies-forcing-${reason}`} className="font-normal">
+                      {m.step3.force.reasons[reason]}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="vies-forcing-note">{m.step3.force.noteLabel}</Label>
+              <Textarea
+                id="vies-forcing-note"
+                value={forcingNote}
+                maxLength={500}
+                placeholder={m.step3.force.notePlaceholder}
+                onChange={(event) => setForcingNote(event.target.value)}
+              />
+            </div>
+            <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+              <Checkbox
+                id="vies-forcing-responsibility"
+                checked={forcingAccepted}
+                onCheckedChange={(checked) => setForcingAccepted(checked === true)}
+                className="mt-0.5"
+              />
+              <Label htmlFor="vies-forcing-responsibility" className="font-normal leading-snug text-amber-950">
+                {m.step3.force.responsibility}
+              </Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setForcingDialog(null)}>
+              {m.step3.force.cancel}
+            </Button>
+            <Button type="button" disabled={!forcingReason || !forcingAccepted} onClick={confirmForcing}>
+              <ShieldAlert className="mr-1 h-4 w-4" />
+              {m.step3.force.confirm}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };
