@@ -16,11 +16,8 @@ describe("VIES forced sending: what the operator may force", () => {
     for (const error of [
       "Documento d'identità scaduto il 10/03/2026",
       "Business Registration Certificate di Hong Kong scaduto il 01/02/2026",
-      "I documenti dello ZIP sono di un'altra società: 18678521008 non compare, trovati 91440300MA5GX0J87E",
-      "Nello ZIP compaiono i codici di più società: 91440300MA5GX639XR, 91440300MA5GX0J87E",
       "Nei documenti dello ZIP non compare nessun codice leggibile della società: identità non verificabile",
       "Nei documenti dello ZIP non compaiono né la partita IVA italiana né la ragione sociale della società: identità non verificabile",
-      "Nello ZIP compaiono anche codici di un'altra società: 91440300MA5GX0J87E",
       "Documento del legale rappresentante non corrispondente: nei documenti 110101199003077777",
       "2 documenti non verificati dall'agent: errore",
       "Verifica approfondita dell'agent non riuscita: i documenti mancanti non sono stati ricercati di nuovo",
@@ -29,8 +26,11 @@ describe("VIES forced sending: what the operator may force", () => {
     }
   });
 
-  it("never lets the operator force a missing ZIP, wrong Excel data or a duplicate practice", () => {
+  it("never lets the operator force a missing ZIP, wrong Excel data, a duplicate practice or another company's documents", () => {
     for (const error of [
+      "I documenti dello ZIP sono di un'altra società: 18678521008 non compare, trovati 91440300MA5GX0J87E",
+      "Nello ZIP compaiono i codici di più società: 91440300MA5GX639XR, 91440300MA5GX0J87E",
+      "Nello ZIP compaiono anche codici di un'altra società: 91440300MA5GX0J87E",
       "ZIP CNTBA03717.zip non caricato",
       "ZIP duplicato",
       "Il numero ZIP CNTBA03717 è indicato su più righe",
@@ -58,7 +58,7 @@ describe("VIES forced sending: the record kept in the practice", () => {
 });
 
 describe("VIES controller: a forced practice", () => {
-  const errorsFor = (forcing: unknown) => {
+  const errorsFor = (forcing: unknown, foundCodes: string[] = []) => {
     const input: ControllerInput = {
       batchId: "batch-1",
       jobs: [{
@@ -71,7 +71,7 @@ describe("VIES controller: a forced practice", () => {
           specificFields: {
             vies_zip_file: "CNTBA03717.zip",
             vies_verifica_piva: "unverifiable",
-            vies_piva_trovate: [],
+            vies_piva_trovate: foundCodes,
             ...(forcing === undefined ? {} : { vies_forzatura: forcing }),
           },
         }),
@@ -104,6 +104,11 @@ describe("VIES controller: a forced practice", () => {
     for (const check of DOCUMENT_CHECKS) expect(errors).not.toContain(check);
     expect(errors).toContain("Manca l'indirizzo del beneficiario");
     expect(errors).toContain("Manca il rappresentante fiscale");
+  });
+
+  it("still blocks a forced practice whose ZIP carries another company's code", () => {
+    const errors = errorsFor(FORCING, ["91440300MA5GX0J87E"]);
+    expect(errors).toContain("Nello ZIP compaiono codici di un'altra società: 91440300MA5GX0J87E");
   });
 
   it("does not count an incomplete forcing record", () => {

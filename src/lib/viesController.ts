@@ -219,7 +219,8 @@ export function verifyViesBatch(input: ControllerInput): ControllerReport {
       if (str(job.partita_iva_contraente) !== (vat ?? "")) fail("La P.IVA della riga non coincide con quella della pratica");
 
       // Invio forzato dall'operatore, che si è assunto la responsabilità dei controlli sui documenti non superati:
-      // identità e documenti (punti 4 e 7) non si ricontrollano, tutto il resto sì.
+      // la verifica dell'identità e i documenti (punti 4 e 7) non si ricontrollano, tutto il resto sì, compresi i
+      // codici di un'altra società.
       const forced = readViesForcing(fields.vies_forzatura) !== null;
 
       // 4. I documenti dello ZIP sono di questa società, e solo di questa.
@@ -238,9 +239,9 @@ export function verifyViesBatch(input: ControllerInput): ControllerReport {
         if (identityCheck !== "verified_by_name" && !foundCodes.some((code) => expectedCodes.includes(code))) {
           fail(`Nei documenti dello ZIP non compare il codice della società (${expectedCodes.join(" / ") || "nessuno"})`);
         }
-        const foreignCodes = foundCodes.filter((code) => !expectedCodes.includes(code) && (codeOccurrences.get(code) ?? 0) < 2);
-        if (foreignCodes.length) fail(`Nello ZIP compaiono codici di un'altra società: ${foreignCodes.join(", ")}`);
       }
+      const foreignCodes = foundCodes.filter((code) => !expectedCodes.includes(code) && (codeOccurrences.get(code) ?? 0) < 2);
+      if (foreignCodes.length) fail(`Nello ZIP compaiono codici di un'altra società: ${foreignCodes.join(", ")}`);
 
       // 5. Nome ZIP coerente in riga, pratica e allegato (numero, codice cliente o sigla; maiuscole indifferenti).
       const nomeZip = str(job.nome_zip);

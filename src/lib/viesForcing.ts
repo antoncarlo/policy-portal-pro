@@ -3,8 +3,10 @@
 // scegliendo il motivo e assumendosene la responsabilità. Chi, quando, perché e quali blocchi ha ignorato restano
 // nella pratica (campo vies_forzatura) e il controllo finale prima dell'invio salta solo quei controlli.
 //
-// Si forzano solo i blocchi che nascono dalla lettura dei documenti. Uno ZIP mancante, i dati dell'Excel e una
-// pratica già esistente restano bloccanti: servono a compilare la pratica, o la ripeterebbero.
+// Si forzano solo i blocchi che nascono dalla lettura dei documenti. Restano bloccanti uno ZIP mancante, i dati
+// dell'Excel e una pratica già esistente (servono a compilare la pratica, o la ripeterebbero) e i documenti di
+// un'altra società: un codice valido di un'altra società non è una lettura sbagliata (quella dà un codice con la
+// cifra di controllo errata), e lo ZIP di un'altra società non viene mai allegato alla pratica.
 
 export const VIES_FORCING_REASONS = ["agent_misread", "manual_check", "outside_portal"] as const;
 export type ViesForcingReason = (typeof VIES_FORCING_REASONS)[number];
@@ -31,9 +33,6 @@ export interface ViesForcingRecord {
 const FORCEABLE_ERRORS = [
   /^Documento d'identità scaduto/,
   /^Business Registration Certificate di Hong Kong scaduto/,
-  /^I documenti dello ZIP sono di un'altra società/,
-  /^Nello ZIP compaiono i codici di più società/,
-  /^Nello ZIP compaiono anche codici di un'altra società/,
   /^Nei documenti dello ZIP non compa.*identità non verificabile/,
   /^Documento del legale rappresentante non corrispondente/,
   /^\d+ documenti non verificati dall'agent/,

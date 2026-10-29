@@ -2267,9 +2267,12 @@ const Vies = () => {
 
   // What blocks a row, when the operator may force it: only blocks read from the documents (identity, expired or
   // missing documents, documents the agent could not read), on a row with its ZIP, read to the end. Null when the row
-  // passes, is still being read, or is blocked by anything else (Excel data, ZIP, a practice that already exists).
+  // passes, is still being read, or is blocked by anything else (Excel data, ZIP, a practice that already exists,
+  // another company's documents). Nor when the agent could not work at all (no API key, no credit): nothing was
+  // read, and the fix is the agent, not sending without any check.
   const getForceableBlocks = (reconciliation: ViesReconciliationRow): string[] | null => {
     if (!reconciliation.zipFile || reconciliation.reading || reconciliation.vatCheck === "not_applicable" || passesChecks(reconciliation)) return null;
+    if (reconciliation.documents.some((document) => document.agentStatus === "unavailable")) return null;
     const errors = getRowBlockingErrors(reconciliation);
     if (!errors.every(isForceableError)) return null;
     const blocks = [...errors, ...reconciliation.missingRequirements.map((requirement) => `Documento obbligatorio non trovato: ${requirement.label}`)];

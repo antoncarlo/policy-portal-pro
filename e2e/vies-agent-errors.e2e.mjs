@@ -1,6 +1,6 @@
 // Pagina VIES, l'agent documentale che non può leggere e le pratiche mentre legge:
 // 1 credito API esaurito: la lettura si ferma, il motivo è detto una volta sola e nessuna pratica chiede al cliente
-//   documenti o copie più leggibili (i documenti ci sono, non sono stati letti);
+//   documenti o copie più leggibili (i documenti ci sono, non sono stati letti), né si può forzare l'invio;
 // 2 scansioni ancora in lettura: la pratica dice che le sta leggendo, senza errori d'identità o documenti mancanti
 //   provvisori; a lettura finita è pronta.
 import JSZip from "jszip";
@@ -128,6 +128,8 @@ const readingDone = (page, timeout) =>
     check(`1 ${client.zip} bloccata con il credito come motivo`, /Bloccata/.test(line) && line.includes(NO_CREDIT), line);
     check(`1 ${client.zip} cosa fare: ricaricare il credito, non chiedere copie al cliente`, /ricaricare il credito/i.test(line) && !/copie più leggibili/.test(line), line);
     check(`1 ${client.zip} nessun errore d'identità né documento mancante provvisorio`, !/identità non verificabile|Documenti mancanti|Nessun codice leggibile/.test(line), line);
+    // Nothing was read: the fix is recharging the credit, never sending without any check.
+    check(`1 ${client.zip} senza «Forza invio»: nessun documento è stato letto`, !/Forza invio/.test(line), line);
   }
   check("1 nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
   await page.screenshot({ path: SHOTS + "vies-agent-no-credit.png", fullPage: true });
