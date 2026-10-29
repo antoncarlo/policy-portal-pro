@@ -21,10 +21,11 @@ import {
  *
  *   status change    the person who owns the practice and their reference agent; the administrators too when
  *                    somebody else than an administrator moved it (the company's portal, the system)
- *   new practice     the administrators and the reference agent of whoever uploaded it
+ *   new practice     the administrators and the reference agent of whoever uploaded it, and the office mailboxes
  *   documents, notes the administrators, the reference agent and the owner
  *
- * Whoever caused the event is never written to about it. Each user's addresses and event types are chosen
+ * Whoever caused the event is never written to about it; the office mailboxes are not people and always hear
+ * about a new practice, even when the uploader signs in with one of them. Each user's addresses and event types are chosen
  * by the administrator (user_notification_settings); without a choice the sign-in email is used.
  * Several events for the same person in one run become one email.
  */
@@ -157,7 +158,7 @@ export interface DispatchSummary {
 
 /** Fixed addresses that also hear about every new practice (the office mailboxes). */
 export function extraAddresses(): string[] {
-  const raw = process.env.ADMIN_NOTIFICATION_EMAILS ?? 'info@tecnomga.com,antoncarlo@tecnomga.com';
+  const raw = process.env.ADMIN_NOTIFICATION_EMAILS ?? 'info@tecnomga.com,antoncarlo@tecnomga.com,vies@tecnomga.com';
   if (raw.trim().toLowerCase() === 'none') return [];
   return unique(raw.split(',').map((address) => address.trim().toLowerCase()).filter(isEmailAddress));
 }
@@ -296,11 +297,9 @@ function targetsFor(event: QueuedEvent, practice: PracticeRow, context: Context)
     .filter((target): target is Target => target !== null);
 
   if (event.event_type === 'practice_created') {
-    // The office mailboxes: never the same address twice, never the person who uploaded.
+    // The office mailboxes, never the same address twice. They are shared by the office, not the uploader's own:
+    // they hear about the practice even when the uploader signs in with one of them (Admin Master with info@).
     const taken = new Set(targets.flatMap((target) => target.emails));
-    const actorProfile = actor ? context.profiles.get(actor) : null;
-    if (actorProfile?.email) taken.add(actorProfile.email.trim().toLowerCase());
-    for (const address of actor ? context.settings.get(actor)?.notification_emails ?? [] : []) taken.add(address.trim().toLowerCase());
     for (const address of context.extraEmails) {
       if (taken.has(address)) continue;
       taken.add(address);

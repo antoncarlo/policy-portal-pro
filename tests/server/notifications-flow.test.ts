@@ -292,6 +292,17 @@ await check("the office mailbox is not written twice when an administrator alrea
   assert.equal(all.filter((a) => a === "office@example.test").length, 1);
   assert.deepEqual(mails.slice(before).find((m) => m.to.includes("mario@admin.test"))!.to.sort(), ["mario@admin.test", "office@example.test"]);
 });
+await check("the office mailbox hears about a new practice even when the uploader signs in with it", async () => {
+  // Lotto del 28/10: «Admin Master» accede con info@tecnomga.com, che è anche una casella dell'ufficio.
+  const { db } = world();
+  db.rows("profiles").find((r) => r.id === ADMIN1)!.email = "office@example.test";
+  db.actor = ADMIN1;
+  await db.from("practices").insert({ practice_number: "PR-2026-9010", practice_type: "casa", client_name: "Gialli", user_id: ADMIN1, status: "in_lavorazione", financial_status: "non_incassata" });
+  db.actor = null;
+  const before = mails.length;
+  await flush(db);
+  assert.deepEqual(recipients(before), ["luca@admin.test", "office@example.test"]);
+});
 await check("documents that come with the upload are part of the 'new practice' email", async () => {
   const { db } = world();
   db.actor = COLL;
