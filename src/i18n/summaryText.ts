@@ -105,6 +105,7 @@ const ITEM_LABELS: Labels = {
   vies_documenti_mancanti: { en: "Missing documents", zh: "缺少的文件" },
   vies_avvisi: { en: "Validation warnings", zh: "审核提示" },
   vies_note_documenti: { en: "Agent notes on the documents", zh: "识别助手对文件的说明" },
+  vies_forzatura: { en: "Forced sending", zh: "强制提交" },
   vies_riga_excel: { en: "Excel row / ZIP column", zh: "Excel 行 / ZIP 列" },
   vies_batch_id: { en: "VIES batch", zh: "VIES 批次" },
 };
@@ -199,7 +200,7 @@ const translateValue = (key: string, value: string, language: Target) => {
     const labels = translateDocumentLabels(value, language);
     return language === "zh" ? labels.split("\n").join("\n") : labels;
   }
-  if (key === "vies_avvisi" || key === "vies_note_documenti") {
+  if (key === "vies_avvisi" || key === "vies_note_documenti" || key === "vies_forzatura") {
     return value
       .split("\n")
       .map((line) => translateViesText(line, language))
