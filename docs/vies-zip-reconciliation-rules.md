@@ -15,3 +15,7 @@ Ogni pratica fideiussoria generata deve conservare nella sua scheda e nel job VI
 | Documenti nel ZIP | Almeno un documento indicizzato, inclusi eventuali ZIP annidati | ZIP illeggibile o vuoto |
 | ZIP extra | Nessuno ZIP fuori tracciato, oppure solo avviso esplicito | Non blocca la creazione delle righe valide, ma deve essere visibile |
 | Stato job | `queued` solo se dati e ZIP sono coerenti | `blocked` o `pending_validation` in presenza di errori |
+
+## Excel dei legali rappresentanti
+
+Alla creazione del lotto il portale salva nella cartella del lotto (`<utente>/<lotto>/Legali-rappresentanti-Lotto-N.xlsx`, scaricata con «Scarica tutto il lotto») un Excel separato da quello caricato, per la compagnia: una riga per ogni pratica creata, con i dati anagrafici del legale rappresentante letti dall'agent documentale sui documenti d'identità dello ZIP (carta d'identità cinese, sua traduzione, passaporto). Le carte che il portale riconosce dal testo vengono mandate all'agent solo per questi dati. Il codice fiscale italiano è calcolato con le regole del DM 23/12/1976 per i nati all'estero (Cina: Z210) e non è calcolato per i nati a Hong Kong o Macao; data di nascita e sesso si prendono dal numero della carta cinese solo se la cifra di controllo è valida. Un dato non letto resta vuoto e la nota della riga dice cosa chiedere al cliente. L'Excel non è un controllo: una lettura non riuscita o un salvataggio fallito non bloccano né la pratica né il lotto (`src/lib/legalRepresentatives.ts`).

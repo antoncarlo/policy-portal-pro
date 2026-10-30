@@ -81,6 +81,12 @@ import {
   verifiedAgentIdentifiers,
   type AgentCallOutcome,
 } from "@/lib/viesDocumentAgent";
+import {
+  buildLegalRepresentativesWorkbook,
+  identityReadingFromAgent,
+  legalRepresentativeRow,
+  type IdentityReading,
+} from "@/lib/legalRepresentatives";
 
 type ExcelRecord = {
   rowNumber: number;
@@ -158,6 +164,8 @@ type ZipDocument = {
   companyNames: string[];
   /** The agent read only the first pages and the last one: the second look reads the whole document. */
   agentExcerpt: boolean;
+  /** Personal data of the legal representative read by the agent on this identity document. */
+  identityReading: IdentityReading | null;
 };
 
 type AgentCandidate = {
@@ -385,6 +393,32 @@ const verifyViesStorageObjectExists = async (storagePath: string, expectedSize?:
   }
 
   throw new Error(viesText().errors.storageNotConfirmed(objectName, lastVerificationError));
+};
+
+const XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+/**
+ * The legal representatives' personal data for the insurer: a workbook of its own (never the Excel of the lot), saved in
+ * the lot's folder so that it is downloaded with the lot. One row per practice, from the identity documents of its ZIP.
+ */
+const saveLegalRepresentativesWorkbook = async (rows: ViesReconciliationRow[], storageBasePath: string, lotNumber: number) => {
+  const representatives = rows.map((row) =>
+    legalRepresentativeRow(
+      { zip: row.record.nomeZip, company: row.record.contraente, vat: row.record.partitaIvaContraente, excelName: row.record.legaleRappresentante },
+      row.documents.flatMap((document) => (document.identityReading ? [document.identityReading] : [])),
+    ),
+  );
+  const logo = await fetch("/brand/tecno-mga-logo.png")
+    .then(async (response) => (response.ok ? new Uint8Array(await response.arrayBuffer()) : null))
+    .catch(() => null);
+  const bytes = await buildLegalRepresentativesWorkbook(representatives, {
+    title: `Lotto ${lotNumber} VIES – Dati anagrafici dei legali rappresentanti`,
+    logo,
+  });
+  const { error } = await supabase.storage
+    .from(VIES_STORAGE_BUCKET)
+    .upload(`${storageBasePath}/Legali-rappresentanti-Lotto-${lotNumber}.xlsx`, bytes, { contentType: XLSX_MEDIA_TYPE, upsert: true });
+  if (error) throw new Error(error.message);
 };
 
 const uploadViesFileResumable = async ({
@@ -1133,6 +1167,7 @@ const readZipRecursive = async (file: File): Promise<{ documents: ZipDocument[];
         agentExpiryDate: "",
         companyNames: [],
         agentExcerpt: false,
+        identityReading: null,
       });
 
       if (isZip) {
@@ -1162,6 +1197,7 @@ const readZipRecursive = async (file: File): Promise<{ documents: ZipDocument[];
             agentExpiryDate: "",
             companyNames: [],
             agentExcerpt: false,
+            identityReading: null,
           });
         }
       }
@@ -1273,6 +1309,12 @@ const describeMissingDocumentsFix = (requirements: DocumentRequirement[], zipNam
     .concat(fix.insertInto(zipName));
 };
 
+/** An identity document the agent has not read (its text told what it is): its personal data are still to be read. */
+const needsIdentityReading = (document: ZipDocument) =>
+  document.recognisedBy === "testo" &&
+  !document.identityReading &&
+  (document.documentType === "documento_identita" || document.extraDocumentTypes.includes("documento_identita"));
+
 const applyAgentOutcome = (document: ZipDocument, outcome: AgentCallOutcome): ZipDocument => {
   if (outcome.status !== "ok") {
     return { ...document, agentStatus: outcome.status, agentIssues: [outcome.message] };
@@ -1303,6 +1345,7 @@ const applyAgentOutcome = (document: ZipDocument, outcome: AgentCallOutcome): Zi
     agentIssues: [...result.issues, ...verified.issues],
     agentExpiryDate: result.expiry_date,
     agentExcerpt: Boolean(outcome.excerpt),
+    identityReading: identityReadingFromAgent(document.name, result) ?? document.identityReading,
     companyNames: [
       ...new Set([...document.companyNames, result.company_name_latin, result.company_name_chinese].map((name) => name.trim()).filter(Boolean)),
     ],
@@ -1924,19 +1967,24 @@ const Vies = () => {
         });
       }
 
+      const filesByKey = new Map(selectedFiles.map((file) => [getZipReconciliationKey(file.name), file]));
+      const candidatesFor = async (selected: ZipDocument[]) => {
+        const candidates: AgentCandidate[] = [];
+        for (const document of selected) {
+          const file = filesByKey.get(document.sourceZipKey);
+          const mediaType = agentMediaType(document.extension);
+          const bytes = file && mediaType ? await readZipEntryBytes(file, document.path) : null;
+          if (bytes && mediaType) candidates.push({ key: documentKey(document), name: document.name, mediaType, bytes });
+        }
+        return candidates;
+      };
+
       // 2. Second look where a required document is still missing: the agent
       // re-reads the other documents of that ZIP (a PDF can bundle several).
       if (agentUnavailable === undefined || !agentUnavailable) {
         const secondLook = findSecondLookDocuments(parsedDocuments);
         if (secondLook.length) {
-          const filesByKey = new Map(selectedFiles.map((file) => [getZipReconciliationKey(file.name), file]));
-          const candidates: AgentCandidate[] = [];
-          for (const document of secondLook) {
-            const file = filesByKey.get(document.sourceZipKey);
-            const mediaType = agentMediaType(document.extension);
-            const bytes = file && mediaType ? await readZipEntryBytes(file, document.path) : null;
-            if (bytes && mediaType) candidates.push({ key: documentKey(document), name: document.name, mediaType, bytes });
-          }
+          const candidates = await candidatesFor(secondLook);
           if (candidates.length) {
             markPending(new Set(candidates.map((candidate) => candidate.key)));
             const outcomes = await runAgentPass(candidates, viesText().status.agentSecondLook, true);
@@ -1948,6 +1996,21 @@ const Vies = () => {
               return { ...document, agentIssues: [...document.agentIssues, `${SECOND_LOOK_FAILED}: ${outcome.message}`] };
             });
           }
+        }
+      }
+
+      // 3. Identity documents recognised from their text: the agent reads on them only the legal representative's
+      // personal data, for the workbook of the legal representatives of the lot. Their checks stay those of the text,
+      // and a failed reading changes nothing in the row (the workbook says the data are to be completed).
+      if (agentUnavailable === undefined || !agentUnavailable) {
+        const candidates = await candidatesFor(parsedDocuments.filter(needsIdentityReading));
+        if (candidates.length) {
+          markPending(new Set(candidates.map((candidate) => candidate.key)));
+          const outcomes = await runAgentPass(candidates, viesText().status.agentIdentity);
+          parsedDocuments = parsedDocuments.map((document) => {
+            const outcome = outcomes.get(documentKey(document));
+            return outcome?.status === "ok" ? { ...document, identityReading: identityReadingFromAgent(document.name, outcome.result) } : document;
+          });
         }
       }
 
@@ -2824,6 +2887,19 @@ const Vies = () => {
         .eq("id", batchId);
       if (finalizeBatchError) throw new Error(errors.finalizeFailed(finalizeBatchError.message));
       batchFinalized = true;
+
+      // Never stops the lot: without the workbook the operator is told, and the data are in the documents of the practices.
+      setBatchUploadStatus(status.legalRepresentatives);
+      try {
+        await saveLegalRepresentativesWorkbook(batchRows, storageBasePath, lotNumber);
+      } catch (workbookError) {
+        console.error("Legal representatives workbook not saved:", workbookError);
+        toast({
+          variant: "destructive",
+          title: viesText().toast.legalRepresentativesFailedTitle,
+          description: viesText().toast.legalRepresentativesFailedText(lotNumber, workbookError instanceof Error ? workbookError.message : String(workbookError)),
+        });
+      }
 
       setBatchUploadProgress(100);
       setBatchUploadStatus(status.created(formatDurationSeconds(batchStartedAt)));
