@@ -6,6 +6,21 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { isValidChineseId, isValidItalianVat, isValidUscc } from "./viesDocumentScan";
 
+export interface AgentIdentityDetails {
+  surname: string;
+  given_names: string;
+  sex: string;
+  birth_date: string;
+  birth_place: string;
+  nationality: string;
+  residence_address: string;
+  document_kind: string;
+  document_number: string;
+  issue_date: string;
+  expiry_date: string;
+  issuing_authority: string;
+}
+
 export interface AgentDocumentResult {
   document_type: string;
   /** Every document type in the file: a PDF can bundle several documents. */
@@ -20,6 +35,8 @@ export interface AgentDocumentResult {
   fiscal_representative_tax_code: string;
   document_date: string;
   expiry_date: string;
+  /** Personal data of the legal representative, filled only on their identity document (empty strings elsewhere). */
+  legal_representative_identity?: AgentIdentityDetails;
   has_italian_translation: boolean;
   is_signed: boolean;
   issues: string[];
@@ -113,9 +130,9 @@ export const excerptPdf = async (bytes: Uint8Array): Promise<PdfExcerpt> => {
 
 // Readings already done in this tab, by file content: uploading the ZIPs again after adding the missing
 // documents sends the agent only the new files. Kept in the browser tab (memory and sessionStorage, which
-// survives a reload of the page), never on the server. The version changes with the agent's model and
+// survives a reload of the page), never on the server. The version changes with the agent's model, the data it reads and
 // document types; an excerpt and the whole document are two readings.
-const READING_CACHE_PREFIX = "vies-agent-reading:v3:";
+const READING_CACHE_PREFIX = "vies-agent-reading:v4:";
 // rechecked: the reading came from the rereading of a code with a wrong check character (never read a third time).
 type CachedReading = AgentDocumentResult & { rechecked?: boolean };
 const readingCache = new Map<string, CachedReading>();

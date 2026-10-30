@@ -289,6 +289,9 @@ export const viesMessages = defineMessages({
         }`,
       batchErrorTitle: "Errore creazione batch VIES",
       batchErrorText: "Non è stato possibile salvare il batch.",
+      legalRepresentativesFailedTitle: "Excel dei legali rappresentanti non creato",
+      legalRepresentativesFailedText: (lot: number, reason: string) =>
+        `Il lotto ${lot} è stato creato, ma l'Excel con i dati dei legali rappresentanti non è stato salvato nella sua cartella (${reason}).`,
     },
     status: {
       openingZips: "Apertura degli ZIP caricati…",
@@ -298,6 +301,7 @@ export const viesMessages = defineMessages({
       agentPass: (label: string, done: number, total: number) => `${label}: ${done}/${total} documenti`,
       agentScans: "Agent documentale, lettura delle scansioni",
       agentSecondLook: "Agent documentale, verifica approfondita dei documenti mancanti",
+      agentIdentity: "Agent documentale, dati anagrafici dai documenti d'identità",
       uploadExcel: (name: string, size: string) => `Upload Excel ${name} (${size})`,
       uploadExcelProgress: (name: string, uploaded: string, total: string, percentage: number) =>
         `Upload Excel ${name}: ${uploaded} / ${total} (${percentage}%)`,
@@ -314,6 +318,7 @@ export const viesMessages = defineMessages({
       creatingJobs: (done: number, total: number, duration: string) => `Creazione job VIES ${done}/${total} (${duration})`,
       indexingDocuments: (done: number, total: number, duration: string) =>
         `Indicizzazione documenti VIES ${done}/${total} (${duration})`,
+      legalRepresentatives: "Excel dei legali rappresentanti nella cartella del lotto",
       created: (duration: string) => `Pratiche create in ${duration}.`,
     },
     errors: {
@@ -683,6 +688,9 @@ export const viesMessages = defineMessages({
         }`,
       batchErrorTitle: "Error creating the VIES batch",
       batchErrorText: "The batch could not be saved.",
+      legalRepresentativesFailedTitle: "Excel file of the legal representatives not created",
+      legalRepresentativesFailedText: (lot: number, reason: string) =>
+        `Batch ${lot} was created, but the Excel file with the legal representatives' data was not saved in its folder (${reason}).`,
     },
     status: {
       openingZips: "Opening the uploaded ZIPs…",
@@ -692,6 +700,7 @@ export const viesMessages = defineMessages({
       agentPass: (label: string, done: number, total: number) => `${label}: ${done}/${total} documents`,
       agentScans: "Document agent, reading the scans",
       agentSecondLook: "Document agent, in-depth check of the missing documents",
+      agentIdentity: "Document agent, personal data from the identity documents",
       uploadExcel: (name: string, size: string) => `Uploading Excel ${name} (${size})`,
       uploadExcelProgress: (name: string, uploaded: string, total: string, percentage: number) =>
         `Uploading Excel ${name}: ${uploaded} / ${total} (${percentage}%)`,
@@ -706,6 +715,7 @@ export const viesMessages = defineMessages({
       linkingDocuments: (done: number, total: number, duration: string) => `Linking application documents ${done}/${total} (${duration})`,
       creatingJobs: (done: number, total: number, duration: string) => `Creating VIES jobs ${done}/${total} (${duration})`,
       indexingDocuments: (done: number, total: number, duration: string) => `Indexing VIES documents ${done}/${total} (${duration})`,
+      legalRepresentatives: "Excel file of the legal representatives in the batch folder",
       created: (duration: string) => `Applications created in ${duration}.`,
     },
     errors: {
@@ -1057,6 +1067,8 @@ export const viesMessages = defineMessages({
         }`,
       batchErrorTitle: "创建 VIES 批次出错",
       batchErrorText: "无法保存该批次。",
+      legalRepresentativesFailedTitle: "未生成法定代表人 Excel",
+      legalRepresentativesFailedText: (lot: number, reason: string) => `批次 ${lot} 已创建，但法定代表人信息 Excel 未保存到其文件夹（${reason}）。`,
     },
     status: {
       openingZips: "正在打开上传的 ZIP…",
@@ -1066,6 +1078,7 @@ export const viesMessages = defineMessages({
       agentPass: (label: string, done: number, total: number) => `${label}：${done}/${total} 份文件`,
       agentScans: "文件识别助手正在读取扫描件",
       agentSecondLook: "文件识别助手正在深入核查缺失的文件",
+      agentIdentity: "文件识别助手正在读取身份证件上的个人信息",
       uploadExcel: (name: string, size: string) => `正在上传 Excel ${name}（${size}）`,
       uploadExcelProgress: (name: string, uploaded: string, total: string, percentage: number) =>
         `正在上传 Excel ${name}：${uploaded} / ${total}（${percentage}%）`,
@@ -1079,6 +1092,7 @@ export const viesMessages = defineMessages({
       linkingDocuments: (done: number, total: number, duration: string) => `正在关联申请文件 ${done}/${total}（${duration}）`,
       creatingJobs: (done: number, total: number, duration: string) => `正在创建 VIES 任务 ${done}/${total}（${duration}）`,
       indexingDocuments: (done: number, total: number, duration: string) => `正在索引 VIES 文件 ${done}/${total}（${duration}）`,
+      legalRepresentatives: "正在将法定代表人 Excel 保存到批次文件夹",
       created: (duration: string) => `申请已于 ${duration} 内创建。`,
     },
     errors: {

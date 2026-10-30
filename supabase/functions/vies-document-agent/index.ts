@@ -38,6 +38,21 @@ const DOCUMENT_TYPES = [
   "altro",
 ];
 
+const IDENTITY_FIELDS = [
+  "surname",
+  "given_names",
+  "sex",
+  "birth_date",
+  "birth_place",
+  "nationality",
+  "residence_address",
+  "document_kind",
+  "document_number",
+  "issue_date",
+  "expiry_date",
+  "issuing_authority",
+];
+
 const OUTPUT_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -54,6 +69,7 @@ const OUTPUT_SCHEMA = {
     "fiscal_representative_tax_code",
     "document_date",
     "expiry_date",
+    "legal_representative_identity",
     "has_italian_translation",
     "is_signed",
     "issues",
@@ -71,6 +87,14 @@ const OUTPUT_SCHEMA = {
     fiscal_representative_tax_code: { type: "string" },
     document_date: { type: "string" },
     expiry_date: { type: "string" },
+    // Personal data of the legal representative, read only on their identity document: the portal puts them in the
+    // workbook of the legal representatives of the lot, for the insurer.
+    legal_representative_identity: {
+      type: "object",
+      additionalProperties: false,
+      required: IDENTITY_FIELDS,
+      properties: Object.fromEntries(IDENTITY_FIELDS.map((field) => [field, { type: "string" }])),
+    },
     has_italian_translation: { type: "boolean" },
     is_signed: { type: "boolean" },
     issues: { type: "array", items: { type: "string" } },
@@ -100,6 +124,7 @@ Trascrivi i dati esattamente come stampati, carattere per carattere; scrivi una 
 - italian_vat_number: partita IVA italiana di 11 cifre della società cinese, se presente (non quella del rappresentante fiscale).
 - fiscal_representative_name / fiscal_representative_tax_code: società di rappresentanza fiscale italiana citata e il suo codice fiscale.
 - document_date: data di emissione o firma (GG/MM/AAAA); expiry_date: scadenza del documento d'identità o del Business Registration Certificate (GG/MM/AAAA).
+- legal_representative_identity: dati anagrafici del legale rappresentante, solo se il file contiene il suo documento d'identità (carta d'identità cinese, sua traduzione, passaporto); per ogni altro documento tutti i campi sono stringhe vuote. surname e given_names: cognome e nome in caratteri latini come stampati sul passaporto o sulla traduzione (in caratteri cinesi solo se il file non li riporta in caratteri latini); sex: M o F; birth_date, issue_date, expiry_date: GG/MM/AAAA (validità senza scadenza, 长期: expiry_date "illimitata"); birth_place: luogo di nascita come stampato (sul passaporto); nationality: cittadinanza come stampata; residence_address: indirizzo di residenza come stampato, in caratteri latini se il file contiene la traduzione; document_kind: tipo di documento in italiano (es. "Carta d'identità della Repubblica Popolare Cinese", "Passaporto della Repubblica Popolare Cinese", "Passaporto RAS di Hong Kong"); document_number: numero della carta o del passaporto; issuing_authority: autorità di rilascio come stampata.
 - issues: problemi oggettivi in italiano (pagine illeggibili, documento tagliato, firma mancante, documento scaduto, traduzione assente); lista vuota se non ce ne sono.`;
 
 const json = (status: number, body: unknown) =>
