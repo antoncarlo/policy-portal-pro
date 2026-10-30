@@ -1399,6 +1399,78 @@ export type Database = {
           },
         ]
       }
+      vies_document_readings: {
+        Row: {
+          accepted_types: string[]
+          agent_readings: Json
+          batch_id: string
+          codes: Json
+          content_sha256: string | null
+          document_path: string
+          document_type: string | null
+          extra_document_types: string[]
+          file_name: string
+          file_size: number | null
+          id: string
+          issues: string[]
+          lot_number: number | null
+          practice_id: string | null
+          practice_number: string | null
+          recognised_by: string | null
+          recorded_at: string
+          recorded_by: string
+          row_number: number | null
+          zip_file_name: string | null
+          zip_name: string | null
+        }
+        Insert: {
+          accepted_types?: string[]
+          agent_readings?: Json
+          batch_id: string
+          codes?: Json
+          content_sha256?: string | null
+          document_path: string
+          document_type?: string | null
+          extra_document_types?: string[]
+          file_name: string
+          file_size?: number | null
+          id?: string
+          issues?: string[]
+          lot_number?: number | null
+          practice_id?: string | null
+          practice_number?: string | null
+          recognised_by?: string | null
+          recorded_at?: string
+          recorded_by?: string
+          row_number?: number | null
+          zip_file_name?: string | null
+          zip_name?: string | null
+        }
+        Update: {
+          accepted_types?: string[]
+          agent_readings?: Json
+          batch_id?: string
+          codes?: Json
+          content_sha256?: string | null
+          document_path?: string
+          document_type?: string | null
+          extra_document_types?: string[]
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          issues?: string[]
+          lot_number?: number | null
+          practice_id?: string | null
+          practice_number?: string | null
+          recognised_by?: string | null
+          recorded_at?: string
+          recorded_by?: string
+          row_number?: number | null
+          zip_file_name?: string | null
+          zip_name?: string | null
+        }
+        Relationships: []
+      }
       vies_fiscal_representatives: {
         Row: {
           address: string | null

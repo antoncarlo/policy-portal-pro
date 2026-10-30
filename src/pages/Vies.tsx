@@ -34,6 +34,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesInsert } from "@/integrations/supabase/types";
 import { requestNotificationFlush } from "@/lib/portalActions";
 import { formatDateTime, useLocale, useMessages } from "@/i18n";
 import { viesMessages } from "@/i18n/messages/vies";
@@ -77,6 +78,7 @@ import { MAX_ZIP_NAME_LENGTH, isPracticeZipName, isValidZipName, planZipBundle, 
 import {
   agentMediaType,
   callViesDocumentAgent,
+  contentHash as fileSha256,
   probeViesDocumentAgent,
   verifiedAgentIdentifiers,
   type AgentCallOutcome,
@@ -87,6 +89,7 @@ import {
   legalRepresentativeRow,
   type IdentityReading,
 } from "@/lib/legalRepresentatives";
+import { agentReadingRecord, documentReadingRows, type AgentReadingRecord, type ReadingPurpose } from "@/lib/documentReadings";
 
 type ExcelRecord = {
   rowNumber: number;
@@ -166,6 +169,10 @@ type ZipDocument = {
   agentExcerpt: boolean;
   /** Personal data of the legal representative read by the agent on this identity document. */
   identityReading: IdentityReading | null;
+  /** SHA-256 of the file, when its bytes were read (register of the document checks). */
+  contentHash: string | null;
+  /** Every reading of the agent on this document, failed ones included (register of the document checks). */
+  agentReadings: AgentReadingRecord[];
 };
 
 type AgentCandidate = {
@@ -419,6 +426,51 @@ const saveLegalRepresentativesWorkbook = async (rows: ViesReconciliationRow[], s
     .from(VIES_STORAGE_BUCKET)
     .upload(`${storageBasePath}/Legali-rappresentanti-Lotto-${lotNumber}.xlsx`, bytes, { contentType: XLSX_MEDIA_TYPE, upsert: true });
   if (error) throw new Error(error.message);
+};
+
+/**
+ * Register of the document checks (vies_document_readings): one row per document of every row of the lot, with how it
+ * was recognised and every reading of the agent. Rows left out of the lot are kept too, without a practice.
+ */
+const saveDocumentReadings = async ({
+  batchId,
+  lotNumber,
+  userId,
+  rows,
+  practiceIds,
+  practiceNumbers,
+}: {
+  batchId: string;
+  lotNumber: number;
+  userId: string;
+  rows: ViesReconciliationRow[];
+  practiceIds: Map<number, string>;
+  practiceNumbers: Map<number, string>;
+}) => {
+  const records = documentReadingRows({
+    batchId,
+    lotNumber,
+    recordedBy: userId,
+    rows: rows.map((row) => {
+      const practiceId = practiceIds.get(row.record.rowNumber) ?? null;
+      return {
+        rowNumber: row.record.rowNumber,
+        zipName: row.record.nomeZip || null,
+        zipFileName: row.zipFile?.name ?? null,
+        practiceId,
+        practiceNumber: practiceId ? practiceNumbers.get(row.record.rowNumber) ?? null : null,
+        documents: row.documents.map((document) => ({ ...document, acceptedTypes: row.acceptedTypes.get(documentKey(document)) ?? [] })),
+      };
+    }),
+  });
+  // Each row carries the whole readings of the agent: smaller requests than the other inserts.
+  const chunkSize = 100;
+  for (let start = 0; start < records.length; start += chunkSize) {
+    const { error } = await supabase
+      .from("vies_document_readings")
+      .insert(records.slice(start, start + chunkSize) as unknown as TablesInsert<"vies_document_readings">[]);
+    if (error) throw new Error(error.message);
+  }
 };
 
 const uploadViesFileResumable = async ({
@@ -1120,9 +1172,11 @@ const readZipRecursive = async (file: File): Promise<{ documents: ZipDocument[];
       let hasText = false;
       let documentType: string | null = null;
       let bytes: Uint8Array | null = null;
+      let contentHash: string | null = null;
       if (extension === "pdf") {
         try {
           bytes = await entry.async("uint8array");
+          contentHash = await fileSha256(bytes).catch(() => null);
           const scan = await scanPdf(bytes);
           vatNumbers = scan.vatNumbers;
           usccs = scan.usccs;
@@ -1138,11 +1192,13 @@ const readZipRecursive = async (file: File): Promise<{ documents: ZipDocument[];
       // Documents the text could not classify (scans, photos) go to the agent.
       const mediaType = agentMediaType(extension);
       if (!documentType && mediaType) {
+        const candidateBytes = bytes ?? (await entry.async("uint8array"));
+        contentHash ??= await fileSha256(candidateBytes).catch(() => null);
         agentCandidates.push({
           key: `${sourceZipKey}::${fullPath}`,
           name: normalizedName,
           mediaType,
-          bytes: bytes ?? (await entry.async("uint8array")),
+          bytes: candidateBytes,
         });
       }
 
@@ -1168,6 +1224,8 @@ const readZipRecursive = async (file: File): Promise<{ documents: ZipDocument[];
         companyNames: [],
         agentExcerpt: false,
         identityReading: null,
+        contentHash,
+        agentReadings: [],
       });
 
       if (isZip) {
@@ -1198,6 +1256,8 @@ const readZipRecursive = async (file: File): Promise<{ documents: ZipDocument[];
             companyNames: [],
             agentExcerpt: false,
             identityReading: null,
+            contentHash: null,
+            agentReadings: [],
           });
         }
       }
@@ -1314,6 +1374,12 @@ const needsIdentityReading = (document: ZipDocument) =>
   document.recognisedBy === "testo" &&
   !document.identityReading &&
   (document.documentType === "documento_identita" || document.extraDocumentTypes.includes("documento_identita"));
+
+/** Keeps the reading, or its failure, for the register of the document checks. */
+const withAgentReading = (document: ZipDocument, outcome: AgentCallOutcome, purpose: ReadingPurpose): ZipDocument => ({
+  ...document,
+  agentReadings: [...document.agentReadings, agentReadingRecord(purpose, outcome)],
+});
 
 const applyAgentOutcome = (document: ZipDocument, outcome: AgentCallOutcome): ZipDocument => {
   if (outcome.status !== "ok") {
@@ -1963,7 +2029,7 @@ const Vies = () => {
         const outcomes = await runAgentPass(agentCandidates, viesText().status.agentScans);
         parsedDocuments = parsedDocuments.map((document) => {
           const outcome = outcomes.get(documentKey(document));
-          return outcome ? applyAgentOutcome(document, outcome) : document;
+          return outcome ? withAgentReading(applyAgentOutcome(document, outcome), outcome, "lettura") : document;
         });
       }
 
@@ -1991,9 +2057,13 @@ const Vies = () => {
             parsedDocuments = parsedDocuments.map((document) => {
               const outcome = outcomes.get(documentKey(document));
               if (!outcome) return document;
-              if (outcome.status === "ok") return applyAgentOutcome(document, outcome);
+              if (outcome.status === "ok") return withAgentReading(applyAgentOutcome(document, outcome), outcome, "verifica_approfondita");
               // A failed second look must not pass for "document missing": the row says why.
-              return { ...document, agentIssues: [...document.agentIssues, `${SECOND_LOOK_FAILED}: ${outcome.message}`] };
+              return withAgentReading(
+                { ...document, agentIssues: [...document.agentIssues, `${SECOND_LOOK_FAILED}: ${outcome.message}`] },
+                outcome,
+                "verifica_approfondita",
+              );
             });
           }
         }
@@ -2009,7 +2079,9 @@ const Vies = () => {
           const outcomes = await runAgentPass(candidates, viesText().status.agentIdentity);
           parsedDocuments = parsedDocuments.map((document) => {
             const outcome = outcomes.get(documentKey(document));
-            return outcome?.status === "ok" ? { ...document, identityReading: identityReadingFromAgent(document.name, outcome.result) } : document;
+            if (!outcome) return document;
+            const read = withAgentReading(document, outcome, "dati_anagrafici");
+            return outcome.status === "ok" ? { ...read, identityReading: identityReadingFromAgent(document.name, outcome.result) } : read;
           });
         }
       }
@@ -2887,6 +2959,26 @@ const Vies = () => {
         .eq("id", batchId);
       if (finalizeBatchError) throw new Error(errors.finalizeFailed(finalizeBatchError.message));
       batchFinalized = true;
+
+      // The register of the document checks never stops the lot either: the operator is told when it was not saved.
+      setBatchUploadStatus(status.documentReadings);
+      try {
+        await saveDocumentReadings({
+          batchId,
+          lotNumber,
+          userId,
+          rows: reconciliationRows,
+          practiceIds: createdPracticesByIndex,
+          practiceNumbers: practiceNumbersByRow,
+        });
+      } catch (readingsError) {
+        console.error("Document readings not saved:", readingsError);
+        toast({
+          variant: "destructive",
+          title: viesText().toast.documentReadingsFailedTitle,
+          description: viesText().toast.documentReadingsFailedText(lotNumber, readingsError instanceof Error ? readingsError.message : String(readingsError)),
+        });
+      }
 
       // Never stops the lot: without the workbook the operator is told, and the data are in the documents of the practices.
       setBatchUploadStatus(status.legalRepresentatives);

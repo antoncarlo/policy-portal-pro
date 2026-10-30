@@ -44,7 +44,17 @@ export interface AgentDocumentResult {
 
 export type AgentCallOutcome =
   /** excerpt: the agent read only the first pages and the last one of the document. */
-  | { status: "ok"; result: AgentDocumentResult; excerpt?: boolean }
+  | {
+      status: "ok";
+      result: AgentDocumentResult;
+      excerpt?: boolean;
+      /** Model that answered (null when unknown). */
+      model?: string | null;
+      /** The reading comes from the rereading of a code with a wrong check character. */
+      rechecked?: boolean;
+      /** The reading was done earlier in this tab and reused. */
+      cached?: boolean;
+    }
   | { status: "unavailable"; message: string }
   | { status: "error"; message: string };
 
@@ -134,10 +144,11 @@ export const excerptPdf = async (bytes: Uint8Array): Promise<PdfExcerpt> => {
 // document types; an excerpt and the whole document are two readings.
 const READING_CACHE_PREFIX = "vies-agent-reading:v4:";
 // rechecked: the reading came from the rereading of a code with a wrong check character (never read a third time).
-type CachedReading = AgentDocumentResult & { rechecked?: boolean };
+type CachedReading = AgentDocumentResult & { rechecked?: boolean; model?: string | null };
 const readingCache = new Map<string, CachedReading>();
 
-const contentHash = async (bytes: Uint8Array) => {
+/** SHA-256 of a file, in hexadecimal: which document was read. */
+export const contentHash = async (bytes: Uint8Array) => {
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>));
   return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
 };
@@ -188,7 +199,10 @@ const buildRequest = async (bytes: Uint8Array, mediaType: string, fileName: stri
 const readWithRetries = async (body: AgentRequest & { recheck?: boolean }): Promise<AgentCallOutcome> => {
   for (let attempt = 0; ; attempt += 1) {
     const { data, error } = await invokeAgent(body);
-    if (!error) return { status: "ok", result: (data as { result: AgentDocumentResult }).result };
+    if (!error) {
+      const payload = data as { result: AgentDocumentResult; model?: string };
+      return { status: "ok", result: payload.result, model: payload.model ?? null };
+    }
     const failure = await toFailure(error);
     if (!failure.retryable || attempt >= AGENT_RETRY_DELAYS_MS.length) {
       return failure.status === "unavailable"
@@ -202,17 +216,19 @@ const readWithRetries = async (body: AgentRequest & { recheck?: boolean }): Prom
 // A code read with a wrong check character (a 0 of "00" missed on a small, rotated scan): the same pages are read
 // once more by the more capable model. A failed rereading leaves the first reading, and the next upload tries again.
 const withRecheck = async (first: CachedReading, body: AgentRequest, key: string | null, excerpt: boolean): Promise<AgentCallOutcome> => {
-  if (first.rechecked || verifiedAgentIdentifiers(first).issues.length === 0) {
+  const { rechecked, model = null, ...result } = first;
+  if (rechecked || verifiedAgentIdentifiers(result).issues.length === 0) {
     if (key) rememberReading(key, first);
-    return { status: "ok", result: first, excerpt };
+    return { status: "ok", result, excerpt, model, rechecked: Boolean(rechecked) };
   }
   const reread = await readWithRetries({ ...body, recheck: true });
   if (reread.status !== "ok") {
     if (key) rememberReading(key, first);
-    return { status: "ok", result: first, excerpt };
+    return { status: "ok", result, excerpt, model };
   }
-  if (key) rememberReading(key, { ...reread.result, rechecked: true });
-  return { status: "ok", result: reread.result, excerpt };
+  const rereadModel = reread.model ?? null;
+  if (key) rememberReading(key, { ...reread.result, rechecked: true, model: rereadModel });
+  return { status: "ok", result: reread.result, excerpt, model: rereadModel, rechecked: true };
 };
 
 /** wholeDocument: send every page of a PDF (second look); otherwise only its first pages and the last one. */
@@ -229,7 +245,10 @@ export const callViesDocumentAgent = async (
     const key = hash ? readingKey(hash, mediaType, excerpt) : null;
     const cached = key ? cachedReading(key) : null;
     if (!cached) continue;
-    if (cached.rechecked || verifiedAgentIdentifiers(cached).issues.length === 0) return { status: "ok", result: cached, excerpt };
+    const { rechecked, model = null, ...result } = cached;
+    if (rechecked || verifiedAgentIdentifiers(result).issues.length === 0) {
+      return { status: "ok", result, excerpt, model, rechecked: Boolean(rechecked), cached: true };
+    }
     // Kept from before a rereading was possible or had succeeded: the same pages are sent for it.
     const request = await buildRequest(bytes, mediaType, fileName, excerpt);
     return withRecheck(cached, request.body, key, request.excerpt);
@@ -237,7 +256,7 @@ export const callViesDocumentAgent = async (
   const { body, excerpt } = await buildRequest(bytes, mediaType, fileName, mayExcerpt);
   const key = hash ? readingKey(hash, mediaType, excerpt) : null;
   const outcome = await readWithRetries(body);
-  return outcome.status === "ok" ? withRecheck(outcome.result, body, key, excerpt) : outcome;
+  return outcome.status === "ok" ? withRecheck({ ...outcome.result, model: outcome.model ?? null }, body, key, excerpt) : outcome;
 };
 
 /** Codes read by the agent, kept only when their check character is valid. */

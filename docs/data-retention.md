@@ -14,7 +14,10 @@ Alle **02:15 UTC** `pg_cron` esegue `select public.run_retention()` (job `portal
 | `outbound_deliveries` (notifiche verso i partner) | contenuto delle notifiche | consegnate dopo 6 mesi, fallite dopo 12 |
 | `notification_events` (coda delle notifiche) | — | elaborate: dopo 30 giorni |
 | `rate_limit_hits` (contatori dei limiti) | indirizzi nelle chiavi | dopo 1 giorno |
-| `audit_log` (chi ha fatto cosa) | IP troncato e browser rimosso dopo 12 mesi | pratiche, clienti, documenti: 10 anni; il resto: 2 anni |
+| `audit_log` (chi ha fatto cosa) | IP troncato e browser rimosso dopo 12 mesi | pratiche, clienti, documenti, dati antiriciclaggio (`practice_aml_data`): 10 anni; il resto: 2 anni |
+| `vies_document_readings` (verifiche dei documenti dei lotti VIES) | letture dell'agent, compresi i dati anagrafici del legale rappresentante | dopo 10 anni (job `vies-document-readings-retention`, il 1° del mese alle 02:45 UTC) |
+
+Il registro delle verifiche dei documenti (`vies_document_readings`, `supabase/migrations/20261030000000_vies_document_readings.sql`) è anch'esso **in sola aggiunta**: una riga per documento scritta alla creazione del lotto, che nessuno può modificare o cancellare se non la pulizia dei 10 anni. Lo leggono solo chi ha caricato il lotto e gli amministratori.
 
 Il registro di audit resta **append-only**: l'unica modifica che il database consente su una riga è togliere IP e browser (e solo durante la pulizia notturna); nessuno può cambiare o cancellare altro, nemmeno con la chiave di servizio.
 
