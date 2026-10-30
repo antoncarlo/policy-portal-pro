@@ -11,6 +11,7 @@
 | Prove nel browser | `npm run test:e2e` (Playwright) | pagine reali con la rete simulata: accesso e 2FA, sezioni del flusso, lotti, bozza e documenti da firmare, notifiche, offboarding, registro di audit, rinnovi, pagina di errore, adattamento a telefono/iPad/PC |
 | Audit dipendenze, build | `node scripts/audit-gate.mjs` · `npx vite build` | vulnerabilità alte e critiche, compilazione |
 | Migrazioni da zero (a mano, come «Supabase Preview») | `scripts/check-migrations-fresh.sh` | applica `supabase/migrations/*.sql` in ordine di nome su un Postgres 16 locale vuoto (cluster in `/tmp/pgsim`, porta 54329) con gli schemi `auth`, `storage` e `cron` simulati; si ferma al primo file che fallisce |
+| Migrazioni da zero come l'anteprima Supabase (a mano, serve Docker) | `npx supabase@2.118.0 start -x realtime,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor` poi `npx supabase@2.118.0 db reset --local` | stack Supabase reale (Postgres 17, Auth e Storage con le loro tabelle): applica le migrazioni con le stesse regole del check, compreso il controllo delle versioni uniche |
 
 ## SECTION 02 — In locale
 

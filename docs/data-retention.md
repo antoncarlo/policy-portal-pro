@@ -1,6 +1,6 @@
 # Conservazione dei dati e registri
 
-*Quanto restano i registri del portale, quando gli indirizzi IP diventano anonimi e come verificarlo. Vale per il database di produzione; le regole stanno in `supabase/migrations/20261022_retention.sql`.*
+*Quanto restano i registri del portale, quando gli indirizzi IP diventano anonimi e come verificarlo. Vale per il database di produzione; le regole stanno in `supabase/migrations/20261022000000_retention.sql`.*
 
 ## SECTION 01 — Cosa succede ogni notte
 

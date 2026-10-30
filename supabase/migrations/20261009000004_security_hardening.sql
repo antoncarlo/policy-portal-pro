@@ -39,8 +39,14 @@ $$;
 -- ---------------------------------------------------------------------------
 
 -- Meant for the service role, it was granted to every role and opened the bucket to
--- anyone holding the public key. The service role bypasses RLS anyway.
-alter policy "Service role full access" on storage.objects to service_role;
+-- anyone holding the public key. The service role bypasses RLS anyway. The policy was made
+-- by hand on the live project: a new database (preview branch) does not have it.
+do $$
+begin
+  if exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'Service role full access') then
+    alter policy "Service role full access" on storage.objects to service_role;
+  end if;
+end $$;
 
 -- The signature printed on the statements is shared: the administrators upload it,
 -- every signed-in user can read it to issue the client statement of their lots.
