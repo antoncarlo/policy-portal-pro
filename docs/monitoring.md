@@ -63,3 +63,21 @@ group by modello
 ```
 
 Si raggruppa per modello perché, con il fallback lato server, una lettura rifiutata può essere completata da un altro modello, con un altro prezzo. Il costo del questionario antiriciclaggio (`vies-aml-agent`) è nelle righe `vies_aml_reading`, con gli stessi campi dei token. Il saldo del credito non è leggibile con la chiave dell'agent: si controlla nella Console Anthropic (Billing), dove conviene attivare la ricarica automatica o l'avviso di saldo basso.
+
+## SECTION 08 — Registro delle verifiche dei documenti VIES
+
+I log della funzione durano circa 7 giorni (piano Pro). Ciò che resta nel tempo è il registro `vies_document_readings`: alla creazione di ogni lotto il portale scrive una riga per documento degli ZIP (anche delle righe escluse dal lotto) con lotto, pratica, percorso nello ZIP, impronta SHA-256 del file, come è stato riconosciuto (`testo` o `agent`), i tipi per cui conta nella pratica, i codici accettati e ogni lettura dell'agent (`agent_readings`: scopo `lettura`, `verifica_approfondita` o `dati_anagrafici`, esito, modello, estratto o documento intero, rilettura, risposta completa, codici con la cifra di controllo, eventuale errore). Una lettura riusata dalla stessa scheda del browser è segnata `reused`.
+
+Le verifiche di una pratica, in ordine:
+
+```sql
+select file_name, recognised_by, document_type, accepted_types, codes,
+       (select jsonb_agg(jsonb_build_object('scopo', r ->> 'purpose', 'esito', r ->> 'status', 'modello', r ->> 'model', 'quando', r ->> 'at'))
+          from jsonb_array_elements(agent_readings) r) as letture,
+       issues, content_sha256, recorded_at
+from vies_document_readings
+where practice_number = 'VIES-2026-0007-abcd1234'
+order by document_path;
+```
+
+Le correzioni ai dati antiriciclaggio letti dall'agente (`practice_aml_data`) sono nel registro di audit (`table_name = 'practice_aml_data'`).

@@ -4,7 +4,9 @@
 // 2 una carta d'identità riconosciuta dal testo è mandata all'agent solo per i dati anagrafici;
 // 3 se quella lettura non riesce la pratica resta pronta: nessun blocco;
 // 4 creato il lotto, nella sua cartella c'è «Legali-rappresentanti-Lotto-N.xlsx» con il logo, una riga per pratica,
-//   il codice fiscale calcolato dove i dati ci sono e, dove mancano, la nota di cosa completare.
+//   il codice fiscale calcolato dove i dati ci sono e, dove mancano, la nota di cosa completare;
+// 5 nel registro delle verifiche (vies_document_readings) c'è una riga per documento, con pratica, impronta del file,
+//   come è stato riconosciuto e ogni lettura dell'agent, compresa quella non riuscita.
 import ExcelJS from "exceljs";
 import JSZip from "jszip";
 import { PDFDocument, StandardFonts } from "pdf-lib";
@@ -96,6 +98,7 @@ const browser = await chromium.launch();
 const ctx = await browser.newContext({ locale: "it-IT", viewport: { width: 1360, height: 1000 } });
 const agentRequests = [];
 const uploads = [];
+const readings = [];
 const hdr = {
   "access-control-allow-origin": BASE, "access-control-allow-headers": "*", "access-control-allow-methods": "*",
   "access-control-expose-headers": "content-range, location, upload-offset, upload-length, tus-resumable, tus-version, tus-max-size",
@@ -133,6 +136,10 @@ await ctx.route(`${SUPA}/**`, async (route) => {
     return json(rows.map((row, index) => ({ id: `p-${index + 1}`, practice_number: row.practice_number })), 201);
   }
   if (req.method() === "POST" && p === "/rest/v1/vies_jobs") return json([], 201);
+  if (req.method() === "POST" && p === "/rest/v1/vies_document_readings") {
+    readings.push(...JSON.parse(req.postData() || "[]"));
+    return json([], 201);
+  }
   return json([]);
 });
 // Resumable uploads of the Excel and the ZIPs: every upload is complete in its creation request.
@@ -211,6 +218,37 @@ await page.waitForTimeout(1000);
       JSON.stringify(sheet.getRow(11).values),
     );
   }
+}
+// 5 The register of the document checks.
+{
+  const of = (name) => readings.find((row) => row.file_name === name);
+  check("5 una riga per documento del lotto", readings.length === 18 && new Set(readings.map((row) => row.document_path)).size === 18, String(readings.length));
+  check(
+    "5 ogni riga ha lotto, pratica, impronta del file e chi l'ha registrata",
+    readings.every((row) => row.lot_number === 7 && /^p-\d$/.test(row.practice_id ?? "") && /^VIES-/.test(row.practice_number ?? "") && /^[0-9a-f]{64}$/.test(row.content_sha256 ?? "") && row.recorded_by === UID),
+    JSON.stringify(readings.slice(0, 1)),
+  );
+  const scannedCard = of(`${SCANNED.zip}-identita.jpg`);
+  check(
+    "5 carta scansionata: letta dall'agent, con modello e codice accettato",
+    scannedCard?.recognised_by === "agent" && scannedCard.agent_readings.length === 1 && scannedCard.agent_readings[0].purpose === "lettura" &&
+      scannedCard.agent_readings[0].model === "test" && scannedCard.agent_readings[0].verified.chineseIds.includes("362401197709014447"),
+    JSON.stringify(scannedCard),
+  );
+  const textCard = of(`${TEXT.zip}-identita.pdf`);
+  check(
+    "5 carta riconosciuta dal testo: tipo dal testo e lettura per i dati anagrafici",
+    textCard?.recognised_by === "testo" && textCard.document_type === "documento_identita" && textCard.agent_readings.length === 1 &&
+      textCard.agent_readings[0].purpose === "dati_anagrafici" && textCard.agent_readings[0].result.legal_representative_identity.surname === "Sun",
+    JSON.stringify(textCard),
+  );
+  const failedCard = of(`${FAILED.zip}-identita.pdf`);
+  check(
+    "5 lettura non riuscita: registrata con il motivo",
+    failedCard?.agent_readings.length === 1 && failedCard.agent_readings[0].status === "error" && /non elaborabile/.test(failedCard.agent_readings[0].error ?? ""),
+    JSON.stringify(failedCard),
+  );
+  check("5 nessun avviso di registro non salvato", !/verifiche dei documenti non salvato/.test(await body()));
 }
 check("nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
 

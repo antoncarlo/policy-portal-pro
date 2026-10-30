@@ -289,6 +289,9 @@ export const viesMessages = defineMessages({
         }`,
       batchErrorTitle: "Errore creazione batch VIES",
       batchErrorText: "Non è stato possibile salvare il batch.",
+      documentReadingsFailedTitle: "Registro delle verifiche dei documenti non salvato",
+      documentReadingsFailedText: (lot: number, reason: string) =>
+        `Il lotto ${lot} è stato creato, ma il registro di come sono stati verificati i suoi documenti non è stato salvato (${reason}). Avvisare l'amministratore del portale.`,
       legalRepresentativesFailedTitle: "Excel dei legali rappresentanti non creato",
       legalRepresentativesFailedText: (lot: number, reason: string) =>
         `Il lotto ${lot} è stato creato, ma l'Excel con i dati dei legali rappresentanti non è stato salvato nella sua cartella (${reason}).`,
@@ -319,6 +322,7 @@ export const viesMessages = defineMessages({
       indexingDocuments: (done: number, total: number, duration: string) =>
         `Indicizzazione documenti VIES ${done}/${total} (${duration})`,
       legalRepresentatives: "Excel dei legali rappresentanti nella cartella del lotto",
+      documentReadings: "Registro delle verifiche dei documenti",
       created: (duration: string) => `Pratiche create in ${duration}.`,
     },
     errors: {
@@ -688,6 +692,9 @@ export const viesMessages = defineMessages({
         }`,
       batchErrorTitle: "Error creating the VIES batch",
       batchErrorText: "The batch could not be saved.",
+      documentReadingsFailedTitle: "Register of the document checks not saved",
+      documentReadingsFailedText: (lot: number, reason: string) =>
+        `Batch ${lot} was created, but the register of how its documents were checked was not saved (${reason}). Tell the portal administrator.`,
       legalRepresentativesFailedTitle: "Excel file of the legal representatives not created",
       legalRepresentativesFailedText: (lot: number, reason: string) =>
         `Batch ${lot} was created, but the Excel file with the legal representatives' data was not saved in its folder (${reason}).`,
@@ -716,6 +723,7 @@ export const viesMessages = defineMessages({
       creatingJobs: (done: number, total: number, duration: string) => `Creating VIES jobs ${done}/${total} (${duration})`,
       indexingDocuments: (done: number, total: number, duration: string) => `Indexing VIES documents ${done}/${total} (${duration})`,
       legalRepresentatives: "Excel file of the legal representatives in the batch folder",
+      documentReadings: "Register of the document checks",
       created: (duration: string) => `Applications created in ${duration}.`,
     },
     errors: {
@@ -1067,6 +1075,8 @@ export const viesMessages = defineMessages({
         }`,
       batchErrorTitle: "创建 VIES 批次出错",
       batchErrorText: "无法保存该批次。",
+      documentReadingsFailedTitle: "文件核查记录未保存",
+      documentReadingsFailedText: (lot: number, reason: string) => `批次 ${lot} 已创建，但其文件核查记录未保存（${reason}）。请通知门户管理员。`,
       legalRepresentativesFailedTitle: "未生成法定代表人 Excel",
       legalRepresentativesFailedText: (lot: number, reason: string) => `批次 ${lot} 已创建，但法定代表人信息 Excel 未保存到其文件夹（${reason}）。`,
     },
@@ -1093,6 +1103,7 @@ export const viesMessages = defineMessages({
       creatingJobs: (done: number, total: number, duration: string) => `正在创建 VIES 任务 ${done}/${total}（${duration}）`,
       indexingDocuments: (done: number, total: number, duration: string) => `正在索引 VIES 文件 ${done}/${total}（${duration}）`,
       legalRepresentatives: "正在将法定代表人 Excel 保存到批次文件夹",
+      documentReadings: "正在保存文件核查记录",
       created: (duration: string) => `申请已于 ${duration} 内创建。`,
     },
     errors: {
