@@ -21,6 +21,8 @@ export interface AgentReadingRecord {
   rechecked: boolean;
   /** Reading done earlier in the same browser tab and reused. */
   reused: boolean;
+  /** The agent read a lighter copy of a large file (pages as JPEG images); the original is in the ZIP of the lot. */
+  compressed: boolean;
   result: AgentDocumentResult | null;
   verified: { usccs: string[]; vatNumbers: string[]; chineseIds: string[]; issues: string[] } | null;
   error: string | null;
@@ -30,7 +32,7 @@ export function agentReadingRecord(purpose: ReadingPurpose, outcome: AgentCallOu
   if (outcome.status !== "ok") {
     return {
       purpose, status: outcome.status, at: at.toISOString(), model: null, excerpt: false, rechecked: false, reused: false,
-      result: null, verified: null, error: outcome.message,
+      compressed: false, result: null, verified: null, error: outcome.message,
     };
   }
   return {
@@ -41,6 +43,7 @@ export function agentReadingRecord(purpose: ReadingPurpose, outcome: AgentCallOu
     excerpt: Boolean(outcome.excerpt),
     rechecked: Boolean(outcome.rechecked),
     reused: Boolean(outcome.cached),
+    compressed: Boolean(outcome.compressed),
     result: outcome.result,
     verified: verifiedAgentIdentifiers(outcome.result),
     error: null,

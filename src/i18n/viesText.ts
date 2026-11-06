@@ -403,6 +403,13 @@ const RULES: Rule[] = [
     pattern: /^Documento troppo grande per l'agent \(massimo circa 22 MB\)\.$/,
     ...same("Document too large for the agent (about 22 MB at most).", "文件过大，识别助手无法处理（最大约 22 MB）。"),
   },
+  {
+    pattern: /^Documento troppo grande per l'agent anche dopo la compressione: dividerlo in più file o ridurre la risoluzione della scansione\.$/,
+    ...same(
+      "Document too large for the agent even after compression: split it into several files or lower the scan resolution.",
+      "文件即使压缩后仍过大，识别助手无法处理：请拆分为多个文件或降低扫描分辨率。",
+    ),
+  },
   // Invio forzato dall'operatore (pagina VIES e scheda della pratica).
   { pattern: /^Forzato da (.+) il (.+)$/, en: (m) => `Forced by ${m[1]} on ${m[2]}`, zh: (m) => `由 ${m[1]} 于 ${m[2]} 强制提交` },
   { pattern: /^Forzato da (.+)$/, en: (m) => `Forced by ${m[1]}`, zh: (m) => `由 ${m[1]} 强制提交` },
