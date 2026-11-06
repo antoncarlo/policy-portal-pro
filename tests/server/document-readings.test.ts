@@ -15,7 +15,7 @@ describe("Record of one reading of the document agent", () => {
     const record = agentReadingRecord("lettura", { status: "ok", result: reading, model: "claude-sonnet-5-5", excerpt: true }, AT);
     expect(record).toEqual({
       purpose: "lettura", status: "ok", at: "2026-10-30T10:00:00.000Z", model: "claude-sonnet-5-5", excerpt: true, rechecked: false, reused: false,
-      result: reading, verified: { usccs: ["91440300MA5GX639XR"], vatNumbers: [], chineseIds: [], issues: [] }, error: null,
+      compressed: false, result: reading, verified: { usccs: ["91440300MA5GX639XR"], vatNumbers: [], chineseIds: [], issues: [] }, error: null,
     });
   });
 
@@ -26,10 +26,14 @@ describe("Record of one reading of the document agent", () => {
     expect(reread).toMatchObject({ purpose: "verifica_approfondita", rechecked: true, reused: true, model: "claude-opus-5-5" });
   });
 
+  it("says when the agent read a lighter copy of a large file", () => {
+    expect(agentReadingRecord("lettura", { status: "ok", result: reading, model: null, compressed: true }, AT).compressed).toBe(true);
+  });
+
   it("keeps a failed reading with its reason and no result", () => {
     expect(agentReadingRecord("dati_anagrafici", { status: "error", message: "Documento non elaborabile." }, AT)).toEqual({
       purpose: "dati_anagrafici", status: "error", at: "2026-10-30T10:00:00.000Z", model: null, excerpt: false, rechecked: false, reused: false,
-      result: null, verified: null, error: "Documento non elaborabile.",
+      compressed: false, result: null, verified: null, error: "Documento non elaborabile.",
     });
   });
 });

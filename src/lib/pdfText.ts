@@ -7,7 +7,7 @@ type PdfjsModule = typeof import("pdfjs-dist/legacy/build/pdf.mjs");
 
 let pdfjsPromise: Promise<PdfjsModule> | null = null;
 
-const loadPdfjs = () => {
+export const loadPdfjs = () => {
   pdfjsPromise ??= (async () => {
     const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
     if (typeof window !== "undefined" && !pdfjs.GlobalWorkerOptions.workerSrc) {

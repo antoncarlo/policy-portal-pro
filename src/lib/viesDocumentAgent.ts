@@ -4,6 +4,7 @@
 // accepted only if its check character is valid.
 
 import { FunctionsHttpError } from "@supabase/supabase-js";
+import { documentForAgent, type AgentDocument } from "./agentDocumentShrink";
 import { isValidChineseId, isValidItalianVat, isValidUscc } from "./viesDocumentScan";
 
 export interface AgentIdentityDetails {
@@ -54,6 +55,8 @@ export type AgentCallOutcome =
       rechecked?: boolean;
       /** The reading was done earlier in this tab and reused. */
       cached?: boolean;
+      /** The agent read a lighter copy of a large file (the original is unchanged). */
+      compressed?: boolean;
     }
   | { status: "unavailable"; message: string }
   | { status: "error"; message: string };
@@ -144,7 +147,7 @@ export const excerptPdf = async (bytes: Uint8Array): Promise<PdfExcerpt> => {
 // document types; an excerpt and the whole document are two readings.
 const READING_CACHE_PREFIX = "vies-agent-reading:v4:";
 // rechecked: the reading came from the rereading of a code with a wrong check character (never read a third time).
-type CachedReading = AgentDocumentResult & { rechecked?: boolean; model?: string | null };
+type CachedReading = AgentDocumentResult & { rechecked?: boolean; model?: string | null; compressed?: boolean };
 const readingCache = new Map<string, CachedReading>();
 
 /** SHA-256 of a file, in hexadecimal: which document was read. */
@@ -188,15 +191,25 @@ export const probeViesDocumentAgent = async (): Promise<{ ready: true } | Exclud
 };
 
 type AgentRequest = { file_name: string; media_type: string; data: string; excerpt?: { pages: number[]; total_pages: number | null } };
+type BuiltRequest = { body: AgentRequest; excerpt: boolean; compressed: boolean };
 
-const buildRequest = async (bytes: Uint8Array, mediaType: string, fileName: string, mayExcerpt: boolean) => {
+// The agent's function takes at most 30 MB of base64 (about 22 MB of file): over it nothing is sent, so a slow line
+// does not upload a file the function would refuse.
+const AGENT_MAX_BASE64_LENGTH = 30 * 1024 * 1024;
+export const DOCUMENT_TOO_LARGE =
+  "Documento troppo grande per l'agent anche dopo la compressione: dividerlo in più file o ridurre la risoluzione della scansione.";
+
+const buildRequest = async (bytes: Uint8Array, mediaType: string, fileName: string, mayExcerpt: boolean): Promise<BuiltRequest> => {
   const sent = mayExcerpt ? await excerptPdf(bytes) : { bytes, pages: null, totalPages: null };
-  const body: AgentRequest = { file_name: fileName, media_type: mediaType, data: toBase64(sent.bytes) };
+  // Over the limits the agent reads a lighter copy; if it cannot be made, the file goes as it is (its size is checked before sending).
+  const document = await documentForAgent(sent.bytes, mediaType).catch((): AgentDocument => ({ bytes: sent.bytes, mediaType, compressed: false }));
+  const body: AgentRequest = { file_name: fileName, media_type: document.mediaType, data: toBase64(document.bytes) };
   if (sent.pages) body.excerpt = { pages: sent.pages, total_pages: sent.totalPages };
-  return { body, excerpt: sent.pages !== null };
+  return { body, excerpt: sent.pages !== null, compressed: document.compressed };
 };
 
 const readWithRetries = async (body: AgentRequest & { recheck?: boolean }): Promise<AgentCallOutcome> => {
+  if (body.data.length > AGENT_MAX_BASE64_LENGTH) return { status: "error", message: DOCUMENT_TOO_LARGE };
   for (let attempt = 0; ; attempt += 1) {
     const { data, error } = await invokeAgent(body);
     if (!error) {
@@ -215,20 +228,20 @@ const readWithRetries = async (body: AgentRequest & { recheck?: boolean }): Prom
 
 // A code read with a wrong check character (a 0 of "00" missed on a small, rotated scan): the same pages are read
 // once more by the more capable model. A failed rereading leaves the first reading, and the next upload tries again.
-const withRecheck = async (first: CachedReading, body: AgentRequest, key: string | null, excerpt: boolean): Promise<AgentCallOutcome> => {
-  const { rechecked, model = null, ...result } = first;
+const withRecheck = async (first: CachedReading, { body, excerpt, compressed }: BuiltRequest, key: string | null): Promise<AgentCallOutcome> => {
+  const { rechecked, model = null, compressed: _cachedCompressed, ...result } = first;
   if (rechecked || verifiedAgentIdentifiers(result).issues.length === 0) {
-    if (key) rememberReading(key, first);
-    return { status: "ok", result, excerpt, model, rechecked: Boolean(rechecked) };
+    if (key) rememberReading(key, { ...first, compressed });
+    return { status: "ok", result, excerpt, model, rechecked: Boolean(rechecked), compressed };
   }
   const reread = await readWithRetries({ ...body, recheck: true });
   if (reread.status !== "ok") {
-    if (key) rememberReading(key, first);
-    return { status: "ok", result, excerpt, model };
+    if (key) rememberReading(key, { ...first, compressed });
+    return { status: "ok", result, excerpt, model, compressed };
   }
   const rereadModel = reread.model ?? null;
-  if (key) rememberReading(key, { ...reread.result, rechecked: true, model: rereadModel });
-  return { status: "ok", result: reread.result, excerpt, model: rereadModel, rechecked: true };
+  if (key) rememberReading(key, { ...reread.result, rechecked: true, model: rereadModel, compressed });
+  return { status: "ok", result: reread.result, excerpt, model: rereadModel, rechecked: true, compressed };
 };
 
 /** wholeDocument: send every page of a PDF (second look); otherwise only its first pages and the last one. */
@@ -245,18 +258,17 @@ export const callViesDocumentAgent = async (
     const key = hash ? readingKey(hash, mediaType, excerpt) : null;
     const cached = key ? cachedReading(key) : null;
     if (!cached) continue;
-    const { rechecked, model = null, ...result } = cached;
+    const { rechecked, model = null, compressed = false, ...result } = cached;
     if (rechecked || verifiedAgentIdentifiers(result).issues.length === 0) {
-      return { status: "ok", result, excerpt, model, rechecked: Boolean(rechecked), cached: true };
+      return { status: "ok", result, excerpt, model, rechecked: Boolean(rechecked), cached: true, compressed };
     }
     // Kept from before a rereading was possible or had succeeded: the same pages are sent for it.
-    const request = await buildRequest(bytes, mediaType, fileName, excerpt);
-    return withRecheck(cached, request.body, key, request.excerpt);
+    return withRecheck(cached, await buildRequest(bytes, mediaType, fileName, excerpt), key);
   }
-  const { body, excerpt } = await buildRequest(bytes, mediaType, fileName, mayExcerpt);
-  const key = hash ? readingKey(hash, mediaType, excerpt) : null;
-  const outcome = await readWithRetries(body);
-  return outcome.status === "ok" ? withRecheck({ ...outcome.result, model: outcome.model ?? null }, body, key, excerpt) : outcome;
+  const request = await buildRequest(bytes, mediaType, fileName, mayExcerpt);
+  const key = hash ? readingKey(hash, mediaType, request.excerpt) : null;
+  const outcome = await readWithRetries(request.body);
+  return outcome.status === "ok" ? withRecheck({ ...outcome.result, model: outcome.model ?? null }, request, key) : outcome;
 };
 
 /** Codes read by the agent, kept only when their check character is valid. */
