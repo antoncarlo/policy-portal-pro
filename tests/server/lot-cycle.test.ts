@@ -124,8 +124,11 @@ await check("drafts uploaded: only an administrator; at least one practice; one 
   assert.ok(db.rows("audit_log").some((row) => row.action === "lot.drafts_uploaded" && row.row_id === BATCH));
 });
 
-await check("confirming the drafts: the lot's rep or an administrator, not another client; asks for every draft; logs on the lot and on each practice", async () => {
+await check("confirming the drafts: only who loaded the lot (the rep), not an administrator nor another client; asks for every draft; logs on the lot and on each practice", async () => {
   await rejects(() => runWorkflowAction(sb(db), OTHER, "lot_confirm_drafts", { batchId: BATCH }), "forbidden", 403);
+  // The rep declares the drafts checked: an administrator who did not load the lot cannot do it in their place (9/11/2026).
+  await rejects(() => admin("lot_confirm_drafts"), "forbidden", 403);
+  assert.ok(!flow(db)!.drafts_confirmed_at, "nothing confirmed by the administrator");
   const missing = db.seed("practice_documents", { practice_id: "none" });
   void missing;
   const confirmed: any = await owner("lot_confirm_drafts");

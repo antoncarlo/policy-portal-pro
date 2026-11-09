@@ -152,6 +152,14 @@ function assertOwnerOrAdmin(lot: LotContext, userId: string, admin: boolean) {
   if (!admin && !owners(lot).includes(userId)) throw new WorkflowError(403, 'forbidden', 'Solo chi gestisce il lotto o un amministratore può eseguire questo passaggio');
 }
 
+/**
+ * A declaration only who loaded the lot can make: the rep checks the company's drafts and says so. An administrator
+ * makes it only on a lot they loaded themselves, never in the rep's place.
+ */
+function assertOwner(lot: LotContext, userId: string, message: string) {
+  if (!owners(lot).includes(userId)) throw new WorkflowError(403, 'forbidden', message);
+}
+
 function assertStep(lot: LotContext, step: 'drafts' | 'verify' | 'payment' | 'payment_check' | 'copies' | 'sign' | 'send' | 'issued', force: boolean, message: string) {
   const index = lot.cycle.steps.findIndex((entry) => entry.id === step);
   const blocking = lot.cycle.steps.slice(0, index).find((entry) => !entry.done && entry.id !== 'sign');
@@ -215,7 +223,7 @@ export async function runLotAction(
     }
 
     case 'lot_confirm_drafts': {
-      assertOwnerOrAdmin(lot, userId, admin);
+      assertOwner(lot, userId, 'Le bozze le conferma chi ha caricato il lotto, dopo averle verificate');
       if (lot.flow?.drafts_confirmed_at) return { ok: true, changed: false, batchId, confirmedAt: lot.flow.drafts_confirmed_at };
       const active = lot.cycle.active;
       if (active.length === 0) throw new WorkflowError(409, 'invalid_transition', 'Nessuna pratica del lotto è ancora deliberata');
