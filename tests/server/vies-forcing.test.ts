@@ -33,6 +33,8 @@ describe("VIES forced sending: what the operator may force", () => {
       "Nello ZIP compaiono anche codici di un'altra società: 91440300MA5GX0J87E",
       "ZIP CNTBA03717.zip non caricato",
       "ZIP duplicato",
+      "Lo ZIP ZIP.zip contiene anche le pratiche di altre righe (CN0DM03874, CNTBA03464): è lo ZIP di tutto il lotto, da dividere",
+      "I documenti della società sono in ZIP.zip, ma la colonna ZIP indica CN0SX04647: rinominare lo ZIP CN0SX04647.zip o correggere la colonna ZIP",
       "Il numero ZIP CNTBA03717 è indicato su più righe",
       "PEC mancante (né del contraente né del rappresentante fiscale)",
       "Domicilio fiscale del rappresentante mancante",

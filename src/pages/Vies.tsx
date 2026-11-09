@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
@@ -74,7 +74,7 @@ import {
   typesSatisfying,
   type ViesDocumentType,
 } from "@/lib/viesDocumentTypes";
-import { MAX_ZIP_NAME_LENGTH, isPracticeZipName, isValidZipName, planZipBundle, practiceZipKeys, zipKeyOf } from "@/lib/viesZipKeys";
+import { MAX_ZIP_NAME_LENGTH, isPracticeZipName, isValidZipName, otherPracticesInZip, planZipBundle, practiceZipKeys, zipKeyOf } from "@/lib/viesZipKeys";
 import {
   agentMediaType,
   callViesDocumentAgent,
@@ -1468,6 +1468,8 @@ const Vies = () => {
   const [zipFiles, setZipFiles] = useState<File[]>([]);
   // The ZIPs as the user chose them, before a whole-lot ZIP is split into one ZIP per practice.
   const [zipSources, setZipSources] = useState<File[]>([]);
+  // Names of the ZIP column of an Excel chosen while the ZIPs were being read: the split waits for the reading to end.
+  const pendingSplitKeys = useRef<ReadonlySet<string> | null>(null);
   const [parsedRecords, setRecords] = useState<ExcelRecord[]>([]);
   const [sheetData, setSheetData] = useState<ViesSheetData>(initialSheetData);
   const [visuraFile, setVisuraFile] = useState<File | null>(null);
@@ -1585,6 +1587,7 @@ const Vies = () => {
       document.vatNumbers.forEach((vatNumber) => identifiers.add(vatNumber));
       identifiersByZipKey.set(document.sourceZipKey, identifiers);
     }
+    const lotZipKeys = practiceZipKeys(records.map((record) => record.nomeZip));
     const codeZipCount = new Map<string, number>();
     for (const identifiers of identifiersByZipKey.values()) {
       for (const code of identifiers) codeZipCount.set(code, (codeZipCount.get(code) ?? 0) + 1);
@@ -1631,6 +1634,19 @@ const Vies = () => {
       const rowDocuments = zipKey && matchedZipFiles.length
         ? documents.filter((document) => document.sourceZipKey === zipKey)
         : [];
+      // The ZIP of the whole lot, not split, holds the ZIPs or folders of the other rows: it is never one company's
+      // practice, whatever codes the agent reads in it (6/11/2026: ZIP.zip linked to one row by its VAT number).
+      const otherPractices = otherPracticesInZip(rowDocuments.map((document) => document.path), record.nomeZip, lotZipKeys);
+      if (otherPractices.length) {
+        errors.push(
+          `Lo ZIP ${matchedZipFiles[0].name} contiene anche le pratiche di altre righe (${otherPractices.join(", ")}): è lo ZIP di tutto il lotto, da dividere. Ricaricarlo con l'Excel già caricato: il portale lo divide da solo`,
+        );
+      } else if (linkedByVat && record.nomeZip) {
+        // The final check before sending wants the ZIP named as in the ZIP column: say it now, not after the lot is created.
+        errors.push(
+          `I documenti della società sono in ${matchedZipFiles[0].name}, ma la colonna ZIP indica ${record.nomeZip}: rinominare lo ZIP ${record.nomeZip}.zip o correggere la colonna ZIP`,
+        );
+      }
       // The company's Excel identifies the client only by its Italian VAT number: the Chinese credit code that
       // the documents carry (18 characters) is then not evidence of another company, just not the identifier asked for.
       const italianOnly = !record.uscc;
@@ -1910,12 +1926,21 @@ const Vies = () => {
 
   // ZIPs chosen before the Excel: a whole-lot ZIP named with client codes can be split only once
   // the names in the ZIP column are known. The ZIPs are read again only if the split changes.
+  // An Excel chosen while the ZIPs are still being read waits for the reading to end, then the split is redone.
   const resplitZipsForExcel = async (excelRecords: ExcelRecord[]) => {
-    if (!zipSources.length || loadingZip) return;
     const practiceKeys = practiceZipKeys(excelRecords.map((record) => record.nomeZip));
+    if (loadingZip) {
+      pendingSplitKeys.current = practiceKeys;
+      return;
+    }
+    if (!zipSources.length) return;
+    await resplitZips(zipSources, zipFiles, practiceKeys);
+  };
+
+  const resplitZips = async (sources: File[], current: File[], practiceKeys: ReadonlySet<string>) => {
     const names = (files: File[]) => files.map((file) => file.name).join("|");
-    const expanded = await expandZipBundles(zipSources, practiceKeys).catch(() => null);
-    if (expanded && names(expanded.files) !== names(zipFiles)) await handleZipUpload(zipSources, practiceKeys);
+    const expanded = await expandZipBundles(sources, practiceKeys).catch(() => null);
+    if (expanded && names(expanded.files) !== names(current)) await handleZipUpload(sources, practiceKeys);
   };
 
   const handleZipUpload = async (
@@ -1934,6 +1959,7 @@ const Vies = () => {
     } catch (error) {
       setLoadingZip(false);
       setZipProcessingStatus(null);
+      pendingSplitKeys.current = null;
       toast({
         variant: "destructive",
         title: viesText().toast.zipUnreadableTitle,
@@ -1944,6 +1970,7 @@ const Vies = () => {
     if (selectedFiles.length > VIES_MAX_PRACTICES_PER_SHEET) {
       setLoadingZip(false);
       setZipProcessingStatus(null);
+      pendingSplitKeys.current = null;
       toast({
         variant: "destructive",
         title: viesText().toast.tooManyZipsTitle,
@@ -2107,6 +2134,10 @@ const Vies = () => {
       setLoadingZip(false);
       setZipProcessingStatus(null);
     }
+
+    const pendingKeys = pendingSplitKeys.current;
+    pendingSplitKeys.current = null;
+    if (pendingKeys) await resplitZips(uploadedFiles, selectedFiles, pendingKeys);
   };
 
   const missingRequirements = documentMatches.filter((requirement) => !requirement.completed);

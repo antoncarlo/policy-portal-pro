@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { composeNotes } from "../../src/lib/practiceSummary";
 import { verifyViesBatch, type ControllerInput } from "../../src/lib/viesController";
-import { isPracticeZipName, isValidZipName, planZipBundle, practiceZipKeys, zipKeyOf } from "../../src/lib/viesZipKeys";
+import { isPracticeZipName, isValidZipName, otherPracticesInZip, planZipBundle, practiceZipKeys, zipKeyOf } from "../../src/lib/viesZipKeys";
 
 const keys = (...names: string[]) => practiceZipKeys(names);
 const fileNames = (parts: ReturnType<typeof planZipBundle>) => parts?.map((part) => part.fileName).sort() ?? null;
@@ -64,6 +64,27 @@ describe("VIES lot bundle", () => {
 
   it("still splits the numbered bundle when no Excel is loaded", () => {
     expect(fileNames(planZipBundle("lotto.zip", ["1.zip", "2/licenza.pdf"], new Set()))).toEqual(["1.zip", "2.zip"]);
+  });
+
+});
+
+describe("VIES ZIP holding other practices of the lot", () => {
+  const lot = keys("CN0SX04647", "CN0DM03874", "CNTBA03464");
+
+  it("names the practices of the other rows found in the ZIP, as ZIPs or folders, at any depth", () => {
+    // The whole-lot ZIP of 6/11/2026, not split and linked to one row by its VAT number.
+    expect(otherPracticesInZip([
+      "CN0DM03874.zip",
+      "CN0DM03874.zip/licenza.pdf",
+      "CN0SX04647.zip/passaporto.jpg",
+      "lotto/cntba03464/report.pdf",
+    ], "CN0SX04647", lot)).toEqual(["CN0DM03874", "cntba03464"]);
+  });
+
+  it("finds nothing in the ZIP of one practice, whatever its files are called", () => {
+    expect(otherPracticesInZip(["CN0SX04647/licenza.pdf", "documenti.zip/id.jpg", "CN0SX04647 report.pdf"], "CN0SX04647", lot)).toEqual([]);
+    // A file named after another client is not a practice: only ZIPs and folders are.
+    expect(otherPracticesInZip(["CN0DM03874.pdf"], "CN0SX04647", lot)).toEqual([]);
   });
 });
 
