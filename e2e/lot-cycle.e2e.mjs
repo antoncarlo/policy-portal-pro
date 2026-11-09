@@ -32,8 +32,9 @@ const ISO = "2026-10-06T10:00:00Z";
 const flowOf = (steps) => ({ batch_id: LOT, closed_at: null, ...Object.fromEntries(steps.flatMap((s) => [[`${s}_at`, ISO], [`${s}_by`, UID]])) });
 
 const browser = await chromium.launch();
-async function open({ admin = false, flow = null, docs = DRAFTS, lotDocs = [], events = [], paid = false } = {}) {
-  const rows = paid ? PRACTICES.map((row) => (row === P1 || row === P2 ? { ...row, financial_status: "incassata", payment_date: "2026-10-12" } : row)) : PRACTICES;
+// `owner`: who loaded the lot (the practices' user); by default the person looking at it.
+async function open({ admin = false, flow = null, docs = DRAFTS, lotDocs = [], events = [], paid = false, owner = UID } = {}) {
+  const rows = (paid ? PRACTICES.map((row) => (row === P1 || row === P2 ? { ...row, financial_status: "incassata", payment_date: "2026-10-12" } : row)) : PRACTICES).map((row) => ({ ...row, user_id: owner }));
   const ctx = await browser.newContext({ locale: "it-IT", viewport: { width: 1400, height: 1100 } });
   const log = { api: [], storage: [] };
   const hdr = { "access-control-allow-origin": BASE, "access-control-allow-headers": "*", "access-control-allow-methods": "*", "access-control-expose-headers": "content-range" };
@@ -126,6 +127,22 @@ const apiCalls = (log, action) => log.api.filter((c) => c.body.action === action
   check("1 conferma delle bozze: una sola chiamata per il lotto", apiCalls(log, "lot_confirm_drafts").length === 1 && call.body.batchId === LOT, JSON.stringify(log.api));
   check("1 nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
   await ctx.close();
+}
+
+// 1c) an administrator does not confirm the drafts of a lot loaded by the rep (9/11/2026: the button showed for the
+// administrator on Schiaffino's lot); on a lot the administrator loaded, the confirmation is theirs.
+{
+  const REP = "00000000-0000-4000-8000-00000000beef";
+  const { ctx, page, pageErrors } = await open({ admin: true, flow: flowOf(["drafts_uploaded"]), owner: REP });
+  await page.waitForFunction(() => /Attende il rappresentante fiscale/.test(document.querySelector("[data-testid=lot-cycle-turn]")?.textContent ?? ""), null, { timeout: 8000 }).catch(() => {});
+  check("1c amministratore sul lotto del rappresentante: nessun pulsante «Ho verificato le bozze»", (await page.getByTestId("lot-action-verify").count()) === 0 && (await page.getByTestId("lot-action-download-drafts").count()) === 0);
+  check("1c amministratore sul lotto del rappresentante: attende il rappresentante fiscale", /Attende il rappresentante fiscale/.test(await page.getByTestId("lot-cycle-turn").innerText()) && /Il rappresentante fiscale scarica bozze e MUP/.test(await page.getByTestId("lot-cycle-hint").innerText()));
+  check("1c nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
+  await ctx.close();
+  const own = await open({ admin: true, flow: flowOf(["drafts_uploaded"]) });
+  await own.page.waitForSelector("[data-testid=lot-action-verify]", { timeout: 8000 }).catch(() => {});
+  check("1c amministratore su un lotto caricato da lui: la conferma delle bozze è sua", (await own.page.getByTestId("lot-action-verify").count()) === 1 && /Tocca a te/.test(await own.page.getByTestId("lot-cycle-turn").innerText()));
+  await own.ctx.close();
 }
 
 // 1b) the menu says which lots wait for the person looking at it

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Check, CheckCircle2, ChevronDown, Download, FileSignature, FileText, Loader2, Send, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { fetchLotCycle, type LotCycleData } from "@/lib/lotFlowApi";
 import { LOT_STEP_ACTOR, type LotStepId } from "@/lib/lotCycle";
 import { downloadDraftsBundle } from "@/lib/signingBundle";
@@ -45,6 +46,12 @@ export const LotCyclePanel = ({ batchId, title, isAdmin, onDownloadSigning, onUp
   const [dialog, setDialog] = useState<DialogName>(null);
   const [showLog, setShowLog] = useState(false);
   const [working, setWorking] = useState<string | null>(null);
+  // Who is looking: the drafts are checked and confirmed by who loaded the lot, never by an administrator in their place.
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    void supabase.auth.getSession().then(({ data: auth }) => setUserId(auth.session?.user.id ?? null));
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -69,8 +76,19 @@ export const LotCyclePanel = ({ batchId, title, isAdmin, onDownloadSigning, onUp
 
   const { cycle } = data;
   const current = cycle.current;
-  const mine = current ? isAdmin || LOT_STEP_ACTOR[current] === "collaborator" : false;
-  const turn = cycle.closed ? m.turn.closed : current ? (LOT_STEP_ACTOR[current] === "admin" ? (isAdmin ? m.turn.you : m.turn.admin) : isAdmin ? m.turn.collaborator : m.turn.you) : m.turn.closed;
+  const loadedTheLot = userId !== null && data.practices.some((practice) => practice.user_id === userId);
+  // The drafts check is the rep's declaration: only who loaded the lot makes it (an administrator only on a lot they loaded).
+  const canDo = (step: LotStepId) => (step === "verify" ? loadedTheLot : isAdmin || LOT_STEP_ACTOR[step] === "collaborator");
+  const mine = current ? canDo(current) : false;
+  const turn = cycle.closed
+    ? m.turn.closed
+    : current
+      ? LOT_STEP_ACTOR[current] === "admin"
+        ? isAdmin ? m.turn.you : m.turn.admin
+        : current === "verify"
+          ? loadedTheLot ? m.turn.you : m.turn.collaborator
+          : isAdmin ? m.turn.collaborator : m.turn.you
+      : m.turn.closed;
   const signedDone = cycle.active.length - (cycle.missing.sign?.length ?? 0);
 
   const run = async (key: string, task: () => Promise<void>) => {
@@ -158,7 +176,7 @@ export const LotCyclePanel = ({ batchId, title, isAdmin, onDownloadSigning, onUp
   };
 
   const closedActions = cycle.closed ? [button("lot-action-download-all", m.buttons.downloadAll, onDownloadLot, <Download className="mr-1.5 h-4 w-4" />, { primary: true })] : [];
-  const hint = current ? m.hints[current][isAdmin ? "admin" : "collaborator"] : m.closedHint;
+  const hint = current ? m.hints[current][isAdmin && !(current === "verify" && loadedTheLot) ? "admin" : "collaborator"] : m.closedHint;
   const nextActions = current ? actions(current) : closedActions;
 
   return (
