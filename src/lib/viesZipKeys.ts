@@ -78,3 +78,26 @@ export function planZipBundle(fileName: string, entryNames: string[], practiceKe
   }
   return parts;
 }
+
+/**
+ * Le pratiche di altre righe del lotto che stanno dentro lo ZIP di una riga, come ZIP o cartelle a qualunque
+ * profondita' (`paths` sono i percorsi dei documenti letti dallo ZIP). Uno ZIP con le pratiche di altre righe e' lo ZIP
+ * di tutto il lotto non diviso (6/11/2026: ZIP.zip con 20 ZIP dentro, collegato a una riga tramite la partita IVA):
+ * non puo' essere la pratica di una sola societa'. I nomi solo numerici (1 … 20) non contano: dentro lo ZIP di una
+ * pratica una cartella "2" puo' essere qualunque cosa.
+ */
+export function otherPracticesInZip(paths: Iterable<string>, ownZipName: string, practiceKeys: ReadonlySet<string>): string[] {
+  const ownKey = zipKeyOf(ownZipName);
+  const found = new Map<string, string>();
+  for (const path of paths) {
+    const segments = path.split("/");
+    segments.forEach((segment, index) => {
+      const isFolder = index < segments.length - 1;
+      const name = isFolder ? segment.trim().replace(/\.zip$/i, "").trim() : /^(.+)\.zip$/i.exec(segment.trim())?.[1]?.trim();
+      const key = zipKeyOf(name);
+      if (!name || !key || key === ownKey || /^\d+$/.test(key) || !practiceKeys.has(key) || found.has(key)) return;
+      found.set(key, name);
+    });
+  }
+  return [...found.values()];
+}
