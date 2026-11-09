@@ -33,6 +33,8 @@ export type ViesStatementKind = "cliente" | "provvigioni";
 export interface ViesStatementPolicy {
   contraente: string;
   policyNumber: string | null;
+  /** Numero della bozza della compagnia: con questo il pagamento dell'estratto conto si riconcilia alla bozza giusta. */
+  draftNumber?: string | null;
   practiceNumber: string;
   /** Data della polizza (decorrenza), YYYY-MM-DD. */
   date: string | null;
@@ -122,8 +124,39 @@ export const safeFileName = (value: string, maxLength = 90) => {
 export const buildViesStatementFileName = (input: Pick<ViesStatementInput, "kind" | "lotNumber" | "representative">) =>
   `${input.kind === "provvigioni" ? "Estratto provvigioni" : "Estratto conto"} Excel Lotto ${input.lotNumber} - ${safeFileName(input.representative.name)}.pdf`;
 
-const policyCell = (row: ViesStatementPolicy) =>
-  pdfText(`${row.contraente.toUpperCase()}\n${row.policyNumber ? `POLIZZA N. ${row.policyNumber}` : `PRATICA N. ${row.practiceNumber}`}`);
+/**
+ * Il numero di bozza che la compagnia mette all'inizio del nome del file della bozza ("1514223_ViesBozza_Markel_2026.pdf")
+ * o dopo la parola bozza ("Bozza n. 1514223.pdf"): almeno 5 cifre, perche' un anno ("2026_bozza.pdf") non lo e'.
+ */
+export const draftNumberFromFileName = (fileName: string): string | null => {
+  const name = fileName.split("/").pop() ?? fileName;
+  return /^(\d{5,})(?=[_\-\s.])/.exec(name)?.[1] ?? /bozza\s*(?:n\.?|nr\.?|numero)?\s*(\d{5,})/i.exec(name)?.[1] ?? null;
+};
+
+/** Il numero dell'ultima bozza caricata per ogni pratica, tra quelle che ne hanno uno. */
+export const latestDraftNumbers = (drafts: Array<{ practice_id: string; file_name: string; created_at: string }>) => {
+  const numbers = new Map<string, string>();
+  for (const draft of [...drafts].sort((a, b) => a.created_at.localeCompare(b.created_at))) {
+    const number = draftNumberFromFileName(draft.file_name);
+    if (number) numbers.set(draft.practice_id, number);
+  }
+  return numbers;
+};
+
+// Le righe in ordine di numero di bozza (chi riceve il pagamento le ritrova come le bozze), poi quelle senza bozza.
+const byDraftNumber = (a: ViesStatementPolicy, b: ViesStatementPolicy) => {
+  if (a.draftNumber && b.draftNumber) return a.draftNumber.localeCompare(b.draftNumber, "it", { numeric: true });
+  if (a.draftNumber || b.draftNumber) return a.draftNumber ? -1 : 1;
+  return a.practiceNumber.localeCompare(b.practiceNumber, "it", { numeric: true });
+};
+
+const policyCell = (row: ViesStatementPolicy) => {
+  const references = [
+    row.draftNumber ? `BOZZA N. ${row.draftNumber}` : null,
+    row.policyNumber ? `POLIZZA N. ${row.policyNumber}` : null,
+  ].filter(Boolean);
+  return pdfText(`${row.contraente.toUpperCase()}\n${references.length ? references.join(" - ") : `PRATICA N. ${row.practiceNumber}`}`);
+};
 
 export function generateViesStatementPdf(input: ViesStatementInput): jsPDF {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -134,7 +167,7 @@ export function generateViesStatementPdf(input: ViesStatementInput): jsPDF {
   const textWidth = pageWidth - margin * 2;
   const commission = input.kind === "provvigioni" ? input.commissionPercentage : 0;
   const withholding = input.kind === "provvigioni" ? input.withholdingPercentage : 0;
-  const totals = computeViesLotTotals(input.policies, commission, withholding);
+  const totals = computeViesLotTotals([...input.policies].sort(byDraftNumber), commission, withholding);
 
   // Intestazione: logo a sinistra, dati della società a destra.
   if (input.logo) {
