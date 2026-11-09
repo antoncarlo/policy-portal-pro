@@ -94,16 +94,16 @@ ${intermediary("C) Eventuale collaborazione orizzontale (art. 22, comma 10, D.L.
 <h2>Sezione V · Informazioni sulle remunerazioni</h2>
 <p>L’intermediario:</p>
 <ul>
-<li>percepisce un compenso costituito da: (i) una commissione inclusa nel premio assicurativo, corrisposta dall’impresa o dal broker di riferimento; (ii) un onorario per l’attività di consulenza, corrisposto direttamente dal contraente;</li>
+<li>per la distribuzione della presente polizza non percepisce né commissioni incluse nel premio né onorari a carico del contraente;</li>
 <li>l’onorario corrisposto direttamente dal contraente è pari a € ${inl("onorario", "12%")} per ciascuna polizza (IVA inclusa / esclusa, se dovuta). È indicato anche nell’“Incarico e preventivo di consulenza” allegato;</li>
 <li>la commissione inclusa nel premio è pari a € ${inl("commissione", "12%")} (${inl("commissione_pct", "6%")}% del premio);</li>
 </ul>
-${stack("non percepisce incentivi legati alla distribuzione di uno specifico prodotto né al raggiungimento di obiettivi quantitativi", "può percepire ulteriori compensi legati al raggiungimento di obiettivi quantitativi definiti per aggregato di prodotti e di parametri qualitativi, e tali compensi non sono collegati alla distribuzione di uno specifico prodotto")}
+${stack("non percepisce incentivi legati alla distribuzione di uno specifico prodotto né al raggiungimento di obiettivi quantitativi", on("può percepire ulteriori compensi legati al raggiungimento di obiettivi quantitativi definiti per aggregato di prodotti e di parametri qualitativi, e tali compensi non sono collegati alla distribuzione di uno specifico prodotto"))}
 
 <h2>Sezione VI · Informazioni sul pagamento dei premi</h2>
 <p>L’intermediario fornisce informazioni in merito ai seguenti aspetti:</p>
 <ul>
-<li>i premi pagati dal contraente all’intermediario e le somme destinate ai risarcimenti o ai pagamenti dovuti dalle imprese costituiscono patrimonio autonomo e separato dal patrimonio dell’intermediario stesso (art. 117 CAP). Sono depositati su un conto corrente separato, intestato all’intermediario in tale qualità, distinto da quello su cui è accreditato l’onorario di consulenza;</li>
+<li>i premi pagati dal contraente all’intermediario e le somme destinate ai risarcimenti o ai pagamenti dovuti dalle imprese costituiscono patrimonio autonomo e separato dal patrimonio dell’intermediario stesso (art. 117 CAP). Sono depositati su un conto corrente separato, intestato all’intermediario in tale qualità;</li>
 <li>l’intermediario è autorizzato all’incasso dei premi in forza di accordo con l’impresa/broker di riferimento e di specifica autorizzazione del contraente per la singola impresa. Gli effetti liberatori del pagamento sono regolati dall’art. 118 del CAP;</li>
 <li>le modalità di pagamento dei premi ammesse sono: (1) assegni bancari, postali o circolari, muniti della clausola di non trasferibilità, intestati o girati all’impresa di assicurazione oppure all’intermediario, espressamente in tale qualità; (2) ordini di bonifico e altri mezzi di pagamento bancario o postale, inclusi gli strumenti di pagamento elettronici, anche on line, che abbiano come beneficiario uno dei soggetti indicati al punto 1; (3) denaro contante, esclusivamente per i contratti RC auto e relative garanzie accessorie, nonché per i contratti degli altri rami danni con il limite di € 750 annui per ciascun contratto.</li>
 </ul>
@@ -132,7 +132,7 @@ ${stack("non percepisce incentivi legati alla distribuzione di uno specifico pro
 <div class="pb"></div>
 <h1>Incarico e preventivo di consulenza</h1>
 <p class="sub">Art. 57, comma 2, Regolamento IVASS n. 40/2018</p>
-<p>Il cliente ${inl("contraente", "62%")} conferisce a Italy4VAT S.r.l. (di seguito “l’intermediario”) l’incarico, a titolo oneroso, di prestare consulenza assicurativa sulle esigenze manifestate e assistenza finalizzata a tale attività, in relazione alla garanzia prevista dall’art. 35, comma 7-quater, del D.P.R. 633/1972 (di seguito “polizza VIES”).</p>
+<p>Il cliente ${inl("contraente", "62%")} conferisce a Italy4VAT S.r.l. (di seguito “l’intermediario”) l’incarico, a titolo gratuito, di prestare consulenza assicurativa sulle esigenze manifestate e assistenza finalizzata a tale attività, in relazione alla garanzia prevista dall’art. 35, comma 7-quater, del D.P.R. 633/1972 (di seguito “polizza VIES”).</p>
 <p>La consulenza prestata dall’intermediario è strettamente connessa alla distribuzione dei prodotti assicurativi ed è quindi resa in relazione a un contratto di assicurazione.</p>
 <p>Il cliente prende atto che la consulenza non è indipendente. L’intermediario intrattiene infatti rapporti con altri intermediari e/o imprese di assicurazione, dai quali percepisce le commissioni indicate alla Sezione V del MUP.</p>
 <h3>Attività comprese nell’incarico</h3>

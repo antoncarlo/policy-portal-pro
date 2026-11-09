@@ -160,7 +160,8 @@ describe("signing prefill", () => {
     const html: string = buildMup({
       CO: { name: "Tecno Advance MGA Broker Srl", rui: "B000746484", legal: "Via Po, 102 - 00198 Roma", tel: "", pec: "", web: "" },
       f: (label: string) => label, row: (...cells: string[]) => cells.join(""), cb: (item: unknown) => String(item), on: (text: string) => ({ on: true, text }),
-      opts: () => "", stack: () => "", sign: () => "", placeDate: "", inl: (key: string) => `{${key}}`,
+      opts: () => "", sign: () => "", placeDate: "", inl: (key: string) => `{${key}}`,
+      stack: (...items: Array<string | { text: string }>) => items.map((item) => (typeof item === "string" ? `[ ] ${item}` : `[x] ${item.text}`)).join("\n"),
     });
     for (const text of [
       "Sezione E – n. E000821262 del 04/05/2026",
@@ -181,6 +182,17 @@ describe("signing prefill", () => {
     ]) expect(html, text).toContain(text);
     // Nothing left to fill by hand but the PEC, which is not known yet.
     expect(html).not.toMatch(/€ _{4,}/);
+    // No fee and no commission (9/11/2026): the assignment is free of charge and Sections V and VI say so.
+    expect(html).toContain("l’incarico, a titolo gratuito,");
+    expect(html).not.toContain("a titolo oneroso");
+    expect(html).toContain("per la distribuzione della presente polizza non percepisce né commissioni incluse nel premio né onorari a carico del contraente");
+    expect(html).not.toContain("percepisce un compenso costituito da");
+    expect(html).not.toContain("distinto da quello su cui è accreditato l’onorario di consulenza");
+    expect(html).toContain("[x] può percepire ulteriori compensi legati al raggiungimento di obiettivi quantitativi");
+    expect(html).toContain("[ ] non percepisce incentivi");
+    // Unchanged on purpose: the commissions sentence of the assignment and the separate premium account.
+    expect(html).toContain("dai quali percepisce le commissioni indicate alla Sezione V del MUP");
+    expect(html).toContain("L’onorario è distinto dal premio ed è accreditato su un conto diverso da quello separato riservato ai premi.");
   });
 
   for (const document of ["mup"] as const) {
