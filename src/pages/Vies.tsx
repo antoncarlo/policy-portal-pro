@@ -50,6 +50,7 @@ import {
   VIES_GUARANTEED_AMOUNT,
   VIES_MAX_PRACTICES_PER_SHEET,
   VIES_PREMIUM_GROSS,
+  VIES_PREMIUM_NET,
   VIES_PREMIUM_TAXABLE,
   VIES_PREMIUM_TAXES,
 } from "@/lib/viesTerms";
@@ -2811,7 +2812,7 @@ const Vies = () => {
           policy_start_date: policyStartDate,
           policy_end_date: policyEndDate,
           premium_gross: VIES_PREMIUM_GROSS,
-          premium_net: VIES_PREMIUM_TAXABLE,
+          premium_net: VIES_PREMIUM_NET,
           premium_taxable: VIES_PREMIUM_TAXABLE,
           premium_taxes: VIES_PREMIUM_TAXES,
           notes: composeNotes({

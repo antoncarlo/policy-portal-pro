@@ -17,6 +17,7 @@ import {
   VIES_DURATION_MONTHS,
   VIES_GUARANTEED_AMOUNT,
   VIES_PREMIUM_GROSS,
+  VIES_PREMIUM_NET,
   VIES_PREMIUM_TAXABLE,
   VIES_PREMIUM_TAXES,
 } from "./viesTerms.js";
@@ -286,7 +287,7 @@ export function verifyViesBatch(input: ControllerInput): ControllerReport {
       if (!sameMoney(practice.premium_gross, VIES_PREMIUM_GROSS)) fail(`Premio lordo ${practice.premium_gross ?? "mancante"}, atteso ${VIES_PREMIUM_GROSS}`);
       if (!sameMoney(practice.premium_taxes, VIES_PREMIUM_TAXES)) fail(`Imposte ${practice.premium_taxes ?? "mancanti"}, attese ${VIES_PREMIUM_TAXES}`);
       if (!sameMoney(practice.premium_taxable, VIES_PREMIUM_TAXABLE)) fail(`Imponibile ${practice.premium_taxable ?? "mancante"}, atteso ${VIES_PREMIUM_TAXABLE}`);
-      if (!sameMoney(practice.premium_net, VIES_PREMIUM_TAXABLE)) fail(`Premio netto ${practice.premium_net ?? "mancante"}, atteso ${VIES_PREMIUM_TAXABLE}`);
+      if (!sameMoney(practice.premium_net, VIES_PREMIUM_NET)) fail(`Premio netto ${practice.premium_net ?? "mancante"}, atteso ${VIES_PREMIUM_NET}`);
       if (Number(fields.vies_importo_garantito) !== VIES_GUARANTEED_AMOUNT) fail(`Importo garantito ${str(fields.vies_importo_garantito) || "mancante"}, atteso ${VIES_GUARANTEED_AMOUNT}`);
       if (Number(fields.vies_durata_mesi) !== VIES_DURATION_MONTHS) fail(`Durata ${str(fields.vies_durata_mesi) || "mancante"} mesi, attesa ${VIES_DURATION_MONTHS}`);
       if (!practice.policy_start_date || !practice.policy_end_date) {
