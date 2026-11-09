@@ -8,6 +8,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import { extractNotesSections } from "./practiceSummary";
 import { isValidChineseId } from "./viesCodes";
+import { VIES_INSURER, VIES_SIGNING_PLACE } from "./viesTerms";
 
 export type PrefillDocument = "mup";
 export type PrefillValues = Record<string, string>;
@@ -21,6 +22,12 @@ export interface PrefillPractice {
   owner_tax_code?: string | null;
   beneficiary?: string | null;
   notes?: string | null;
+  /** Premio finito (lordo) di polizza. */
+  premium_gross?: number | null;
+  /** Decorrenza della pratica (YYYY-MM-DD): la data dei documenti da firmare. */
+  policy_start_date?: string | null;
+  /** Numero della bozza della compagnia, dal nome del file della bozza caricata dopo la delibera. */
+  draft_number?: string | null;
 }
 
 /** Dati letti dai documenti dello ZIP (licenza commerciale, documento del legale rappresentante, UBO). */
@@ -55,6 +62,16 @@ export const MAX_PREFILLED_OWNERS = 3;
 
 const text = (value: unknown) => (value === null || value === undefined ? "" : String(value).trim());
 const isoToItalian = (year: string, month: string, day: string) => `${day}/${month}/${year}`;
+const isoDateToItalian = (value: string | null | undefined) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value ?? "");
+  return match ? isoToItalian(match[1], match[2], match[3]) : "";
+};
+/** 2000 → "2.000,00": migliaia sempre separate, anche dove il formato italiano del browser non lo fa sotto le 10.000. */
+const money = (value: number | null | undefined) => {
+  if (value === null || value === undefined || !Number.isFinite(Number(value)) || Number(value) <= 0) return "";
+  const [integer, decimals] = Number(value).toFixed(2).split(".");
+  return `${integer.replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${decimals}`;
+};
 
 /** Data di nascita e sesso scritti nel numero della carta d'identita' cinese (solo se il numero e' valido). */
 export function readChineseId(value: string): { valid: boolean; birth: string; sex: string } {
@@ -76,16 +93,22 @@ export function buildPrefillValues(practice: PrefillPractice, aml: AmlData = {})
   const taxCode = text(fields.vies_codice_fiscale_contraente);
   const representative = text(fields.vies_rappresentante_fiscale);
   const realPolicy = practice.policy_number && !/^VIES-/i.test(practice.policy_number) ? practice.policy_number : "";
+  const draft = text(practice.draft_number);
   const chinese = Boolean(uscc);
   const idNumber = text(fields.vies_documento_legale_rappresentante).replace(/\s+/g, "").toUpperCase();
   const id = readChineseId(idNumber);
   const legal = aml.rappresentante ?? {};
 
   const values: PrefillValues = {
-    polizza: realPolicy || practice.practice_number,
+    // La proposta e' la bozza della compagnia finche' non c'e' il numero di polizza.
+    polizza: realPolicy || draft || practice.practice_number,
     email: text(fields.vies_email) || (practice.client_email && !/@placeholder\.local$/i.test(practice.client_email) ? practice.client_email : ""),
     dichiarante: text(fields.vies_amministratore_rappresentante) || representative,
-    pratica: realPolicy ? `${practice.practice_number} · polizza ${realPolicy}` : practice.practice_number,
+    pratica: [practice.practice_number, draft ? `bozza ${draft}` : "", realPolicy ? `polizza ${realPolicy}` : ""].filter(Boolean).join(" · "),
+    premio: money(practice.premium_gross),
+    compagnia: VIES_INSURER,
+    luogo: VIES_SIGNING_PLACE,
+    data: isoDateToItalian(practice.policy_start_date),
     contraente: text(practice.client_name),
     cf: [taxCode ? `C.F. ${taxCode}` : "", vat && vat !== taxCode ? `P.IVA ${vat}` : "", uscc ? `USCC ${uscc}` : ""].filter(Boolean).join(" · "),
     prodotto: PREFILL_PRODUCT,

@@ -123,11 +123,49 @@ describe("signing prefill", () => {
     expect(buildPrefillValues(withTaxCode).cf).toBe("C.F. 12345678903");
   });
 
+  it("fills the premium, the insurer, the draft number and place and date of signing (Lot 1, draft 1514223)", () => {
+    const values = buildPrefillValues({ ...practice, premium_gross: 2000, policy_start_date: "2026-11-09", draft_number: "1514223" });
+    expect(values).toMatchObject({
+      premio: "2.000,00",
+      compagnia: "Markel Insurance SE, Stabilimento in Spagna",
+      polizza: "1514223",
+      pratica: "VIES-2026-0007 · bozza 1514223",
+      luogo: "Roma",
+      data: "09/11/2026",
+    });
+    // The company's policy number, once there is one, goes next to the draft number.
+    expect(buildPrefillValues({ ...practice, policy_number: "POL-123", draft_number: "1514223" })).toMatchObject({ polizza: "POL-123", pratica: "VIES-2026-0007 · bozza 1514223 · polizza POL-123" });
+    // Without a premium or a date nothing is written: never invented.
+    const bare = buildPrefillValues(practice);
+    expect(bare.premio).toBeUndefined();
+    expect(bare.data).toBeUndefined();
+  });
+
   it("every template has its fields registered", async () => {
     const map = await source.fields();
     expect(map.mup.length).toBeGreaterThan(20);
     const keys = new Set(map.mup.map((field) => field.key));
-    for (const key of ["pratica", "polizza", "contraente", "cf", "sede", "registro", "firmatario", "firmatario_cf", "dichiarante", "email", "te1_nome", "te1_quota", "te3_quota"]) expect(keys.has(key)).toBe(true);
+    for (const key of ["pratica", "polizza", "contraente", "cf", "sede", "registro", "firmatario", "firmatario_cf", "dichiarante", "email", "te1_nome", "te1_quota", "te3_quota", "premio", "compagnia", "luogo", "data"]) expect(keys.has(key)).toBe(true);
+    // Place and date of every signature block: assignment, recommendation, delivery, privacy, AML questionnaire.
+    expect(map.mup.filter((field) => field.key === "data")).toHaveLength(5);
+  });
+
+  it("the MUP names the intermediary as in the RUI: Italy4VAT S.r.l., section E, its manager and the broker it works for", async () => {
+    const { buildMup } = await import("../../scripts/signing-templates/mup-body.mjs");
+    const html: string = buildMup({
+      CO: { name: "Tecno Advance MGA Broker Srl", rui: "B000746484", legal: "Via Po, 102 - 00198 Roma", tel: "", pec: "", web: "" },
+      f: (label: string) => label, row: (...cells: string[]) => cells.join(""), cb: (item: unknown) => String(item), on: (text: string) => ({ on: true, text }),
+      opts: () => "", stack: () => "", sign: () => "", placeDate: "", inl: (key: string) => `{${key}}`,
+    });
+    for (const text of [
+      "Sezione E – n. E000821262 del 04/05/2026",
+      "Stefano Schiaffino – RUI n. E000048035",
+      "Via degli Scipioni 157 - 00192 Roma (RM)",
+      "dal 23/10/2026",
+      "iscritta al RUI dell’IVASS, Sezione E, n. E000821262",
+      "€ {premio}",
+      "{compagnia}",
+    ]) expect(html, text).toContain(text);
   });
 
   for (const document of ["mup"] as const) {

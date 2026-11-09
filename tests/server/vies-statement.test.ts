@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { draftNumberFromFileName, generateViesStatementPdf, latestDraftNumbers } from "../../src/lib/viesStatementPdf";
+import { draftNumberFromFileName, latestDraftNumbers } from "../../src/lib/draftNumber";
+import { generateViesStatementPdf } from "../../src/lib/viesStatementPdf";
 
 const base = {
   lotNumber: 3,

@@ -17,6 +17,10 @@ export const VIES_PREMIUM_NET = 1616.16;
 export const VIES_PREMIUM_FEES = 0;
 export const VIES_PREMIUM_ACCESSORIES = Math.round((VIES_PREMIUM_TAXABLE - VIES_PREMIUM_NET - VIES_PREMIUM_FEES) * 100) / 100;
 export const VIES_DURATION_MONTHS = 36;
+/** La compagnia che rilascia le fideiussioni VIES (frontespizio delle bozze: "Rilasciata da MARKEL INSURANCE SE, STABILIMENTO IN SPAGNA"). */
+export const VIES_INSURER = "Markel Insurance SE, Stabilimento in Spagna";
+/** Luogo di firma dei documenti: la sede del rappresentante fiscale che firma con procura e dell'intermediario (Roma). */
+export const VIES_SIGNING_PLACE = "Roma";
 export const VIES_MAX_PRACTICES_PER_SHEET = 20;
 
 /**

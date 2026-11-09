@@ -78,7 +78,7 @@ const opts = (...items) => `<div class="opts">${items.map(cb).join("")}</div>`;
 const stack = (...items) => `<div class="opts">${items.map(cb).join("")}</div>`.replace(/class="opts"/, 'class="opts" style="display:block"');
 const policyLine = row(f("Pratica / Polizza n.", "w2", "pratica"), f("Contraente", "w3", "contraente"), f("Codice fiscale / P.IVA", "w2", "cf"));
 const sign = (...captions) => `<div class="sig">${captions.map((c) => `<div>${c}</div>`).join("")}</div>`;
-const placeDate = row(f("Luogo"), f("Data"));
+const placeDate = row(f("Luogo", "", "luogo"), f("Data", "", "data"));
 
 
 const inl = (key, width) =>

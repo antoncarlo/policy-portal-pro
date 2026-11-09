@@ -1,10 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
+import { latestDraftNumbers } from "@/lib/draftNumber";
 import { stageOf } from "@/lib/practiceStages";
 import {
   buildViesStatementFileName,
   computeViesLotTotals,
   generateViesStatementPdf,
-  latestDraftNumbers,
   viesStatementPdfToBytes,
   type ViesStatementImage,
 } from "@/lib/viesStatementPdf";
