@@ -7,13 +7,16 @@
 // Consensi come nel vecchio MUP firmato dai clienti: consenso al trattamento dei dati e al supporto durevole non
 // cartaceo SI'; comunicazioni commerciali NO; motivo della raccomandazione "Specificita' di alcune garanzie".
 
-// L'intermediario che entra in contatto con il contraente, come nel Registro Unico degli Intermediari (RUI) dell'IVASS.
-// Recapiti telefonici, sito, e-mail e PEC non sono ancora noti: restano in bianco.
+// L'intermediario che entra in contatto con il contraente, come nel Registro Unico degli Intermediari (RUI) dell'IVASS,
+// con i recapiti comunicati il 9/11/2026. La PEC non e' ancora nota: resta in bianco.
 export const ITALY4VAT = {
   name: "Italy4VAT S.r.l.",
   rui: "E000821262",
   ruiDate: "04/05/2026",
   legal: "Via degli Scipioni 157 - 00192 Roma (RM)",
+  tel: "+39 06 6821 0095",
+  email: "rome@italy4vat.com",
+  web: "https://italy4vat.com/it/",
   manager: "Stefano Schiaffino",
   managerRui: "E000048035",
   // Da quando opera per il broker di riferimento (RUI, "Intermediari per cui opera").
@@ -44,9 +47,9 @@ ${intermediary("A) Intermediario che entra in contatto con il contraente", [
   ["Veste in cui opera", "Collaboratore di intermediario iscritto nella Sezione E del RUI (collaboratori degli intermediari iscritti nelle sezioni A, B o D), attività di intermediazione accessoria"],
   ["Responsabile dell’attività di distribuzione", `${I4V.manager} – RUI n. ${I4V.managerRui}`],
   ["Sede legale", I4V.legal],
-  ["Recapito telefonico", ""],
-  ["Indirizzo internet", ""],
-  ["Posta elettronica", ""],
+  ["Recapito telefonico", I4V.tel],
+  ["Indirizzo internet", I4V.web],
+  ["Posta elettronica", I4V.email],
   ["Posta elettronica certificata (PEC)", ""],
   ["Modalità di distribuzione", "L’intermediario non colloca contratti tramite il proprio sito internet, che ha esclusivamente finalità informative. Il contratto può essere concluso anche a distanza (posta elettronica, firma digitale/elettronica), con trasmissione della documentazione su supporto durevole."],
   ["Autorità competente alla vigilanza", "Istituto per la Vigilanza sulle Assicurazioni (IVASS) – Via del Quirinale 21, 00187 Roma"],
@@ -83,7 +86,7 @@ ${intermediary("C) Eventuale collaborazione orizzontale (art. 22, comma 10, D.L.
 <ul>
 <li>fornisce consulenza ai sensi dell’art. 119-ter, comma 3, del CAP, ossia una raccomandazione personalizzata contenente i motivi per cui un particolare contratto è ritenuto più indicato a soddisfare le richieste e le esigenze del contraente;</li>
 <li>non fornisce consulenza fondata su un’analisi imparziale e personale ai sensi dell’art. 119-ter, comma 4, del CAP. La raccomandazione si basa sul confronto tra i prodotti delle imprese con cui l’intermediario, direttamente o tramite il broker di riferimento, intrattiene rapporti d’affari, e non su un numero sufficiente di prodotti disponibili sul mercato;</li>
-<li>distribuisce contratti in assenza di obblighi contrattuali che gli impongano di offrire esclusivamente i contratti di una o più imprese di assicurazione. L’elenco delle imprese con cui ha o potrebbe avere rapporti d’affari è pubblicato sul sito internet ____________________ ed è trasmesso al contraente su supporto durevole, insieme al presente Modulo;</li>
+<li>distribuisce contratti in assenza di obblighi contrattuali che gli impongano di offrire esclusivamente i contratti di una o più imprese di assicurazione. L’elenco delle imprese con cui ha o potrebbe avere rapporti d’affari è pubblicato sul sito internet ${I4V.web} ed è trasmesso al contraente su supporto durevole, insieme al presente Modulo;</li>
 <li>mette a disposizione del contraente l’elenco delle regole di comportamento del distributore (Allegato 4-ter al Regolamento IVASS n. 40/2018), pubblicato sul sito internet e trasmesso su supporto durevole in caso di distribuzione a distanza;</li>
 <li>fornisce ogni altra informazione utile a garantire il rispetto delle regole di trasparenza previste dall’art. 119-bis, comma 7, del CAP.</li>
 </ul>
@@ -92,8 +95,8 @@ ${intermediary("C) Eventuale collaborazione orizzontale (art. 22, comma 10, D.L.
 <p>L’intermediario:</p>
 <ul>
 <li>percepisce un compenso costituito da: (i) una commissione inclusa nel premio assicurativo, corrisposta dall’impresa o dal broker di riferimento; (ii) un onorario per l’attività di consulenza, corrisposto direttamente dal contraente;</li>
-<li>l’onorario corrisposto direttamente dal contraente è pari a € ____________ per ciascuna polizza (IVA inclusa / esclusa, se dovuta). È indicato anche nell’“Incarico e preventivo di consulenza” allegato;</li>
-<li>la commissione inclusa nel premio è pari a € ____________ / ____ % del premio, oppure: “importo disponibile su richiesta del contraente”;</li>
+<li>l’onorario corrisposto direttamente dal contraente è pari a € ${inl("onorario", "12%")} per ciascuna polizza (IVA inclusa / esclusa, se dovuta). È indicato anche nell’“Incarico e preventivo di consulenza” allegato;</li>
+<li>la commissione inclusa nel premio è pari a € ${inl("commissione", "12%")} (${inl("commissione_pct", "6%")}% del premio);</li>
 </ul>
 ${stack("non percepisce incentivi legati alla distribuzione di uno specifico prodotto né al raggiungimento di obiettivi quantitativi", "può percepire ulteriori compensi legati al raggiungimento di obiettivi quantitativi definiti per aggregato di prodotti e di parametri qualitativi, e tali compensi non sono collegati alla distribuzione di uno specifico prodotto")}
 
@@ -144,9 +147,9 @@ ${stack("non percepisce incentivi legati alla distribuzione di uno specifico pro
 </ul>
 <h3>Compenso</h3>
 <table>
-<tr><td style="width:46%"><b>Onorario di consulenza per polizza</b></td><td>€ ____________ (IVA inclusa/esclusa, se dovuta)</td></tr>
+<tr><td style="width:46%"><b>Onorario di consulenza per polizza</b></td><td>€ ${inl("onorario", "30%")} (IVA inclusa/esclusa, se dovuta)</td></tr>
 <tr><td><b>Premio assicurativo (rimesso all’impresa)</b></td><td>€ ${inl("premio", "40%")}</td></tr>
-<tr><td><b>Totale a carico del cliente</b></td><td>€ ____________</td></tr>
+<tr><td><b>Totale a carico del cliente</b></td><td>€ ${inl("totale", "40%")}</td></tr>
 <tr><td><b>Modalità e tempi di pagamento</b></td><td>&nbsp;</td></tr>
 <tr><td><b>Durata dell’incarico</b></td><td>Fino alla scadenza della polizza / annuale con rinnovo</td></tr>
 </table>
@@ -197,7 +200,7 @@ ${sign("Firma del contraente")}
 <h1>Informativa sul trattamento dei dati personali</h1>
 <p class="sub">Artt. 13-14 Regolamento UE 2016/679 – “GDPR”; D.Lgs. 196/2003; Regolamento IVASS n. 40/2018</p>
 <h3>1. Titolare del trattamento</h3>
-<p>Titolare del trattamento è ${I4V.name}, con sede in ${I4V.legal}, iscritta al RUI dell’IVASS, Sezione E, n. ${I4V.rui} (di seguito “il Titolare”). Contatti: e-mail ____________, PEC ____________, telefono ____________.</p>
+<p>Titolare del trattamento è ${I4V.name}, con sede in ${I4V.legal}, iscritta al RUI dell’IVASS, Sezione E, n. ${I4V.rui} (di seguito “il Titolare”). Contatti: e-mail ${I4V.email}, PEC ____________, telefono ${I4V.tel}.</p>
 <p>Se il contraente è una persona giuridica, la presente informativa riguarda i dati delle persone fisiche che agiscono per suo conto (legale rappresentante, titolare effettivo, referenti).</p>
 <h3>2. Finalità del trattamento</h3>
 <ul>
@@ -263,7 +266,7 @@ ${owner(3)}
 <h3>D) Persone politicamente esposte</h3>
 ${stack("Il titolare effettivo e/o il legale rappresentante NON sono persone politicamente esposte", "Il titolare effettivo e/o il legale rappresentante SONO persone politicamente esposte (specificare): ____________________")}
 <h3>E) Scopo e natura del rapporto</h3>
-<p>Rilascio della garanzia di cui all’art. 35, comma 7-quater, D.P.R. 633/1972, connessa all’identificazione ai fini IVA in Italia per l’attività di vendita ______________________ (es. e-commerce su marketplace).</p>
+<p>Rilascio della garanzia di cui all’art. 35, comma 7-quater, D.P.R. 633/1972, connessa all’identificazione ai fini IVA in Italia per l’attività di vendita a distanza (e-commerce) svolta esclusivamente tramite Marketplace Qualificati, come previsto dalle condizioni della garanzia.</p>
 <div class="keep"><h3>Dichiarazione</h3>
 <p>Il sottoscritto dichiara, sotto la propria responsabilità, che le informazioni fornite sono complete e veritiere. Si impegna inoltre a comunicare tempestivamente ogni variazione. Il dichiarante è consapevole che, ai sensi dell’art. 55, comma 3, del D.Lgs. 231/2007, chi, essendo obbligato a fornire i dati e le informazioni necessari ai fini dell’adeguata verifica, fornisce dati falsi o informazioni non veritiere è punito, salvo che il fatto costituisca più grave reato, con la reclusione da sei mesi a tre anni e con la multa da 10.000 a 30.000 euro.</p>
 ${placeDate}

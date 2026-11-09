@@ -19,6 +19,12 @@ export const VIES_PREMIUM_ACCESSORIES = Math.round((VIES_PREMIUM_TAXABLE - VIES_
 export const VIES_DURATION_MONTHS = 36;
 /** La compagnia che rilascia le fideiussioni VIES (frontespizio delle bozze: "Rilasciata da MARKEL INSURANCE SE, STABILIMENTO IN SPAGNA"). */
 export const VIES_INSURER = "Markel Insurance SE, Stabilimento in Spagna";
+/**
+ * Compensi dell'intermediario Italy4VAT S.r.l. indicati nel MUP (Sezione V e incarico di consulenza), comunicati il
+ * 9/11/2026: nessun onorario di consulenza a carico del cliente e nessuna commissione inclusa nel premio.
+ */
+export const VIES_CONSULTING_FEE = 0;
+export const VIES_INTERMEDIARY_COMMISSION_PERCENTAGE = 0;
 /** Luogo di firma dei documenti: la sede del rappresentante fiscale che firma con procura e dell'intermediario (Roma). */
 export const VIES_SIGNING_PLACE = "Roma";
 export const VIES_MAX_PRACTICES_PER_SHEET = 20;

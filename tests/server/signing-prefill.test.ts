@@ -132,6 +132,11 @@ describe("signing prefill", () => {
       pratica: "VIES-2026-0007 · bozza 1514223",
       luogo: "Roma",
       data: "09/11/2026",
+      // No consulting fee and no commission (Italy4VAT, 9/11/2026): the client pays the premium only.
+      onorario: "0,00",
+      commissione: "0,00",
+      commissione_pct: "0",
+      totale: "2.000,00",
     });
     // The company's policy number, once there is one, goes next to the draft number.
     expect(buildPrefillValues({ ...practice, policy_number: "POL-123", draft_number: "1514223" })).toMatchObject({ polizza: "POL-123", pratica: "VIES-2026-0007 · bozza 1514223 · polizza POL-123" });
@@ -145,7 +150,7 @@ describe("signing prefill", () => {
     const map = await source.fields();
     expect(map.mup.length).toBeGreaterThan(20);
     const keys = new Set(map.mup.map((field) => field.key));
-    for (const key of ["pratica", "polizza", "contraente", "cf", "sede", "registro", "firmatario", "firmatario_cf", "dichiarante", "email", "te1_nome", "te1_quota", "te3_quota", "premio", "compagnia", "luogo", "data"]) expect(keys.has(key)).toBe(true);
+    for (const key of ["pratica", "polizza", "contraente", "cf", "sede", "registro", "firmatario", "firmatario_cf", "dichiarante", "email", "te1_nome", "te1_quota", "te3_quota", "premio", "compagnia", "luogo", "data", "onorario", "commissione", "commissione_pct", "totale"]) expect(keys.has(key)).toBe(true);
     // Place and date of every signature block: assignment, recommendation, delivery, privacy, AML questionnaire.
     expect(map.mup.filter((field) => field.key === "data")).toHaveLength(5);
   });
@@ -165,7 +170,17 @@ describe("signing prefill", () => {
       "iscritta al RUI dell’IVASS, Sezione E, n. E000821262",
       "€ {premio}",
       "{compagnia}",
+      "+39 06 6821 0095",
+      "rome@italy4vat.com",
+      "https://italy4vat.com/it/",
+      "pubblicato sul sito internet https://italy4vat.com/it/",
+      "Contatti: e-mail rome@italy4vat.com",
+      "€ {onorario} per ciascuna polizza",
+      "€ {commissione} ({commissione_pct}% del premio)",
+      "€ {totale}",
     ]) expect(html, text).toContain(text);
+    // Nothing left to fill by hand but the PEC, which is not known yet.
+    expect(html).not.toMatch(/€ _{4,}/);
   });
 
   for (const document of ["mup"] as const) {

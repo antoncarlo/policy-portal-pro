@@ -8,7 +8,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import { extractNotesSections } from "./practiceSummary";
 import { isValidChineseId } from "./viesCodes";
-import { VIES_INSURER, VIES_SIGNING_PLACE } from "./viesTerms";
+import { VIES_CONSULTING_FEE, VIES_INSURER, VIES_INTERMEDIARY_COMMISSION_PERCENTAGE, VIES_SIGNING_PLACE } from "./viesTerms";
 
 export type PrefillDocument = "mup";
 export type PrefillValues = Record<string, string>;
@@ -67,11 +67,13 @@ const isoDateToItalian = (value: string | null | undefined) => {
   return match ? isoToItalian(match[1], match[2], match[3]) : "";
 };
 /** 2000 → "2.000,00": migliaia sempre separate, anche dove il formato italiano del browser non lo fa sotto le 10.000. */
-const money = (value: number | null | undefined) => {
-  if (value === null || value === undefined || !Number.isFinite(Number(value)) || Number(value) <= 0) return "";
-  const [integer, decimals] = Number(value).toFixed(2).split(".");
+const amount = (value: number) => {
+  const [integer, decimals] = (Math.round(value * 100) / 100).toFixed(2).split(".");
   return `${integer.replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${decimals}`;
 };
+/** Il premio della pratica, solo se c'e' (un premio a zero non e' un premio). */
+const money = (value: number | null | undefined) =>
+  value === null || value === undefined || !Number.isFinite(Number(value)) || Number(value) <= 0 ? "" : amount(Number(value));
 
 /** Data di nascita e sesso scritti nel numero della carta d'identita' cinese (solo se il numero e' valido). */
 export function readChineseId(value: string): { valid: boolean; birth: string; sex: string } {
@@ -106,6 +108,10 @@ export function buildPrefillValues(practice: PrefillPractice, aml: AmlData = {})
     dichiarante: text(fields.vies_amministratore_rappresentante) || representative,
     pratica: [practice.practice_number, draft ? `bozza ${draft}` : "", realPolicy ? `polizza ${realPolicy}` : ""].filter(Boolean).join(" · "),
     premio: money(practice.premium_gross),
+    onorario: amount(VIES_CONSULTING_FEE),
+    commissione: amount(((practice.premium_gross ?? 0) * VIES_INTERMEDIARY_COMMISSION_PERCENTAGE) / 100),
+    commissione_pct: String(VIES_INTERMEDIARY_COMMISSION_PERCENTAGE).replace(".", ","),
+    totale: money(practice.premium_gross) ? amount(Number(practice.premium_gross) + VIES_CONSULTING_FEE) : "",
     compagnia: VIES_INSURER,
     luogo: VIES_SIGNING_PLACE,
     data: isoDateToItalian(practice.policy_start_date),
