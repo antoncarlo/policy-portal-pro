@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { chunk, fetchAllRows } from "@/lib/fetchAllRows";
+import { fetchDraftNumbers } from "@/lib/lotStatement";
 import { formatCurrency, formatDate, formatNumber, getMessages, useMessages } from "@/i18n";
 import { administrationMessages } from "@/i18n/messages/administration";
 import { translateViesText } from "@/i18n/viesText";
@@ -94,6 +95,8 @@ type LotPractice = {
   practice_number: string;
   client_name: string;
   policy_number: string | null;
+  /** Dal nome dell'ultima bozza caricata dopo la delibera. */
+  draft_number?: string | null;
   policy_start_date: string | null;
   premium_gross: number | null;
   premium_net: number | null;
@@ -147,6 +150,7 @@ const toStatementPolicies = (practices: LotPractice[]) =>
   practices.map((practice) => ({
     contraente: practice.client_name,
     policyNumber: practice.policy_number && !/^VIES-/i.test(practice.policy_number) ? practice.policy_number : null,
+    draftNumber: practice.draft_number ?? null,
     practiceNumber: practice.practice_number,
     date: practice.policy_start_date,
     premiumGross: practice.premium_gross ?? 0,
@@ -220,6 +224,8 @@ export const ViesAdministration = () => {
           if (error) throw error;
           practices.push(...((data ?? []) as LotPractice[]));
         }
+        const draftNumbers = await fetchDraftNumbers(practices.map((practice) => practice.id));
+        for (const practice of practices) practice.draft_number = draftNumbers.get(practice.id) ?? null;
         const practiceById = new Map(practices.map((practice) => [practice.id, practice]));
         for (const job of jobs) {
           const practice = job.external_reference ? practiceById.get(job.external_reference) : undefined;
@@ -738,6 +744,7 @@ export const ViesAdministration = () => {
                                               <Button variant="link" className="h-auto p-0 font-mono text-xs" onClick={() => navigate(`/practices/${practice.id}`)}>
                                                 {practice.practice_number}
                                               </Button>
+                                              {practice.draft_number && <div className="text-xs text-muted-foreground">{m.draftNumber(practice.draft_number)}</div>}
                                             </TableCell>
                                             <TableCell className="min-w-48 break-words">{practice.client_name}</TableCell>
                                             <TableCell className="whitespace-nowrap text-right">{formatCurrency(practice.premium_gross ?? 0)}</TableCell>

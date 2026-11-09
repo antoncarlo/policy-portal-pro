@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { latestDraftNumbers } from "@/lib/draftNumber";
 import { stageOf } from "@/lib/practiceStages";
 import {
   buildViesStatementFileName,
@@ -22,6 +23,24 @@ const blobToImage = (blob: Blob) =>
     };
     reader.readAsDataURL(blob);
   });
+
+/**
+ * Il numero di bozza di ogni pratica, dal nome dell'ultima bozza caricata dopo la delibera. Se le bozze non si leggono
+ * l'estratto conto esce lo stesso, con il numero di pratica al posto di quello di bozza.
+ */
+export async function fetchDraftNumbers(practiceIds: string[]): Promise<Map<string, string>> {
+  const drafts: Array<{ practice_id: string; file_name: string; created_at: string }> = [];
+  for (let index = 0; index < practiceIds.length; index += 100) {
+    const { data, error } = await supabase
+      .from("practice_documents")
+      .select("practice_id, file_name, created_at")
+      .eq("document_type", "bozza_deliberata")
+      .in("practice_id", practiceIds.slice(index, index + 100));
+    if (error) return new Map();
+    drafts.push(...(data ?? []));
+  }
+  return latestDraftNumbers(drafts);
+}
 
 export interface ClientStatement {
   blob: Blob;
@@ -47,17 +66,19 @@ export async function buildClientStatement(batchId: string): Promise<ClientState
     : { data: null };
   const { data: rows, error: practiceError } = await supabase
     .from("practices")
-    .select("practice_number, client_name, policy_number, policy_start_date, premium_gross, premium_net, status, financial_status")
+    .select("id, practice_number, client_name, policy_number, policy_start_date, premium_gross, premium_net, status, financial_status")
     .eq("vies_batch_id", batchId)
     .order("practice_number");
   if (practiceError) throw new Error(practiceError.message);
 
   // L'estratto conto riguarda le pratiche deliberate (le altre non hanno ancora un premio da pagare).
-  const policies = (rows ?? [])
-    .filter((practice) => ["deliberata", "da_emettere", "emessa"].includes(stageOf(practice)))
+  const approved = (rows ?? []).filter((practice) => ["deliberata", "da_emettere", "emessa"].includes(stageOf(practice)));
+  const draftNumbers = await fetchDraftNumbers(approved.map((practice) => practice.id));
+  const policies = approved
     .map((practice) => ({
       contraente: practice.client_name,
       policyNumber: practice.policy_number && !/^VIES-/i.test(practice.policy_number) ? practice.policy_number : null,
+      draftNumber: draftNumbers.get(practice.id) ?? null,
       practiceNumber: practice.practice_number,
       date: practice.policy_start_date,
       premiumGross: practice.premium_gross ?? 0,

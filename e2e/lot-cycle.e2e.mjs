@@ -1,5 +1,6 @@
 // Ciclo del lotto VIES: il pannello nel lotto, i passaggi del rappresentante fiscale (verifica bozze, pagamento) e
 // dell'amministratore (bozze in blocco, controllo del pagamento), il lotto chiuso.
+import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
 const BASE = process.env.E2E_BASE ?? "http://127.0.0.1:5300";
 const REF = "nesblhtjqiavdfsrtfom";
@@ -25,7 +26,8 @@ const P3 = mk(3, "Azienda Tre Srl", "in_attesa", "non_incassata");
 const P4 = mk(4, "Azienda Quattro Srl", "rifiutata", "non_incassata");
 const PRACTICES = [P1, P2, P3, P4];
 const doc = (practice, type) => ({ practice_id: practice.id, file_name: `${type}.pdf`, document_type: type, created_at: "2026-10-05T10:00:00Z" });
-const DRAFTS = [doc(P1, "bozza_deliberata"), doc(P2, "bozza_deliberata")];
+// The company's drafts carry their number at the start of the file name (Lot 1, 9/11/2026).
+const DRAFTS = [{ ...doc(P1, "bozza_deliberata"), file_name: "1514651_ViesBozza_Markel_2026.pdf" }, { ...doc(P2, "bozza_deliberata"), file_name: "1514223_ViesBozza_Markel_2026.docx-3.pdf" }];
 const ISO = "2026-10-06T10:00:00Z";
 const flowOf = (steps) => ({ batch_id: LOT, closed_at: null, ...Object.fromEntries(steps.flatMap((s) => [[`${s}_at`, ISO], [`${s}_by`, UID]])) });
 
@@ -153,6 +155,8 @@ const apiCalls = (log, action) => log.api.filter((c) => c.body.action === action
   check("2 l'estratto conto si prepara: 2 polizze deliberate, totale premi 2.000", /2 polizze/.test(await page.getByTestId("lot-payment-amount").innerText()) && /\b2\.?000,00\b/.test(await page.getByTestId("lot-payment-amount").innerText()), await page.getByTestId("lot-payment-amount").innerText());
   const [download] = await Promise.all([page.waitForEvent("download", { timeout: 10000 }), page.getByTestId("lot-payment-statement").click()]);
   check("2 l'estratto conto si scarica come PDF 'Estratto conto Excel Lotto 3'", /^Estratto conto Excel Lotto 3 - Rappresentante Srl\.pdf$/.test(download.suggestedFilename()), download.suggestedFilename());
+  const statement = readFileSync(await download.path(), "latin1");
+  check("2 ogni riga dell'estratto conto porta il numero della sua bozza, in ordine di bozza", statement.includes("BOZZA N. 1514223") && statement.includes("BOZZA N. 1514651") && statement.indexOf("BOZZA N. 1514223") < statement.indexOf("BOZZA N. 1514651") && !statement.includes("PRATICA N."), statement.match(/\((?:BOZZA|PRATICA)[^)]*\)/g)?.join(" | "));
   check("2 senza i due file non si invia", await page.getByTestId("lot-payment-send").isDisabled());
   await page.getByTestId("lot-payment-signed").setInputFiles({ name: "estratto firmato.pdf.p7m", mimeType: "application/pkcs7-mime", buffer: Buffer.from("p7m") });
   await page.getByTestId("lot-payment-transfer").setInputFiles({ name: "bonifico.png", mimeType: "image/png", buffer: Buffer.from("png") });

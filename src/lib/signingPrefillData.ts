@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { SigningSlotId } from "@/lib/signingDocuments";
 import { loadAmlData } from "@/lib/amlExtractionRun";
+import { fetchDraftNumbers } from "@/lib/lotStatement";
 import { buildPrefillValues, fillSigningDocument, type AmlData, type PrefillDocument, type PrefillPractice } from "@/lib/signingPrefill";
 
 /** Dati della pratica (e quelli letti dai suoi documenti) con cui si compilano i modelli. */
@@ -9,7 +10,7 @@ export interface PrefillInput {
   aml: AmlData;
 }
 
-const COLUMNS = "id, practice_number, policy_number, client_name, client_email, owner_tax_code, beneficiary, notes";
+const COLUMNS = "id, practice_number, policy_number, client_name, client_email, owner_tax_code, beneficiary, notes, premium_gross, policy_start_date";
 const CHUNK = 100;
 
 /** Legge dal database i dati per compilare i documenti di piu' pratiche. Una pratica illeggibile manca dall'elenco. */
@@ -22,6 +23,9 @@ export async function loadPrefillInputs(practiceIds: string[]): Promise<Map<stri
       found.set(row.id, { practice: row, aml: {} });
     }
   }
+  // Il numero della bozza della compagnia, quando e' gia' stata caricata: e' la proposta a cui si riferisce il MUP.
+  const draftNumbers = await fetchDraftNumbers([...found.keys()]);
+  for (const [practiceId, entry] of found) entry.practice.draft_number = draftNumbers.get(practiceId) ?? null;
   // Quello che e' stato letto dai documenti dello ZIP (se e' stato letto): una bozza da verificare.
   try {
     for (const [practiceId, stored] of await loadAmlData([...found.keys()])) {
