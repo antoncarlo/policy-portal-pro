@@ -979,6 +979,9 @@ export type Database = {
         Row: {
           address: string | null
           avatar_url: string | null
+          company_address: string | null
+          company_name: string | null
+          company_tax_code: string | null
           commission_bonus_tiers: Json
           created_at: string
           date_format: string | null
@@ -996,6 +999,9 @@ export type Database = {
         Insert: {
           address?: string | null
           avatar_url?: string | null
+          company_address?: string | null
+          company_name?: string | null
+          company_tax_code?: string | null
           commission_bonus_tiers?: Json
           created_at?: string
           date_format?: string | null
@@ -1013,6 +1019,9 @@ export type Database = {
         Update: {
           address?: string | null
           avatar_url?: string | null
+          company_address?: string | null
+          company_name?: string | null
+          company_tax_code?: string | null
           commission_bonus_tiers?: Json
           created_at?: string
           date_format?: string | null

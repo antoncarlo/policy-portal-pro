@@ -1,4 +1,4 @@
-// Ciclo del lotto VIES: il pannello nel lotto, i passaggi del rappresentante fiscale (verifica bozze, pagamento) e
+// Ciclo del lotto VIES: il pannello nel lotto, i passaggi del collaboratore che ha caricato il lotto (verifica bozze, pagamento) e
 // dell'amministratore (bozze in blocco, controllo del pagamento), il lotto chiuso.
 import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
@@ -74,7 +74,8 @@ async function open({ admin = false, flow = null, docs = DRAFTS, lotDocs = [], e
       return reply(!wanted || wanted === mine ? [{ user_id: UID, role: mine }] : []);
     }
     if (table === "user_product_permissions") return reply([{ practice_type: "vies" }]);
-    if (table === "profiles") return reply([{ id: UID, email: "t@example.com", full_name: "Prova", language: "it" }]);
+    // The person who loaded the lot works for the collaborator Italy4VAT S.r.l.: the statement is addressed to it.
+    if (table === "profiles") return reply([{ id: UID, email: "t@example.com", full_name: "Prova", language: "it", company_name: "Italy4VAT S.r.l.", company_tax_code: "12345678903" }]);
     if (table === "practices") {
       const found = rows.filter((row) => params.every(([k, v]) => {
         if (["select", "order", "limit", "offset", "or"].includes(k)) return true;
@@ -88,7 +89,7 @@ async function open({ admin = false, flow = null, docs = DRAFTS, lotDocs = [], e
     if (table === "vies_lot_flow") return reply(flow ? [flow] : []);
     if (table === "vies_lot_events") return reply(events);
     if (table === "vies_lot_documents") return reply(lotDocs);
-    if (table === "vies_batches") return reply([{ id: LOT, lot_number: 3, created_at: "2026-10-01T10:00:00Z", fiscal_representative_id: "rep-1", paid_at: null, excel_storage_path: null, source_excel_file_name: null }]);
+    if (table === "vies_batches") return reply([{ id: LOT, lot_number: 3, created_at: "2026-10-01T10:00:00Z", fiscal_representative_id: "rep-1", user_id: UID, paid_at: null, excel_storage_path: null, source_excel_file_name: null }]);
     if (table === "vies_fiscal_representatives") return reply([{ name: "Rappresentante Srl", tax_code: "12345678901" }]);
     return reply([]);
   });
@@ -134,9 +135,9 @@ const apiCalls = (log, action) => log.api.filter((c) => c.body.action === action
 {
   const REP = "00000000-0000-4000-8000-00000000beef";
   const { ctx, page, pageErrors } = await open({ admin: true, flow: flowOf(["drafts_uploaded"]), owner: REP });
-  await page.waitForFunction(() => /Attende il rappresentante fiscale/.test(document.querySelector("[data-testid=lot-cycle-turn]")?.textContent ?? ""), null, { timeout: 8000 }).catch(() => {});
+  await page.waitForFunction(() => /Attende il collaboratore/.test(document.querySelector("[data-testid=lot-cycle-turn]")?.textContent ?? ""), null, { timeout: 8000 }).catch(() => {});
   check("1c amministratore sul lotto del rappresentante: nessun pulsante «Ho verificato le bozze»", (await page.getByTestId("lot-action-verify").count()) === 0 && (await page.getByTestId("lot-action-download-drafts").count()) === 0);
-  check("1c amministratore sul lotto del rappresentante: attende il rappresentante fiscale", /Attende il rappresentante fiscale/.test(await page.getByTestId("lot-cycle-turn").innerText()) && /Il rappresentante fiscale scarica bozze e MUP/.test(await page.getByTestId("lot-cycle-hint").innerText()));
+  check("1c amministratore sul lotto del collaboratore: attende il collaboratore", /Attende il collaboratore/.test(await page.getByTestId("lot-cycle-turn").innerText()) && /Il collaboratore scarica bozze e MUP/.test(await page.getByTestId("lot-cycle-hint").innerText()));
   check("1c nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
   await ctx.close();
   const own = await open({ admin: true, flow: flowOf(["drafts_uploaded"]) });
@@ -171,8 +172,9 @@ const apiCalls = (log, action) => log.api.filter((c) => c.body.action === action
   // 2.000 € or 2000 €: the browser's Italian locale data decides whether four-digit amounts are grouped.
   check("2 l'estratto conto si prepara: 2 polizze deliberate, totale premi 2.000", /2 polizze/.test(await page.getByTestId("lot-payment-amount").innerText()) && /\b2\.?000,00\b/.test(await page.getByTestId("lot-payment-amount").innerText()), await page.getByTestId("lot-payment-amount").innerText());
   const [download] = await Promise.all([page.waitForEvent("download", { timeout: 10000 }), page.getByTestId("lot-payment-statement").click()]);
-  check("2 l'estratto conto si scarica come PDF 'Estratto conto Excel Lotto 3'", /^Estratto conto Excel Lotto 3 - Rappresentante Srl\.pdf$/.test(download.suggestedFilename()), download.suggestedFilename());
+  check("2 l'estratto conto si scarica come PDF intestato al collaboratore che ha caricato il lotto", /^Estratto conto Excel Lotto 3 - Italy4VAT S\.r\.l\.\.pdf$/.test(download.suggestedFilename()), download.suggestedFilename());
   const statement = readFileSync(await download.path(), "latin1");
+  check("2 l'estratto conto è intestato a Italy4VAT S.r.l., firmato dal collaboratore, con il rappresentante fiscale delle pratiche", statement.includes("Italy4VAT S.r.l. \\(C.F./P.IVA 12345678903\\)") && statement.includes("Firma del collaboratore") && statement.includes("Rappresentante fiscale delle pratiche: Rappresentante Srl"));
   check("2 ogni riga dell'estratto conto porta il numero della sua bozza, in ordine di bozza", statement.includes("BOZZA N. 1514223") && statement.includes("BOZZA N. 1514651") && statement.indexOf("BOZZA N. 1514223") < statement.indexOf("BOZZA N. 1514651") && !statement.includes("PRATICA N."), statement.match(/\((?:BOZZA|PRATICA)[^)]*\)/g)?.join(" | "));
   check("2 senza i due file non si invia", await page.getByTestId("lot-payment-send").isDisabled());
   await page.getByTestId("lot-payment-signed").setInputFiles({ name: "estratto firmato.pdf.p7m", mimeType: "application/pkcs7-mime", buffer: Buffer.from("p7m") });

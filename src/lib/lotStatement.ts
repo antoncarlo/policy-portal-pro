@@ -42,6 +42,21 @@ export async function fetchDraftNumbers(practiceIds: string[]): Promise<Map<stri
   return latestDraftNumbers(drafts);
 }
 
+/**
+ * A chi e' intestato l'estratto conto di un lotto: chi lo ha caricato (il collaboratore, es. Italy4VAT S.r.l.), con la
+ * ragione sociale e il codice fiscale o la partita IVA del suo profilo; senza dati della societa', il suo nome.
+ * Null se il profilo non si legge: l'estratto conto resta intestato al rappresentante fiscale.
+ */
+export async function fetchStatementHolder(userId: string | null | undefined): Promise<{ name: string; taxCode: string } | null> {
+  if (!userId) return null;
+  const { data, error } = await supabase.from("profiles").select("full_name, company_name, company_tax_code").eq("id", userId).maybeSingle();
+  if (error || !data) return null;
+  const company = data.company_name?.trim();
+  if (company) return { name: company, taxCode: data.company_tax_code?.trim() ?? "" };
+  const person = data.full_name?.trim();
+  return person ? { name: person, taxCode: "" } : null;
+}
+
 export interface ClientStatement {
   blob: Blob;
   fileName: string;
@@ -57,7 +72,7 @@ export interface ClientStatement {
 export async function buildClientStatement(batchId: string): Promise<ClientStatement> {
   const { data: batch, error } = await supabase
     .from("vies_batches")
-    .select("id, lot_number, created_at, fiscal_representative_id, paid_at")
+    .select("id, lot_number, created_at, fiscal_representative_id, paid_at, user_id")
     .eq("id", batchId)
     .maybeSingle();
   if (error || !batch) throw new Error(error?.message ?? "lot");
@@ -93,6 +108,7 @@ export async function buildClientStatement(batchId: string): Promise<ClientState
     lotNumber: batch.lot_number ?? 0,
     lotDate: batch.created_at,
     representative: { name: representative?.name ?? "", taxCode: representative?.tax_code ?? "" },
+    holder: await fetchStatementHolder(batch.user_id),
     policies,
     logo: logoBlob ? await blobToImage(logoBlob).catch(() => null) : null,
     signature: null,

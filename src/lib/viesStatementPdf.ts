@@ -53,6 +53,12 @@ interface StatementBase {
   /** Data di creazione del lotto, ISO. */
   lotDate: string;
   representative: { name: string; taxCode: string };
+  /**
+   * Chi ha caricato il lotto (il collaboratore, es. Italy4VAT S.r.l.): incassa dai clienti e paga l'estratto conto, che
+   * e' intestato a lui. Il rappresentante fiscale resta indicato come quello delle pratiche. Senza, l'intestatario e' il
+   * rappresentante fiscale, come prima.
+   */
+  holder?: { name: string; taxCode: string } | null;
   policies: ViesStatementPolicy[];
   logo?: ViesStatementImage | null;
   signature?: ViesStatementImage | null;
@@ -121,8 +127,12 @@ export const safeFileName = (value: string, maxLength = 90) => {
   return (cut.lastIndexOf(" ") > maxLength / 2 ? cut.slice(0, cut.lastIndexOf(" ")) : cut).trim();
 };
 
-export const buildViesStatementFileName = (input: Pick<ViesStatementInput, "kind" | "lotNumber" | "representative">) =>
-  `${input.kind === "provvigioni" ? "Estratto provvigioni" : "Estratto conto"} Excel Lotto ${input.lotNumber} - ${safeFileName(input.representative.name)}.pdf`;
+/** L'intestatario dell'estratto conto per chi paga: il collaboratore che ha caricato il lotto, o il rappresentante fiscale. */
+const statementHolder = (input: Pick<ViesStatementInput, "representative" | "holder">) => (input.holder?.name ? input.holder : input.representative);
+const withTaxCode = (party: { name: string; taxCode: string }, label: string) => `${party.name}${party.taxCode ? ` (${label} ${party.taxCode})` : ""}`;
+
+export const buildViesStatementFileName = (input: Pick<ViesStatementInput, "kind" | "lotNumber" | "representative" | "holder">) =>
+  `${input.kind === "provvigioni" ? "Estratto provvigioni" : "Estratto conto"} Excel Lotto ${input.lotNumber} - ${safeFileName(input.kind === "provvigioni" ? input.representative.name : statementHolder(input).name)}.pdf`;
 
 // Le righe in ordine di numero di bozza (chi riceve il pagamento le ritrova come le bozze), poi quelle senza bozza.
 const byDraftNumber = (a: ViesStatementPolicy, b: ViesStatementPolicy) => {
@@ -174,7 +184,12 @@ export function generateViesStatementPdf(input: ViesStatementInput): jsPDF {
   if (input.kind === "cliente") {
     paragraph(`ESTRATTO CONTO EXCEL LOTTO ${input.lotNumber}`, { size: 12, bold: true, gap: 4 });
     paragraph(`Estratto conto del lotto del ${dateIt(input.lotDate)} intestato a`, { size: 10, gap: 0.8 });
-    paragraph(`${input.representative.name} (C.F. ${input.representative.taxCode})`, { size: 10, bold: true, gap: 1 });
+    if (input.holder?.name) {
+      paragraph(withTaxCode(input.holder, "C.F./P.IVA"), { size: 10, bold: true, gap: 0.8 });
+      paragraph(`Rappresentante fiscale delle pratiche: ${withTaxCode(input.representative, "C.F.")}`, { size: 9, color: [90, 90, 90], gap: 1 });
+    } else {
+      paragraph(withTaxCode(input.representative, "C.F."), { size: 10, bold: true, gap: 1 });
+    }
     paragraph(`Fideiussioni VIES (art. 35, comma 7-quater, DPR 633/1972): ${policyCount}, premi comprensivi di imposte.`, {
       size: 9,
       color: [90, 90, 90],
@@ -271,7 +286,8 @@ export function generateViesStatementPdf(input: ViesStatementInput): jsPDF {
   y += 10;
   doc.setDrawColor(60, 60, 60);
   if (input.kind === "cliente") {
-    // L'estratto conto lo firma chi paga, il rappresentante fiscale: non l'agenzia che lo emette.
+    // L'estratto conto lo firma chi paga, il collaboratore che ha caricato il lotto (o il rappresentante fiscale, se non
+    // e' indicato): non l'agenzia che lo emette.
     const signatureWidth = 92;
     const signatureLeft = right - signatureWidth;
     if (y > pageHeight - 56) {
@@ -286,14 +302,14 @@ export function generateViesStatementPdf(input: ViesStatementInput): jsPDF {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9.5);
     doc.setTextColor(30, 30, 30);
-    const name = doc.splitTextToSize(pdfText(input.representative.name), signatureWidth) as string[];
+    const name = doc.splitTextToSize(pdfText(statementHolder(input).name), signatureWidth) as string[];
     doc.text(name, signatureLeft + signatureWidth / 2, y, { align: "center" });
     y += name.length * 4.2 + 16;
     doc.line(signatureLeft, y, right, y);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
     doc.setTextColor(90, 90, 90);
-    doc.text("Firma del rappresentante fiscale", signatureLeft + signatureWidth / 2, y + 4, { align: "center" });
+    doc.text(input.holder?.name ? "Firma del collaboratore" : "Firma del rappresentante fiscale", signatureLeft + signatureWidth / 2, y + 4, { align: "center" });
     return doc;
   }
 
