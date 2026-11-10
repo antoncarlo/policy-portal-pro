@@ -8,7 +8,7 @@
 // cartaceo SI'; comunicazioni commerciali NO; motivo della raccomandazione "Specificita' di alcune garanzie".
 
 // L'intermediario che entra in contatto con il contraente, come nel Registro Unico degli Intermediari (RUI) dell'IVASS,
-// con i recapiti comunicati il 9/11/2026. La PEC non e' ancora nota: resta in bianco.
+// con i recapiti comunicati il 9/11/2026 (PEC il 10/11/2026).
 export const ITALY4VAT = {
   name: "Italy4VAT S.r.l.",
   rui: "E000821262",
@@ -17,6 +17,7 @@ export const ITALY4VAT = {
   tel: "+39 06 6821 0095",
   email: "rome@italy4vat.com",
   web: "https://italy4vat.com/it/",
+  pec: "italy4vat@pec.it",
   manager: "Stefano Schiaffino",
   managerRui: "E000048035",
   // Da quando opera per il broker di riferimento (RUI, "Intermediari per cui opera").
@@ -50,7 +51,7 @@ ${intermediary("A) Intermediario che entra in contatto con il contraente", [
   ["Recapito telefonico", I4V.tel],
   ["Indirizzo internet", I4V.web],
   ["Posta elettronica", I4V.email],
-  ["Posta elettronica certificata (PEC)", ""],
+  ["Posta elettronica certificata (PEC)", I4V.pec],
   ["Modalità di distribuzione", "L’intermediario non colloca contratti tramite il proprio sito internet, che ha esclusivamente finalità informative. Il contratto può essere concluso anche a distanza (posta elettronica, firma digitale/elettronica), con trasmissione della documentazione su supporto durevole."],
   ["Autorità competente alla vigilanza", "Istituto per la Vigilanza sulle Assicurazioni (IVASS) – Via del Quirinale 21, 00187 Roma"],
 ])}
@@ -200,7 +201,7 @@ ${sign("Firma del contraente")}
 <h1>Informativa sul trattamento dei dati personali</h1>
 <p class="sub">Artt. 13-14 Regolamento UE 2016/679 – “GDPR”; D.Lgs. 196/2003; Regolamento IVASS n. 40/2018</p>
 <h3>1. Titolare del trattamento</h3>
-<p>Titolare del trattamento è ${I4V.name}, con sede in ${I4V.legal}, iscritta al RUI dell’IVASS, Sezione E, n. ${I4V.rui} (di seguito “il Titolare”). Contatti: e-mail ${I4V.email}, PEC ____________, telefono ${I4V.tel}.</p>
+<p>Titolare del trattamento è ${I4V.name}, con sede in ${I4V.legal}, iscritta al RUI dell’IVASS, Sezione E, n. ${I4V.rui} (di seguito “il Titolare”). Contatti: e-mail ${I4V.email}, PEC ${I4V.pec}, telefono ${I4V.tel}.</p>
 <p>Se il contraente è una persona giuridica, la presente informativa riguarda i dati delle persone fisiche che agiscono per suo conto (legale rappresentante, titolare effettivo, referenti).</p>
 <h3>2. Finalità del trattamento</h3>
 <ul>

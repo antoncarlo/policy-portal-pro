@@ -180,8 +180,10 @@ describe("signing prefill", () => {
       "€ {commissione} ({commissione_pct}% del premio)",
       "€ {totale}",
     ]) expect(html, text).toContain(text);
-    // Nothing left to fill by hand but the PEC, which is not known yet.
-    expect(html).not.toMatch(/€ _{4,}/);
+    // Italy4VAT's PEC (10/11/2026), in Section I and in the privacy notice: no contact left blank.
+    expect(html).toContain("italy4vat@pec.it");
+    expect(html).toContain("Contatti: e-mail rome@italy4vat.com, PEC italy4vat@pec.it, telefono +39 06 6821 0095");
+    expect(html).not.toMatch(/€ _{4,}|PEC _{4,}/);
     // No fee and no commission (9/11/2026): the assignment is free of charge and Sections V and VI say so.
     expect(html).toContain("l’incarico, a titolo gratuito,");
     expect(html).not.toContain("a titolo oneroso");
