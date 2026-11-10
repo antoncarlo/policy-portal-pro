@@ -14,6 +14,7 @@ import { AssignAgentDialog } from "@/components/admin/users/AssignAgentDialog";
 import { InviteUserDialog } from "@/components/admin/users/InviteUserDialog";
 import { EditUserProductsDialog } from "@/components/admin/users/EditUserProductsDialog";
 import { EditCommissionDialog } from "@/components/admin/users/EditCommissionDialog";
+import { EditCompanyDialog } from "@/components/admin/users/EditCompanyDialog";
 import { EditNotificationsDialog } from "@/components/admin/users/EditNotificationsDialog";
 import { OffboardUserDialog } from "@/components/admin/users/OffboardUserDialog";
 import * as XLSX from "xlsx";
@@ -52,6 +53,7 @@ const UserManagement = () => {
   const [editRoleDialogOpen, setEditRoleDialogOpen] = useState(false);
   const [editProductsDialogOpen, setEditProductsDialogOpen] = useState(false);
   const [editCommissionDialogOpen, setEditCommissionDialogOpen] = useState(false);
+  const [editCompanyDialogOpen, setEditCompanyDialogOpen] = useState(false);
   const [editNotificationsDialogOpen, setEditNotificationsDialogOpen] = useState(false);
   const [offboardDialogOpen, setOffboardDialogOpen] = useState(false);
   const [assignAgentDialogOpen, setAssignAgentDialogOpen] = useState(false);
@@ -148,6 +150,11 @@ const UserManagement = () => {
   const handleEditNotifications = (user: User) => {
     setSelectedUser(user);
     setEditNotificationsDialogOpen(true);
+  };
+
+  const handleEditCompany = (user: User) => {
+    setSelectedUser(user);
+    setEditCompanyDialogOpen(true);
   };
 
   const handleEditCommission = (user: User) => {
@@ -297,6 +304,7 @@ const UserManagement = () => {
           onEditRole={handleEditRole}
           onEditProducts={handleEditProducts}
           onEditCommission={handleEditCommission}
+          onEditCompany={handleEditCompany}
           onEditNotifications={handleEditNotifications}
           onAssignAgent={handleAssignAgent}
           onViewPractices={handleViewPractices}
@@ -342,6 +350,8 @@ const UserManagement = () => {
         onOpenChange={setEditNotificationsDialogOpen}
         user={selectedUser}
       />
+
+      <EditCompanyDialog open={editCompanyDialogOpen} onOpenChange={setEditCompanyDialogOpen} user={selectedUser} />
 
       <EditCommissionDialog
         open={editCommissionDialogOpen}

@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { chunk, fetchAllRows } from "@/lib/fetchAllRows";
-import { fetchDraftNumbers } from "@/lib/lotStatement";
+import { fetchDraftNumbers, fetchStatementHolder } from "@/lib/lotStatement";
 import { formatCurrency, formatDate, formatNumber, getMessages, useMessages } from "@/i18n";
 import { administrationMessages } from "@/i18n/messages/administration";
 import { translateViesText } from "@/i18n/viesText";
@@ -81,6 +81,8 @@ type Lot = {
   created_at: string;
   lot_number: number | null;
   fiscal_representative_id: string | null;
+  /** Chi ha caricato il lotto: l'estratto conto e' intestato a lui. */
+  user_id: string | null;
   paid_at: string | null;
   commission_percentage: number | null;
   withholding_percentage: number | null;
@@ -196,7 +198,7 @@ export const ViesAdministration = () => {
         supabase.from("vies_fiscal_representatives").select("id,name,tax_code,administrator_name,administrator_tax_code,address,pec,visura_reference,visura_storage_path").order("name"),
         supabase
           .from("vies_batches")
-          .select("id,name,created_at,lot_number,fiscal_representative_id,paid_at,commission_percentage,withholding_percentage,commissions_received_at,statement_generated_at,excel_storage_path,source_excel_file_name")
+          .select("id,name,created_at,lot_number,fiscal_representative_id,user_id,paid_at,commission_percentage,withholding_percentage,commissions_received_at,statement_generated_at,excel_storage_path,source_excel_file_name")
           .not("fiscal_representative_id", "is", null)
           .order("lot_number", { ascending: true }),
       ]);
@@ -382,6 +384,7 @@ export const ViesAdministration = () => {
         lotNumber: lot.lot_number,
         lotDate: lot.created_at,
         representative: { name: selected.name, taxCode: selected.tax_code },
+        holder: await fetchStatementHolder(lot.user_id),
         policies: toStatementPolicies(practices),
         logo: logoBlob ? await blobToImage(logoBlob) : null,
         signature,

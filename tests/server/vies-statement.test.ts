@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { draftNumberFromFileName, latestDraftNumbers } from "../../src/lib/draftNumber";
-import { generateViesStatementPdf } from "../../src/lib/viesStatementPdf";
+import { buildViesStatementFileName, generateViesStatementPdf } from "../../src/lib/viesStatementPdf";
 
 const base = {
   lotNumber: 3,
@@ -75,5 +75,33 @@ describe("draft number on the lot statement", () => {
     }).output();
     expect(output).toContain("BOZZA N. 1514223");
     expect(output).toContain("POLIZZA N. MKL-123");
+  });
+});
+
+describe("who the lot statement is addressed to", () => {
+  // 10/11/2026: the statement of Lot 1 was addressed to SE&SE, the fiscal representative of the practices; it is paid by
+  // the collaborator who loaded the lot (Italy4VAT S.r.l.).
+  const holder = { name: "Italy4VAT S.r.l.", taxCode: "12345678903" };
+  const representative = { name: "SE&SE AUDITORS & CHARTERED ACCOUNTANT S.P.A", taxCode: "13489331002" };
+
+  it("is addressed to and signed by the collaborator who loaded the lot, with the fiscal representative named", () => {
+    const output = generateViesStatementPdf({ ...base, kind: "cliente", representative, holder }).output();
+    // In the PDF text the brackets are escaped: "\(" and "\)".
+    expect(output).toContain("Italy4VAT S.r.l. \\(C.F./P.IVA 12345678903\\)");
+    expect(output).toContain("Firma del collaboratore");
+    expect(output).not.toContain("Firma del rappresentante fiscale");
+    expect(output).toMatch(/Rappresentante fiscale delle pratiche: SE&SE AUDITORS/);
+    expect(buildViesStatementFileName({ kind: "cliente", lotNumber: 1, representative, holder })).toBe("Estratto conto Excel Lotto 1 - Italy4VAT S.r.l..pdf");
+  });
+
+  it("without a company tax code shows only the name", () => {
+    const output = generateViesStatementPdf({ ...base, kind: "cliente", representative, holder: { name: "Italy4VAT S.r.l.", taxCode: "" } }).output();
+    expect(output).toContain("Italy4VAT S.r.l.");
+    expect(output).not.toContain("C.F./P.IVA");
+  });
+
+  it("the internal commission statement still names the fiscal representative", () => {
+    const output = generateViesStatementPdf({ ...base, kind: "provvigioni", representative, holder, companyName: "Markel", commissionPercentage: 0, withholdingPercentage: 11.5, commissionsReceivedAt: null }).output();
+    expect(output).toMatch(/Fideiussioni VIES del rappresentante fiscale SE&SE/);
   });
 });
