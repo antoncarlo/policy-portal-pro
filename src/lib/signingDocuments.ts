@@ -66,7 +66,8 @@ export const SIGNING_SLOTS: SigningSlot[] = [
     hasTemplate: false,
     builtIn: false,
     sourceType: COMPANY_COPY_DOCUMENT_TYPE,
-    keywords: [/polizza/i, /policy/i, /copia[ _-]?compagnia/i, /accettazion/i, /fideius/i],
+    // "ViesCompagnia": il nome che la compagnia da' alla copia da firmare ("1514223_ViesCompagnia_Markel_2026.pdf.p7m").
+    keywords: [/polizza/i, /policy/i, /copia[ _-]?compagnia/i, /vies[ _-]?compagnia/i, /accettazion/i, /fideius/i],
   },
   {
     id: "mup",

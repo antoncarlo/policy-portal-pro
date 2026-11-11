@@ -364,11 +364,11 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
     }
   };
 
-  /** The same ZIP, signed: each file goes into the practice of its folder. */
-  const handleUploadSigned = async (lot: PracticeLot, title: string, file: File) => {
-    if (downloadingLot) return;
+  /** The signed ZIP, or the signed files themselves: each file goes into its practice. */
+  const handleUploadSigned = async (lot: PracticeLot, title: string, files: File[]) => {
+    if (downloadingLot || files.length === 0) return;
     const text = getMessages(signingMessages).bundle;
-    if (!(/\.zip$/i.test(file.name) || file.type.includes("zip"))) {
+    if (!files.some((file) => /\.(zip|pdf|p7m)$/i.test(file.name) || file.type.includes("zip"))) {
       toast({ variant: "destructive", title: text.errorTitle, description: text.notZip });
       return;
     }
@@ -377,17 +377,21 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
     try {
       const result = await uploadSignedBundle({
         batchId: lot.batchId,
-        file,
+        files,
         onProgress: (done, total) => progress.update({ id: progress.id, title: text.uploadPreparing(title), description: text.uploadProgress(done, total), duration: 600_000 }),
       });
+      // Why the files left out were left out, counted by reason.
+      const counts = new Map<keyof typeof text.skipReasons, number>();
+      for (const item of result.skipped) counts.set(item.reason, (counts.get(item.reason) ?? 0) + 1);
+      const detail = [...counts.entries()].map(([reason, count]) => text.skipReasons[reason](count)).join(", ");
       if (result.uploaded === 0) {
-        progress.update({ id: progress.id, variant: "destructive", title: text.errorTitle, description: text.uploadNone, duration: 12000 });
+        progress.update({ id: progress.id, variant: "destructive", title: text.errorTitle, description: text.uploadNone(detail), duration: 20000 });
       } else {
         progress.update({
           id: progress.id,
           title: text.uploadDoneTitle,
-          description: text.uploadDone(result.uploaded, result.practices, result.sent) + (result.skipped.length > 0 ? text.uploadSkipped(result.skipped.length) : ""),
-          duration: 10000,
+          description: text.uploadDone(result.uploaded, result.practices, result.sent) + (result.skipped.length > 0 ? text.uploadSkipped(result.skipped.length, detail) : ""),
+          duration: 15000,
         });
         void loadPractices();
       }
@@ -697,12 +701,13 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
     <input
       id={signedInputId(lot)}
       type="file"
-      accept=".zip,application/zip,application/x-zip-compressed"
+      multiple
+      accept=".zip,.p7m,.pdf,application/zip,application/x-zip-compressed,application/pkcs7-mime,application/pdf"
       className="hidden"
       onChange={(event) => {
-        const file = event.target.files?.[0];
+        const files = Array.from(event.target.files ?? []);
         event.target.value = "";
-        if (file) void handleUploadSigned(lot, title, file);
+        void handleUploadSigned(lot, title, files);
       }}
     />
   );
@@ -925,12 +930,13 @@ export const PracticesTable = ({ searchQuery, filters, stage = "all" }: Practice
               <input
                 id={`${signedInputId(lots.get(lotId) as PracticeLot)}-chip`}
                 type="file"
-                accept=".zip,application/zip,application/x-zip-compressed"
+                multiple
+                accept=".zip,.p7m,.pdf,application/zip,application/x-zip-compressed,application/pkcs7-mime,application/pdf"
                 className="hidden"
                 onChange={(event) => {
-                  const file = event.target.files?.[0];
+                  const files = Array.from(event.target.files ?? []);
                   event.target.value = "";
-                  if (file) void handleUploadSigned(lots.get(lotId) as PracticeLot, lotTitle(lots.get(lotId) as PracticeLot, lotText.lotName), file);
+                  void handleUploadSigned(lots.get(lotId) as PracticeLot, lotTitle(lots.get(lotId) as PracticeLot, lotText.lotName), files);
                 }}
               />
             </>
