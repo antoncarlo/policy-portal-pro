@@ -198,6 +198,15 @@ const text = async (page) => (await page.locator("body").innerText()).replace(/\
   await page.goto(`${BASE}/practices/${PRACTICES[1].id}`, { waitUntil: "networkidle" });
   await page.waitForSelector("[data-testid=signing-card]", { timeout: 10000 });
   check("4 amministratore: può allegare la copia per la Compagnia dalla sezione firme", (await page.getByTestId("signing-company-copy-upload").count()) === 1);
+  // The company sends the copy to sign already signed by itself: a .p7m is accepted and kept as such.
+  await page.locator(`#signing-upload-${PRACTICES[1].id}-company_copy`).setInputFiles({ name: "1514223_ViesCompagnia_Markel_2026.docx.pdf.p7m", mimeType: "application/pkcs7-mime", buffer: Buffer.from([0x30, 0x80, 0x06, 0x09]) });
+  await page.waitForTimeout(800);
+  const copyInsert = log.inserts.find((x) => x.table === "practice_documents" && x.body.document_type === "polizza_copia_compagnia");
+  check(
+    "4 amministratore: la copia per la Compagnia firmata dalla compagnia (.p7m) si allega, con il suo tipo",
+    !!copyInsert && copyInsert.body.mime_type === "application/pkcs7-mime" && copyInsert.body.file_name === "1514223_ViesCompagnia_Markel_2026.docx.pdf.p7m" && copyInsert.body.file_path.startsWith(`${PRACTICES[1].id}/polizza_copia_compagnia-`),
+    JSON.stringify(log.inserts),
+  );
   await page.locator("#signing-policy-input").fill("FID-2026-445");
   await page.getByTestId("signing-policy-save").click();
   await page.waitForTimeout(500);

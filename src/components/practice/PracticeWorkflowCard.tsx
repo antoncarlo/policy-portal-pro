@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { stageOf, type PracticeStage } from "@/lib/practiceStages";
 import { callWorkflow, type WorkflowActionName } from "@/lib/workflowApi";
-import { COMPANY_COPY_DOCUMENT_TYPE, DRAFT_DOCUMENT_TYPE, FLOW_DOCUMENT_TYPES, ISSUED_POLICY_DOCUMENT_TYPE } from "@/lib/signingDocuments";
+import { COMPANY_COPY_DOCUMENT_TYPE, DRAFT_DOCUMENT_TYPE, FLOW_DOCUMENT_TYPES, ISSUED_POLICY_DOCUMENT_TYPE, isSignedFileName, signedMimeType } from "@/lib/signingDocuments";
 import { formatDate, getMessages, useMessages } from "@/i18n";
 import { workflowMessages } from "@/i18n/messages/workflow";
 import { useQueryClient } from "@tanstack/react-query";
@@ -107,7 +107,8 @@ const safeName = (name: string) =>
 
 const emptyForm = { portal: "", reference: "", message: "", note: "", reason: "", dueDate: "", paymentDate: today(), policyNumber: "", file: null as File | null, companyFile: null as File | null, files: [] as File[] };
 
-const isPdf = (file: File) => file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+// The company's documents come as PDFs or digitally signed (.p7m, "…_ViesCompagnia_….pdf.p7m").
+const isPdf = (file: File) => file.type === "application/pdf" || isSignedFileName(file.name);
 
 export const PracticeWorkflowCard = ({ practice, isAdmin, onChanged }: PracticeWorkflowCardProps) => {
   const m = useMessages(workflowMessages);
@@ -157,9 +158,11 @@ export const PracticeWorkflowCard = ({ practice, isAdmin, onChanged }: PracticeW
 
   const uploadPdf = async (file: File, type: string, index = 0) => {
     const path = `${practice.id}/${type}-${Date.now()}-${index}-${safeName(file.name)}`;
-    const { error } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: "application/pdf", upsert: false });
+    // A .p7m keeps its own type: the server checks the declared type against the file's content.
+    const mimeType = signedMimeType(file.name);
+    const { error } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: mimeType, upsert: false });
     if (error) throw new Error(error.message);
-    return { path, document: { file_name: file.name, mime_type: "application/pdf", storage_path: path } };
+    return { path, document: { file_name: file.name, mime_type: mimeType, storage_path: path } };
   };
 
   const validate = (kind: ActionKind) => {
@@ -276,7 +279,7 @@ export const PracticeWorkflowCard = ({ practice, isAdmin, onChanged }: PracticeW
         <Input
           id={id}
           type="file"
-          accept="application/pdf,.pdf"
+          accept="application/pdf,.pdf,.p7m"
           onChange={(event) => setForm((previous) => ({ ...previous, [key]: event.target.files?.[0] ?? null }))}
         />
         {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
@@ -290,7 +293,7 @@ export const PracticeWorkflowCard = ({ practice, isAdmin, onChanged }: PracticeW
       <Input
         id="workflow-file"
         type="file"
-        accept="application/pdf,.pdf"
+        accept="application/pdf,.pdf,.p7m"
         multiple
         onChange={(event) => setForm((previous) => ({ ...previous, files: Array.from(event.target.files ?? []) }))}
       />

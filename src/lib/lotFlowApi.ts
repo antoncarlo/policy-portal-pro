@@ -77,7 +77,8 @@ export async function fetchLotCycle(batchId: string): Promise<LotCycleData> {
 
 /** Salva un file nella cartella della pratica e restituisce come indicarlo al server. */
 export async function uploadPracticeFile(practiceId: string, type: string, file: Blob, fileName: string, index = 0) {
-  const mime = /\.zip$/i.test(fileName) ? "application/zip" : "application/pdf";
+  // A digitally signed file (.p7m) keeps its own type: the server checks the type against the file's content.
+  const mime = /\.zip$/i.test(fileName) ? "application/zip" : /\.p7m$/i.test(fileName) ? "application/pkcs7-mime" : "application/pdf";
   const path = `${practiceId}/${type}-${Date.now()}-${index}-${safeName(fileName, "documento.pdf")}`;
   const { error } = await supabase.storage.from(PRACTICE_DOCUMENTS_BUCKET).upload(path, file, { contentType: mime, upsert: false });
   if (error) throw new Error(error.message);
