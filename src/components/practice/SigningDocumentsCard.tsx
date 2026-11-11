@@ -198,7 +198,8 @@ export const SigningDocumentsCard = ({ practice, isAdmin, refreshToken = 0, onCh
 
   const checkPdf = (file: File, signedFile = false) => {
     const text = getMessages(signingMessages).card;
-    // Le copie firmate possono essere PDF o file firmati digitalmente (.p7m); la copia per la Compagnia e' un PDF.
+    // Le copie firmate e la copia per la Compagnia possono essere PDF o file firmati digitalmente (.p7m): la compagnia
+    // manda la copia da firmare gia' firmata da lei ("…_ViesCompagnia_….pdf.p7m").
     const accepted = signedFile ? isSignedFileName(file.name) || file.type === "application/pdf" : file.type === "application/pdf" || /\.pdf$/i.test(file.name);
     if (!accepted) throw new Error(signedFile ? text.onlySigned : text.onlyPdf);
     if (file.size > MAX_FILE_BYTES) throw new Error(text.tooBig);
@@ -246,8 +247,8 @@ export const SigningDocumentsCard = ({ practice, isAdmin, refreshToken = 0, onCh
     const text = getMessages(signingMessages).card;
     setBusy("company_copy");
     try {
-      checkPdf(file);
-      await storeDocument(file, companyCopyPath(practice.id, file.name), COMPANY_COPY_DOCUMENT_TYPE);
+      checkPdf(file, true);
+      await storeDocument(file, companyCopyPath(practice.id, file.name), COMPANY_COPY_DOCUMENT_TYPE, signedMimeType(file.name));
       toast({ title: text.companyCopyUploadedTitle, description: text.companyCopyUploadedText });
       requestNotificationFlush();
       onChanged?.();
@@ -389,7 +390,7 @@ export const SigningDocumentsCard = ({ practice, isAdmin, refreshToken = 0, onCh
                         <input
                           id={fileInputId("company_copy")}
                           type="file"
-                          accept="application/pdf,.pdf"
+                          accept="application/pdf,.pdf,.p7m"
                           className="hidden"
                           onChange={(event) => {
                             const file = event.target.files?.[0];

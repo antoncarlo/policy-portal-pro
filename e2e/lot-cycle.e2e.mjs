@@ -240,6 +240,68 @@ const apiCalls = (log, action) => log.api.filter((c) => c.body.action === action
   await ctx.close();
 }
 
+// 3c) le polizze della compagnia firmate digitalmente (.p7m), copia Compagnia e copia Beneficiario nello stesso ZIP (Lotto 1, 10/11/2026)
+{
+  const { PDFDocument, StandardFonts } = await import("pdf-lib");
+  const { default: JSZip } = await import("jszip");
+  const policyPdf = async (lines) => {
+    const pdf = await PDFDocument.create();
+    const font = await pdf.embedFont(StandardFonts.Helvetica);
+    const page = pdf.addPage();
+    lines.forEach((line, i) => page.drawText(line, { x: 40, y: 780 - i * 18, size: 10, font }));
+    return Buffer.from(await pdf.save());
+  };
+  // The envelope the way the company writes it: indefinite lengths, the PDF in 1000-byte pieces.
+  const len = (n) => (n < 0x80 ? [n] : n < 0x100 ? [0x81, n] : n < 0x10000 ? [0x82, n >> 8, n & 0xff] : [0x83, n >> 16, (n >> 8) & 0xff, n & 0xff]);
+  const tlv = (tag, body) => Buffer.concat([Buffer.from([tag, ...len(body.length)]), body]);
+  const open0 = (tag, body) => Buffer.concat([Buffer.from([tag, 0x80]), body, Buffer.from([0, 0])]);
+  const p7m = (content) => {
+    const pieces = [];
+    for (let pos = 0; pos < content.length; pos += 1000) pieces.push(tlv(0x04, content.subarray(pos, pos + 1000)));
+    const encap = open0(0x30, Buffer.concat([Buffer.from("06092a864886f70d010701", "hex"), open0(0xa0, open0(0x24, Buffer.concat(pieces)))]));
+    const signedData = open0(0x30, Buffer.concat([Buffer.from("020101", "hex"), Buffer.from("310d300b0609608648016503040201", "hex"), encap, Buffer.from("3100", "hex")]));
+    return open0(0x30, Buffer.concat([Buffer.from("06092a864886f70d010702", "hex"), open0(0xa0, signedData)]));
+  };
+  const copy = (heading, number, client) => policyPdf(["MARKEL INSURANCE SE, STABILIMENTO IN SPAGNA", heading, "GARANZIA FIDEIUSSORIA n.", `B.2026.${number}`, "CONTRAENTE (OBBLIGATO PRINCIPALE)", client]);
+  const zip = new JSZip();
+  const folder = "1 GRUPPO FILES FIRMATI";
+  zip.file(`${folder}/1514223_ViesBeneficiario_Markel_2026.docx.pdf.p7m`, p7m(await copy("Copia BENEFICIARIO", "1514223", "Azienda Due Srl")));
+  zip.file(`${folder}/1514223_ViesCompagnia_Markel_2026.docx.pdf.p7m`, p7m(await copy("Copia COMPAGNIA/CONTRAENTE", "1514223", "Azienda Due Srl")));
+  zip.file(`${folder}/1514651_ViesBeneficiario_Markel_2026.docx.pdf.p7m`, p7m(await copy("Copia BENEFICIARIO", "1514651", "Azienda Uno Srl")));
+  zip.file(`${folder}/1514651_ViesCompagnia_Markel_2026.docx.pdf.p7m`, p7m(await copy("Copia COMPAGNIA/CONTRAENTE", "1514651", "Azienda Uno Srl")));
+  const buffer = Buffer.from(await zip.generateAsync({ type: "uint8array" }));
+  const { ctx, page, log, pageErrors } = await open({ admin: true, flow: flowOf(["drafts_uploaded", "drafts_confirmed", "payment_submitted", "payment_confirmed"]), paid: true });
+  await page.getByTestId("lot-action-copies").click();
+  await page.getByTestId("lot-bulk-input").setInputFiles([{ name: "1_GRUPPO_FILES_FIRMATI.zip", mimeType: "application/zip", buffer }]);
+  await page.waitForSelector("[data-testid=lot-bulk-row]", { timeout: 8000 }).catch(() => undefined);
+  await page.waitForFunction(() => !document.querySelector("[data-testid=lot-bulk-reading]"), null, { timeout: 15000 }).catch(() => undefined);
+  const summary = await page.getByTestId("lot-bulk-summary").innerText().catch(() => "(nessun riepilogo)");
+  check("3c lo ZIP di .p7m si legge: 2 copie Compagnia su 2 assegnate", /2 file su 2 assegnati/.test(summary) && (await page.getByTestId("lot-bulk-none").count()) === 0, summary);
+  check("3c le 2 copie per il Beneficiario non si caricano e lo dice", /2 copie per il Beneficiario non vengono caricate/.test(await page.getByTestId("lot-bulk-other-copies").innerText().catch(() => "")));
+  const rows = await page.locator("[data-testid=lot-bulk-row]").allInnerTexts();
+  const chosen = await page.locator("[data-testid=lot-bulk-row] select").evaluateAll((items) => items.map((el) => el.selectedOptions[0]?.textContent ?? ""));
+  check(
+    "3c ogni copia Compagnia va alla sua pratica dal numero di bozza nel nome",
+    rows.length === 2 && /1514223_ViesCompagnia/.test(rows[0]) && /VIES-2026-0002/.test(chosen[0]) && /1514651_ViesCompagnia/.test(rows[1]) && /VIES-2026-0001/.test(chosen[1]) && rows.every((row) => /dal numero di bozza nel nome del file/.test(row)),
+    JSON.stringify({ rows, chosen }),
+  );
+  await page.getByTestId("lot-bulk-run").click();
+  await page.waitForSelector("[data-testid=lot-bulk-result]", { timeout: 10000 });
+  const attached = apiCalls(log, "workflow_attach_document").sort((a, b) => a.body.practiceId.localeCompare(b.body.practiceId));
+  check(
+    "3c collegate come copia Compagnia, salvate come .p7m, con il numero di polizza letto nella copia",
+    attached.length === 2 &&
+      attached.every((call) => call.body.kind === "company_copy" && call.body.document.mime_type === "application/pkcs7-mime" && /\.pdf\.p7m$/.test(call.body.document.file_name)) &&
+      attached[0].body.practiceId === P1.id && attached[0].body.policyNumber === "B.2026.1514651" &&
+      attached[1].body.practiceId === P2.id && attached[1].body.policyNumber === "B.2026.1514223",
+    JSON.stringify(attached.map((call) => call.body)),
+  );
+  const step = apiCalls(log, "lot_record_step")[0];
+  check("3c il passaggio delle copie si registra con 2 file e nessuno da assegnare", step?.body.step === "copies_uploaded" && step.body.summary.files === 2 && step.body.summary.attached === 2 && step.body.summary.unmatched.length === 0, JSON.stringify(step?.body));
+  check("3c nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
+  await ctx.close();
+}
+
 // 4) administrator: checks the payment
 {
   const lotDocs = [

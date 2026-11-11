@@ -226,6 +226,8 @@ const text = async (page) => (await page.locator("body").innerText()).replace(/\
   // deliberazione con bozza PDF: carica nello storage, poi chiama l'API con il percorso
   await page.getByTestId("workflow-action-deliberate").click();
   await page.locator("#workflow-file").setInputFiles({ name: "Bozza compagnia.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 test") });
+  // The copy to sign comes signed by the company (.p7m): it is accepted and declared as such.
+  await page.locator("#workflow-company-copy").setInputFiles({ name: "1514223_ViesCompagnia_Markel_2026.docx.pdf.p7m", mimeType: "application/pkcs7-mime", buffer: Buffer.from([0x30, 0x80, 0x06, 0x09]) });
   await page.locator("#workflow-due").fill(iso(10));
   await page.locator("#workflow-note").fill("Premio confermato");
   await page.getByTestId("workflow-confirm").click();
@@ -233,12 +235,13 @@ const text = async (page) => (await page.locator("body").innerText()).replace(/\
   const call = log.api.find((c) => c.body.action === "workflow_deliberate");
   check("2 deliberazione: bozza caricata nella cartella della pratica", log.storage.some((s) => s.method === "POST" && s.path.includes(`/practice-documents/${PRACTICES[1].id}/bozza_deliberata-`)), JSON.stringify(log.storage));
   check("2 deliberazione: l'API riceve percorso, scadenza e nota", !!call && call.body.practiceId === PRACTICES[1].id && call.body.paymentDueDate === iso(10) && call.body.note === "Premio confermato" && call.body.draft?.storage_path?.startsWith(`${PRACTICES[1].id}/bozza_deliberata-`) && call.body.draft?.mime_type === "application/pdf" && !("content_base64" in call.body.draft), JSON.stringify(call));
+  check("2 deliberazione: la copia per la Compagnia .p7m va nella cartella della pratica come .p7m", call?.body.companyCopy?.storage_path?.startsWith(`${PRACTICES[1].id}/polizza_copia_compagnia-`) && call.body.companyCopy.mime_type === "application/pkcs7-mime" && call.body.companyCopy.file_name.endsWith(".pdf.p7m"), JSON.stringify(call?.body.companyCopy));
   // file non PDF
   await page.waitForTimeout(500);
   await page.getByTestId("workflow-action-deliberate").click();
   await page.locator("#workflow-file").setInputFiles({ name: "documento.docx", mimeType: "application/msword", buffer: Buffer.from("x") });
   await page.getByTestId("workflow-confirm").click();
-  check("2 file non PDF rifiutato dal browser", (await page.getByText("Il file deve essere un PDF.").count()) === 1);
+  check("2 file non PDF rifiutato dal browser", (await page.getByText("Il file deve essere un PDF o un file firmato digitalmente (.p7m).").count()) === 1);
   await page.screenshot({ path: SHOTS + "flow-card-admin.png" });
   check("2 nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
   await ctx.close();

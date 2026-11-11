@@ -133,7 +133,7 @@ export const workflowMessages = defineMessages({
         companyCopyHint: "È il documento che il rappresentante fiscale firma. Facoltativa: si può allegare dopo dalla sezione «Documenti da firmare».",
         dueDate: "Pagamento entro il",
         note: "Nota (facoltativa)",
-        draftInvalid: "Il file deve essere un PDF.",
+        draftInvalid: "Il file deve essere un PDF o un file firmato digitalmente (.p7m).",
         draftTooBig: "Il file supera i 12 MB.",
       },
       reject: {
@@ -292,7 +292,7 @@ export const workflowMessages = defineMessages({
         companyCopyHint: "The document the fiscal representative signs. Optional: it can be attached later from the “Documents to sign” section.",
         dueDate: "Payment due by",
         note: "Note (optional)",
-        draftInvalid: "The file must be a PDF.",
+        draftInvalid: "The file must be a PDF or a digitally signed file (.p7m).",
         draftTooBig: "The file is larger than 12 MB.",
       },
       reject: {
@@ -451,7 +451,7 @@ export const workflowMessages = defineMessages({
         companyCopyHint: "税务代表签署的文件。可选：之后也可以在“待签署文件”部分附上。",
         dueDate: "付款截止日期",
         note: "备注（可选）",
-        draftInvalid: "文件必须是 PDF。",
+        draftInvalid: "文件必须是 PDF 或数字签名文件（.p7m）。",
         draftTooBig: "文件超过 12 MB。",
       },
       reject: {

@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
-import { expandFiles, matchEntries, type LotFileEntry } from "../../src/lib/lotRecognition";
+import { expandFiles, isBeneficiaryCopy, matchEntries, policyNumberFromText, type LotFileEntry } from "../../src/lib/lotRecognition";
 
 const entry = (path: string): LotFileEntry => ({ path, name: path.split("/").pop() ?? path, blob: new Blob(["x"]), size: 1 });
 const practices = [
@@ -57,18 +57,59 @@ describe("lot file recognition", () => {
     expect(matchEntries(entries, practices, { exclusive: false, texts }).map((match) => match.practiceId)).toEqual(["p3", "p3", "p1"]);
   });
 
+  it("finds the practice from the company's draft number at the start of the file name, as a whole number", () => {
+    const withDrafts = [
+      { id: "d1", practice_number: "VIES-2026-0008-4be40a00", client_name: "Shen Zhen Shi Dong Ji Shang Mao You Xian Gong Si", draft_number: "1514223" },
+      { id: "d2", practice_number: "VIES-2026-0007-4be40a00", client_name: "Shen Zhen Shi Zhu Huan Xin Ji Shu You Xian Gong Si", draft_number: "1514572" },
+    ];
+    const one = (path: string, text = "") => matchEntries([entry(path)], withDrafts, { texts: new Map([[path, text]]) })[0];
+    expect(one("1 GRUPPO FILES FIRMATI/1514223_ViesCompagnia_Markel_2026.docx.pdf.p7m")).toMatchObject({ practiceId: "d1", how: "draft_file" });
+    expect(one("1514572_ViesCompagnia_Markel_2026.docx.pdf.p7m")).toMatchObject({ practiceId: "d2", how: "draft_file" });
+    // Not inside a longer number; then the number written in the document ("B.2026.1514572").
+    expect(one("15142230_copia.pdf")).toMatchObject({ practiceId: null, how: null });
+    expect(one("copia.pdf.p7m", "GARANZIA FIDEIUSSORIA n.\nB.2026.1514572\nCONTRAENTE")).toMatchObject({ practiceId: "d2", how: "draft_content" });
+  });
+
+  it("policy copies: the beneficiary's copy is not the one to sign, the company's copy gets the practice", () => {
+    const withDrafts = [{ id: "d1", practice_number: "VIES-2026-0008-4be40a00", client_name: "Shen Zhen Trading", draft_number: "1514223" }];
+    const entries = [entry("1514223_ViesBeneficiario_Markel_2026.docx.pdf.p7m"), entry("1514223_ViesCompagnia_Markel_2026.docx.pdf.p7m")];
+    const copies = matchEntries(entries, withDrafts, { exclusive: true, companyCopyOnly: true });
+    expect(copies[0]).toMatchObject({ practiceId: null, how: null, otherCopy: true });
+    expect(copies[1]).toMatchObject({ practiceId: "d1", how: "draft_file" });
+    expect(copies[1].duplicate).toBeUndefined();
+    // Without the option (drafts, issued policies) both are recognised as before.
+    expect(matchEntries(entries, withDrafts, { exclusive: false }).map((match) => match.practiceId)).toEqual(["d1", "d1"]);
+    // A name that does not say which copy it is: the heading inside the document decides.
+    expect(isBeneficiaryCopy("scan_01.pdf.p7m", "MARKEL INSURANCE SE\nCopia BENEFICIARIO\nPOLIZZA FIDEJUSSORIA VIES")).toBe(true);
+    expect(isBeneficiaryCopy("scan_02.pdf.p7m", "MARKEL INSURANCE SE\nCopia COMPAGNIA/CONTRAENTE\nBENEFICIARIO\nAgenzia delle Entrate")).toBe(false);
+    expect(isBeneficiaryCopy("scan_03.pdf", "")).toBe(false);
+  });
+
+  it("reads the policy number written in the company's copy", () => {
+    expect(policyNumberFromText("Copia COMPAGNIA/CONTRAENTE\nGARANZIA FIDEIUSSORIA n.\nB.2026.1514223\nCONTRAENTE")).toBe("B.2026.1514223");
+    expect(policyNumberFromText("POLIZZA FIDEJUSSORIA VIES ai sensi dell'art. 35\nGaranzia fideiussoria n° B.2026.1514572")).toBe("B.2026.1514572");
+    expect(policyNumberFromText("Polizza fideiussoria n. del contraente")).toBeNull();
+    expect(policyNumberFromText("")).toBeNull();
+  });
+
   it("reads PDFs and ZIPs (also nested), and lists what it ignored", async () => {
     const inner = new JSZip();
     inner.file("VIES-2026-3-CCCC3333/copia.pdf", "%PDF-1.4");
     const zip = new JSZip();
     zip.file("VIES-2026-1-AAAA1111/bozza.pdf", "%PDF-1.4");
     zip.file("VIES-2026-1-AAAA1111/nota.txt", "x");
+    zip.file("1 GRUPPO FILES FIRMATI/1514223_ViesCompagnia_Markel_2026.docx.pdf.p7m", "0");
     zip.file("__MACOSX/._bozza.pdf", "x");
     zip.file("interno.zip", await inner.generateAsync({ type: "uint8array" }));
     const buffer = await zip.generateAsync({ type: "uint8array" });
     const files = [new File([buffer], "bozze.zip", { type: "application/zip" }), new File(["%PDF-1.4"], "singola.pdf"), new File(["x"], "foto.png")];
     const { entries, ignored } = await expandFiles(files);
-    expect(entries.map((item) => item.path).sort()).toEqual(["VIES-2026-1-AAAA1111/bozza.pdf", "interno.zip/VIES-2026-3-CCCC3333/copia.pdf", "singola.pdf"]);
+    expect(entries.map((item) => item.path).sort()).toEqual([
+      "1 GRUPPO FILES FIRMATI/1514223_ViesCompagnia_Markel_2026.docx.pdf.p7m",
+      "VIES-2026-1-AAAA1111/bozza.pdf",
+      "interno.zip/VIES-2026-3-CCCC3333/copia.pdf",
+      "singola.pdf",
+    ]);
     expect(ignored.sort()).toEqual(["VIES-2026-1-AAAA1111/nota.txt", "foto.png"]);
   });
 });

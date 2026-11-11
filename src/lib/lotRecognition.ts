@@ -1,8 +1,13 @@
 // Riconoscimento dei file caricati in blocco per un lotto: ogni file (o ogni file di uno ZIP) va alla sua pratica.
 //
-// Si cerca il numero pratica nel percorso o nel nome (anche se la firma o l'invio hanno tolto le cartelle); in
-// mancanza, il nome del contraente, se un solo contraente del lotto compare nel nome come parola intera.
+// Si cerca il numero pratica nel percorso o nel nome (anche se la firma o l'invio hanno tolto le cartelle), poi il
+// numero della bozza della compagnia (i file della compagnia iniziano con quel numero: "1514223_ViesCompagnia_…");
+// in mancanza, quello che e' scritto nel documento (numero pratica, numero di bozza, partita IVA, numero di polizza,
+// nome del contraente) e il nome del contraente nel nome del file.
+// I file firmati digitalmente (.p7m, anche "documento.pdf.p7m") si leggono come i PDF: il PDF e' dentro la busta.
 // L'amministratore vede il risultato prima di confermare e puo' correggere ogni assegnazione.
+
+import { pdfBytesOf } from "./p7m";
 
 export interface RecognitionPractice {
   id: string;
@@ -13,6 +18,8 @@ export interface RecognitionPractice {
   tax_code?: string | null;
   /** Codice unificato di credito sociale della societa' cinese, se c'e'. */
   uscc?: string | null;
+  /** Numero dell'ultima bozza della compagnia (dal nome del file della bozza), se c'e'. */
+  draft_number?: string | null;
 }
 
 export interface LotFileEntry {
@@ -25,7 +32,16 @@ export interface LotFileEntry {
 }
 
 /** Come si e' riconosciuta la pratica, e dove: nel nome (o nel percorso) del file o nel suo contenuto. */
-export type MatchHow = "number_file" | "number_content" | "policy_file" | "policy_content" | "tax_content" | "name_content" | "name_file";
+export type MatchHow =
+  | "number_file"
+  | "draft_file"
+  | "number_content"
+  | "draft_content"
+  | "policy_file"
+  | "policy_content"
+  | "tax_content"
+  | "name_content"
+  | "name_file";
 
 export interface FileMatch {
   entry: LotFileEntry;
@@ -33,6 +49,8 @@ export interface FileMatch {
   how: MatchHow | null;
   /** Un altro file, riconosciuto meglio, ha gia' questa pratica (si assegna a mano). */
   duplicate?: boolean;
+  /** Un'altra copia della polizza (per il Beneficiario): non e' la copia per la Compagnia da firmare. */
+  otherCopy?: boolean;
 }
 
 const accentless = (value: string) => value.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -49,8 +67,10 @@ const MIN_NAME_LENGTH = 4;
 
 /** Quanto ci si fida di ogni modo di riconoscere: serve a scegliere tra due file che puntano alla stessa pratica. */
 const RANK: Record<MatchHow, number> = {
-  number_file: 7,
-  number_content: 6,
+  number_file: 9,
+  draft_file: 8,
+  number_content: 7,
+  draft_content: 6,
   tax_content: 5,
   policy_content: 4,
   policy_file: 4,
@@ -90,6 +110,10 @@ function matchOne(entry: LotFileEntry, practices: RecognitionPractice[], text: s
   }
   if (best) return found(best, "number_file");
 
+  // 1b. Il numero della bozza della compagnia nel nome del file, come numero intero (1514223, non 15142230).
+  const byDraftName = practices.filter((practice) => hasNumber(lowerPath, practice.draft_number));
+  if (byDraftName.length === 1) return found(byDraftName[0], "draft_file");
+
   const body = accentless(text);
   if (body.trim()) {
     // 2. Il numero pratica scritto nel documento.
@@ -99,6 +123,10 @@ function matchOne(entry: LotFileEntry, practices: RecognitionPractice[], text: s
       if (number && body.includes(number) && (!inside || number.length > inside.practice_number.length)) inside = practice;
     }
     if (inside) return found(inside, "number_content");
+
+    // 2b. Il numero della bozza scritto nel documento (la polizza della compagnia: "B.2026.1514223").
+    const byDraftText = practices.filter((practice) => hasNumber(body, practice.draft_number));
+    if (byDraftText.length === 1) return found(byDraftText[0], "draft_content");
 
     // 3. La partita IVA o il codice unificato del contraente, scritti nel documento (un solo contraente).
     const digits = body.replace(/[^a-z0-9]+/g, " ");
@@ -121,13 +149,50 @@ function matchOne(entry: LotFileEntry, practices: RecognitionPractice[], text: s
   return found(uniqueName(words(entry.path), practices), "name_file");
 }
 
+/** Un numero (di almeno 5 cifre) scritto come numero intero nel testo: non dentro un numero piu' lungo. */
+function hasNumber(haystack: string, number: string | null | undefined) {
+  const digits = number?.trim();
+  if (!digits || !/^\d{5,}$/.test(digits)) return false;
+  return new RegExp(`(^|[^0-9])${digits}([^0-9]|$)`).test(haystack);
+}
+
+/**
+ * La copia della polizza per il Beneficiario, non quella per la Compagnia da firmare: la compagnia le manda insieme
+ * ("1514223_ViesBeneficiario_…" e "1514223_ViesCompagnia_…"). Si guarda il nome del file; se il nome non dice quale
+ * copia e', l'intestazione nel documento ("Copia BENEFICIARIO").
+ */
+export function isBeneficiaryCopy(name: string, text = "") {
+  const plain = accentless(name);
+  if (/beneficiar/.test(plain)) return true;
+  if (/compagnia|contraente/.test(plain)) return false;
+  const head = accentless(text.slice(0, 4000));
+  return /copia\s+(per\s+il\s+)?beneficiario/.test(head) && !/copia\s+(per\s+la\s+)?compagnia/.test(head);
+}
+
+/** Il numero della polizza scritto nella copia della compagnia ("GARANZIA FIDEIUSSORIA n. B.2026.1514223"), se c'e'. */
+export function policyNumberFromText(text: string): string | null {
+  for (const found of text.matchAll(/(?:garanzia|polizza)\s+fide[ij]ussoria\s+n(?:\.|°|r\.?|umero)?\s*:?\s*([A-Z0-9][A-Z0-9./-]{4,38}[A-Z0-9])/gi)) {
+    if (/\d{4,}/.test(found[1])) return found[1];
+  }
+  return null;
+}
+
 /**
  * Assegna ogni file a una pratica. Con `exclusive` (una bozza o una copia per pratica) due file non possono avere la
  * stessa pratica: resta quello riconosciuto meglio (a parita', il primo) e l'altro va assegnato a mano.
+ * Con `companyCopyOnly` (le polizze copia Compagnia) le copie per il Beneficiario non si assegnano.
  * `texts` e' il testo letto dentro ogni file, per percorso.
  */
-export function matchEntries(entries: LotFileEntry[], practices: RecognitionPractice[], options: { exclusive?: boolean; texts?: Map<string, string> } = {}): FileMatch[] {
-  const matches: FileMatch[] = entries.map((entry) => ({ entry, ...matchOne(entry, practices, options.texts?.get(entry.path) ?? "") }));
+export function matchEntries(
+  entries: LotFileEntry[],
+  practices: RecognitionPractice[],
+  options: { exclusive?: boolean; companyCopyOnly?: boolean; texts?: Map<string, string> } = {},
+): FileMatch[] {
+  const matches: FileMatch[] = entries.map((entry) => {
+    const text = options.texts?.get(entry.path) ?? "";
+    if (options.companyCopyOnly && isBeneficiaryCopy(entry.name, text)) return { entry, practiceId: null, how: null, otherCopy: true };
+    return { entry, ...matchOne(entry, practices, text) };
+  });
   if (!options.exclusive) return matches;
   const winner = new Map<string, number>();
   matches.forEach((match, index) => {
@@ -140,7 +205,10 @@ export function matchEntries(entries: LotFileEntry[], practices: RecognitionPrac
   );
 }
 
-/** Il testo dei PDF (le prime pagine), per riconoscere le pratiche dal contenuto. Un PDF scansito non ha testo: resta il nome. */
+/**
+ * Il testo dei PDF (le prime pagine), per riconoscere le pratiche dal contenuto; di un .p7m si legge il PDF dentro la
+ * busta. Un PDF scansito non ha testo: resta il nome.
+ */
 export async function readEntryTexts(entries: LotFileEntry[], onProgress?: (done: number, total: number) => void): Promise<Map<string, string>> {
   const { extractPdfText } = await import("./pdfText");
   const texts = new Map<string, string>();
@@ -149,7 +217,8 @@ export async function readEntryTexts(entries: LotFileEntry[], onProgress?: (done
   const worker = async () => {
     for (let entry = queue.shift(); entry; entry = queue.shift()) {
       try {
-        const result = await extractPdfText(new Uint8Array(await entry.blob.arrayBuffer()));
+        const pdf = pdfBytesOf(new Uint8Array(await entry.blob.arrayBuffer()));
+        const result = pdf ? await extractPdfText(pdf) : { lines: [] as string[] };
         texts.set(entry.path, result.lines.join("\n").slice(0, 30000));
       } catch {
         texts.set(entry.path, "");
@@ -165,10 +234,10 @@ export async function readEntryTexts(entries: LotFileEntry[], onProgress?: (done
 const IGNORED = /(^|\/)(__MACOSX\/|\.[^/]*$|thumbs\.db$)/i;
 
 /**
- * I file da assegnare: i PDF scelti e quelli dentro gli ZIP (anche ZIP annidati). Il resto viene ignorato e
- * elencato: l'amministratore sa cosa non e' stato letto.
+ * I file da assegnare: i PDF e i file firmati digitalmente (.p7m) scelti e quelli dentro gli ZIP (anche ZIP annidati).
+ * Il resto viene ignorato e elencato: l'amministratore sa cosa non e' stato letto.
  */
-export async function expandFiles(files: File[], accept: RegExp = /\.pdf$/i): Promise<{ entries: LotFileEntry[]; ignored: string[] }> {
+export async function expandFiles(files: File[], accept: RegExp = /\.(pdf|p7m)$/i): Promise<{ entries: LotFileEntry[]; ignored: string[] }> {
   const entries: LotFileEntry[] = [];
   const ignored: string[] = [];
   const { default: JSZip } = await import("jszip");

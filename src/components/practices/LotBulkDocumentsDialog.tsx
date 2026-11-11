@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { callLot, fetchLotCycle, uploadPracticeFile, type LotPracticeRow } from "@/lib/lotFlowApi";
-import { expandFiles, matchEntries, readEntryTexts, type FileMatch, type LotFileEntry, type RecognitionPractice } from "@/lib/lotRecognition";
+import { expandFiles, matchEntries, policyNumberFromText, readEntryTexts, type FileMatch, type LotFileEntry, type RecognitionPractice } from "@/lib/lotRecognition";
+import { fetchDraftNumbers } from "@/lib/lotStatement";
 import { extractNotesSections } from "@/lib/practiceSummary";
 import { stageOf } from "@/lib/practiceStages";
 import { useMessages } from "@/i18n";
@@ -29,8 +30,9 @@ interface Props {
 }
 
 /**
- * L'amministratore carica in blocco le bozze, le polizze copia Compagnia o le polizze emesse di un lotto, come PDF
- * o come ZIP: il portale assegna ogni file alla sua pratica (numero pratica, numero di polizza, nome del cliente),
+ * L'amministratore carica in blocco le bozze, le polizze copia Compagnia o le polizze emesse di un lotto, come PDF,
+ * come file firmati digitalmente (.p7m) o come ZIP: il portale assegna ogni file alla sua pratica (numero pratica,
+ * numero di bozza, partita IVA, numero di polizza, nome del cliente),
  * mostra il risultato per correggerlo, poi collega i file e registra il passaggio nel lotto. Ogni pratica registra la
  * propria riga di storico, ma al rappresentante fiscale arriva un solo avviso per il lotto.
  */
@@ -39,6 +41,8 @@ export const LotBulkDocumentsDialog = ({ open, mode, batchId, onOpenChange, onDo
   const stages = useMessages(workflowMessages).stages;
   const { toast } = useToast();
   const [practices, setPractices] = useState<LotPracticeRow[]>([]);
+  // The number of each practice's latest draft: the company's files start with it ("1514223_ViesCompagnia_…").
+  const [draftNumbers, setDraftNumbers] = useState<Map<string, string>>(new Map());
   const [entries, setEntries] = useState<LotFileEntry[]>([]);
   // The administrator's own corrections, by file: what the portal recognised stays where he did not touch it.
   const [overrides, setOverrides] = useState<Record<number, string | null>>({});
@@ -79,7 +83,13 @@ export const LotBulkDocumentsDialog = ({ open, mode, batchId, onOpenChange, onDo
     setPicked(false);
     setDueDate("");
     setNote("");
-    void fetchLotCycle(batchId).then((data) => setPractices(data.practices)).catch(() => setPractices([]));
+    setDraftNumbers(new Map());
+    void fetchLotCycle(batchId)
+      .then(async (data) => {
+        setPractices(data.practices);
+        setDraftNumbers(await fetchDraftNumbers(data.practices.map((practice) => practice.id)));
+      })
+      .catch(() => setPractices([]));
   }, [open, batchId]);
 
   const choose = async (files: File[]) => {
@@ -114,14 +124,23 @@ export const LotBulkDocumentsDialog = ({ open, mode, batchId, onOpenChange, onDo
         policy_number: practice.policy_number,
         tax_code: practice.owner_tax_code,
         uscc: String(extractNotesSections(practice.notes).specificFields?.vies_uscc ?? "") || null,
+        draft_number: draftNumbers.get(practice.id) ?? null,
       })),
-    [eligible],
+    [eligible, draftNumbers],
   );
   // One draft or one policy copy per practice: two files never get the same practice. The issued policies come in several copies.
   const exclusive = mode !== "issued";
-  const recognised = useMemo(() => matchEntries(entries, recognitionPractices, { exclusive, texts }), [entries, recognitionPractices, exclusive, texts]);
+  // The company sends the copy for the beneficiary with the one for the company: only the latter is signed.
+  const companyCopyOnly = mode === "copies";
+  const recognised = useMemo(
+    () => matchEntries(entries, recognitionPractices, { exclusive, companyCopyOnly, texts }),
+    [entries, recognitionPractices, exclusive, companyCopyOnly, texts],
+  );
   const matches: FileMatch[] = recognised;
-  const assignment = (index: number) => (index in overrides ? overrides[index] : recognised[index]?.practiceId ?? null);
+  const otherCopies = matches.filter((match) => match.otherCopy).length;
+  const shown = matches.length - otherCopies;
+  // A beneficiary's copy is never uploaded here, not even if it was assigned by hand before its content was read.
+  const assignment = (index: number) => (recognised[index]?.otherCopy ? null : index in overrides ? overrides[index] : recognised[index]?.practiceId ?? null);
   const assigned = matches.map((match, index) => ({ match, practiceId: assignment(index) })).filter((item) => item.practiceId);
   const withoutFile = eligible.filter((practice) => !assigned.some((item) => item.practiceId === practice.id));
 
@@ -152,7 +171,9 @@ export const LotBulkDocumentsDialog = ({ open, mode, batchId, onOpenChange, onDo
       } else if (mode === "copies") {
         for (const [index, file] of files.entries()) {
           const uploaded = await uploadPracticeFile(practiceId, "polizza_copia_compagnia", file.blob, file.name, index);
-          await callLot("workflow_attach_document", { practiceId, kind: "company_copy", document: uploaded.document, quiet });
+          // The policy number written in the copy ("B.2026.1514223") fills in the documents to sign.
+          const policyNumber = policyNumberFromText(texts.get(file.path) ?? "") ?? undefined;
+          await callLot("workflow_attach_document", { practiceId, kind: "company_copy", document: uploaded.document, policyNumber, quiet });
         }
       } else {
         const list = files.slice(0, MAX_ISSUED_COPIES);
@@ -182,13 +203,13 @@ export const LotBulkDocumentsDialog = ({ open, mode, batchId, onOpenChange, onDo
     };
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, jobs.length) }, worker));
 
-    const unmatched = matches.filter((_, index) => !assignment(index)).map((match) => match.entry.path);
+    const unmatched = matches.filter((match, index) => !match.otherCopy && !assignment(index)).map((match) => match.entry.path);
     try {
       if (attached > 0) {
         await callLot("lot_record_step", {
           batchId,
           step: mode === "drafts" ? "drafts_uploaded" : mode === "copies" ? "copies_uploaded" : "issued_uploaded",
-          summary: { files: matches.length, attached, unmatched, failed },
+          summary: { files: shown, attached, unmatched, failed },
         });
       }
     } catch (error) {
@@ -229,7 +250,7 @@ export const LotBulkDocumentsDialog = ({ open, mode, batchId, onOpenChange, onDo
                 ref={input}
                 type="file"
                 multiple
-                accept=".pdf,.zip,application/pdf,application/zip,application/x-zip-compressed"
+                accept=".pdf,.p7m,.zip,application/pdf,application/pkcs7-mime,application/x-pkcs7-mime,application/zip,application/x-zip-compressed"
                 className="hidden"
                 data-testid="lot-bulk-input"
                 onChange={(event) => {
@@ -244,16 +265,19 @@ export const LotBulkDocumentsDialog = ({ open, mode, batchId, onOpenChange, onDo
               </Button>
             </div>
 
-            {picked && matches.length === 0 && <p className="text-sm text-muted-foreground">{m.noFiles}</p>}
+            {picked && shown === 0 && <p className="text-sm text-muted-foreground" data-testid="lot-bulk-none">{m.noFiles}</p>}
+            {otherCopies > 0 && <p className="text-xs text-muted-foreground" data-testid="lot-bulk-other-copies">{m.otherCopies(otherCopies)}</p>}
 
-            {matches.length > 0 && (
+            {shown > 0 && (
               <div className="space-y-2">
-                <p className="text-sm font-medium" data-testid="lot-bulk-summary">{m.recognised(assigned.length, matches.length)}</p>
+                <p className="text-sm font-medium" data-testid="lot-bulk-summary">{m.recognised(assigned.length, shown)}</p>
                 {readingContent && <p className="flex items-center gap-1.5 text-xs text-muted-foreground" data-testid="lot-bulk-reading"><Loader2 className="h-3.5 w-3.5 animate-spin" />{m.readingContent(readingContent.done, readingContent.total)}</p>}
                 <div className={`max-h-72 overflow-y-auto ${GLASS_INSET}`}>
                   <table className="w-full text-sm">
                     <tbody>
                       {matches.map((match, index) => {
+                        // The beneficiary's copies are counted above, not listed: they are not uploaded in this step.
+                        if (match.otherCopy) return null;
                         const value = assignment(index) ?? "";
                         return (
                           <tr key={`${match.entry.path}-${index}`} className={`border-b last:border-0 ${value ? "" : "bg-amber-500/10"}`} data-testid="lot-bulk-row">
