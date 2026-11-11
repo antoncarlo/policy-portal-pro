@@ -166,7 +166,7 @@ export function isBeneficiaryCopy(name: string, text = "") {
   if (/beneficiar/.test(plain)) return true;
   if (/compagnia|contraente/.test(plain)) return false;
   const head = accentless(text.slice(0, 4000));
-  return /copia\s+(per\s+il\s+)?beneficiario/.test(head) && !/copia\s+(per\s+la\s+)?compagnia/.test(head);
+  return /copia\s+(per\s+il\s+)?beneficiario/.test(head) && !/copia\s+(per\s+la\s+)?compagnia|compagnia\s*\/\s*contraente/.test(head);
 }
 
 /** Il numero della polizza scritto nella copia della compagnia ("GARANZIA FIDEIUSSORIA n. B.2026.1514223"), se c'e'. */

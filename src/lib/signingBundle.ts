@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { latestDraftNumbers } from "@/lib/draftNumber";
 import { chunk, fetchAllRows } from "@/lib/fetchAllRows";
 import { fetchLotPractices, safeName } from "@/lib/lotDocuments";
 import { stageOf } from "@/lib/practiceStages";
@@ -8,24 +9,24 @@ import {
   PRACTICE_DOCUMENTS_BUCKET,
   SIGNED_DOCUMENT_TYPES,
   SIGNING_SLOTS,
-  inferSigningSlotFromFileName,
-  isSignedFileName,
   isSigningStage,
-  practiceOfPath,
   signaturesComplete,
   signedDocumentPath,
   signedMimeType,
   storageReferenceOf,
 } from "@/lib/signingDocuments";
 import { saveBlob } from "@/lib/signingTemplates";
+import { expandFiles, readEntryTexts, type LotFileEntry } from "@/lib/lotRecognition";
+import { classifySignedFile, type SignedFileOutcome, type SignedPractice, type SignedSkipReason } from "@/lib/signedRecognition";
 import { generateSigningDocument, loadPrefillInputs } from "@/lib/signingPrefillData";
 
 /**
  * Documenti da firmare di un intero lotto VIES, in blocco:
  * - download: uno ZIP con una cartella per pratica deliberata (numero pratica) che contiene, nell'ordine
  *   di firma, la polizza nella copia per la Compagnia e il MUP unico;
- * - upload: lo stesso ZIP firmato, letto cartella per cartella: ogni file finisce nella pratica della
- *   cartella, con il tipo riconosciuto dal nome; le pratiche con tutte le firme vengono trasmesse
+ * - upload: lo ZIP firmato o i singoli file firmati (PDF o .p7m): ogni file finisce nella sua pratica (numero pratica,
+ *   numero della bozza della compagnia, partita IVA o numero di polizza, nel nome o nel documento) con il tipo
+ *   riconosciuto dal nome o dall'intestazione del documento; le pratiche con tutte le firme vengono trasmesse
  *   alla compagnia.
  */
 
@@ -37,6 +38,9 @@ interface LotPracticeRow {
   practice_number: string;
   status: string;
   financial_status: string | null;
+  client_name?: string | null;
+  policy_number?: string | null;
+  owner_tax_code?: string | null;
 }
 
 interface StoredDocument {
@@ -49,7 +53,12 @@ interface StoredDocument {
 
 async function fetchLotPracticesWithStage(batchId: string): Promise<LotPracticeRow[]> {
   const rows = await fetchAllRows<LotPracticeRow>((from, to) =>
-    supabase.from("practices").select("id, practice_number, status, financial_status").eq("vies_batch_id", batchId).order("id", { ascending: true }).range(from, to),
+    supabase
+      .from("practices")
+      .select("id, practice_number, status, financial_status, client_name, policy_number, owner_tax_code")
+      .eq("vies_batch_id", batchId)
+      .order("id", { ascending: true })
+      .range(from, to),
   );
   return [...rows].sort((a, b) => a.practice_number.localeCompare(b.practice_number));
 }
@@ -145,34 +154,67 @@ export interface SignedUploadResult {
   practices: number;
   /** Pratiche con tutte le firme, trasmesse alla compagnia. */
   sent: number;
-  /** File non attribuiti: cartella senza numero pratica, tipo non riconosciuto o pratica non deliberata. */
-  skipped: string[];
+  /** File non caricati, con il motivo. */
+  skipped: Array<{ name: string; reason: SignedSkipReason | "upload_failed" }>;
+}
+
+/** Il numero dell'ultima bozza della compagnia di ogni pratica (i file della compagnia iniziano con quel numero). */
+async function fetchDraftNumbers(practiceIds: string[]): Promise<Map<string, string>> {
+  const drafts: Array<{ practice_id: string; file_name: string; created_at: string }> = [];
+  for (const ids of chunk(practiceIds, 100)) {
+    const { data } = await supabase.from("practice_documents").select("practice_id, file_name, created_at").eq("document_type", "bozza_deliberata").in("practice_id", ids);
+    drafts.push(...((data ?? []) as typeof drafts));
+  }
+  return latestDraftNumbers(drafts);
 }
 
 export async function uploadSignedBundle(options: {
   batchId: string;
-  file: File;
+  /** Lo ZIP firmato o i singoli file firmati (PDF o .p7m), anche insieme. */
+  files: File[];
   onProgress?: (done: number, total: number) => void;
 }): Promise<SignedUploadResult> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("not authenticated");
   const practices = await fetchLotPracticesWithStage(options.batchId);
+  const drafts = practices.length > 0 ? await fetchDraftNumbers(practices.map((practice) => practice.id)) : new Map<string, string>();
+  const candidates: SignedPractice[] = practices.map((practice) => ({
+    id: practice.id,
+    practice_number: practice.practice_number,
+    client_name: practice.client_name ?? "",
+    policy_number: practice.policy_number ?? null,
+    tax_code: practice.owner_tax_code ?? null,
+    draft_number: drafts.get(practice.id) ?? null,
+    signing: isSigningStage(stageOf(practice)),
+  }));
 
-  const { default: JSZip } = await import("jszip");
-  const zip = await JSZip.loadAsync(options.file);
-  const files = Object.values(zip.files).filter((entry) => !entry.dir && isSignedFileName(entry.name) && !/(^|\/)__MACOSX\//.test(entry.name) && !/(^|\/)\./.test(entry.name));
+  // Il LEGGIMI e l'Excel di ricapitolo dello ZIP scaricato tornano con i firmati: non sono documenti da firmare.
+  const { entries } = await expandFiles(options.files);
+  const skipped: SignedUploadResult["skipped"] = [];
 
-  const skipped: string[] = [];
-  const jobs: Array<{ practice: LotPracticeRow; slotId: (typeof SIGNING_SLOTS)[number]["id"]; signedType: string; name: string; entry: (typeof files)[number] }> = [];
-  for (const entry of files) {
-    const practice = practiceOfPath(entry.name, practices);
-    const slot = inferSigningSlotFromFileName(entry.name);
-    if (!practice || !slot || !isSigningStage(stageOf(practice))) {
-      skipped.push(entry.name);
-      continue;
-    }
-    jobs.push({ practice, slotId: slot.id, signedType: slot.signedType, name: entry.name.split("/").pop() ?? entry.name, entry });
+  // Prima dal nome; il contenuto si legge solo dei file che il nome non basta a collocare.
+  let outcomes: SignedFileOutcome[] = entries.map((entry) => classifySignedFile(entry, candidates));
+  const unsure = entries.filter((_, index) => {
+    const outcome = outcomes[index];
+    return "skip" in outcome && (outcome.skip === "unknown_practice" || outcome.skip === "unknown_type");
+  });
+  if (unsure.length > 0) {
+    const texts = await readEntryTexts(unsure);
+    outcomes = entries.map((entry, index) => (texts.has(entry.path) ? classifySignedFile(entry, candidates, texts.get(entry.path)) : outcomes[index]));
   }
+
+  const byId = new Map(practices.map((practice) => [practice.id, practice]));
+  const jobs: Array<{ practice: LotPracticeRow; slotId: (typeof SIGNING_SLOTS)[number]["id"]; signedType: string; entry: LotFileEntry }> = [];
+  outcomes.forEach((outcome, index) => {
+    const entry = entries[index];
+    if ("skip" in outcome) {
+      skipped.push({ name: entry.path, reason: outcome.skip });
+      return;
+    }
+    const slot = SIGNING_SLOTS.find((item) => item.id === outcome.slotId);
+    const practice = byId.get(outcome.practiceId);
+    if (slot && practice) jobs.push({ practice, slotId: slot.id, signedType: slot.signedType, entry });
+  });
 
   let done = 0;
   let uploaded = 0;
@@ -182,17 +224,16 @@ export async function uploadSignedBundle(options: {
   const worker = async () => {
     for (let job = queue.shift(); job; job = queue.shift()) {
       try {
-        const blob = await job.entry.async("blob");
-        if (blob.size > MAX_FILE_BYTES) throw new Error("too big");
-        const path = signedDocumentPath(job.practice.id, job.slotId, job.name);
-        const { error: uploadError } = await supabase.storage.from(PRACTICE_DOCUMENTS_BUCKET).upload(path, blob, { contentType: signedMimeType(job.name), upsert: false });
+        if (job.entry.size > MAX_FILE_BYTES) throw new Error("too big");
+        const path = signedDocumentPath(job.practice.id, job.slotId, job.entry.name);
+        const { error: uploadError } = await supabase.storage.from(PRACTICE_DOCUMENTS_BUCKET).upload(path, job.entry.blob, { contentType: signedMimeType(job.entry.name), upsert: false });
         if (uploadError) throw new Error(uploadError.message);
         const { error: insertError } = await supabase.from("practice_documents").insert({
           practice_id: job.practice.id,
-          file_name: job.name,
+          file_name: job.entry.name,
           file_path: path,
-          file_size: blob.size,
-          mime_type: signedMimeType(job.name),
+          file_size: job.entry.size,
+          mime_type: signedMimeType(job.entry.name),
           uploaded_by: session.user.id,
           document_type: job.signedType,
         });
@@ -203,7 +244,7 @@ export async function uploadSignedBundle(options: {
         uploaded += 1;
         touched.add(job.practice.id);
       } catch {
-        skipped.push(job.entry.name);
+        skipped.push({ name: job.entry.path, reason: "upload_failed" });
       }
       done += 1;
       options.onProgress?.(done, jobs.length);

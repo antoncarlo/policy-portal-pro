@@ -7,6 +7,7 @@
 //   3) rappresentante, pratica con tutte le firme: la trasmissione alla compagnia parte da sola
 //   4) amministratore: vede il modulo per la compagnia con la sua etichetta, e la scheda modelli in Impostazioni
 //   6) amministratore: ZIP firmato con file .p7m caricato dal lotto
+//   6b) i file firmati scelti uno per uno, con i nomi della compagnia ("1514223_ViesCompagnia_….p7m") o senza nome utile
 //   5) pagina Pratiche, lotto aperto: le azioni "Scarica documenti da firmare" e "Carica documenti firmati"
 import { chromium } from "playwright";
 const BASE = process.env.E2E_BASE ?? "http://127.0.0.1:5300";
@@ -51,7 +52,7 @@ const TEMPLATES = ["mup.pdf"].map((name) => ({ id: `t-${name}`, name, updated_at
 
 const browser = await chromium.launch();
 
-async function open({ admin = true, pageErrors = [] } = {}) {
+async function open({ admin = true, pageErrors = [], docs = DOCS, practices = PRACTICES } = {}) {
   const ctx = await browser.newContext({ locale: "it-IT", viewport: { width: 1360, height: 1000 } });
   const log = { storage: [], inserts: [], api: [] };
   const hdr = { "access-control-allow-origin": BASE, "access-control-allow-headers": "*", "access-control-allow-methods": "*", "access-control-expose-headers": "content-range" };
@@ -94,9 +95,9 @@ async function open({ admin = true, pageErrors = [] } = {}) {
     if (table === "user_roles") { const wanted = params.find(([k]) => k === "role")?.[1]?.replace("eq.", ""); const mine = admin ? "admin" : "agente"; return reply(!wanted || wanted === mine ? [{ user_id: UID, role: mine }] : []); }
     if (table === "user_product_permissions") return reply([{ practice_type: "vies" }]);
     if (table === "profiles") return reply([{ id: UID, email: "t@example.com", full_name: "Prova", language: "it" }]);
-    if (table === "practices") return reply(filter(PRACTICES));
+    if (table === "practices") return reply(filter(practices));
     if (table === "practice_workflow") return reply(filter(WORKFLOW));
-    if (table === "practice_documents") return reply(filter(DOCS));
+    if (table === "practice_documents") return reply(filter(docs));
     if (table === "practice_aml_data") return reply(filter(AML));
     return reply([]);
   });
@@ -259,6 +260,58 @@ const text = async (page) => (await page.locator("body").innerText()).replace(/\
   check("6 testo, e pratica non deliberata: ignorati (3 file caricati, non 5)", docs.length === 3, String(docs.length));
   check("6 niente errore 'Nessun file riconosciuto'", !/Nessun file riconosciuto/.test(await text(page)));
   check("6 nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
+  await ctx.close();
+}
+
+// 6b) i file firmati scelti uno per uno (non in uno ZIP), con i nomi che da' la compagnia: la copia per la Compagnia firmata dal
+// collaboratore va alla pratica dal numero di bozza; un file senza nome utile dal contenuto; la copia Beneficiario no (Lotto 1, 11/11/2026)
+{
+  const { PDFDocument, StandardFonts } = await import("pdf-lib");
+  const pdfWith = async (lines) => {
+    const pdf = await PDFDocument.create();
+    const font = await pdf.embedFont(StandardFonts.Helvetica);
+    const page = pdf.addPage();
+    lines.forEach((line, i) => page.drawText(line, { x: 40, y: 780 - i * 18, size: 10, font }));
+    return Buffer.from(await pdf.save());
+  };
+  // A CAdES envelope as the company writes it (indefinite lengths, the PDF in 1000-byte pieces), signed again around it.
+  const len = (n) => (n < 0x80 ? [n] : n < 0x100 ? [0x81, n] : n < 0x10000 ? [0x82, n >> 8, n & 0xff] : [0x83, n >> 16, (n >> 8) & 0xff, n & 0xff]);
+  const tlv = (tag, body) => Buffer.concat([Buffer.from([tag, ...len(body.length)]), body]);
+  const open0 = (tag, body) => Buffer.concat([Buffer.from([tag, 0x80]), body, Buffer.from([0, 0])]);
+  const p7m = (content) => {
+    const pieces = [];
+    for (let pos = 0; pos < content.length; pos += 1000) pieces.push(tlv(0x04, content.subarray(pos, pos + 1000)));
+    const encap = open0(0x30, Buffer.concat([Buffer.from("06092a864886f70d010701", "hex"), open0(0xa0, open0(0x24, Buffer.concat(pieces)))]));
+    const signedData = open0(0x30, Buffer.concat([Buffer.from("020101", "hex"), Buffer.from("310d300b0609608648016503040201", "hex"), encap, Buffer.from("3100", "hex")]));
+    return open0(0x30, Buffer.concat([Buffer.from("06092a864886f70d010702", "hex"), open0(0xa0, signedData)]));
+  };
+  const companyCopy = await pdfWith(["MARKEL INSURANCE SE, STABILIMENTO IN SPAGNA", "Copia COMPAGNIA/CONTRAENTE", "CONTRAENTE (OBBLIGATO PRINCIPALE)", "Azienda 3", "P.IVA", "18678521008"]);
+  const docs = DOCS.map((d) => (d.id === "b2" ? { ...d, file_name: "1514223_ViesBozza_Markel_2026.docx-3.pdf" } : d.id === "b3" ? { ...d, file_name: "1514572_ViesBozza_Markel_2026.docx.pdf" } : d));
+  const practices = PRACTICES.map((p) => (p.id === PRACTICES[2].id ? { ...p, owner_tax_code: "18678521008" } : p));
+  const { ctx, page, log, pageErrors } = await open({ admin: true, docs, practices });
+  await page.goto(`${BASE}/practices?lot=${LOT}`, { waitUntil: "networkidle" });
+  await page.waitForSelector("[data-testid=lot-cycle]", { timeout: 10000 });
+  await page.locator(`#signed-upload-${LOT}-chip`).setInputFiles([
+    { name: "1514223_ViesCompagnia_Markel_2026.docx.pdf.p7m", mimeType: "application/pkcs7-mime", buffer: p7m(p7m(companyCopy)) },
+    { name: "1514223_ViesBeneficiario_Markel_2026.docx.pdf.p7m", mimeType: "application/pkcs7-mime", buffer: Buffer.from([0x30, 0x80]) },
+    { name: "documento_firmato.p7m", mimeType: "application/pkcs7-mime", buffer: p7m(p7m(companyCopy)) },
+    { name: `${PRACTICES[2].practice_number}_mup_signed.p7m`, mimeType: "application/pkcs7-mime", buffer: Buffer.from([0x30, 0x80]) },
+  ]);
+  for (let i = 0; i < 60 && log.inserts.filter((x) => x.table === "practice_documents").length < 3; i += 1) await page.waitForTimeout(250);
+  await page.waitForTimeout(800);
+  const inserted = log.inserts.filter((i) => i.table === "practice_documents").map((i) => i.body);
+  const at = (practice, type) => inserted.filter((d) => d.practice_id === practice.id && d.document_type === type);
+  check(
+    "6b la copia Compagnia firmata col nome della compagnia va alla pratica della bozza 1514223, come .p7m",
+    at(PRACTICES[1], "polizza_firmata").length === 1 && at(PRACTICES[1], "polizza_firmata")[0].file_name === "1514223_ViesCompagnia_Markel_2026.docx.pdf.p7m" && at(PRACTICES[1], "polizza_firmata")[0].mime_type === "application/pkcs7-mime",
+    JSON.stringify(inserted),
+  );
+  check("6b un file dal nome qualunque va alla pratica dalla partita IVA scritta nella copia (busta firmata due volte)", at(PRACTICES[2], "polizza_firmata").some((d) => d.file_name === "documento_firmato.p7m"), JSON.stringify(inserted));
+  check("6b il MUP rinominato dal programma di firma va alla sua pratica", at(PRACTICES[2], "mup_firmato").length === 1);
+  check("6b la copia per il Beneficiario non si carica (3 file su 4)", inserted.length === 3 && !inserted.some((d) => /Beneficiario/.test(d.file_name)), String(inserted.length));
+  const toastText = await text(page);
+  check("6b il messaggio dice cosa non è stato caricato e perché", /3 file caricati in 2 pratiche/.test(toastText) && /1 copia per il Beneficiario \(non si firma\)/.test(toastText), toastText.replace(/\s+/g, " ").slice(-400));
+  check("6b nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
   await ctx.close();
 }
 
