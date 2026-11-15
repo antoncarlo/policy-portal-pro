@@ -1,2 +1,16 @@
+# Sito pubblico VIES di Tecno Advance MGA Broker Srl.
+# Le pagine pubbliche sono indicizzabili. Le pagine del portale riservato rispondono "noindex" e vanno lette per
+# vederlo: per questo qui si chiude solo l'API. Un solo gruppo vale per tutti, anche per i crawler delle IA.
 User-agent: *
-Disallow: /
+User-agent: Googlebot
+User-agent: Bingbot
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: PerplexityBot
+User-agent: ClaudeBot
+User-agent: Google-Extended
+Allow: /
+Disallow: /api/
+
+Sitemap: https://portale.tecnomga.com/sitemap.xml
