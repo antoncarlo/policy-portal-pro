@@ -74,7 +74,7 @@ const RPCS = {
 
 // ---------------------------------------------------------------- pagine e larghezze
 const ROUTES = [
-  ["home", "/", false], ["accesso", "/auth", false], ["password-dimenticata", "/forgot-password", false], ["nuova-password", "/reset-password", false],
+  ["home", "/", false], ["blog", "/blog/", false], ["articolo", "/blog/garanzia-rappresentante-fiscale-e-garanzia-vies/", false], ["rappresentanti-fiscali", "/rappresentanti-fiscali/", false], ["accesso", "/auth", false], ["password-dimenticata", "/forgot-password", false], ["nuova-password", "/reset-password", false],
   ["cambio-password", "/change-password", true], ["dashboard", "/dashboard", true], ["carica-pratica", "/upload", true], ["pratiche", "/practices", true], ["pratiche-per-lotto", "/practices?stage=da_lavorare", true],
   ["dettaglio-pratica", `/practices/${ids[0]}`, true], ["clienti", "/clients", true], ["dettaglio-cliente", `/clients/${CLIENTS[1].id}`, true], ["impostazioni", "/settings", true], ["utenti", "/user-management", true],
   ["amministrazione", "/administration", true], ["scadenzario", "/expiry", true], ["report", "/reports", true], ["questionari", "/questionnaires", true], ["vies", "/vies", true], ["api-docs", "/api-docs", false], ["non-trovata", "/pagina-che-non-esiste", false],
