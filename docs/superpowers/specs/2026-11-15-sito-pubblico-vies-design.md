@@ -1,6 +1,6 @@
 # Sito pubblico VIES su portale.tecnomga.com: progetto
 
-Data: 15/11/2026. Stato: in attesa di approvazione.
+Data: 15/11/2026. Stato: approvato dal titolare il 15/11/2026.
 
 ## 1. Perché
 
@@ -290,8 +290,8 @@ Ogni PR si unisce e si pubblica solo con l'ok del titolare, a controlli verdi, c
 1. **Verifica dei testi normativi.** Li leggo sulle fonti primarie e li segno con la data; prima della
    pubblicazione li rilegge il titolare o un professionista, sull'anteprima della PR. Senza verifica della sentenza
    del TAR, il testo resta neutro.
-2. **Chi firma gli articoli:** nome e qualifica. Proposta: Anton Carlo Santoro.
-3. **Casella `vies@tecnomga.com`:** deve esistere e ricevere.
+2. **Chi firma gli articoli:** Anton Carlo Santoro (confermato dal titolare).
+3. **Casella `vies@tecnomga.com`:** esiste già (confermato dal titolare).
 4. **Google:** proprietà di dominio `tecnomga.com` in Search Console (oggi l'account collegato non ne ha),
    identificativi di Analytics 4 e Ads, e accesso a Bing Webmaster. Possono arrivare anche dopo la pubblicazione.
 5. **Conferma di chi segue la compliance** su avvertenza pubblicitaria, informativa privacy e pagina reclami.
