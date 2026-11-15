@@ -19,8 +19,15 @@ Il sito WordPress `tecnomga.com` resta com'è: questo è un sito separato, solo 
   su ogni pagina.
 - Il sito si disegna nel browser: l'HTML servito contiene solo `<div id="root">`. I crawler delle IA non eseguono
   JavaScript.
-- La homepage carica un unico file JavaScript di 4,2 MB, perché tutte le pagine del portale sono importate insieme
-  in `src/App.tsx`. È troppo per i Core Web Vitals e per il punteggio di qualità degli annunci.
+- La homepage carica un unico file JavaScript di 4,2 MB (1,37 MB compressi in rete), perché tutte le pagine del
+  portale sono importate insieme in `src/App.tsx`.
+- Misure del 15/11/2026 con Google PageSpeed, da telefono: punteggio di laboratorio 92/100, elemento principale
+  in 0,9 secondi, blocco del thread 360 ms (sopra la soglia buona di 200 ms), nessun dato di utenti reali per
+  mancanza di traffico. La velocità oggi non è il problema principale: lo sono il blocco e l'HTML vuoto. Il peso
+  del JavaScript resta da ridurre sulle pagine pubbliche.
+- Verifica di `robots.txt` con lo strumento di Search Console: Googlebot è bloccato sulla radice.
+- Search Console: l'account collegato non ha nessuna proprietà verificata. Serve una proprietà di dominio
+  `tecnomga.com` (un record TXT su Cloudflare), che copre anche `portale.tecnomga.com`.
 - La homepage non contiene la parola «VIES», non ha recapiti e riporta «© 2024».
 - Nessuna sitemap, nessun dato strutturato, un solo titolo generico per tutto il sito.
 - Già presenti e riusabili: colori Tecno (blu `#0F3A5C`, bronzo `#B08968`), stile vetro (`lotGlass`), tre lingue,
@@ -285,8 +292,8 @@ Ogni PR si unisce e si pubblica solo con l'ok del titolare, a controlli verdi, c
    del TAR, il testo resta neutro.
 2. **Chi firma gli articoli:** nome e qualifica. Proposta: Anton Carlo Santoro.
 3. **Casella `vies@tecnomga.com`:** deve esistere e ricevere.
-4. **Google:** identificativi di Analytics 4 e Ads, e accesso a Search Console e Bing Webmaster, anche dopo la
-   pubblicazione.
+4. **Google:** proprietà di dominio `tecnomga.com` in Search Console (oggi l'account collegato non ne ha),
+   identificativi di Analytics 4 e Ads, e accesso a Bing Webmaster. Possono arrivare anche dopo la pubblicazione.
 5. **Conferma di chi segue la compliance** su avvertenza pubblicitaria, informativa privacy e pagina reclami.
 6. Consigliato, fuori da questo lavoro: un link dal sito WordPress verso il portale e la correzione del link a
    `info@example.com` presente lì.
