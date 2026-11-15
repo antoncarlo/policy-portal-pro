@@ -139,7 +139,7 @@ export const garanziaVies: Article = {
     },
     {
       q: "Are the VIES guarantee and the fiscal representative's guarantee the same thing?",
-      a: "No, they are two different guarantees. The VIES guarantee is given by the represented company: at least €50,000 for 36 months (Article 35(7-quater)). The fiscal representative's guarantee is given by whoever takes on the role for two or more businesses: from 30,000 to 2,000,000 euro depending on how many are represented, for at least 48 months (Article 17(3)).",
+      a: "No, they are two different guarantees. The VIES guarantee is given by the represented company: at least €50,000 for 36 months (Article 35(7-quater)). The fiscal representative's guarantee is given by whoever takes on the role for two or more businesses: from €30,000 to €2,000,000 depending on how many are represented, for at least 48 months (Article 17(3)).",
     },
     {
       q: "Who delivers the guarantee to the Italian Revenue Agency?",

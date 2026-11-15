@@ -4,12 +4,12 @@ import type { Article } from "../../types";
 export const garanziaRappresentante: Article = {
   slug: "fiscal-representative-guarantee-vs-vies-guarantee",
   title: "Fiscal Representative's Guarantee or VIES Guarantee?",
-  description: "Two guarantees in Italy: the fiscal representative's own, 30,000 to 2,000,000 euro for 48 months, and the company's VIES one, €50,000 for 36 months. Compared.",
+  description: "Two guarantees in Italy: the fiscal representative's own, from €30,000 to €2,000,000 for 48 months, and the company's VIES one, €50,000 for 36 months. Compared.",
   h1: "Fiscal representative's guarantee and VIES guarantee of the represented company: the differences",
   label: "Representative's guarantee and VIES guarantee",
   keyword: "fiscal representative's guarantee",
   summary:
-    "They are two separate guarantees. The fiscal representative's guarantee is given by whoever takes on that role for two or more businesses: from 30,000 to 2,000,000 euro depending on how many are represented, for at least 48 months. The VIES guarantee is given by each represented non-EU company that wants to operate in VIES: at least €50,000 for at least 36 months.",
+    "They are two separate guarantees. The fiscal representative's guarantee is given by whoever takes on that role for two or more businesses: from €30,000 to €2,000,000 depending on how many are represented, for at least 48 months. The VIES guarantee is given by each represented non-EU company that wants to operate in VIES: at least €50,000 for at least 36 months.",
   sections: [
     {
       id: "confronto",
@@ -24,7 +24,7 @@ export const garanziaRappresentante: Article = {
             ["Order of the Italian Revenue Agency", "17 April 2025, ref. 186368/2025", "14 April 2025, ref. 178713/2025"],
             ["Who gives it", "Whoever takes on the role of fiscal representative for two or more businesses", "The represented business, not resident in the EU or the EEA"],
             ["What it is for", "Taking on and keeping the role of fiscal representative", "Asking for, or keeping, inclusion in VIES"],
-            ["Minimum amount", "From 30,000 to 2,000,000 euro, depending on how many are represented", "€50,000"],
+            ["Minimum amount", "From €30,000 to €2,000,000, depending on how many are represented", "€50,000"],
             ["Minimum duration", "48 months from delivery", "36 months from delivery"],
             ["Delivery", "In person, to the Provincial Directorate of the representative's tax domicile", "In person or through the fiscal representative, to the same Provincial Directorate"],
             ["If it is missing", "The VAT numbers of the represented businesses are closed by the office", "Removal from VIES by the office"],

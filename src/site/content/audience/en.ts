@@ -77,7 +77,7 @@ export const audiencePages: Record<AudienceId, AudienceContent> = {
       },
       {
         q: "Does the VIES guarantee of the represented company replace the fiscal representative's guarantee?",
-        a: "No. They are two separate obligations. The VIES guarantee is given by each represented non-EU company that wants to operate in VIES. The fiscal representative's guarantee is given by whoever represents two or more businesses, for an amount that grows with the number represented, from 30,000 to 2,000,000 euro, for at least 48 months.",
+        a: "No. They are two separate obligations. The VIES guarantee is given by each represented non-EU company that wants to operate in VIES. The fiscal representative's guarantee is given by whoever represents two or more businesses, for an amount that grows with the number represented, from €30,000 to €2,000,000, for at least 48 months.",
       },
     ],
     cta: { title: "How many VIES applications do you handle?", text: "Tell us how many companies you represent: we open your access to the portal and send you the batch template.", button: "Get in touch" },
