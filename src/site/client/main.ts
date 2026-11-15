@@ -1,6 +1,7 @@
 // Ingresso del sito pubblico nel browser. Le pagine sono HTML completo: qui si aggiungono solo menu, movimento,
-// avviso della lingua e video dell'apertura.
+// avviso della lingua, invio del modulo contatti e video dell'apertura.
 import "../site.css";
+import { initContactForm } from "./contact";
 import { initHeroVideo } from "./hero-video";
 import { initLangNotice } from "./lang";
 import { initMenu } from "./menu";
@@ -12,6 +13,7 @@ const start = () => {
   initReveal();
   initMotion();
   initLangNotice();
+  initContactForm();
   initHeroVideo();
 };
 

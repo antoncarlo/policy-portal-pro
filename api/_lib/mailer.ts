@@ -15,6 +15,8 @@ export interface MailMessage {
   to: string | string[];
   subject: string;
   html: string;
+  /** A chi va la risposta, se non al mittente (per esempio chi ha scritto dal modulo contatti). */
+  replyTo?: string;
 }
 
 export interface MailResult {
@@ -83,6 +85,7 @@ async function sendWithGmail(message: MailMessage, credentials: { user: string; 
       to: message.to,
       subject: message.subject,
       html: message.html,
+      ...(message.replyTo ? { replyTo: message.replyTo } : {}),
     });
     const rejected = Array.isArray(info.rejected) ? info.rejected : [];
     if (rejected.length > 0) {
@@ -105,6 +108,7 @@ async function sendWithResend(message: MailMessage, apiKey: string): Promise<Mai
         to: Array.isArray(message.to) ? message.to : [message.to],
         subject: message.subject,
         html: message.html,
+        ...(message.replyTo ? { reply_to: message.replyTo } : {}),
       }),
     });
     const payload = (await response.json().catch(() => null)) as { id?: string } | null;

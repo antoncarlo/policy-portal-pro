@@ -336,6 +336,66 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_requests: {
+        Row: {
+          company: string
+          country: string
+          created_at: string
+          email: string
+          email_error: string | null
+          email_sent: boolean
+          handled_at: string | null
+          handled_by: string | null
+          id: string
+          lang: string
+          message: string
+          name: string
+          page: string | null
+          phone: string | null
+          role: string
+          status: string
+          volume: string | null
+        }
+        Insert: {
+          company: string
+          country: string
+          created_at?: string
+          email: string
+          email_error?: string | null
+          email_sent?: boolean
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          lang?: string
+          message: string
+          name: string
+          page?: string | null
+          phone?: string | null
+          role: string
+          status?: string
+          volume?: string | null
+        }
+        Update: {
+          company?: string
+          country?: string
+          created_at?: string
+          email?: string
+          email_error?: string | null
+          email_sent?: boolean
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          lang?: string
+          message?: string
+          name?: string
+          page?: string | null
+          phone?: string | null
+          role?: string
+          status?: string
+          volume?: string | null
+        }
+        Relationships: []
+      }
       email_logs: {
         Row: {
           delivery_detail: string | null

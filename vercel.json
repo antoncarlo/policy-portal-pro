@@ -58,6 +58,10 @@
       "destination": "/api/vies-connect?route=login-failure"
     },
     {
+      "source": "/api/contact",
+      "destination": "/api/vies-connect?route=contact"
+    },
+    {
       "source": "/(.*)",
       "destination": "/app.html"
     }

@@ -19,7 +19,19 @@ export const Contact = ({ page, content }: PageProps) => {
       <div className="container">
         <SectionHead eyebrow={content.contact.eyebrow} title={content.contact.title} intro={content.contact.intro} light />
         <div className="contact">
-          <form className="contact-form glass-dark" method="post" action="/api/contact" noValidate data-contact-form data-lang={page.lang} data-reveal>
+          <form
+            className="contact-form glass-dark"
+            method="post"
+            action="/api/contact"
+            noValidate
+            data-contact-form
+            data-lang={page.lang}
+            data-error-required={form.fieldErrors.required}
+            data-error-email={form.fieldErrors.email}
+            data-error-message={form.fieldErrors.message}
+            data-error-consent={form.fieldErrors.consent}
+            data-reveal
+          >
             <div className="field">
               <label htmlFor="contact-name">{form.name}</label>
               <input id="contact-name" name="name" type="text" autoComplete="name" maxLength={120} required />

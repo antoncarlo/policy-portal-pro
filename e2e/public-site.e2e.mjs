@@ -163,6 +163,87 @@ for (const width of [360, 390]) {
   await ctx.close();
 }
 
+// 7) the contact form: what is missing is said field by field, a request is sent once, the outcome is announced
+const fill = async (page) => {
+  await page.locator("#contact-name").fill("Anna Rossi");
+  await page.locator("#contact-company").fill("Studio Rossi");
+  await page.locator("#contact-role").selectOption("fiscal_representative");
+  await page.locator("#contact-country").fill("Italia");
+  await page.locator("#contact-email").fill("anna@example.test");
+  await page.locator("#contact-message").fill("Vorremmo una quotazione per venti società.");
+  await page.locator("#contact-consent").check();
+};
+const contactRoute = async (ctx, answer) => {
+  const calls = [];
+  await ctx.route(`${BASE}/api/contact`, async (route) => {
+    calls.push({ method: route.request().method(), type: route.request().headers()["content-type"], body: route.request().postDataJSON() });
+    await route.fulfill({ status: answer.status, contentType: "application/json", body: JSON.stringify(answer.body) });
+  });
+  return calls;
+};
+{
+  const { ctx, page, pageErrors } = await open();
+  const calls = await contactRoute(ctx, { status: 200, body: { ok: true } });
+  await page.goto(`${BASE}/#contatti`, { waitUntil: "networkidle" });
+  const form = page.locator("form[data-contact-form]");
+  const status = form.locator("[data-form-status]");
+
+  await form.locator("button[type=submit]").click();
+  const invalid = await form.locator('[aria-invalid="true"]').evaluateAll((fields) => fields.map((field) => field.getAttribute("name")));
+  check("modulo: inviato vuoto non parte nessuna richiesta e ogni campo obbligatorio è segnalato", calls.length === 0 && invalid.sort().join() === "company,consent,country,email,message,name,role", invalid.join());
+  check("modulo: il messaggio sotto il campo dice cosa manca, e lo stato lo annuncia", (await form.locator("#contact-name-error").innerText()) === "Campo obbligatorio." && (await status.innerText()) === "Controlla i campi evidenziati." && (await status.getAttribute("aria-live")) === "polite");
+  check("modulo: il primo campo da correggere riceve il fuoco", await page.evaluate(() => document.activeElement?.id === "contact-name"));
+  await page.locator("#contact-email").fill("anna@");
+  await page.locator("#contact-name").fill("Anna Rossi");
+  check("modulo: correggendo un campo il suo errore sparisce", (await form.locator("#contact-name-error").count()) === 0 && (await page.locator("#contact-name").getAttribute("aria-invalid")) === null);
+  await form.locator("button[type=submit]").click();
+  check("modulo: un indirizzo scritto male è segnalato come tale", (await form.locator("#contact-email-error").innerText()) === "Indirizzo email non valido." && calls.length === 0);
+
+  await fill(page);
+  await page.screenshot({ path: SHOTS + "public-site-contact.png" });
+  await form.locator("button[type=submit]").click();
+  await page.waitForFunction(() => document.querySelector("[data-form-status]").dataset.state === "success", null, { timeout: 5000 });
+  const sent = calls[0] ?? {};
+  check("modulo: una sola richiesta, in JSON, verso /api/contact", calls.length === 1 && sent.method === "POST" && /^application\/json/.test(sent.type ?? ""), JSON.stringify(calls).slice(0, 200));
+  check("modulo: partono i campi scritti, la lingua, la pagina, il campo trappola vuoto e il tempo impiegato", sent.body?.name === "Anna Rossi" && sent.body?.role === "fiscal_representative" && sent.body?.consent === true && sent.body?.lang === "it" && sent.body?.page === "/" && sent.body?.website === "" && typeof sent.body?.elapsedMs === "number" && sent.body.elapsedMs > 0, JSON.stringify(sent.body));
+  check("modulo: a invio riuscito compare la conferma e il modulo si svuota", /Richiesta inviata/.test(await status.innerText()) && (await page.locator("#contact-name").inputValue()) === "" && !(await form.locator("button[type=submit]").isDisabled()));
+  check("modulo: nessun errore JavaScript", pageErrors.length === 0, pageErrors.join(" | "));
+  await ctx.close();
+}
+{
+  const { ctx, page } = await open();
+  const calls = await contactRoute(ctx, { status: 500, body: { ok: false, error: "unavailable" } });
+  await page.goto(`${BASE}/en/#contatti`, { waitUntil: "networkidle" });
+  const form = page.locator("form[data-contact-form]");
+  await fill(page);
+  await form.locator("button[type=submit]").click();
+  await page.waitForFunction(() => document.querySelector("[data-form-status]").dataset.state === "error", null, { timeout: 5000 });
+  check("modulo, errore del server: chi scrive lo sa, trova l'indirizzo email e non perde ciò che ha scritto", /vies@tecnomga\.com/.test(await form.locator("[data-form-status]").innerText()) && (await page.locator("#contact-message").inputValue()).startsWith("Vorremmo") && !(await form.locator("button[type=submit]").isDisabled()));
+  check("modulo, pagina inglese: la richiesta porta lingua e pagina inglesi", calls[0]?.body?.lang === "en" && calls[0]?.body?.page === "/en/", JSON.stringify(calls[0]?.body));
+  await ctx.close();
+}
+{
+  const { ctx, page } = await open();
+  await contactRoute(ctx, { status: 400, body: { ok: false, error: "invalid", fields: ["email"] } });
+  await page.goto(`${BASE}/#contatti`, { waitUntil: "networkidle" });
+  const form = page.locator("form[data-contact-form]");
+  await fill(page);
+  await form.locator("button[type=submit]").click();
+  await page.waitForFunction(() => document.querySelector("[data-form-status]").dataset.state === "invalid", null, { timeout: 5000 });
+  check("modulo, campo rifiutato dal server: il campo è segnalato", (await page.locator("#contact-email").getAttribute("aria-invalid")) === "true" && (await form.locator("#contact-email-error").count()) === 1);
+  await ctx.close();
+}
+{
+  const { ctx, page } = await open();
+  await ctx.route(`${BASE}/api/contact`, (route) => route.abort("failed"));
+  await page.goto(`${BASE}/#contatti`, { waitUntil: "networkidle" });
+  await fill(page);
+  await page.locator("form[data-contact-form] button[type=submit]").click();
+  await page.waitForFunction(() => document.querySelector("[data-form-status]").dataset.state === "error", null, { timeout: 5000 });
+  check("modulo, rete assente: compare l'errore con l'indirizzo email", /vies@tecnomga\.com/.test(await page.locator("[data-form-status]").innerText()));
+  await ctx.close();
+}
+
 await browser.close();
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} ok`);

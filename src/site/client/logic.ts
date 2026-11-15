@@ -36,3 +36,59 @@ export const lineProgress = (rect: { top: number; height: number }, viewport: nu
   const value = (start - rect.top) / distance;
   return Math.min(1, Math.max(0, Number(value.toFixed(3))));
 };
+
+// ---------- Modulo contatti ----------
+// Le stesse regole del server (api/_lib/contact-requests.ts): qui servono a dire subito cosa manca, il controllo
+// vero resta quello del server. tests/site/contact-form.test.ts verifica che le due parti rifiutino gli stessi campi.
+
+const ROLES = ["fiscal_representative", "professional_firm", "broker", "foreign_company", "other"];
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MESSAGE_MIN = 10;
+
+export interface ContactValues {
+  name: string;
+  company: string;
+  role: string;
+  country: string;
+  email: string;
+  phone: string;
+  volume: string;
+  message: string;
+  consent: boolean;
+}
+export type ContactField = keyof ContactValues;
+/** Il tipo di problema decide il messaggio mostrato sotto il campo. */
+export type ContactProblem = "required" | "email" | "message" | "consent";
+
+const oneLine = (value: string) => value.replace(/\s+/g, " ").trim();
+
+export const contactProblems = (values: ContactValues): Partial<Record<ContactField, ContactProblem>> => {
+  const problems: Partial<Record<ContactField, ContactProblem>> = {};
+  for (const field of ["name", "company", "country"] as const) if (!oneLine(values[field])) problems[field] = "required";
+  if (!ROLES.includes(values.role)) problems.role = "required";
+  const email = oneLine(values.email);
+  if (!email) problems.email = "required";
+  else if (!EMAIL_PATTERN.test(email)) problems.email = "email";
+  const message = values.message.trim();
+  if (!message) problems.message = "required";
+  else if (message.length < MESSAGE_MIN) problems.message = "message";
+  if (!values.consent) problems.consent = "consent";
+  return problems;
+};
+
+/** Cio' che parte verso il server: i valori ripuliti, la lingua e la pagina, il campo trappola e il tempo impiegato. */
+export const contactPayload = (values: ContactValues, extra: { lang: SiteLang; page: string; website: string; elapsedMs: number }) => ({
+  name: oneLine(values.name),
+  company: oneLine(values.company),
+  role: values.role,
+  country: oneLine(values.country),
+  email: oneLine(values.email),
+  phone: oneLine(values.phone),
+  volume: oneLine(values.volume),
+  message: values.message.trim(),
+  consent: values.consent,
+  lang: extra.lang,
+  page: extra.page,
+  website: extra.website,
+  elapsedMs: Math.round(extra.elapsedMs),
+});
