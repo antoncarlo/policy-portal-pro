@@ -151,7 +151,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const renderPanel = ({ withBell, onNavigate }: { withBell: boolean; onNavigate?: (event: React.MouseEvent) => void }) => (
     <div className="flex h-full min-h-0 flex-col">
       <div className="relative shrink-0 border-b border-border p-6">
-        <Link to="/" className="flex items-center justify-center">
+        <Link to="/dashboard" className="flex items-center justify-center">
           <img src="/logo.svg" alt="Tecno Advance MGA" className="h-12" />
         </Link>
         {withBell && (

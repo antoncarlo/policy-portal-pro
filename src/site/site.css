@@ -1,0 +1,3 @@
+/* Stili del sito pubblico VIES. Gli stili di base del portale (colori, caratteri, Tailwind) sono inclusi qui,
+   cosi' il foglio del sito e' completo e non dipende da quello del portale riservato. */
+@import "../index.css";

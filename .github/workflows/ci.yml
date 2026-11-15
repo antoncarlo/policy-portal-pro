@@ -35,6 +35,8 @@ jobs:
         run: node scripts/audit-gate.mjs
       - name: Build
         run: npx vite build
+      - name: Public site check (pages rendered to HTML, private shell kept apart)
+        run: npm run test:public-site
 
   # Browser scenarios against the dev server with the network mocked (nothing real is touched).
   e2e:
