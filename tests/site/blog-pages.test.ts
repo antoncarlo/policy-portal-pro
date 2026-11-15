@@ -14,8 +14,18 @@ const count = (text: string, needle: string) => text.split(needle).length - 1;
 const decode = (html: string) => html.replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
 /** What a reader sees of the body: no tags, no data blocks. */
 const text = (html: string) => decode((html.split(/<body[^>]*>/)[1] ?? "").replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<[^>]+>/g, ""));
-const structured = (html: string): Array<Record<string, any>> => [...html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/gs)].map((match) => JSON.parse(match[1]));
-const node = (html: string, type: string) => structured(html).find((item) => item["@type"] === type) as Record<string, any>;
+/** A block of structured data, as read back from the page. */
+interface LdNode {
+  "@type"?: string;
+  [key: string]: unknown;
+}
+interface Crumb {
+  position: number;
+  name: string;
+  item: string;
+}
+const structured = (html: string): LdNode[] => [...html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/gs)].map((match) => JSON.parse(match[1]));
+const node = (html: string, type: string) => structured(html).find((item) => item["@type"] === type) as LdNode;
 const each = (run: (entry: (typeof ARTICLES)[number], lang: Lang, html: string, label: string) => void) => {
   for (const entry of ARTICLES) for (const lang of LANGS) run(entry, lang, page(entry.id, lang), `${entry.id}/${lang}`);
 };
@@ -68,7 +78,7 @@ describe("blog: the page of an article", () => {
     each((entry, lang, html, label) => {
       const article = entry.content[lang];
       const faq = node(html, "FAQPage");
-      expect(faq.mainEntity.map((item: any) => [item.name, item.acceptedAnswer.text]), label).toEqual(article.faq.map((item) => [item.q, plainText(item.a)]));
+      expect((faq.mainEntity as Array<{ name: string; acceptedAnswer: { text: string } }>).map((item) => [item.name, item.acceptedAnswer.text]), label).toEqual(article.faq.map((item) => [item.q, plainText(item.a)]));
       const body = text(html);
       for (const item of article.faq) {
         expect(body, `${label}: ${item.q}`).toContain(item.q);
@@ -109,7 +119,7 @@ describe("blog: the page of an article", () => {
         image: `${ORIGIN}/site-media/og-${lang}.png`,
       });
       expect(post.citation, label).toEqual(article.sources.map((source) => source.href));
-      const crumbs = node(html, "BreadcrumbList").itemListElement.map((item: any) => [item.position, item.name, item.item]);
+      const crumbs = (node(html, "BreadcrumbList").itemListElement as Crumb[]).map((item) => [item.position, item.name, item.item]);
       expect(crumbs, label).toEqual([
         [1, contentFor(lang).meta.home.label, `${ORIGIN}${pathOf("home", lang)}`],
         [2, contentFor(lang).meta.blog.label, `${ORIGIN}${pathOf("blog", lang)}`],
@@ -162,7 +172,7 @@ describe("blog: the index of the guides", () => {
       const html = page("blog", lang);
       const blog = node(html, "Blog");
       expect(blog, lang).toMatchObject({ url: `${ORIGIN}${pathOf("blog", lang)}`, inLanguage: HREFLANG[lang], publisher: { "@id": `${ORIGIN}/#organization` } });
-      expect(blog.blogPost.map((post: any) => post.url), lang).toEqual(ARTICLES.map((entry) => `${ORIGIN}${pathOf(entry.id, lang)}`));
+      expect((blog.blogPost as Array<{ url: string }>).map((post) => post.url), lang).toEqual(ARTICLES.map((entry) => `${ORIGIN}${pathOf(entry.id, lang)}`));
       expect(node(html, "BreadcrumbList").itemListElement, lang).toHaveLength(2);
     }
   });
