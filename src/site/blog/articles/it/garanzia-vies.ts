@@ -50,7 +50,7 @@ export const garanziaVies: Article = {
         },
         {
           type: "p",
-          text: "Con la polizza fideiussoria il contraente paga un premio e non deposita titoli. Il premio lo stabilisce la compagnia di assicurazione dopo l'esame dei documenti: la sezione [quanto costa la fideiussione VIES](section:costo) spiega da cosa dipende.",
+          text: "Con la polizza fideiussoria il contraente paga un premio e non deposita titoli. Il premio lo stabilisce la compagnia di assicurazione dopo l'esame dei documenti: la sezione [quanto costa la fideiussione VIES](section:costo) spiega da cosa dipende. Le tre forme sono confrontate in [cauzione, fideiussione bancaria o polizza fideiussoria](article:forme-garanzia).",
         },
       ],
     },
@@ -128,7 +128,7 @@ export const garanziaVies: Article = {
       blocks: [
         {
           type: "p",
-          text: "Tecno Advance MGA Broker Srl è un intermediario assicurativo: raccoglie e controlla i documenti, presenta la richiesta alla compagnia e consegna la polizza emessa e firmata digitalmente. I passaggi sono descritti in [come si ottiene la polizza fideiussoria VIES](section:come-funziona), l'elenco in [quali documenti servono](section:documenti).",
+          text: "Tecno Advance MGA Broker Srl è un intermediario assicurativo: raccoglie e controlla i documenti, presenta la richiesta alla compagnia e consegna la polizza emessa e firmata digitalmente. I passaggi sono descritti in [dalla richiesta alla polizza VIES emessa](article:richiesta-polizza), l'elenco in [documenti per la fideiussione VIES](article:documenti).",
         },
       ],
     },

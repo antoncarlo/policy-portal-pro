@@ -49,7 +49,7 @@ export const garanziaVies: Article = {
         },
         {
           type: "p",
-          text: "With a surety bond the policyholder pays a premium and deposits no securities. The premium is set by the insurance company after it has examined the documents: the section on [how much the VIES surety bond costs](section:costo) explains what it depends on.",
+          text: "With a surety bond the policyholder pays a premium and deposits no securities. The premium is set by the insurance company after it has examined the documents: the section on [how much the VIES surety bond costs](section:costo) explains what it depends on. The three forms are compared in [deposit, bank guarantee or surety bond](article:forme-garanzia).",
         },
       ],
     },
@@ -127,7 +127,7 @@ export const garanziaVies: Article = {
       blocks: [
         {
           type: "p",
-          text: "Tecno Advance MGA Broker Srl is an insurance intermediary: it collects and checks the documents, submits the application to the insurance company and delivers the issued, digitally signed bond. The steps are described in [how to obtain the VIES surety bond](section:come-funziona), the list in [which documents are needed](section:documenti).",
+          text: "Tecno Advance MGA Broker Srl is an insurance intermediary: it collects and checks the documents, submits the application to the insurance company and delivers the issued, digitally signed bond. The steps are described in [from the request to the issued VIES bond](article:richiesta-polizza), the list in [documents for the Italian VIES bond](article:documenti).",
         },
       ],
     },

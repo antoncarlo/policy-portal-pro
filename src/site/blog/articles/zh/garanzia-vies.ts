@@ -45,7 +45,7 @@ export const garanziaVies: Article = {
         },
         {
           type: "p",
-          text: "采用保险保函时，投保人支付保费，无需质押证券。保费由保险公司在审核文件后确定：[VIES保函的费用](section:costo)一节说明了保费取决于哪些因素。",
+          text: "采用保险保函时，投保人支付保费，无需质押证券。保费由保险公司在审核文件后确定：[VIES保函的费用](section:costo)一节说明了保费取决于哪些因素。三种形式的比较见[证券质押、银行保函还是保险保函](article:forme-garanzia)。",
         },
       ],
     },
@@ -119,7 +119,7 @@ export const garanziaVies: Article = {
       blocks: [
         {
           type: "p",
-          text: "Tecno Advance MGA Broker Srl 是保险中介：负责收集并核对文件、向保险公司提交申请，并交付已出具且带电子签名的保单。办理步骤见[如何取得VIES保险保函](section:come-funziona)，文件清单见[需要哪些文件](section:documenti)。",
+          text: "Tecno Advance MGA Broker Srl 是保险中介：负责收集并核对文件、向保险公司提交申请，并交付已出具且带电子签名的保单。办理步骤见[从申请到VIES保单出具](article:richiesta-polizza)，文件清单见[境外企业办理意大利VIES保函需要哪些文件](article:documenti)。",
         },
       ],
     },
