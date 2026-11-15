@@ -16,7 +16,7 @@ const REQUIRED = [
 /** Gli indici del blog per lingua: sotto ognuno stanno gli articoli e il feed. */
 const BLOGS = ["/blog/", "/en/blog/", "/zh/blog/"];
 /** Quanti articoli deve avere almeno ogni lingua. */
-const MIN_ARTICLES = 1;
+const MIN_ARTICLES = 8;
 const isArticle = (url) => BLOGS.some((blog) => url.startsWith(blog) && url !== blog);
 const LANG_ATTR = { "": "it", en: "en", zh: "zh-Hans" };
 // Il testo minimo di una pagina, letto come lo legge chi non esegue JavaScript (crawler, motori di risposta).

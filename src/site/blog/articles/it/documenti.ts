@@ -106,8 +106,8 @@ export const documenti: Article = {
       a: "Sì. Il documento societario e il documento d'identità del legale rappresentante si caricano con la loro traduzione, così la compagnia e il portale possono leggere denominazione, sede e dati di chi firma. Dopo il primo contatto indichiamo quali traduzioni servono per il Paese della società e in quale lingua.",
     },
     {
-      q: "Serve la partita IVA italiana per chiedere la polizza?",
-      a: "Non necessariamente al momento del caricamento. Chi non ha ancora la partita IVA presta la garanzia insieme alla dichiarazione di inizio attività, quindi i documenti firmati prima possono non riportarla. In quel caso l'identità della società viene verificata dagli altri dati: denominazione, codici di registrazione, legale rappresentante e mandato di rappresentanza fiscale.",
+      q: "Cosa succede se i documenti non riportano la partita IVA italiana?",
+      a: "Capita spesso: la partita IVA viene assegnata dopo la firma del mandato, quindi licenza, mandato e dichiarazioni possono non riportarla. La società si indica nella richiesta con il codice fiscale o la partita IVA italiani; il portale ne verifica poi l'identità dagli altri dati dei documenti: denominazione, codici di registrazione, legale rappresentante e mandato di rappresentanza fiscale.",
     },
     {
       q: "Chi è il titolare effettivo?",
@@ -115,7 +115,7 @@ export const documenti: Article = {
     },
     {
       q: "Cosa succede se manca un documento?",
-      a: "Il portale lo segnala subito: accanto a ogni società compare l'elenco dei documenti presenti e di quelli mancanti, e la pratica non parte verso la compagnia finché l'elenco non è completo. Si carica di nuovo l'archivio della società con il documento che mancava e il controllo riparte; un operatore conferma prima dell'invio.",
+      a: "Il portale lo segnala subito: accanto a ogni società compare l'elenco dei documenti presenti e di quelli mancanti. La società con l'elenco incompleto non viene inviata alla compagnia, mentre le altre proseguono. Dopo aver aggiunto il documento che mancava, la si carica di nuovo e il controllo riparte; un operatore conferma prima dell'invio.",
     },
   ],
   sources: [

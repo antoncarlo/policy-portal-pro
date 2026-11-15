@@ -104,8 +104,8 @@ export const documenti: Article = {
       a: "Yes. The company document and the identity document of the legal representative are uploaded with their translation, so that the insurance company and the portal can read the name, the registered office and the details of whoever signs. After the first contact we tell you which translations are needed for the company's country and in which language.",
     },
     {
-      q: "Is an Italian VAT number needed to apply for the bond?",
-      a: "Not necessarily at the time of upload. A company that has no VAT number yet gives the guarantee together with the declaration of start of activity, so documents signed earlier may not show it. In that case the company's identity is verified from the other data: name, registration codes, legal representative and fiscal representation mandate.",
+      q: "What if the documents do not show the Italian VAT number?",
+      a: "It often happens: the VAT number is assigned after the mandate is signed, so the licence, the mandate and the declarations may not show it. The company is entered in the application with its Italian tax code or VAT number; the portal then verifies its identity from the other data in the documents: name, registration codes, legal representative and fiscal representation mandate.",
     },
     {
       q: "Who is the beneficial owner?",
@@ -113,7 +113,7 @@ export const documenti: Article = {
     },
     {
       q: "What happens if a document is missing?",
-      a: "The portal flags it at once: next to each company it shows the list of the documents present and of those missing, and the application does not go to the insurance company until the list is complete. The company's archive is uploaded again with the missing document and the check starts over; a member of staff confirms before sending.",
+      a: "The portal flags it at once: next to each company it shows the list of the documents present and of those missing. A company with an incomplete list is not sent to the insurance company, while the others go ahead. Once the missing document has been added, the company is uploaded again and the check starts over; a member of staff confirms before sending.",
     },
   ],
   sources: [

@@ -48,8 +48,8 @@ const each = (run: (entry: ArticleEntry, lang: Lang, article: Article, label: st
 /** The only amounts an article may quote: the ones the law sets. Everything else would be a price. */
 const LEGAL_AMOUNTS = new Set(["50000", "30000", "100000", "300000", "1000000", "2000000"]);
 const amounts = (text: string): string[] => [
-  ...[...text.matchAll(/(?:€|EUR)\s?(\d[\d.,]*)/g)].map((match) => match[1]),
-  ...[...text.matchAll(/(\d[\d.,]*)\s?(?:euro|EUR|€)/gi)].map((match) => match[1]),
+  ...[...text.matchAll(/(?:€|EUR)[ \u00a0]?(\d[\d.,]*)/g)].map((match) => match[1]),
+  ...[...text.matchAll(/(\d[\d.,]*)[ \u00a0]?(?:euro|EUR|€)/gi)].map((match) => match[1]),
 ].map((value) => value.replace(/[.,]/g, ""));
 const zhAmounts = (text: string): string[] => [...text.matchAll(/(\d+)万欧元/g)].map((match) => `${match[1]}0000`);
 const OFFICIAL = /^https:\/\/(www\.agenziaentrate\.gov\.it|www\.normattiva\.it|www\.fiscooggi\.it|ec\.europa\.eu|eur-lex\.europa\.eu|www\.agid\.gov\.it|www\.gazzettaufficiale\.it|www\.ivass\.it)\//;
@@ -122,6 +122,15 @@ describe("blog: every article, in the three languages", () => {
     expect(ARTICLES.map((entry) => entry.id)).toEqual(ARTICLE_IDS.filter((id) => ARTICLES.some((entry) => entry.id === id)));
     expect(ARTICLES.length).toBeGreaterThan(0);
     expect(AUTHOR.name).toBe("Anton Carlo Santoro");
+  });
+
+  it("publishes the eight articles of the project, in its order, each pointing to at least two others that exist", () => {
+    expect(ARTICLES.map((entry) => entry.id)).toEqual([...ARTICLE_IDS]);
+    expect(ARTICLES).toHaveLength(8);
+    for (const entry of ARTICLES) {
+      expect(entry.related.length, entry.id).toBeGreaterThanOrEqual(2);
+      for (const id of entry.related) expect(isArticleId(id), `${entry.id} → ${id}`).toBe(true);
+    }
   });
 
   it("has a short address in lowercase with hyphens, different from every other article", () => {

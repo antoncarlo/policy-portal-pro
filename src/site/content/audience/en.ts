@@ -100,7 +100,7 @@ export const audiencePages: Record<AudienceId, AudienceContent> = {
           },
           {
             type: "p",
-            text: "The rules, with the official sources, are in the guide [VIES guarantee in Italy: what it is and who must give it](article:garanzia-vies).",
+            text: "It applies to every company based outside the European Union and the European Economic Area: for example in China, Japan, India, Pakistan, the United States, Brazil or Vietnam. The rules, with the official sources, are in the guide [VIES guarantee in Italy: what it is and who must give it](article:garanzia-vies); the steps for the VAT number and VIES in [non-EU sellers: Italian VAT number and VIES](article:venditori-marketplace).",
           },
         ],
       },

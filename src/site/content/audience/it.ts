@@ -101,7 +101,7 @@ export const audiencePages: Record<AudienceId, AudienceContent> = {
           },
           {
             type: "p",
-            text: "Le regole, con le fonti ufficiali, sono nella guida [garanzia VIES: cos'è e chi deve prestarla](article:garanzia-vies).",
+            text: "Vale per ogni società con sede fuori dall'Unione europea e dallo Spazio economico europeo: per esempio in Cina, Giappone, India, Pakistan, Stati Uniti, Brasile o Vietnam. Le regole, con le fonti ufficiali, sono nella guida [garanzia VIES: cos'è e chi deve prestarla](article:garanzia-vies); i passi per partita IVA e VIES in [venditori extra UE: partita IVA italiana e VIES](article:venditori-marketplace).",
           },
         ],
       },

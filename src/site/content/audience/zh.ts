@@ -90,7 +90,7 @@ export const audiencePages: Record<AudienceId, AudienceContent> = {
           },
           {
             type: "p",
-            text: "相关规定及官方来源见指南[意大利VIES担保是什么，谁必须提供](article:garanzia-vies)。",
+            text: "这适用于所有总部在欧盟和欧洲经济区以外的企业：例如总部在中国、日本、印度、巴基斯坦、美国、巴西或越南的企业。相关规定及官方来源见指南[意大利VIES担保是什么，谁必须提供](article:garanzia-vies)；办理增值税号和VIES的步骤见[非欧盟卖家：意大利增值税号与VIES](article:venditori-marketplace)。",
           },
         ],
       },
