@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CONTENT_UPDATED, HREFLANG, LANGS, readSiteEnv } from "../../src/site/config";
 import { contentFor } from "../../src/site/content";
+import { metaOf } from "../../src/site/meta";
 import { listPages, pathOf } from "../../src/site/routes";
 import { renderExtraFiles, renderPage } from "../../src/site/render";
 import { breadcrumbSchema, faqSchema, howToSchema, jsonLd, organizationSchema, serviceSchema } from "../../src/site/schema";
@@ -25,7 +26,7 @@ describe("head of every public page", () => {
   it("has its own title and description, within the lengths the search results show", () => {
     const seen = new Set<string>();
     for (const page of listPages()) {
-      const meta = contentFor(page.lang).meta[page.id];
+      const meta = metaOf(page);
       expect(seen.has(meta.title), `${page.path}: duplicate title`).toBe(false);
       seen.add(meta.title);
       if (page.lang === "zh") {
@@ -56,7 +57,7 @@ describe("head of every public page", () => {
 
   it("names its canonical address and the same page in the other languages, both ways", () => {
     for (const page of listPages()) {
-      const html = headTags(page, contentFor(page.lang).meta[page.id], env);
+      const html = headTags(page, metaOf(page), env);
       expect(attr(html, /<link rel="canonical" href="([^"]+)">/g)).toEqual([`${ORIGIN}${page.path}`]);
       const alternates = Object.fromEntries([...html.matchAll(/<link rel="alternate" hreflang="([^"]+)" href="([^"]+)">/g)].map((match) => [match[1], match[2]]));
       expect(Object.keys(alternates).sort()).toEqual(["en", "it", "x-default", "zh-Hans"]);
@@ -77,7 +78,7 @@ describe("head of every public page", () => {
 
   it("adds the ownership codes of Google and Bing only when they are set", () => {
     const page = listPages()[0];
-    const meta = contentFor(page.lang).meta[page.id];
+    const meta = metaOf(page);
     expect(headTags(page, meta, env)).not.toMatch(/google-site-verification|msvalidate/);
     const html = headTags(page, meta, readSiteEnv({ VITE_GSC_VERIFICATION: "abc123", VITE_BING_VERIFICATION: "bing456" }));
     expect(html).toContain('<meta name="google-site-verification" content="abc123">');
@@ -145,9 +146,9 @@ describe("sitemap and llms.txt", () => {
     expect(xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>')).toBe(true);
     const locs = attr(xml, /<loc>([^<]+)<\/loc>/g);
     expect(locs.sort()).toEqual(listPages().map((page) => `${ORIGIN}${page.path}`).sort());
-    expect(xml.match(/<lastmod>2026-11-15<\/lastmod>/g)).toHaveLength(9);
-    expect(xml.match(/<xhtml:link rel="alternate" hreflang="zh-Hans"/g)).toHaveLength(9);
-    expect(xml.match(/hreflang="x-default"/g)).toHaveLength(9);
+    expect(xml.match(/<lastmod>2026-11-15<\/lastmod>/g)).toHaveLength(listPages().length);
+    expect(xml.match(/<xhtml:link rel="alternate" hreflang="zh-Hans"/g)).toHaveLength(listPages().length);
+    expect(xml.match(/hreflang="x-default"/g)).toHaveLength(listPages().length);
   });
 
   it("tells the AI engines who the company is, what it offers and where the pages are", () => {
@@ -161,7 +162,7 @@ describe("sitemap and llms.txt", () => {
     // is told a page changed only when it did.
     const files = renderExtraFiles(env);
     const sitemap = files.find((file) => file.file === "sitemap.xml")?.content ?? "";
-    expect(sitemap.match(new RegExp(`<lastmod>${CONTENT_UPDATED}</lastmod>`, "g"))).toHaveLength(9);
+    expect(sitemap.match(new RegExp(`<lastmod>${CONTENT_UPDATED}</lastmod>`, "g"))).toHaveLength(listPages().length);
     expect(files.map((file) => file.file).sort()).toEqual(["llms.txt", "sitemap.xml"]);
   });
 });

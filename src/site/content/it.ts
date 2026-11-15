@@ -11,6 +11,24 @@ export const it: SiteContent = {
       h1: "Fideiussione VIES per soggetti non residenti",
       label: "Home",
     },
+    representatives: {
+      title: "Fideiussioni VIES per rappresentanti fiscali | Tecno MGA",
+      description: "Gestisci le fideiussioni VIES dei tuoi rappresentati in lotti fino a 20 pratiche: controllo dei documenti, firme digitali ed estratto conto in un solo portale.",
+      h1: "Fideiussioni VIES per rappresentanti fiscali e studi",
+      label: "Rappresentanti fiscali",
+    },
+    sellers: {
+      title: "Garanzia VIES per società extra UE che vendono in Italia",
+      description: "Vendi in Italia da fuori UE? Per l'iscrizione al VIES serve una garanzia di 50.000 euro per 36 mesi. Scopri documenti, passaggi e come richiedere la polizza.",
+      h1: "Garanzia VIES per società extra UE",
+      label: "Società extra UE",
+    },
+    blog: {
+      title: "Garanzia VIES: norme, documenti e guide | Blog Tecno MGA",
+      description: "Guide e aggiornamenti sulla garanzia VIES: art. 35 comma 7-quater, documenti necessari, firma digitale delle polizze e gestione dei lotti nel portale Tecno.",
+      h1: "Guide sulla garanzia VIES",
+      label: "Guide",
+    },
     privacy: {
       title: "Informativa sulla privacy del sito VIES | Tecno MGA Broker",
       description: "Come Tecno Advance MGA Broker Srl tratta i dati di chi visita il sito VIES e invia una richiesta di contatto: finalità, basi giuridiche, tempi e diritti.",

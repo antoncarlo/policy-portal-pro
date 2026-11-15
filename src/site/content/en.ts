@@ -10,6 +10,24 @@ export const en: SiteContent = {
       h1: "VIES guarantee in Italy for non-EU companies",
       label: "Home",
     },
+    representatives: {
+      title: "VIES Surety Bonds for Fiscal Representatives | Tecno MGA",
+      description: "Manage the VIES surety bonds of the companies you represent in batches of up to 20: document checks, digital signatures and one statement, all in one portal.",
+      h1: "VIES surety bonds for fiscal representatives",
+      label: "Fiscal representatives",
+    },
+    sellers: {
+      title: "Italy VIES Guarantee for Non-EU Sellers | Tecno MGA",
+      description: "Selling in Italy from outside the EU? VIES registration takes a €50,000 guarantee for 36 months. See the documents, the steps and how to apply for the bond.",
+      h1: "Italy VIES guarantee for non-EU sellers",
+      label: "Non-EU sellers",
+    },
+    blog: {
+      title: "VIES Guarantee Italy: Rules, Documents, Guides | Tecno MGA",
+      description: "Guides to the Italian VIES guarantee: Article 35(7-quater), the documents you need, digitally signed bonds and how batches work in the Tecno portal. Read on.",
+      h1: "Guides to the Italian VIES guarantee",
+      label: "Guides",
+    },
     privacy: {
       title: "Privacy Notice for the VIES Guarantee Site | Tecno MGA",
       description: "How Tecno Advance MGA Broker Srl handles the data of people who visit the VIES site and send a contact request: purposes, legal bases, retention, rights.",

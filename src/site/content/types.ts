@@ -1,5 +1,5 @@
 // I testi del sito pubblico, uguali per struttura nelle tre lingue (lo verifica tests/site/content.test.ts).
-import type { PageId } from "../routes";
+import type { StaticPageId } from "../routes";
 
 /** Le ancore delle sezioni della homepage, uguali in tutte le lingue: un link condiviso funziona in ogni versione. */
 export const ANCHORS = ["cos-e", "per-chi", "come-funziona", "portale", "documenti", "costo", "domande", "contatti"] as const;
@@ -35,7 +35,8 @@ export interface LegalSection {
 export type MockTone = "done" | "progress" | "waiting" | "missing";
 
 export interface SiteContent {
-  meta: Record<PageId, PageMeta>;
+  /** Le pagine fisse; titolo e descrizione di un articolo stanno nell'articolo (src/site/meta.ts). */
+  meta: Record<StaticPageId, PageMeta>;
   nav: {
     /** Una voce per sezione, nell'ordine della pagina. */
     items: Array<{ anchor: Anchor; label: string }>;

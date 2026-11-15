@@ -4,6 +4,7 @@ import { CONTENT_UPDATED, formatDate } from "../config";
 import type { PageProps } from "../components/Layout";
 import { Rich } from "../components/Rich";
 import type { LegalSection } from "../content/types";
+import { metaOf } from "../meta";
 
 const Section = ({ section, ...props }: PageProps & { section: LegalSection }) => {
   // Un primo paragrafo che finisce con i due punti introduce l'elenco; altrimenti l'elenco viene prima.
@@ -34,7 +35,7 @@ const Section = ({ section, ...props }: PageProps & { section: LegalSection }) =
 
 export const LegalPage = (props: PageProps) => {
   const { page, content } = props;
-  const meta = content.meta[page.id];
+  const meta = metaOf(page);
   const { legal } = content;
   return (
     <article className="legal">

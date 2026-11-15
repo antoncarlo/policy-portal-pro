@@ -3,7 +3,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { CONTENT_UPDATED, HREFLANG, type SiteEnv } from "./config";
 import { contentFor } from "./content";
-import { findPage, listPages, type PageRef } from "./routes";
+import { metaOf } from "./meta";
+import { findPage, listPages, pageKind, type PageRef } from "./routes";
 import { Layout } from "./components/Layout";
 import { Home } from "./pages/Home";
 import { LegalPage } from "./pages/Legal";
@@ -22,9 +23,10 @@ export interface SiteAssets {
 
 const document = (page: PageRef, assets: SiteAssets, env: SiteEnv): string => {
   const content = contentFor(page.lang);
-  const meta = content.meta[page.id];
+  const meta = metaOf(page);
+  const kind = pageKind(page.id);
   const structured = [organizationSchema(env)];
-  if (page.id === "home") {
+  if (kind === "home") {
     // Le stesse domande e gli stessi passi che il lettore vede nella pagina.
     structured.push(serviceSchema(page, meta, env), faqSchema(content.faq.items), howToSchema(content.steps.title, content.steps.items.map((step) => ({ name: step.title, text: step.text }))));
   } else structured.push(breadcrumbSchema(page, { home: content.meta.home.label, page: meta.label }, env));
@@ -45,7 +47,20 @@ const document = (page: PageRef, assets: SiteAssets, env: SiteEnv): string => {
   ].join("\n");
   const body = renderToStaticMarkup(
     <Layout page={page} content={content} tools={{ statistics: Boolean(env.ga4Id), marketing: Boolean(env.adsId) }}>
-      {page.id === "home" ? <Home page={page} content={content} /> : <LegalPage page={page} content={content} />}
+      {kind === "home" ? (
+        <Home page={page} content={content} />
+      ) : kind === "legal" ? (
+        <LegalPage page={page} content={content} />
+      ) : (
+        // Segnaposto: le pagine del blog e quelle per pubblico arrivano con i compiti successivi.
+        <article className="legal">
+          <header className="legal__hero">
+            <div className="container container--narrow">
+              <h1 className="legal__title">{meta.h1}</h1>
+            </div>
+          </header>
+        </article>
+      )}
     </Layout>,
   );
   // Gli identificativi degli strumenti di Google arrivano al browser come attributi: li legge src/site/client/consent.ts.

@@ -1,6 +1,6 @@
 // sitemap.xml (tutte le pagine pubbliche, con le alternative per lingua) e llms.txt (il sito descritto alle IA).
 import { COMPANY, DEFAULT_LANG, HREFLANG, LANGS, type SiteEnv } from "./config";
-import { contentFor } from "./content";
+import { metaOf } from "./meta";
 import { listPages, pathOf } from "./routes";
 
 export const buildSitemapXml = (env: SiteEnv, today: string): string => {
@@ -18,7 +18,7 @@ export const buildSitemapXml = (env: SiteEnv, today: string): string => {
 export const buildLlmsTxt = (env: SiteEnv): string => {
   const pages = listPages()
     .map((page) => {
-      const meta = contentFor(page.lang).meta[page.id];
+      const meta = metaOf(page);
       return `- [${meta.title}](${env.origin}${page.path}): ${meta.description}`;
     })
     .join("\n");

@@ -8,11 +8,12 @@ const env = readSiteEnv({});
 const count = (text: string, needle: string) => text.split(needle).length - 1;
 
 describe("public site: pages rendered to complete HTML", () => {
-  it("lists the nine pages of the first delivery, each with its own path", () => {
-    const pages = listPages();
-    expect(pages).toHaveLength(9);
-    expect(new Set(pages.map((page) => page.path)).size).toBe(9);
-    expect(pages.map((page) => page.path)).toEqual(expect.arrayContaining(["/", "/en/", "/zh/", "/privacy/", "/en/privacy/", "/zh/privacy/", "/cookie/", "/en/cookie/", "/zh/cookie/"]));
+  it("lists the fixed pages of the site in the three languages, each with its own path", () => {
+    const paths = listPages().map((page) => page.path);
+    expect(new Set(paths).size).toBe(paths.length);
+    expect(paths).toEqual(
+      expect.arrayContaining(["/", "/en/", "/zh/", "/privacy/", "/en/privacy/", "/zh/privacy/", "/cookie/", "/en/cookie/", "/zh/cookie/", "/blog/", "/en/blog/", "/zh/blog/", "/rappresentanti-fiscali/", "/en/fiscal-representatives/", "/zh/fiscal-representatives/", "/venditori-esteri/", "/en/non-eu-sellers/", "/zh/non-eu-sellers/"]),
+    );
   });
 
   it("renders the Italian home page as a full document with one H1 and the site's assets", () => {

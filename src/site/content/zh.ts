@@ -10,6 +10,24 @@ export const zh: SiteContent = {
       h1: "面向非欧盟企业的意大利VIES保函",
       label: "首页",
     },
+    representatives: {
+      title: "税务代表VIES保函批量办理 | Tecno MGA",
+      description: "税务代表和事务所可在一个平台上批量办理所代表企业的VIES保函：每批最多20份申请，自动核对文件，电子签名与对账单集中管理。",
+      h1: "面向税务代表和事务所的VIES保函",
+      label: "税务代表",
+    },
+    sellers: {
+      title: "非欧盟卖家意大利VIES担保指南 | Tecno MGA",
+      description: "从欧盟以外向意大利销售？加入VIES须提供不少于5万欧元、期限不少于36个月的担保。了解所需文件、办理步骤以及如何申请保函。",
+      h1: "非欧盟卖家如何办理意大利VIES担保",
+      label: "非欧盟企业",
+    },
+    blog: {
+      title: "意大利VIES担保：法规、文件与指南 | Tecno MGA",
+      description: "意大利VIES担保指南：第35条第7-quater款的规定、所需文件、带电子签名的保单，以及在 Tecno 平台上如何批量办理。",
+      h1: "意大利VIES担保指南",
+      label: "指南",
+    },
     privacy: {
       title: "隐私政策：意大利VIES保函网站 | Tecno MGA",
       description: "Tecno Advance MGA Broker Srl 如何处理访问本网站并提交咨询者的个人数据：处理目的、法律依据、保存期限以及您享有的各项权利。",
