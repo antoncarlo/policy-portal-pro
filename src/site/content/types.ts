@@ -1,4 +1,5 @@
 // I testi del sito pubblico, uguali per struttura nelle tre lingue (lo verifica tests/site/content.test.ts).
+import type { ArticleSection } from "../blog/types";
 import type { StaticPageId } from "../routes";
 
 /** Le ancore delle sezioni della homepage, uguali in tutte le lingue: un link condiviso funziona in ogni versione. */
@@ -17,6 +18,22 @@ export interface PageMeta {
   h1: string;
   /** Nome breve della pagina, per le briciole di pane. */
   label: string;
+}
+
+/** Le due pagine per pubblico: chi gestisce le garanzie per i propri clienti e chi deve prestarla. */
+export type AudienceId = "representatives" | "sellers";
+export const AUDIENCE_IDS: AudienceId[] = ["representatives", "sellers"];
+
+export interface AudienceContent {
+  /** La risposta diretta sotto il titolo: 40-60 parole. */
+  lead: string;
+  /** Stessi blocchi degli articoli (src/site/blog/types.ts), con i collegamenti nel testo. */
+  sections: ArticleSection[];
+  /** Risposte di 40-60 parole. */
+  faq: Array<{ q: string; a: string }>;
+  cta: { title: string; text: string; button: string };
+  /** Titolo dei riquadri con le guide scritte per quel pubblico. */
+  guidesTitle: string;
 }
 
 export interface TitledText {
@@ -40,6 +57,8 @@ export interface SiteContent {
   nav: {
     /** Una voce per sezione, nell'ordine della pagina. */
     items: Array<{ anchor: Anchor; label: string }>;
+    /** La voce che porta all'indice del blog. */
+    guides: string;
     portal: string;
     contact: string;
     menu: string;
@@ -79,8 +98,10 @@ export interface SiteContent {
   };
   audiences: {
     title: string;
-    items: Array<{ title: string; text: string; points: string[]; cta: string }>;
+    /** `more` e' il testo del link alla pagina dedicata, nello stesso ordine di AUDIENCE_IDS. */
+    items: Array<{ title: string; text: string; points: string[]; cta: string; more: string }>;
   };
+  audiencePages: Record<AudienceId, AudienceContent>;
   steps: {
     title: string;
     items: TitledText[];
@@ -163,6 +184,8 @@ export interface SiteContent {
     sourcesTitle: string;
     relatedTitle: string;
     allGuides: string;
+    /** Titolo della sezione della homepage con le guide. */
+    latestTitle: string;
     cta: { title: string; text: string; button: string };
   };
   footer: {

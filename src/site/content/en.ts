@@ -1,3 +1,4 @@
+import { audiencePages } from "./audience/en";
 import type { SiteContent } from "./types";
 
 // Same facts as the Italian version, checked against the official texts (see it.ts). Italian terms are kept in
@@ -52,6 +53,7 @@ export const en: SiteContent = {
       { anchor: "domande", label: "FAQ" },
       { anchor: "contatti", label: "Contact" },
     ],
+    guides: "Guides",
     portal: "Client area",
     contact: "Get in touch",
     menu: "Open or close the menu",
@@ -122,15 +124,18 @@ export const en: SiteContent = {
         text: "Manage from one portal the VIES guarantees of all the companies you represent.",
         points: ["Batches of up to 20 applications with one Excel file and one folder of documents per company", "Automatic document check, with the list of what is missing", "Statement of account, digital signatures and issued bonds in the same place"],
         cta: "Tell us about your volumes",
+        more: "VIES surety bonds for fiscal representatives",
       },
       {
         title: "Foreign companies selling in Italy and the EU",
         text: "You are based outside the EU and the EEA, you sell online or to European customers, and you have appointed a fiscal representative in Italy: to operate in VIES you need the guarantee.",
         points: ["Site and portal in English, Italian and Chinese", "A clear list of documents, with the translations required", "A digitally signed bond, to be delivered through your fiscal representative"],
         cta: "Ask how to start",
+        more: "Italy VIES guarantee for non-EU sellers",
       },
     ],
   },
+  audiencePages,
   steps: {
     title: "How do you get a VIES surety bond?",
     items: [
@@ -290,6 +295,7 @@ export const en: SiteContent = {
     sourcesTitle: "Official sources",
     relatedTitle: "Related guides",
     allGuides: "All guides to the Italian VIES guarantee",
+    latestTitle: "Guides to the VIES guarantee",
     cta: { title: "Do you need to give the VIES guarantee?", text: "Tell us about your case: we will list the documents you need and send you a written quotation.", button: "Get in touch" },
   },
   footer: {

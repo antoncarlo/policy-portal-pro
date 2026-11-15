@@ -3,10 +3,12 @@
 import { ArrowRight, LogIn } from "lucide-react";
 import { COMPANY, HREFLANG, LANGS, LANG_NAMES, LANG_SHORT, PORTAL_LOGIN_PATH } from "../config";
 import { sectionHref } from "../links";
-import { pathOf } from "../routes";
+import { pageKind, pathOf } from "../routes";
 import type { PageProps } from "./Layout";
 
-export const Header = ({ page, content }: PageProps) => (
+export const Header = ({ page, content }: PageProps) => {
+  const kind = pageKind(page.id);
+  return (
   <header className="site-header" data-site-header>
     <div className="site-header__bar glass-strong">
       <a className="site-header__logo" href={pathOf("home", page.lang)} aria-label={content.nav.home}>
@@ -19,6 +21,11 @@ export const Header = ({ page, content }: PageProps) => (
               <a href={sectionHref(page, item.anchor)}>{item.label}</a>
             </li>
           ))}
+          <li className="site-nav__item site-nav__item--guide">
+            <a href={pathOf("blog", page.lang)} aria-current={kind === "blog" || kind === "article" ? "page" : undefined}>
+              {content.nav.guides}
+            </a>
+          </li>
         </ul>
         <div className="site-nav__cta">
           <a className="btn btn--ghost" href={PORTAL_LOGIN_PATH} data-testid="site-portal-link">
@@ -46,4 +53,5 @@ export const Header = ({ page, content }: PageProps) => (
       </button>
     </div>
   </header>
-);
+  );
+};

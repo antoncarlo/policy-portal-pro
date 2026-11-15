@@ -1,9 +1,10 @@
 // La pagina di un articolo: titolo, chi lo firma e quando, la risposta diretta, le sezioni, le domande frequenti,
 // le fonti ufficiali, l'invito a scrivere e le guide collegate. Sopra il titolo non c'e' nulla.
-import { ArrowRight, ArrowUpRight, ChevronDown } from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { AUTHOR, articleOf, relatedOf, type ArticleId } from "../blog";
 import { formatDate } from "../config";
 import { Blocks } from "../components/Blocks";
+import { FaqList } from "../components/FaqList";
 import { GuideCards } from "../components/GuideCards";
 import { Inline } from "../components/Inline";
 import type { PageProps } from "../components/Layout";
@@ -45,19 +46,7 @@ export const ArticlePage = ({ page, content }: PageProps) => {
         ))}
         <section id="domande-frequenti">
           <h2>{blog.faqTitle}</h2>
-          <div className="faq">
-            {article.faq.map((item, index) => (
-              <details key={item.q} className="faq__item glass" open={index === 0}>
-                <summary>
-                  <h3 className="faq__q">{item.q}</h3>
-                  <ChevronDown className="faq__icon" size={20} strokeWidth={1.8} aria-hidden="true" />
-                </summary>
-                <p className="faq__a">
-                  <Inline text={item.a} lang={page.lang} />
-                </p>
-              </details>
-            ))}
-          </div>
+          <FaqList items={article.faq} lang={page.lang} />
         </section>
         <section className="sources" id="fonti">
           <h2>{blog.sourcesTitle}</h2>

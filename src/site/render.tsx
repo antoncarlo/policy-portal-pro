@@ -4,11 +4,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { ARTICLES, AUTHOR, articleOf, type ArticleId } from "./blog";
 import { CONTENT_UPDATED, HREFLANG, type SiteEnv } from "./config";
 import { contentFor } from "./content";
+import type { AudienceId } from "./content/types";
 import { metaOf } from "./meta";
 import { plainText } from "./inline";
 import { findPage, listPages, pageKind, pathOf, type PageRef } from "./routes";
 import { Layout } from "./components/Layout";
 import { ArticlePage } from "./pages/ArticlePage";
+import { AudiencePage } from "./pages/AudiencePage";
 import { BlogIndex } from "./pages/BlogIndex";
 import { Home } from "./pages/Home";
 import { LegalPage } from "./pages/Legal";
@@ -40,6 +42,9 @@ const document = (page: PageRef, assets: SiteAssets, env: SiteEnv): string => {
     structured.push(articleSchema(page, entry, env), faqSchema(article.faq.map((item) => ({ q: item.q, a: plainText(item.a) }))), breadcrumbSchema([crumb("home"), crumb("blog"), crumb(page.id)], env));
   } else if (kind === "blog") {
     structured.push(blogSchema(page, meta, ARTICLES, env), breadcrumbSchema([crumb("home"), crumb(page.id)], env));
+  } else if (kind === "audience") {
+    const audience = content.audiencePages[page.id as AudienceId];
+    structured.push(serviceSchema(page, meta, env), faqSchema(audience.faq.map((item) => ({ q: item.q, a: plainText(item.a) }))), breadcrumbSchema([crumb("home"), crumb(page.id)], env));
   } else structured.push(breadcrumbSchema([crumb("home"), crumb(page.id)], env));
   const head = [
     '<meta charset="utf-8">',
@@ -67,14 +72,7 @@ const document = (page: PageRef, assets: SiteAssets, env: SiteEnv): string => {
       ) : kind === "blog" ? (
         <BlogIndex page={page} content={content} />
       ) : (
-        // Segnaposto: le pagine per pubblico arrivano con il compito successivo.
-        <article className="legal">
-          <header className="legal__hero">
-            <div className="container container--narrow">
-              <h1 className="legal__title">{meta.h1}</h1>
-            </div>
-          </header>
-        </article>
+        <AudiencePage page={page} content={content} />
       )}
     </Layout>,
   );

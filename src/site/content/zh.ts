@@ -1,3 +1,4 @@
+import { audiencePages } from "./audience/zh";
 import type { SiteContent } from "./types";
 
 // 与意大利语版本内容一致，法规表述均已对照官方文本核实（见 it.ts）。
@@ -52,6 +53,7 @@ export const zh: SiteContent = {
       { anchor: "domande", label: "常见问题" },
       { anchor: "contatti", label: "联系我们" },
     ],
+    guides: "指南",
     portal: "客户登录",
     contact: "提交咨询",
     menu: "打开或关闭菜单",
@@ -122,15 +124,18 @@ export const zh: SiteContent = {
         text: "在一个平台上管理您所代表的全部企业的VIES担保。",
         points: ["每批最多20份申请：一个Excel文件，每家企业一个文件夹", "自动核对文件，并列出缺少的文件", "对账单、电子签名和已出具的保单集中在一处"],
         cta: "告诉我们您的业务量",
+        more: "面向税务代表的VIES保函",
       },
       {
         title: "在意大利和欧盟销售的境外企业",
         text: "您的总部在欧盟和欧洲经济区以外，在线销售或向欧洲客户销售，并已在意大利委任税务代表：要在VIES中开展业务，就需要提供担保。",
         points: ["网站和平台提供中文、英文和意大利文", "清晰的文件清单，并注明需要的翻译件", "带电子签名的保单，通过您的税务代表提交"],
         cta: "咨询如何开始",
+        more: "面向非欧盟卖家的意大利VIES担保",
       },
     ],
   },
+  audiencePages,
   steps: {
     title: "如何办理VIES保险保函？",
     items: [
@@ -289,6 +294,7 @@ export const zh: SiteContent = {
     sourcesTitle: "官方来源",
     relatedTitle: "相关指南",
     allGuides: "全部意大利VIES担保指南",
+    latestTitle: "VIES担保指南",
     cta: { title: "需要提供VIES担保吗？", text: "请告诉我们您的情况：我们会列出所需文件，并向您发送书面报价。", button: "提交咨询" },
   },
   footer: {

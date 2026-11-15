@@ -1,10 +1,13 @@
-// «Per chi»: i due pubblici del sito, chi gestisce le garanzie per i propri clienti e chi deve prestarla.
+// «Per chi»: i due pubblici del sito, chi gestisce le garanzie per i propri clienti e chi deve prestarla. Ogni
+// riquadro porta alla pagina dedicata.
 import { ArrowRight, Briefcase, Check, Globe } from "lucide-react";
+import { AUDIENCE_IDS } from "../content/types";
+import { pathOf } from "../routes";
 import { SectionHead, type PageProps } from "./Layout";
 
 const ICONS = [Briefcase, Globe];
 
-export const Audiences = ({ content }: PageProps) => {
+export const Audiences = ({ page, content }: PageProps) => {
   const { audiences } = content;
   return (
     <section className="section section--tint" id="per-chi">
@@ -28,9 +31,12 @@ export const Audiences = ({ content }: PageProps) => {
                     </li>
                   ))}
                 </ul>
-                <a className="link-arrow" href="#contatti">
-                  {item.cta}
+                <a className="link-arrow" href={pathOf(AUDIENCE_IDS[index], page.lang)}>
+                  {item.more}
                   <ArrowRight size={16} strokeWidth={1.8} aria-hidden="true" />
+                </a>
+                <a className="audience__contact" href="#contatti">
+                  {item.cta}
                 </a>
               </article>
             );

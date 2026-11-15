@@ -25,6 +25,11 @@ export const Footer = ({ page, content }: PageProps) => {
                   <a href={sectionHref(page, item.anchor)}>{item.label}</a>
                 </li>
               ))}
+              {(["blog", "representatives", "sellers"] as const).map((id) => (
+                <li key={id}>
+                  <a href={pathOf(id, page.lang)}>{content.meta[id].label}</a>
+                </li>
+              ))}
             </ul>
           </nav>
           <div className="footer__col">

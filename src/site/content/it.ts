@@ -1,3 +1,4 @@
+import { audiencePages } from "./audience/it";
 import type { SiteContent } from "./types";
 
 // Ogni affermazione normativa e' verificata sul testo ufficiale: Provvedimento dell'Agenzia delle Entrate
@@ -53,6 +54,7 @@ export const it: SiteContent = {
       { anchor: "domande", label: "Domande" },
       { anchor: "contatti", label: "Contatti" },
     ],
+    guides: "Guide",
     portal: "Area riservata",
     contact: "Richiedi contatto",
     menu: "Apri o chiudi il menu",
@@ -123,15 +125,18 @@ export const it: SiteContent = {
         text: "Gestisci da un solo portale le garanzie VIES di tutte le società che rappresenti.",
         points: ["Lotti fino a 20 pratiche con un file Excel e una cartella di documenti per società", "Controllo automatico dei documenti, con l'elenco di quelli che mancano", "Estratto conto, firme digitali e polizze emesse nello stesso posto"],
         cta: "Parlaci dei tuoi volumi",
+        more: "Fideiussioni VIES per rappresentanti fiscali",
       },
       {
         title: "Società estere che vendono in Italia e nell'UE",
         text: "Hai sede fuori dall'UE e dallo SEE, vendi online o a clienti europei e hai nominato un rappresentante fiscale in Italia: per operare nel VIES serve la garanzia.",
         points: ["Sito e portale in italiano, inglese e cinese", "Elenco chiaro dei documenti, con le traduzioni richieste", "Polizza firmata digitalmente, da consegnare tramite il tuo rappresentante fiscale"],
         cta: "Chiedi come iniziare",
+        more: "Garanzia VIES per società extra UE",
       },
     ],
   },
+  audiencePages,
   steps: {
     title: "Come si ottiene la polizza fideiussoria VIES?",
     items: [
@@ -291,6 +296,7 @@ export const it: SiteContent = {
     sourcesTitle: "Fonti ufficiali",
     relatedTitle: "Guide collegate",
     allGuides: "Tutte le guide sulla garanzia VIES",
+    latestTitle: "Guide sulla garanzia VIES",
     cta: { title: "Devi prestare la garanzia VIES?", text: "Raccontaci il tuo caso: ti indichiamo i documenti che servono e ti inviamo una quotazione scritta.", button: "Richiedi contatto" },
   },
   footer: {
