@@ -163,6 +163,6 @@ describe("sitemap and llms.txt", () => {
     const files = renderExtraFiles(env);
     const sitemap = files.find((file) => file.file === "sitemap.xml")?.content ?? "";
     expect(sitemap.match(new RegExp(`<lastmod>${CONTENT_UPDATED}</lastmod>`, "g"))).toHaveLength(listPages().length);
-    expect(files.map((file) => file.file).sort()).toEqual(["llms.txt", "sitemap.xml"]);
+    expect(files.map((file) => file.file)).toEqual(expect.arrayContaining(["llms.txt", "sitemap.xml"]));
   });
 });

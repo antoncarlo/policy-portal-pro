@@ -295,6 +295,7 @@ export const zh: SiteContent = {
     relatedTitle: "相关指南",
     allGuides: "全部意大利VIES担保指南",
     latestTitle: "VIES担保指南",
+    feedTitle: "Tecno MGA 意大利VIES担保指南",
     cta: { title: "需要提供VIES担保吗？", text: "请告诉我们您的情况：我们会列出所需文件，并向您发送书面报价。", button: "提交咨询" },
   },
   footer: {

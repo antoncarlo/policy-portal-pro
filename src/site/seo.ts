@@ -16,6 +16,8 @@ export const socialImage = (env: SiteEnv, lang: Lang) => `${env.origin}/site-med
 /** Cio' che la testata di un articolo ha in piu': chi lo firma e le sue date (AAAA-MM-GG). */
 export interface HeadExtra {
   article?: { published: string; updated: string; author: string };
+  /** Il feed delle guide nella lingua della pagina: indirizzo completo e nome. */
+  feed?: { href: string; title: string };
 }
 
 export const headTags = (page: PageRef, meta: { title: string; description: string }, env: SiteEnv, extra: HeadExtra = {}): string => {
@@ -44,6 +46,7 @@ export const headTags = (page: PageRef, meta: { title: string; description: stri
     `<meta name="twitter:description" content="${escapeHtml(meta.description)}">`,
     `<meta name="twitter:image" content="${escapeHtml(image)}">`,
   ];
+  if (extra.feed) tags.push(`<link rel="alternate" type="application/atom+xml" title="${escapeHtml(extra.feed.title)}" href="${escapeHtml(extra.feed.href)}">`);
   if (extra.article) {
     tags.push(
       `<meta property="article:published_time" content="${escapeHtml(extra.article.published)}">`,

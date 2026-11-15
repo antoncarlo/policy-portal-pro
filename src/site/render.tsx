@@ -2,7 +2,7 @@
 // idratazione nel browser); la testata e' composta come testo, con escape.
 import { renderToStaticMarkup } from "react-dom/server";
 import { ARTICLES, AUTHOR, articleOf, type ArticleId } from "./blog";
-import { CONTENT_UPDATED, HREFLANG, type SiteEnv } from "./config";
+import { CONTENT_UPDATED, HREFLANG, LANGS, type SiteEnv } from "./config";
 import { contentFor } from "./content";
 import type { AudienceId } from "./content/types";
 import { metaOf } from "./meta";
@@ -16,7 +16,7 @@ import { Home } from "./pages/Home";
 import { LegalPage } from "./pages/Legal";
 import { articleSchema, blogSchema, breadcrumbSchema, faqSchema, howToSchema, jsonLd, organizationSchema, serviceSchema } from "./schema";
 import { escapeHtml, headTags } from "./seo";
-import { buildLlmsTxt, buildSitemapXml } from "./sitemap";
+import { buildFeed, buildLlmsTxt, buildSitemapXml, feedPath } from "./sitemap";
 
 export interface SiteAssets {
   /** Fogli di stile del sito pubblico. */
@@ -49,7 +49,10 @@ const document = (page: PageRef, assets: SiteAssets, env: SiteEnv): string => {
   const head = [
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">',
-    headTags(page, meta, env, entry ? { article: { published: entry.published, updated: entry.updated, author: AUTHOR.name } } : {}),
+    headTags(page, meta, env, {
+      feed: { href: `${env.origin}${feedPath(page.lang)}`, title: content.blog.feedTitle },
+      article: entry ? { published: entry.published, updated: entry.updated, author: AUTHOR.name } : undefined,
+    }),
     '<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=tecnomga-2">',
     '<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=tecnomga-2">',
     '<meta name="theme-color" content="#103657">',
@@ -94,10 +97,12 @@ export const renderPage = (path: string, assets: SiteAssets, env: SiteEnv): stri
 export const renderAll = (assets: SiteAssets, env: SiteEnv): Array<{ path: string; html: string }> =>
   listPages().map((page) => ({ path: page.path, html: document(page, assets, env) }));
 
-/** I file serviti accanto alle pagine: la mappa del sito e la descrizione per le IA. */
+/** I file serviti accanto alle pagine: la mappa del sito, la descrizione per le IA e i feed delle guide. */
 export const renderExtraFiles = (env: SiteEnv): Array<{ file: string; content: string }> => [
   // La data della mappa e' quella dell'ultima verifica dei contenuti, non quella della build: a un motore di
   // ricerca si dice che una pagina e' cambiata solo quando e' cambiata.
   { file: "sitemap.xml", content: buildSitemapXml(env, CONTENT_UPDATED) },
   { file: "llms.txt", content: buildLlmsTxt(env) },
+  // Il feed delle guide, uno per lingua, accanto all'indice del blog.
+  ...LANGS.map((lang) => ({ file: feedPath(lang).slice(1), content: buildFeed(env, lang) })),
 ];

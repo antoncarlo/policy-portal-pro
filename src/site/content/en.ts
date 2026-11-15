@@ -296,6 +296,7 @@ export const en: SiteContent = {
     relatedTitle: "Related guides",
     allGuides: "All guides to the Italian VIES guarantee",
     latestTitle: "Guides to the VIES guarantee",
+    feedTitle: "Tecno MGA guides to the Italian VIES guarantee",
     cta: { title: "Do you need to give the VIES guarantee?", text: "Tell us about your case: we will list the documents you need and send you a written quotation.", button: "Get in touch" },
   },
   footer: {

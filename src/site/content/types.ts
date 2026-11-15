@@ -186,6 +186,8 @@ export interface SiteContent {
     allGuides: string;
     /** Titolo della sezione della homepage con le guide. */
     latestTitle: string;
+    /** Nome del feed delle guide, come lo mostra un lettore di feed. */
+    feedTitle: string;
     cta: { title: string; text: string; button: string };
   };
   footer: {

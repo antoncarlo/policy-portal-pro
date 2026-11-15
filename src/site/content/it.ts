@@ -297,6 +297,7 @@ export const it: SiteContent = {
     relatedTitle: "Guide collegate",
     allGuides: "Tutte le guide sulla garanzia VIES",
     latestTitle: "Guide sulla garanzia VIES",
+    feedTitle: "Guide sulla garanzia VIES di Tecno MGA",
     cta: { title: "Devi prestare la garanzia VIES?", text: "Raccontaci il tuo caso: ti indichiamo i documenti che servono e ti inviamo una quotazione scritta.", button: "Richiedi contatto" },
   },
   footer: {
