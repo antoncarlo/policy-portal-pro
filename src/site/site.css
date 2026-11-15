@@ -1954,6 +1954,104 @@ html:lang(zh-Hans) .details__title {
   animation: notice-in 0.5s var(--ease) both;
 }
 
+/* ---------- Banner dei cookie ---------- */
+.cookie-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  z-index: 70;
+  display: grid;
+  gap: 0.75rem;
+  width: min(100% - 1.5rem, 720px);
+  max-height: calc(100dvh - 32px);
+  padding: 1.15rem 1.25rem 1.2rem;
+  overflow-y: auto;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.96);
+  font-size: 0.93rem;
+  line-height: 1.55;
+  color: var(--ink);
+  transform: translateX(-50%);
+  animation: notice-in 0.5s var(--ease) both;
+}
+.cookie-banner__title {
+  padding-right: 2.5rem;
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--navy-800);
+}
+html:lang(zh-Hans) .cookie-banner__title {
+  font-family: var(--font-cjk);
+  font-weight: 700;
+}
+.cookie-banner__text a {
+  color: var(--navy-700);
+  white-space: nowrap;
+}
+.cookie-banner__close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.cookie-banner__close:hover {
+  background: rgba(15, 58, 92, 0.08);
+  color: var(--navy-800);
+}
+.cookie-banner__options {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(15, 58, 92, 0.04);
+}
+.cookie-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  align-items: start;
+  cursor: pointer;
+}
+.cookie-option input {
+  width: 20px;
+  height: 20px;
+  margin: 0.15rem 0 0;
+  accent-color: var(--navy-800);
+}
+.cookie-option > span {
+  display: grid;
+  gap: 0.1rem;
+}
+.cookie-option strong {
+  font-weight: 600;
+  color: var(--navy-800);
+}
+.cookie-option span span {
+  font-size: 0.86rem;
+  color: var(--ink-soft);
+}
+/* I tre pulsanti hanno lo stesso aspetto e la stessa larghezza: nessuna scelta e' piu' in vista delle altre. */
+.cookie-banner__actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.5rem;
+}
+.cookie-banner__actions .btn--ghost {
+  border-color: rgba(15, 58, 92, 0.35);
+  background: #fff;
+}
+
 /* ---------- Pagine di testo (privacy, cookie) ---------- */
 .legal__hero {
   padding: calc(var(--header-h) + clamp(3rem, 8vh, 5rem)) 0 clamp(2.5rem, 6vh, 4rem);
@@ -1975,13 +2073,16 @@ html:lang(zh-Hans) .details__title {
 .legal__body {
   padding: clamp(2.5rem, 6vh, 4rem) 0 clamp(3.5rem, 8vh, 6rem);
 }
+.legal__body section + section {
+  margin-top: 2.75rem;
+}
 .legal__body h2 {
-  margin: 2.5rem 0 0.8rem;
+  margin-bottom: 0.9rem;
   font-size: clamp(1.4rem, 2.6vw, 1.8rem);
   color: var(--navy-800);
 }
-.legal__body h2:first-child {
-  margin-top: 0;
+.legal__body .compare tbody th {
+  min-width: 11rem;
 }
 .legal__body p,
 .legal__body ul {
@@ -2000,6 +2101,20 @@ html:lang(zh-Hans) .details__title {
 }
 .legal__body .table-wrap {
   overflow-x: auto;
+}
+.legal__body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  overflow-wrap: anywhere;
+}
+.legal__body .compare td {
+  color: var(--ink-soft);
+}
+.legal__updated {
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.9rem;
 }
 
 /* ---------- Comparsa allo scorrimento ---------- */
@@ -2128,6 +2243,7 @@ html:lang(zh-Hans) .details__title {
   .site-header,
   .scroll-progress,
   .lang-notice,
+  .cookie-banner,
   .hero__bg,
   .hero__visual,
   .contact-form {

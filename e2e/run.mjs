@@ -28,6 +28,11 @@ const env = {
   ...process.env,
   VITE_SUPABASE_URL: "https://nesblhtjqiavdfsrtfom.supabase.co",
   VITE_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
+  // Test identifiers of the measurement tools: the public site shows the cookie banner only when they are set.
+  // The scenarios answer Google's addresses themselves: nothing real is contacted.
+  VITE_GA4_ID: "G-E2ETEST001",
+  VITE_GOOGLE_ADS_ID: "AW-1234567890",
+  VITE_GOOGLE_ADS_CONVERSION_LABEL: "e2eLabel_1",
 };
 
 const server = spawn("npx", ["vite", "--host", "127.0.0.1", "--port", String(PORT), "--strictPort"], { env, stdio: ["ignore", "pipe", "pipe"], detached: true });

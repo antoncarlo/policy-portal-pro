@@ -38,11 +38,17 @@ const document = (page: PageRef, assets: SiteAssets, env: SiteEnv): string => {
     ...structured.map(jsonLd),
   ].join("\n");
   const body = renderToStaticMarkup(
-    <Layout page={page} content={content}>
+    <Layout page={page} content={content} tools={{ statistics: Boolean(env.ga4Id), marketing: Boolean(env.adsId) }}>
       {page.id === "home" ? <Home page={page} content={content} /> : <LegalPage page={page} content={content} />}
     </Layout>,
   );
-  return `<!doctype html>\n<html lang="${HREFLANG[page.lang]}" data-page="${page.id}">\n<head>\n${head}\n</head>\n<body class="site">\n${body}\n</body>\n</html>\n`;
+  // Gli identificativi degli strumenti di Google arrivano al browser come attributi: li legge src/site/client/consent.ts.
+  const tools = [
+    env.ga4Id ? ` data-ga4="${escapeHtml(env.ga4Id)}"` : "",
+    env.adsId ? ` data-ads="${escapeHtml(env.adsId)}"` : "",
+    env.adsId && env.adsConversionLabel ? ` data-ads-conversion="${escapeHtml(env.adsConversionLabel)}"` : "",
+  ].join("");
+  return `<!doctype html>\n<html lang="${HREFLANG[page.lang]}" data-page="${page.id}"${tools}>\n<head>\n${head}\n</head>\n<body class="site">\n${body}\n</body>\n</html>\n`;
 };
 
 /** Il documento di un percorso pubblico (con o senza barra finale); null se il percorso non e' del sito pubblico. */

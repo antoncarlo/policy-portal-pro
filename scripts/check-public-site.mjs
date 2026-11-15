@@ -13,8 +13,8 @@ const LANG_ATTR = { "": "it", en: "en", zh: "zh-Hans" };
 // Il testo minimo di una pagina, letto come lo legge chi non esegue JavaScript (crawler, motori di risposta).
 // Il cinese dice le stesse cose in meno caratteri.
 const MIN_TEXT = { it: 1500, en: 1500, "zh-Hans": 700 };
-/** Le pagine che devono avere gia' il loro testo completo: la homepage nelle tre lingue. */
-const TEXT_PAGES = new Set(["/", "/en/", "/zh/"]);
+/** La homepage nelle tre lingue: oltre al testo deve avere le sue otto sezioni e le domande frequenti. */
+const HOME_PAGES = new Set(["/", "/en/", "/zh/"]);
 const HOME_ANCHORS = ["cos-e", "per-chi", "come-funziona", "portale", "documenti", "costo", "domande", "contatti"];
 const bodyText = (html) =>
   (html.split(/<body[^>]*>/)[1] ?? "")
@@ -73,9 +73,9 @@ for (const url of [...pages].sort()) {
   if (/noindex/i.test(html)) fail(`${url}: una pagina pubblica non deve chiedere di non essere indicizzata`);
   if (!/<link rel="stylesheet" href="\/assets\/[^"]+\.css"/.test(html)) fail(`${url}: nessun foglio di stile`);
   for (const match of html.matchAll(/<(?:script[^>]*\ssrc|link rel="modulepreload"[^>]*\shref)="(\/assets\/[^"]+\.js)"/g)) scripts.add(match[1]);
-  if (TEXT_PAGES.has(url)) {
-    const text = bodyText(html);
-    if (text.length < MIN_TEXT[lang]) fail(`${url}: solo ${text.length} caratteri di testo nell'HTML (minimo ${MIN_TEXT[lang]})`);
+  const text = bodyText(html);
+  if (text.length < MIN_TEXT[lang]) fail(`${url}: solo ${text.length} caratteri di testo nell'HTML (minimo ${MIN_TEXT[lang]})`);
+  if (HOME_PAGES.has(url)) {
     for (const anchor of HOME_ANCHORS) if (!html.includes(`id="${anchor}"`)) fail(`${url}: manca la sezione #${anchor}`);
     if (!html.includes('"@type":"FAQPage"')) fail(`${url}: mancano i dati strutturati delle domande frequenti`);
   }

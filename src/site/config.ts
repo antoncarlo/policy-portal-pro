@@ -1,6 +1,8 @@
 // Sito pubblico VIES (pagine generate come HTML): origine, lingue, dati societari e impostazioni dall'ambiente.
 // Nessun import del portale: il modulo serve al plugin di Vite, ai test e al codice del browser.
 
+import { validTagIds } from "./consent-core";
+
 export type Lang = "it" | "en" | "zh";
 export const LANGS: Lang[] = ["it", "en", "zh"];
 /** Valore di `lang` e di `hreflang`: il cinese e' il semplificato. */
@@ -46,14 +48,19 @@ const clean = (value: string | undefined) => {
 };
 
 /** Le impostazioni del sito dalle variabili d'ambiente (VITE_*): un valore vuoto vale assente. */
-export const readSiteEnv = (env: Record<string, string | undefined>): SiteEnv => ({
-  origin: (clean(env.VITE_SITE_ORIGIN) ?? DEFAULT_ORIGIN).replace(/\/+$/, ""),
-  ga4Id: clean(env.VITE_GA4_ID),
-  adsId: clean(env.VITE_GOOGLE_ADS_ID),
-  adsConversionLabel: clean(env.VITE_GOOGLE_ADS_CONVERSION_LABEL),
-  gscVerification: clean(env.VITE_GSC_VERIFICATION),
-  bingVerification: clean(env.VITE_BING_VERIFICATION),
-});
+export const readSiteEnv = (env: Record<string, string | undefined>): SiteEnv => {
+  // Solo identificativi nella forma di Google: finiscono in un attributo della pagina e nell'indirizzo di uno script.
+  const tags = validTagIds({ ga4Id: clean(env.VITE_GA4_ID), adsId: clean(env.VITE_GOOGLE_ADS_ID) });
+  const label = clean(env.VITE_GOOGLE_ADS_CONVERSION_LABEL);
+  return {
+    origin: (clean(env.VITE_SITE_ORIGIN) ?? DEFAULT_ORIGIN).replace(/\/+$/, ""),
+    ga4Id: tags.ga4Id,
+    adsId: tags.adsId,
+    adsConversionLabel: label && /^[A-Za-z0-9_-]{4,60}$/.test(label) ? label : undefined,
+    gscVerification: clean(env.VITE_GSC_VERIFICATION),
+    bingVerification: clean(env.VITE_BING_VERIFICATION),
+  };
+};
 
 /** Dati dell'intermediario, come nei documenti del portale e nel Registro Unico degli Intermediari. */
 export const COMPANY = {
@@ -67,4 +74,9 @@ export const COMPANY = {
   phoneE164: "+390697638088",
   pec: "tecnoadvancemgabroker@legalmail.it",
   email: "vies@tecnomga.com",
+  /** Ufficio privacy e responsabile della protezione dei dati, come nell'informativa generale dell'intermediario. */
+  privacyEmail: "privacy@tecnomga.com",
+  dpoEmail: "dpo@tecnomga.com",
+  /** L'informativa generale (clienti, rapporti contrattuali, area riservata). */
+  privacyNoticeUrl: "https://tecnomga.com/wp-content/uploads/2025/12/Informativaprivacytecno-1_1.pdf",
 } as const;

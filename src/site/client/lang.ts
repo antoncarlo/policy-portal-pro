@@ -27,7 +27,13 @@ export function initLangNotice(): void {
   const target = noticeLanguage(pageLanguage(document.documentElement.lang), languages);
   const notice = target ? document.querySelector<HTMLElement>(`[data-lang-notice="${target}"]`) : null;
   if (!notice) return;
-  notice.hidden = false;
+  // Una cosa alla volta in fondo allo schermo: se il banner dei cookie e' aperto, l'avviso aspetta la scelta.
+  const banner = document.querySelector<HTMLElement>("[data-cookie-banner]");
+  const show = () => {
+    notice.hidden = false;
+  };
+  if (banner && !banner.hidden) document.addEventListener("tecno:consent", show, { once: true });
+  else show();
   notice.querySelector("[data-lang-dismiss]")?.addEventListener("click", () => {
     notice.hidden = true;
     remember();

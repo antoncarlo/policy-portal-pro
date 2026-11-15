@@ -1,7 +1,9 @@
-// L'ossatura di ogni pagina pubblica: salto al contenuto, barra, contenuto, pie' di pagina, avviso della lingua.
+// L'ossatura di ogni pagina pubblica: salto al contenuto, barra, contenuto, pie' di pagina, avviso della lingua e,
+// se sono impostati gli strumenti di Google, banner dei cookie.
 import type { ReactNode } from "react";
 import type { SiteContent } from "../content";
 import type { PageRef } from "../routes";
+import { CookieBanner, type MeasurementTools } from "./CookieBanner";
 import { Footer } from "./Footer";
 import { Header } from "./Header";
 import { LangNotice } from "./LangNotice";
@@ -11,7 +13,7 @@ export interface PageProps {
   content: SiteContent;
 }
 
-export const Layout = ({ page, content, children }: PageProps & { children: ReactNode }) => (
+export const Layout = ({ page, content, tools, children }: PageProps & { tools: MeasurementTools; children: ReactNode }) => (
   <>
     <a className="skip-link" href="#contenuto">
       {content.nav.skip}
@@ -21,6 +23,7 @@ export const Layout = ({ page, content, children }: PageProps & { children: Reac
     <main id="contenuto">{children}</main>
     <Footer page={page} content={content} />
     <LangNotice page={page} />
+    {tools.statistics || tools.marketing ? <CookieBanner page={page} content={content} tools={tools} /> : null}
   </>
 );
 

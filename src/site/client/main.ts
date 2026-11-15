@@ -1,6 +1,7 @@
 // Ingresso del sito pubblico nel browser. Le pagine sono HTML completo: qui si aggiungono solo menu, movimento,
-// avviso della lingua, invio del modulo contatti e video dell'apertura.
+// consenso ai cookie, avviso della lingua, invio del modulo contatti e video dell'apertura.
 import "../site.css";
+import { initConsent } from "./consent";
 import { initContactForm } from "./contact";
 import { initHeroVideo } from "./hero-video";
 import { initLangNotice } from "./lang";
@@ -12,6 +13,8 @@ const start = () => {
   initMenu();
   initReveal();
   initMotion();
+  // Prima il consenso: l'avviso della lingua aspetta che il banner dei cookie sia chiuso.
+  initConsent();
   initLangNotice();
   initContactForm();
   initHeroVideo();

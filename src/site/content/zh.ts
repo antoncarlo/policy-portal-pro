@@ -293,6 +293,135 @@ export const zh: SiteContent = {
     complaints: "对中介机构业务的投诉，请以书面形式寄送至注册地址或认证电子邮箱。您也可以按照 ivass.it 上说明的方式向IVASS投诉。",
     rights: "保留所有权利。",
   },
+  legal: {
+    updated: "最后更新：",
+    noticeLabel: "Tecno Advance MGA Broker 的通用隐私声明（意大利语）",
+    privacy: {
+      sections: [
+        {
+          title: "谁处理您的数据",
+          paragraphs: [
+            "数据控制者为 Tecno Advance MGA Broker Srl，注册地址：Via Po, 102 - 00198 Roma（意大利），增值税号 17460381001，是登记于意大利保险中介统一登记册的保险中介，编号 B000746484。",
+            "有关您数据的任何问题，可以写信给隐私办公室 privacy@tecnomga.com，或数据保护官（DPO）dpo@tecnomga.com。",
+            "本政策适用于 portale.tecnomga.com 网站的公开部分及其联系表单。合同关系和客户登录区域适用{notice}。",
+          ],
+          list: [],
+        },
+        {
+          title: "我们收集哪些数据",
+          paragraphs: [
+            "我们不会把您的IP地址与联系请求一起保存。为防止表单被滥用，系统会由IP地址生成一个加密代码，无法从中还原出地址，最多保存一天。",
+            "我们不通过表单索取、也不希望收到特殊类别的数据（例如健康数据）或文件：申请所需的文件只在客户登录区域上传。",
+          ],
+          list: [
+            "您在联系表单中填写的数据：姓名、公司或事务所、身份、国家或地区、电子邮箱、留言内容，以及您选择填写的电话和预计申请数量。我们还会记录提交请求时的页面语言和页面。",
+            "浏览数据：IP地址、浏览器类型、请求的页面、日期和时间。这些数据由托管网站的系统自动记录，用于保证网站运行和安全。",
+            "保存在您浏览器中的偏好：您对Cookie和语言的选择。",
+            "谷歌工具收集的数据，仅在您同意的情况下收集：详见{cookie}页面。",
+          ],
+        },
+        {
+          title: "处理目的和法律依据",
+          paragraphs: [
+            "我们不会使用表单数据向您发送您未要求的新闻邮件或商业信息，也不会作出仅基于自动化处理的决定。",
+            "表单中的必填项用于回复您：没有这些信息，我们无法与您联系。",
+          ],
+          list: [
+            "回复您的请求，并在您提出要求时准备报价：这是应您的要求采取的订约前措施（欧盟第2016/679号条例第6条第1款b项）。",
+            "保证网站运行、保护网站并防止表单被滥用：这是我们的正当利益（第6条第1款f项）。",
+            "使用谷歌工具进行访问统计和广告效果衡量：仅在您同意的情况下进行（第6条第1款a项），您可以随时通过页脚的“Cookie设置”撤回同意。",
+          ],
+        },
+        {
+          title: "保存期限",
+          paragraphs: [],
+          list: [
+            "联系请求：自提交之日起24个月，之后从平台列表中自动删除。如果请求之后形成合同关系，则按通用隐私声明处理数据。",
+            "载有请求的电子邮件，保存在控制者的邮箱中：保存至处理完毕所需的时间。",
+            "浏览数据：按托管网站的服务商日志的技术保存期限保存。",
+            "Cookie选择：在您的浏览器中保存六个月，之后我们会再次询问。",
+          ],
+        },
+        {
+          title: "数据接收方",
+          paragraphs: [
+            "数据由控制者授权的人员以及为其提供技术服务的服务商（作为数据处理者）处理：",
+            "其中部分服务商位于美国。当处理涉及向欧洲经济区以外传输数据时，传输依据条例第45条和第46条规定的保障措施进行：对已通过《数据隐私框架》认证的机构适用充分性决定，或采用标准合同条款。",
+            "我们不出售您的数据，也不向其他方披露，除非法律或主管机关要求。如果请求转为正式申请，必要的数据将按通用隐私声明所述提供给保险公司。",
+          ],
+          list: [
+            "Vercel Inc.：托管网站并运行其功能，位于都柏林（爱尔兰）的数据中心。",
+            "Supabase Inc.：托管保存请求的数据库，位于爱尔兰的数据中心。",
+            "Google（Google Workspace）：提供电子邮件服务，请求通过该服务送达控制者的邮箱。",
+            "Google Ireland Limited：Google Analytics 和 Google Ads，仅在您同意的情况下使用。",
+            "Functional Software Inc.（Sentry）：接收网站意外的技术错误，不包含表单数据；其系统位于德国。",
+          ],
+        },
+        {
+          title: "您的权利",
+          paragraphs: [
+            "您可以随时要求访问、更正、删除您的数据，限制处理以及数据可携带，并可以反对基于正当利益的处理（条例第15条至第22条）。如果您曾表示同意，可以撤回同意，撤回不影响此前已进行的处理。",
+            "行使权利请写信至 privacy@tecnomga.com 或注册地址。我们将按照条例第12条的规定在一个月内答复。",
+            "如果您认为处理违反了条例，可以向意大利个人数据保护局（https://www.garanteprivacy.it/）或您居住或工作所在国家的监管机构投诉。",
+          ],
+          list: [],
+        },
+        {
+          title: "本政策的变更",
+          paragraphs: ["当处理方式或服务商发生变化时，我们会更新本页面。最后更新日期标注在页面底部。"],
+          list: [],
+        },
+      ],
+    },
+    cookie: {
+      intro: [
+        {
+          title: "什么是Cookie",
+          paragraphs: ["Cookie是网站保存在您浏览器中的小文件。类似的工具（例如浏览器的本地存储）用途相同：在页面之间记住某些信息。本页面列出 portale.tecnomga.com 网站公开部分在您浏览器中保存的内容及其原因。"],
+          list: [],
+        },
+        {
+          title: "我们使用什么",
+          paragraphs: [
+            "本网站不使用自有的画像类Cookie。网站使用技术性工具记住您的选择，并且仅在您同意的情况下使用谷歌的工具进行访问统计和广告效果衡量。",
+            "在您作出选择之前以及拒绝之后，不会加载任何谷歌脚本。如果您拒绝，网站照常运行。",
+          ],
+          list: [],
+        },
+      ],
+      tableTitle: "列表",
+      columns: { name: "名称", purpose: "用途", duration: "期限", owner: "所属方" },
+      rows: [
+        { name: "tecno-consent-v1（本地存储）", purpose: "必要。记住您对Cookie的选择。", duration: "6个月", owner: "Tecno MGA" },
+        { name: "tecno-lang-choice（本地存储）", purpose: "必要。记住您已选择语言，避免再次显示提示。", duration: "直到您清除浏览器数据", owner: "Tecno MGA" },
+        { name: "_ga", purpose: "统计，仅在同意后使用。Google Analytics：区分访问者。", duration: "2年", owner: "Google" },
+        { name: "_ga_<ID>", purpose: "统计，仅在同意后使用。Google Analytics：保持访问状态。", duration: "2年", owner: "Google" },
+        { name: "_gcl_au", purpose: "营销，仅在同意后使用。Google Ads：将访问与广告关联，以统计咨询数量。", duration: "90天", owner: "Google" },
+        { name: "_gcl_aw", purpose: "营销，仅在同意后使用。Google Ads：记住您点击进入的广告。", duration: "90天", owner: "Google" },
+        { name: "IDE（doubleclick.net）", purpose: "营销，仅在同意后使用。Google Ads：在谷歌域名上衡量广告效果。", duration: "最长13个月", owner: "Google" },
+      ],
+      after: [
+        {
+          title: "如何更改选择",
+          paragraphs: [
+            "您可以随时通过页脚的“Cookie设置”改变主意：新的选择立即生效；拒绝之后，网站保存的谷歌Cookie会被删除。您也可以在浏览器设置中删除Cookie。",
+            "当网站未启用谷歌工具时，无需作出任何选择，“Cookie设置”也不会出现。",
+          ],
+          list: [],
+        },
+        {
+          title: "客户登录区域",
+          paragraphs: ["登录之后，平台的客户区域使用自己的技术性工具来保持会话并记住语言。这些工具不用于画像。"],
+          list: [],
+        },
+        {
+          title: "谁处理数据",
+          paragraphs: ["数据控制者为 Tecno Advance MGA Broker Srl。谷歌工具收集的数据同时由 Google Ireland Limited 处理。其余内容请阅读{privacy}页面。"],
+          list: [],
+        },
+      ],
+    },
+  },
   legalNotice: "本页面为以推广为目的的广告信息。投保前请阅读保险信息文件（set informativo）。",
   cookieBanner: {
     title: "Cookie",

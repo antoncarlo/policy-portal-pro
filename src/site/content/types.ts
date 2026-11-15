@@ -24,6 +24,13 @@ export interface TitledText {
   text: string;
 }
 
+/** Una sezione di una pagina di testo. Nei paragrafi «{privacy}», «{cookie}» e «{notice}» diventano link; indirizzi email e indirizzi web si collegano da soli. */
+export interface LegalSection {
+  title: string;
+  paragraphs: string[];
+  list: string[];
+}
+
 /** Lo stato di una riga nell'interfaccia di esempio: decide il colore, non il testo. */
 export type MockTone = "done" | "progress" | "waiting" | "missing";
 
@@ -173,6 +180,19 @@ export interface SiteContent {
     complaintsTitle: string;
     complaints: string;
     rights: string;
+  };
+  legal: {
+    updated: string;
+    /** Il testo del link all'informativa generale dell'intermediario (PDF). */
+    noticeLabel: string;
+    privacy: { sections: LegalSection[] };
+    cookie: {
+      intro: LegalSection[];
+      tableTitle: string;
+      columns: { name: string; purpose: string; duration: string; owner: string };
+      rows: Array<{ name: string; purpose: string; duration: string; owner: string }>;
+      after: LegalSection[];
+    };
   };
   /** Avvertenza sulla pubblicità dei prodotti assicurativi. */
   legalNotice: string;

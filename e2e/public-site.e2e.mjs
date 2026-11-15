@@ -8,8 +8,15 @@ const results = [];
 const check = (name, ok, extra = "") => { results.push({ name, ok }); console.log(`${ok ? "OK  " : "FAIL"} ${name} ${ok ? "" : extra}`); };
 
 const browser = await chromium.launch();
-async function open(options = {}) {
+const GOOGLE = /^https:\/\/([a-z0-9-]+\.)*(googletagmanager\.com|google-analytics\.com|analytics\.google\.com|doubleclick\.net|googleadservices\.com|googlesyndication\.com|google\.com|google\.it)\//;
+const REFUSED = JSON.stringify({ statistics: false, marketing: false, decidedAt: new Date().toISOString() });
+/** `consent`: "refused" (default: the cookie banner stays out of the way), "ask" (first visit, no choice yet). */
+async function open({ consent = "refused", ...options } = {}) {
   const ctx = await browser.newContext({ locale: "it-IT", viewport: { width: 1440, height: 900 }, ...options });
+  // Google's addresses are answered here and counted: nothing real is contacted.
+  const google = [];
+  await ctx.route(GOOGLE, (route) => { google.push(route.request().url()); return route.fulfill({ status: 200, contentType: "application/javascript", body: "/* e2e */" }); });
+  if (consent === "refused") await ctx.addInitScript((value) => { try { if (!localStorage.getItem("tecno-consent-v1")) localStorage.setItem("tecno-consent-v1", value); } catch { /* storage unavailable */ } }, REFUSED);
   // The reserved area is reached from the site: its services are answered here, nothing real is touched.
   const hdr = { "access-control-allow-origin": BASE, "access-control-allow-headers": "*", "access-control-allow-methods": "*" };
   await ctx.route(`${SUPA}/**`, (route) => (route.request().method() === "OPTIONS" ? route.fulfill({ status: 204, headers: hdr }) : route.fulfill({ status: 200, contentType: "application/json", headers: hdr, body: "[]" })));
@@ -20,7 +27,7 @@ async function open(options = {}) {
   page.on("pageerror", (e) => pageErrors.push(String(e).slice(0, 200)));
   page.on("console", (message) => { if (message.type() === "error") pageErrors.push(message.text().slice(0, 200)); });
   page.on("request", (request) => { const url = new URL(request.url()); if (url.origin !== new URL(BASE).origin && url.protocol.startsWith("http")) external.push(url.origin); });
-  return { ctx, page, pageErrors, external };
+  return { ctx, page, pageErrors, external, google };
 }
 const ANCHORS = ["cos-e", "per-chi", "come-funziona", "portale", "documenti", "costo", "domande", "contatti"];
 const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -40,6 +47,7 @@ for (const [path, lang, h1] of [["/", "it", "Fideiussione VIES per soggetti non 
   const text = (await page.locator("body").innerText()).replace(/\s+/g, " ");
   check(`${path} senza JS: recapiti e dati dell'intermediario nel testo`, ["vies@tecnomga.com", "06.97638088", "tecnoadvancemgabroker@legalmail.it", "B000746484", "17460381001", "Via Po, 102"].every((fact) => text.includes(fact)));
   check(`${path} senza JS: il modulo indica l'indirizzo email come alternativa`, (await page.locator("form[data-contact-form] noscript").count()) === 1 && /vies@tecnomga\.com/.test(await page.locator("form[data-contact-form]").innerText()));
+  check(`${path} senza JS: il banner dei cookie non compare (nessuno script, nessuna scelta da fare)`, !(await page.locator("[data-cookie-banner]").isVisible()));
   check(`${path} senza JS: la prima domanda è aperta, le altre restano nell'HTML`, (await page.locator(".faq__item[open]").count()) === 1 && (await page.locator(".faq__item").count()) >= 8);
   await ctx.close();
 }
@@ -241,6 +249,124 @@ const contactRoute = async (ctx, answer) => {
   await page.locator("form[data-contact-form] button[type=submit]").click();
   await page.waitForFunction(() => document.querySelector("[data-form-status]").dataset.state === "error", null, { timeout: 5000 });
   check("modulo, rete assente: compare l'errore con l'indirizzo email", /vies@tecnomga\.com/.test(await page.locator("[data-form-status]").innerText()));
+  await ctx.close();
+}
+
+// 8) cookies: nothing of Google before the choice or after a refusal; the choice is remembered and can be changed
+const layer = (page) => page.evaluate(() => (window.dataLayer ?? []).map((entry) => Array.from(entry)));
+const stored = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("tecno-consent-v1") ?? "null"));
+const banner = (page) => page.locator("[data-cookie-banner]");
+{
+  const { ctx, page, google, pageErrors } = await open({ consent: "ask" });
+  await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+  const buttons = await banner(page).locator(".cookie-banner__actions button:visible").allInnerTexts();
+  check("cookie, prima visita: il banner propone Accetta, Rifiuta e Personalizza", (await banner(page).isVisible()) && buttons.join("|") === "Accetta|Rifiuta|Personalizza", buttons.join("|"));
+  const sizes = await banner(page).locator(".cookie-banner__actions button:visible").evaluateAll((items) => items.map((item) => { const style = getComputedStyle(item); return `${style.backgroundColor}/${style.color}/${style.fontSize}/${style.fontWeight}`; }));
+  check("cookie, prima visita: i tre pulsanti hanno lo stesso aspetto", new Set(sizes).size === 1, sizes.join(" · "));
+  check("cookie, prima della scelta: nessuna richiesta a Google e nessuno script di misurazione", google.length === 0 && (await page.evaluate(() => typeof window.dataLayer)) === "undefined" && (await page.locator('script[src*="googletagmanager"]').count()) === 0, google.join(", "));
+  check("cookie, prima della scelta: «Preferenze cookie» è già nel piè di pagina, per chi vuole decidere da lì", (await page.locator("[data-cookie-preferences-item]").getAttribute("hidden")) === null);
+  await page.screenshot({ path: SHOTS + "public-site-cookie-banner.png" });
+
+  await banner(page).locator('[data-consent="reject"]').click();
+  await page.waitForTimeout(400);
+  check("cookie, «Rifiuta»: il banner si chiude, la scelta è salvata, nessuna richiesta a Google", !(await banner(page).isVisible()) && (await stored(page))?.statistics === false && (await stored(page))?.marketing === false && google.length === 0, JSON.stringify(await stored(page)));
+  await page.reload({ waitUntil: "networkidle" });
+  check("cookie, dopo il rifiuto: al ricaricamento il banner non torna e Google non viene contattato", !(await banner(page).isVisible()) && google.length === 0, google.join(", "));
+
+  // the choice can be changed from the footer
+  const preferences = page.locator("[data-cookie-preferences]");
+  await preferences.scrollIntoViewIfNeeded();
+  check("cookie: «Preferenze cookie» è nel piè di pagina", (await preferences.isVisible()) && (await preferences.innerText()) === "Preferenze cookie");
+  await preferences.click();
+  check("cookie, «Preferenze cookie»: riapre il banner con le categorie e la scelta fatta", (await banner(page).isVisible()) && (await banner(page).locator('input[name="statistics"]').isVisible()) && !(await banner(page).locator('input[name="statistics"]').isChecked()) && !(await banner(page).locator('input[name="marketing"]').isChecked()) && (await banner(page).locator('input[disabled]').isChecked()));
+
+  // statistics only
+  await banner(page).locator('input[name="statistics"]').check();
+  await banner(page).locator('[data-consent="save"]').click();
+  await page.waitForFunction(() => document.querySelector('script[src*="googletagmanager"]') !== null, null, { timeout: 5000 }).catch(() => {});
+  const scripts = await page.locator('script[src*="googletagmanager"]').evaluateAll((items) => items.map((item) => item.getAttribute("src")));
+  const entries = await layer(page);
+  const consentCalls = entries.filter((entry) => entry[0] === "consent");
+  check("cookie, solo statistiche: parte lo script di Google con l'identificativo di Analytics", scripts.length === 1 && scripts[0] === "https://www.googletagmanager.com/gtag/js?id=G-E2ETEST001" && google.some((url) => url.includes("gtag/js?id=G-E2ETEST001")), scripts.join(", "));
+  check("cookie, solo statistiche: a Google si dice prima «negato a tutto», poi statistiche sì e pubblicità no", consentCalls.length === 2 && consentCalls[0][1] === "default" && Object.values(consentCalls[0][2]).every((value) => value === "denied") && consentCalls[1][1] === "update" && consentCalls[1][2].analytics_storage === "granted" && consentCalls[1][2].ad_storage === "denied" && consentCalls[1][2].ad_user_data === "denied" && consentCalls[1][2].ad_personalization === "denied", JSON.stringify(consentCalls));
+  const configs = entries.filter((entry) => entry[0] === "config").map((entry) => entry[1]);
+  check("cookie, solo statistiche: si configura Analytics e non Ads", configs.join() === "G-E2ETEST001", configs.join());
+
+  // refusing again withdraws the consent and removes Google's cookies kept by the site
+  await page.evaluate(() => { document.cookie = "_ga=GA1.1.e2e; path=/"; document.cookie = "_ga_E2ETEST001=GS1.1.e2e; path=/"; document.cookie = "altro=resta; path=/"; });
+  await preferences.click();
+  check("cookie, «Preferenze cookie» dopo un consenso: la casella delle statistiche è spuntata", await banner(page).locator('input[name="statistics"]').isChecked());
+  await banner(page).locator('[data-consent="reject"]').click();
+  await page.waitForTimeout(300);
+  const after = await layer(page);
+  const last = after.filter((entry) => entry[0] === "consent").pop();
+  const cookies = await page.evaluate(() => document.cookie);
+  check("cookie, consenso revocato: a Google si dice «negato», i suoi cookie sono cancellati e gli altri restano", last?.[1] === "update" && Object.values(last[2]).every((value) => value === "denied") && !/_ga/.test(cookies) && /altro=resta/.test(cookies), `${JSON.stringify(last)} · ${cookies}`);
+  check("cookie: nessun errore JavaScript", pageErrors.length === 0, pageErrors.join(" | "));
+  await ctx.close();
+}
+{
+  const { ctx, page, google } = await open({ consent: "ask" });
+  const calls = await contactRoute(ctx, { status: 200, body: { ok: true } });
+  await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+  await banner(page).locator('[data-consent="accept"]').click();
+  await page.waitForFunction(() => document.querySelector('script[src*="googletagmanager"]') !== null, null, { timeout: 5000 }).catch(() => {});
+  const entries = await layer(page);
+  const update = entries.filter((entry) => entry[0] === "consent").pop();
+  check("cookie, «Accetta»: statistiche e pubblicità concesse, Analytics e Ads configurati, uno script solo", update?.[1] === "update" && Object.values(update[2]).every((value) => value === "granted") && entries.filter((entry) => entry[0] === "config").map((entry) => entry[1]).join() === "G-E2ETEST001,AW-1234567890" && (await page.locator('script[src*="googletagmanager"]').count()) === 1 && (await stored(page))?.marketing === true, JSON.stringify(update));
+  await page.reload({ waitUntil: "networkidle" });
+  check("cookie, dopo «Accetta»: al ricaricamento il banner non torna e la misurazione riparte da sola", !(await banner(page).isVisible()) && (await page.locator('script[src*="googletagmanager"]').count()) === 1 && google.filter((url) => url.includes("gtag/js")).length === 2);
+  await page.locator("#contatti").scrollIntoViewIfNeeded();
+  await fill(page);
+  await page.locator("form[data-contact-form] button[type=submit]").click();
+  await page.waitForFunction(() => document.querySelector("[data-form-status]").dataset.state === "success", null, { timeout: 5000 });
+  const events = (await layer(page)).filter((entry) => entry[0] === "event");
+  check("cookie, con consenso: una richiesta inviata è contata come contatto (Analytics) e come conversione (Ads)", calls.length === 1 && events.some((entry) => entry[1] === "generate_lead") && events.some((entry) => entry[1] === "conversion" && entry[2]?.send_to === "AW-1234567890/e2eLabel_1"), JSON.stringify(events));
+  await ctx.close();
+}
+{
+  const { ctx, page, google } = await open({ consent: "ask" });
+  await contactRoute(ctx, { status: 200, body: { ok: true } });
+  await page.goto(`${BASE}/en/`, { waitUntil: "networkidle" });
+  check("cookie, pagina inglese: il banner è in inglese", (await banner(page).locator(".cookie-banner__actions button:visible").allInnerTexts()).join("|") === "Accept|Reject|Customise");
+  await banner(page).locator('[data-consent="close"]').click();
+  await page.waitForTimeout(300);
+  check("cookie, chiusura con la X: vale come rifiuto", !(await banner(page).isVisible()) && (await stored(page))?.statistics === false && (await stored(page))?.marketing === false && google.length === 0);
+  await page.locator("#contatti").scrollIntoViewIfNeeded();
+  await fill(page);
+  await page.locator("form[data-contact-form] button[type=submit]").click();
+  await page.waitForFunction(() => document.querySelector("[data-form-status]").dataset.state === "success", null, { timeout: 5000 });
+  check("cookie, senza consenso: una richiesta inviata non dice nulla a Google", google.length === 0 && (await page.evaluate(() => typeof window.dataLayer)) === "undefined", google.join(", "));
+  await ctx.close();
+}
+{
+  // an old choice is asked again
+  const { ctx, page, google } = await open({ consent: "ask" });
+  await ctx.addInitScript(() => { try { if (!sessionStorage.getItem("e2e-old")) { localStorage.setItem("tecno-consent-v1", JSON.stringify({ statistics: true, marketing: true, decidedAt: new Date(Date.now() - 181 * 86400000).toISOString() })); sessionStorage.setItem("e2e-old", "1"); } } catch { /* storage unavailable */ } });
+  await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+  check("cookie, scelta più vecchia di sei mesi: si chiede di nuovo e nel frattempo nulla parte verso Google", (await banner(page).isVisible()) && google.length === 0, google.join(", "));
+  await ctx.close();
+}
+{
+  // the language notice waits for the cookie choice: one thing at a time at the bottom of the screen
+  const { ctx, page } = await open({ consent: "ask", locale: "en-GB" });
+  await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+  const notice = page.locator('[data-lang-notice="en"]');
+  check("cookie e lingua: finché il banner è aperto l'avviso della lingua aspetta", (await banner(page).isVisible()) && !(await notice.isVisible()));
+  await banner(page).locator('[data-consent="reject"]').click();
+  await page.waitForTimeout(300);
+  check("cookie e lingua: fatta la scelta compare l'avviso della lingua", await notice.isVisible());
+  await ctx.close();
+}
+{
+  const { ctx, page } = await open({ consent: "ask", viewport: { width: 360, height: 740 }, hasTouch: true, isMobile: true });
+  await page.goto(`${BASE}/zh/`, { waitUntil: "networkidle" });
+  const box = await banner(page).boundingBox();
+  check("cookie, telefono 360: il banner sta nello schermo senza scorrimento orizzontale", (await banner(page).isVisible()) && box.x >= 0 && box.x + box.width <= 360 && box.y + box.height <= 740 && (await overflow(page)) === 0, JSON.stringify(box));
+  await banner(page).locator('[data-consent="customise"]').click();
+  const open2 = await banner(page).boundingBox();
+  check("cookie, telefono 360: anche con le categorie aperte il banner sta nello schermo e si può salvare", open2.y >= 0 && open2.y + open2.height <= 740 && (await banner(page).locator('[data-consent="save"]').isVisible()), JSON.stringify(open2));
+  await page.screenshot({ path: SHOTS + "public-site-cookie-phone.png" });
   await ctx.close();
 }
 

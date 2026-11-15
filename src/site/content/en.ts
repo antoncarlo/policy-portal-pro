@@ -294,6 +294,137 @@ export const en: SiteContent = {
     complaints: "Complaints about the intermediary's conduct are made in writing to the registered office or to the certified email address. You may also turn to IVASS, as explained on ivass.it.",
     rights: "All rights reserved.",
   },
+  legal: {
+    updated: "Last updated:",
+    noticeLabel: "general privacy notice of Tecno Advance MGA Broker (in Italian)",
+    privacy: {
+      sections: [
+        {
+          title: "Who processes your data",
+          paragraphs: [
+            "The data controller is Tecno Advance MGA Broker Srl, registered office at Via Po, 102 - 00198 Roma, Italy, VAT no. 17460381001, an insurance intermediary entered in the Italian Single Register of Insurance Intermediaries under no. B000746484.",
+            "For any question about your data you can write to the privacy office, privacy@tecnomga.com, or to the data protection officer (DPO), dpo@tecnomga.com.",
+            "This notice covers the public part of the site portale.tecnomga.com and its contact form. Contractual relationships and the client area are covered by the {notice}.",
+          ],
+          list: [],
+        },
+        {
+          title: "Which data we collect",
+          paragraphs: [
+            "We do not store your IP address with the contact request. To prevent abuse of the form the system derives an encrypted code from it, which cannot be turned back into the address, and keeps it for one day at most.",
+            "We do not ask for, and do not want to receive through the form, special categories of data, such as health data, or documents: the documents of an application are uploaded only in the client area.",
+          ],
+          list: [
+            "Data you write in the contact form: full name, company or firm, role, country, email, the text of the message and, if you give them, phone and expected number of applications. We also record the language and the page the request was sent from.",
+            "Browsing data: IP address, browser type, pages requested, date and time. They are recorded automatically by the systems hosting the site, to make it work and to protect it.",
+            "Preferences saved in your browser: your cookie choice and your language choice.",
+            "Data collected by Google's tools, only if you have given consent: they are described on the {cookie} page.",
+          ],
+        },
+        {
+          title: "Why we process them and on what basis",
+          paragraphs: [
+            "We do not use the data from the form to send you newsletters or commercial communications you have not asked for, and we take no decisions based solely on automated processing.",
+            "The required fields of the form are needed to answer you: without them we cannot contact you.",
+          ],
+          list: [
+            "Answering your request and, if you ask for one, preparing a quotation: these are pre-contractual steps taken at your request (Article 6(1)(b) of Regulation (EU) 2016/679).",
+            "Making the site work, protecting it and preventing abuse of the form: this is our legitimate interest (Article 6(1)(f)).",
+            "Visit statistics and measurement of advertising campaigns with Google's tools: only with your consent (Article 6(1)(a)), which you can withdraw at any time from “Cookie preferences” in the footer.",
+          ],
+        },
+        {
+          title: "How long we keep them",
+          paragraphs: [],
+          list: [
+            "Contact requests: 24 months from sending, then they are deleted automatically from the portal's list. If a contract follows from the request, the data are processed under the general privacy notice.",
+            "The email carrying the request, in the controller's mailbox: for the time needed to handle it.",
+            "Browsing data: for the technical retention of the logs of the provider hosting the site.",
+            "Cookie choice: six months in your browser, then we ask again.",
+          ],
+        },
+        {
+          title: "Who receives the data",
+          paragraphs: [
+            "The data are processed by the controller's authorised staff and by the providers supplying technical services to it, as processors:",
+            "Some of these providers are based in the United States. When processing involves a transfer of data outside the European Economic Area, it takes place with the safeguards of Articles 45 and 46 of the Regulation: an adequacy decision for organisations certified under the Data Privacy Framework, or standard contractual clauses.",
+            "We do not sell your data and we do not disclose them to anyone else, unless the law or an authority requires it. If the request becomes an application, the necessary data are disclosed to the insurance company, as described in the general privacy notice.",
+          ],
+          list: [
+            "Vercel Inc.: hosts the site and runs its functions, in the Dublin (Ireland) data centre.",
+            "Supabase Inc.: hosts the database where the requests are saved, in its data centre in Ireland.",
+            "Google (Google Workspace): provides the email through which the request reaches the controller's mailbox.",
+            "Google Ireland Limited: Google Analytics and Google Ads, only if you have given consent.",
+            "Functional Software Inc. (Sentry): receives unexpected technical errors of the site, without the data of the form; its systems are in Germany.",
+          ],
+        },
+        {
+          title: "Your rights",
+          paragraphs: [
+            "At any time you can ask for access to your data, rectification, erasure, restriction of processing and portability, and you can object to processing based on legitimate interest (Articles 15 to 22 of the Regulation). If you have given consent you can withdraw it, without affecting what was done before.",
+            "To exercise your rights write to privacy@tecnomga.com or to the registered office. We reply within one month, as Article 12 of the Regulation requires.",
+            "If you believe the processing infringes the Regulation you can lodge a complaint with the Italian data protection authority, the Garante per la protezione dei dati personali (https://www.garanteprivacy.it/), or with the supervisory authority of the country where you live or work.",
+          ],
+          list: [],
+        },
+        {
+          title: "Changes to this notice",
+          paragraphs: ["We update this page when the processing or the providers change. The date of the last update is shown at the bottom of the page."],
+          list: [],
+        },
+      ],
+    },
+    cookie: {
+      intro: [
+        {
+          title: "What they are",
+          paragraphs: [
+            "Cookies are small files a site saves in your browser. Similar tools, such as the browser's local storage, serve the same purpose: remembering something from one page to the next. This page lists what the public part of the site portale.tecnomga.com saves in your browser, and why.",
+          ],
+          list: [],
+        },
+        {
+          title: "What we use",
+          paragraphs: [
+            "The site uses no profiling cookies of its own. It uses technical tools to remember your choices and, only if you agree, Google's tools for visit statistics and to measure advertising campaigns.",
+            "Before your choice, and after a refusal, no Google script is loaded. If you refuse, the site works in the same way.",
+          ],
+          list: [],
+        },
+      ],
+      tableTitle: "List",
+      columns: { name: "Name", purpose: "What it is for", duration: "Duration", owner: "Whose it is" },
+      rows: [
+        { name: "tecno-consent-v1 (local storage)", purpose: "Necessary. Remembers your cookie choice.", duration: "6 months", owner: "Tecno MGA" },
+        { name: "tecno-lang-choice (local storage)", purpose: "Necessary. Remembers that you chose a language, so the notice is not shown again.", duration: "Until you clear your browser data", owner: "Tecno MGA" },
+        { name: "_ga", purpose: "Statistics, only with consent. Google Analytics: tells visitors apart.", duration: "2 years", owner: "Google" },
+        { name: "_ga_<ID>", purpose: "Statistics, only with consent. Google Analytics: keeps the state of the visit.", duration: "2 years", owner: "Google" },
+        { name: "_gcl_au", purpose: "Marketing, only with consent. Google Ads: links the visit to an ad to count contact requests.", duration: "90 days", owner: "Google" },
+        { name: "_gcl_aw", purpose: "Marketing, only with consent. Google Ads: remembers the click on the ad you came from.", duration: "90 days", owner: "Google" },
+        { name: "IDE (doubleclick.net)", purpose: "Marketing, only with consent. Google Ads: ad measurement on Google's domains.", duration: "Up to 13 months", owner: "Google" },
+      ],
+      after: [
+        {
+          title: "How to change your choice",
+          paragraphs: [
+            "You can change your mind at any time with “Cookie preferences” in the footer: the new choice applies at once, and with a refusal the Google cookies saved by the site are deleted. You can also delete cookies from your browser settings.",
+            "When Google's tools are not active on the site there is no choice to make, and the “Cookie preferences” command does not appear.",
+          ],
+          list: [],
+        },
+        {
+          title: "The client area",
+          paragraphs: ["After sign-in, the client area of the portal uses its own technical tools to keep the session and remember the language. They are not used for profiling."],
+          list: [],
+        },
+        {
+          title: "Who processes the data",
+          paragraphs: ["The controller is Tecno Advance MGA Broker Srl. The data collected by Google's tools are also processed by Google Ireland Limited. For everything else read the {privacy} page."],
+          list: [],
+        },
+      ],
+    },
+  },
   legalNotice: "Advertising message for promotional purposes. Before signing, read the policy documentation (set informativo).",
   cookieBanner: {
     title: "Cookies",
