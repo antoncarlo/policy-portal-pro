@@ -64,6 +64,8 @@ La tabella `contact_requests` è scrivibile solo dal server. Gli amministratori 
 
 Senza identificativi il sito non carica nulla di Google e il banner non esiste. Con gli identificativi (solo nella forma `G-…` e `AW-…`, altrimenti sono ignorati) compare il banner con un unico consenso per statistiche e campagne: «Accetta» e «Rifiuta» di pari evidenza; la chiusura vale rifiuto. Prima della scelta e dopo un rifiuto non parte nessuna richiesta verso Google. La scelta dura 180 giorni e si cambia da «Preferenze cookie» nel piè di pagina. Una richiesta inviata dal modulo è contata come `generate_lead` (Analytics) e come conversione (Ads), solo con il consenso.
 
+Il consenso unico è una scelta del titolare, confermata il 15/11/2026: le linee guida del Garante del 2021 prevedono anche la scelta per finalità, quindi qui la scelta è tutto o niente. Il modello dei dati tiene comunque separate statistiche e campagne, se in futuro servisse dividerle.
+
 ## SECTION 06 — Variabili d'ambiente
 
 | Variabile | Dove | A cosa serve |
@@ -101,14 +103,18 @@ Il video è caricato dallo script a pagina pronta; con «riduci movimento» o ri
 
 ## SECTION 09 — Cosa serve dal titolare
 
-| Cosa | Perché |
-|---|---|
-| Proprietà di dominio `tecnomga.com` in Google Search Console (record TXT su Cloudflare) e `VITE_GSC_VERIFICATION` | Senza, le ricerche e l'indicizzazione non si possono leggere né inviare la mappa del sito |
-| Bing Webmaster e `VITE_BING_VERIFICATION` | Bing alimenta ChatGPT e Copilot |
-| Identificativi di Analytics e Ads | Per attivare misurazione e campagne |
-| Rilettura dell'informativa privacy e della pagina cookie | Sono testi legali a nome della società: li conferma il responsabile della protezione dei dati |
-| Conferma dell'avvertenza pubblicitaria e del testo sui reclami | Requisiti IVASS sulla pubblicità dei prodotti assicurativi |
-| Conferma delle lingue in cui l'ufficio risponde | I dati strutturati indicano italiano, inglese e cinese |
+Nessuno di questi punti blocca la pubblicazione: il sito è indicizzabile anche senza. Sono proprietà e account del titolare (Google, Microsoft): vanno creati da lui; gli identificativi si impostano poi su Vercel e serve una nuova pubblicazione.
+
+| Cosa | Perché | Senza |
+|---|---|---|
+| Google Search Console: proprietà di dominio `tecnomga.com` (record TXT nel DNS; `VITE_GSC_VERIFICATION` non serve) oppure proprietà con prefisso `https://portale.tecnomga.com/` (meta tag: il codice va in `VITE_GSC_VERIFICATION`) | Leggere ricerche, clic e stato dell'indicizzazione; inviare `sitemap.xml` | Google trova comunque il sito, ma non si vede cosa cerca chi arriva né eventuali errori |
+| Bing Webmaster: importazione da Search Console (nessuna variabile) oppure meta tag (`VITE_BING_VERIFICATION`) | Bing alimenta Copilot e la ricerca di ChatGPT | Come sopra, per Bing |
+| Google Analytics 4 (`VITE_GA4_ID`) | Visite e richieste inviate dal modulo | Nessun dato sulle visite; il banner dei cookie non compare |
+| Google Ads (`VITE_GOOGLE_ADS_ID`, `VITE_GOOGLE_ADS_CONVERSION_LABEL`) | Contare le richieste come conversioni delle campagne | Le campagne partono lo stesso, ma senza sapere quali annunci portano richieste |
+| Conferma dell'avvertenza pubblicitaria e del testo sui reclami | Requisiti IVASS sulla pubblicità dei prodotti assicurativi | — |
+| Conferma delle lingue in cui l'ufficio risponde | I dati strutturati indicano italiano, inglese e cinese | — |
+
+Decisioni del titolare (15/11/2026): consenso unico ai cookie (SECTION 05); recapito del responsabile della protezione dei dati `antoncarlo@tecnomga.com`, lo stesso dei documenti del portale.
 
 ## SECTION 10 — Norme verificate
 
