@@ -47,7 +47,6 @@ export interface SiteContent {
     home: string;
   };
   hero: {
-    eyebrow: string;
     lead: string;
     /** I tre dati chiave della garanzia. */
     facts: Array<{ value: string; label: string }>;
@@ -63,13 +62,11 @@ export interface SiteContent {
     ruiCheck: string;
   };
   whatIs: {
-    eyebrow: string;
     title: string;
     /** La risposta diretta, 40-60 parole. */
     answer: string;
     facts: Array<{ term: string; text: string }>;
     formsTitle: string;
-    formsIntro: string;
     formsColumns: { form: string; issuer: string; commitment: string };
     forms: Array<{ form: string; issuer: string; commitment: string }>;
     lawTitle: string;
@@ -80,22 +77,16 @@ export interface SiteContent {
     updated: string;
   };
   audiences: {
-    eyebrow: string;
     title: string;
-    intro: string;
     items: Array<{ title: string; text: string; points: string[]; cta: string }>;
   };
   steps: {
-    eyebrow: string;
     title: string;
-    intro: string;
     items: TitledText[];
     outcome: string;
   };
   portal: {
-    eyebrow: string;
     title: string;
-    intro: string;
     features: TitledText[];
     api: { text: string; cta: string };
     /** Interfaccia ridisegnata con dati inventati: mai schermate o nomi reali. */
@@ -108,14 +99,11 @@ export interface SiteContent {
     };
   };
   documents: {
-    eyebrow: string;
     title: string;
-    intro: string;
     items: TitledText[];
     note: string;
   };
   cost: {
-    eyebrow: string;
     title: string;
     answer: string;
     factors: TitledText[];
@@ -123,15 +111,11 @@ export interface SiteContent {
     note: string;
   };
   faq: {
-    eyebrow: string;
     title: string;
-    intro: string;
     items: Array<{ q: string; a: string }>;
   };
   contact: {
-    eyebrow: string;
     title: string;
-    intro: string;
     form: {
       name: string;
       company: string;
@@ -196,21 +180,14 @@ export interface SiteContent {
   };
   /** Avvertenza sulla pubblicità dei prodotti assicurativi. */
   legalNotice: string;
+  /** Un solo consenso per tutti i cookie non tecnici: «Accetta» o «Rifiuta»; la chiusura vale rifiuto. */
   cookieBanner: {
     title: string;
     text: string;
     accept: string;
     reject: string;
-    customise: string;
-    save: string;
     close: string;
     policyLink: string;
-    categories: {
-      necessary: TitledText;
-      statistics: TitledText;
-      marketing: TitledText;
-    };
-    alwaysOn: string;
   };
   /** L'avviso mostrato a chi ha il browser in questa lingua e sta leggendo la pagina in un'altra. */
   langNotice: {

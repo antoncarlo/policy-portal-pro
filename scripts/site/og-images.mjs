@@ -37,9 +37,7 @@ body { width: 1200px; height: 630px; overflow: hidden; color: #fff; font-family:
 .shade { position: absolute; inset: 0; background: linear-gradient(90deg, #061826 0%, rgba(6, 24, 38, 0.94) 38%, rgba(6, 24, 38, 0.35) 72%, rgba(6, 24, 38, 0.1) 100%); }
 .frame { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 56px 64px 52px; }
 .logo { height: 76px; width: auto; align-self: flex-start; }
-.eyebrow { display: flex; align-items: center; gap: 14px; font-size: 19px; font-weight: 600; letter-spacing: ${cjk ? "0.06em" : "0.14em"}; text-transform: uppercase; color: #c9a882; }
-.eyebrow::before { content: ""; width: 44px; height: 2px; background: currentColor; }
-h1 { max-width: 780px; margin-top: 18px; font-family: ${cjk ? '"Noto Sans CJK SC", "PingFang SC", "Microsoft YaHei", sans-serif' : '"Lora", Georgia, serif'}; font-size: ${cjk ? 62 : 66}px; font-weight: ${cjk ? 700 : 600}; line-height: 1.1; letter-spacing: ${cjk ? "0" : "-0.015em"}; }
+h1 { max-width: 780px; font-family: ${cjk ? '"Noto Sans CJK SC", "PingFang SC", "Microsoft YaHei", sans-serif' : '"Lora", Georgia, serif'}; font-size: ${cjk ? 62 : 66}px; font-weight: ${cjk ? 700 : 600}; line-height: 1.1; letter-spacing: ${cjk ? "0" : "-0.015em"}; }
 .facts { display: flex; gap: 14px; margin-top: 30px; }
 .fact { padding: 12px 22px; border: 1px solid rgba(255, 255, 255, 0.24); border-radius: 999px; background: rgba(255, 255, 255, 0.1); font-size: 24px; font-weight: 600; white-space: nowrap; }
 .foot { display: flex; align-items: center; justify-content: space-between; font-size: 20px; font-weight: 500; color: #c5d6e3; }
@@ -49,7 +47,6 @@ h1 { max-width: 780px; margin-top: 18px; font-family: ${cjk ? '"Noto Sans CJK SC
 <div class="frame">
   <img class="logo" src="${file("public/site-media/tecno-mga-logo-chiaro.svg")}" alt="">
   <div>
-    <p class="eyebrow">${escape(content.hero.card.title)}</p>
     <h1>${escape(content.meta.home.h1)}</h1>
     <div class="facts">${content.hero.facts.map((fact) => `<span class="fact">${escape(fact.value)}</span>`).join("")}</div>
   </div>

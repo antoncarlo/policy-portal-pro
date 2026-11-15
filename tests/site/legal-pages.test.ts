@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { COMPANY, LANGS, readSiteEnv, type Lang } from "../../src/site/config";
 import { CONSENT_KEY } from "../../src/site/consent-core";
@@ -40,30 +41,26 @@ describe("cookie banner", () => {
     }
   });
 
-  it("offers Accept, Reject and Customise with the same weight, in the language of the page", () => {
+  it("asks one consent for everything: Accept and Reject with the same weight, in the language of the page", () => {
     for (const lang of LANGS) {
       const html = page("home", lang, measured);
       const banner = html.slice(html.indexOf("data-cookie-banner"));
       const { cookieBanner } = contentFor(lang);
-      const classes = ["accept", "reject", "customise"].map((action) => banner.match(new RegExp(`<button[^>]*class="([^"]*)"[^>]*data-consent="${action}"`))?.[1]);
+      const classes = ["accept", "reject"].map((action) => banner.match(new RegExp(`<button[^>]*class="([^"]*)"[^>]*data-consent="${action}"`))?.[1]);
       expect(classes[0], lang).toBeTruthy();
       expect(new Set(classes).size, `${lang}: ${classes.join(" | ")}`).toBe(1);
-      for (const label of [cookieBanner.accept, cookieBanner.reject, cookieBanner.customise, cookieBanner.save]) expect(banner, `${lang}: ${label}`).toContain(`>${label}<`);
+      for (const label of [cookieBanner.accept, cookieBanner.reject]) expect(banner, `${lang}: ${label}`).toContain(`>${label}<`);
+      // One consent covers statistics and marketing: no categories to tick, no «customise».
+      expect(banner).not.toMatch(/<input\b/);
+      expect(banner).not.toMatch(/data-consent="(customise|save)"/);
+      expect(Object.keys(cookieBanner).sort()).toEqual(["accept", "close", "policyLink", "reject", "text", "title"]);
       expect(banner).toContain(`href="${pathOf("cookie", lang)}"`);
       expect(banner).toMatch(/data-consent="close"[^>]*aria-label="[^"]+"|aria-label="[^"]+"[^>]*data-consent="close"/);
     }
   });
 
-  it("shows only the categories that have an identifier", () => {
-    const both = page("home", "it", measured);
-    expect(both).toContain('name="statistics"');
-    expect(both).toContain('name="marketing"');
-    const statsOnly = page("home", "it", readSiteEnv({ VITE_GA4_ID: "G-ABC123XYZ9" }));
-    expect(statsOnly).toContain('name="statistics"');
-    expect(statsOnly).not.toContain('name="marketing"');
-    const adsOnly = page("home", "it", readSiteEnv({ VITE_GOOGLE_ADS_ID: "AW-123456789" }));
-    expect(adsOnly).not.toContain('name="statistics"');
-    expect(adsOnly).toContain('name="marketing"');
+  it("is there with one identifier as with two", () => {
+    for (const settings of [{ VITE_GA4_ID: "G-ABC123XYZ9" }, { VITE_GOOGLE_ADS_ID: "AW-123456789" }]) expect(page("home", "it", readSiteEnv(settings))).toContain("data-cookie-banner");
   });
 });
 
@@ -72,8 +69,12 @@ describe("privacy page", () => {
     for (const lang of LANGS) {
       const html = page("privacy", lang);
       const body = main(html);
-      for (const fact of [COMPANY.name, COMPANY.legalSeat.street, COMPANY.vat, "privacy@tecnomga.com", "dpo@tecnomga.com", "Vercel", "Supabase", "Google", "24"]) expect(body, `${lang}: ${fact}`).toContain(fact);
-      expect(body, lang).toContain('href="mailto:privacy@tecnomga.com"');
+      for (const fact of [COMPANY.name, COMPANY.legalSeat.street, COMPANY.vat, COMPANY.dpoEmail, "DPO", "Vercel", "Supabase", "Google", "Resend", "24"]) expect(body, `${lang}: ${fact}`).toContain(fact);
+      // The same data protection officer as in the documents the portal gives its clients to sign.
+      expect(COMPANY.dpoEmail).toBe("antoncarlo@tecnomga.com");
+      expect(readFileSync("scripts/signing-templates/build.mjs", "utf8")).toContain(`email: "${COMPANY.dpoEmail}"`);
+      expect(body, lang).toContain(`href="mailto:${COMPANY.dpoEmail}"`);
+      expect(body, lang).not.toMatch(/privacy@tecnomga\.com|dpo@tecnomga\.com/);
       expect(body, lang).toContain('href="https://www.garanteprivacy.it/"');
       expect(body, lang).toContain(`href="${pathOf("cookie", lang)}"`);
       expect(body, lang).toMatch(/<time dateTime="\d{4}-\d{2}-\d{2}"|<time datetime="\d{4}-\d{2}-\d{2}"/);

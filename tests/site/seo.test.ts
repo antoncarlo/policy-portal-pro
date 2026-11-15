@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HREFLANG, LANGS, readSiteEnv } from "../../src/site/config";
+import { CONTENT_UPDATED, HREFLANG, LANGS, readSiteEnv } from "../../src/site/config";
 import { contentFor } from "../../src/site/content";
 import { listPages, pathOf } from "../../src/site/routes";
 import { renderExtraFiles, renderPage } from "../../src/site/render";
@@ -157,7 +157,11 @@ describe("sitemap and llms.txt", () => {
   });
 
   it("is served as files next to the pages", () => {
-    const files = renderExtraFiles(env, "2026-11-15");
+    // The date in the sitemap is the day the contents were last checked, not the day of the build: a search engine
+    // is told a page changed only when it did.
+    const files = renderExtraFiles(env);
+    const sitemap = files.find((file) => file.file === "sitemap.xml")?.content ?? "";
+    expect(sitemap.match(new RegExp(`<lastmod>${CONTENT_UPDATED}</lastmod>`, "g"))).toHaveLength(9);
     expect(files.map((file) => file.file).sort()).toEqual(["llms.txt", "sitemap.xml"]);
   });
 });

@@ -88,6 +88,29 @@ describe("public site: the home page", () => {
     }
   });
 
+  it("gives every section its title and nothing around it: no small line above, no subtitle below", () => {
+    for (const { path, html } of renderAll(assets, env)) {
+      for (const marker of ["eyebrow", "section__intro", "block-intro", "legal__lead"]) expect(html, `${path}: ${marker}`).not.toContain(marker);
+      // A section head is its title, alone.
+      for (const [head] of html.matchAll(/<header class="section__head"[^>]*>[\s\S]*?<\/header>/g)) {
+        expect((head.match(/<p\b/g) ?? []).length, path).toBe(0);
+        expect((head.match(/<h2\b/g) ?? []).length, path).toBe(1);
+      }
+    }
+    for (const lang of LANGS) {
+      // The opening goes straight from the title to the text that says what the guarantee is.
+      const hero = home(lang).slice(home(lang).indexOf('data-testid="site-hero"'));
+      expect(hero.slice(0, hero.indexOf("<h1")), lang).not.toMatch(/<p\b/);
+      const content = contentFor(lang) as unknown as Record<string, Record<string, unknown>>;
+      for (const section of ["hero", "whatIs", "audiences", "steps", "portal", "documents", "cost", "faq", "contact"]) {
+        expect(Object.keys(content[section]), `${lang}.${section}`).not.toContain("intro");
+        expect(Object.keys(content[section]), `${lang}.${section}`).not.toContain("eyebrow");
+      }
+      expect(Object.keys(content.whatIs)).not.toContain("formsIntro");
+      expect(Object.keys(content)).not.toContain("pretitle");
+    }
+  });
+
   it("has the H1 of the project, one only, and the five steps in order", () => {
     for (const lang of LANGS) {
       const html = home(lang);

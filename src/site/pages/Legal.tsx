@@ -1,4 +1,4 @@
-// Le pagine di testo: Privacy (chi tratta i dati, perche', per quanto, con chi, quali diritti) e Cookie (cosa si
+// Le pagine di testo, con il solo titolo in apertura: Privacy (chi tratta i dati, perche', per quanto, con chi, quali diritti) e Cookie (cosa si
 // salva nel browser, per nome). Stessa struttura nelle tre lingue.
 import { CONTENT_UPDATED, formatDate } from "../config";
 import type { PageProps } from "../components/Layout";
@@ -40,9 +40,7 @@ export const LegalPage = (props: PageProps) => {
     <article className="legal">
       <header className="legal__hero">
         <div className="container container--narrow">
-          <p className="eyebrow eyebrow--light">{meta.label}</p>
           <h1 className="legal__title">{meta.h1}</h1>
-          <p className="legal__lead">{meta.description}</p>
         </div>
       </header>
       <div className="container container--narrow legal__body">

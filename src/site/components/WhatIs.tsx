@@ -9,7 +9,7 @@ export const WhatIs = ({ page, content }: PageProps) => {
   return (
     <section className="section" id="cos-e">
       <div className="container">
-        <SectionHead eyebrow={whatIs.eyebrow} title={whatIs.title} />
+        <SectionHead title={whatIs.title} />
         <p className="answer" data-reveal>
           {whatIs.answer}
         </p>
@@ -24,7 +24,6 @@ export const WhatIs = ({ page, content }: PageProps) => {
 
         <div className="forms" data-reveal>
           <h3 className="block-title">{whatIs.formsTitle}</h3>
-          <p className="block-intro">{whatIs.formsIntro}</p>
           <div className="table-wrap glass">
             <table className="compare">
               <thead>

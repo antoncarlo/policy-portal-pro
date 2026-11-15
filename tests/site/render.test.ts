@@ -31,6 +31,20 @@ describe("public site: pages rendered to complete HTML", () => {
     expect(renderPage("/privacy", assets, env)).toContain('<html lang="it"');
   });
 
+  it("asks the browser for the fonts of the first screen right away, so the title does not jump when they arrive", () => {
+    const fonts = { heading: "/assets/lora-latin-600-normal-abc.woff2", body: "/assets/inter-latin-400-normal-abc.woff2" };
+    const preload = (href: string) => `<link rel="preload" as="font" type="font/woff2" href="${href}" crossorigin>`;
+    const italian = renderPage("/", { ...assets, fonts }, env) as string;
+    expect(italian).toContain(preload(fonts.heading));
+    expect(italian).toContain(preload(fonts.body));
+    expect(italian.indexOf(preload(fonts.heading))).toBeLessThan(italian.indexOf('<link rel="stylesheet"'));
+    // The Chinese title is drawn with the reader's own font: only the text font is worth asking for.
+    const chinese = renderPage("/zh/", { ...assets, fonts }, env) as string;
+    expect(chinese).not.toContain(fonts.heading);
+    expect(chinese).toContain(preload(fonts.body));
+    expect(renderPage("/", assets, env)).not.toContain('rel="preload"');
+  });
+
   it("knows nothing of the private routes of the portal", () => {
     for (const path of ["/dashboard", "/auth", "/practices/abc", "/api/health", "/app.html"]) expect(renderPage(path, assets, env)).toBeNull();
   });

@@ -233,30 +233,6 @@ textarea {
 }
 
 /* ---------- Elementi comuni ---------- */
-.eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  font-size: 0.76rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--bronze-600);
-}
-.eyebrow::before {
-  content: "";
-  width: 28px;
-  height: 1px;
-  background: currentColor;
-}
-.eyebrow--light {
-  color: var(--bronze-400);
-}
-html:lang(zh-Hans) .eyebrow {
-  letter-spacing: 0.08em;
-  font-size: 0.82rem;
-}
-
 .btn {
   display: inline-flex;
   align-items: center;
@@ -732,9 +708,6 @@ html:lang(zh-Hans) .eyebrow {
 .hero__copy > :nth-child(5) {
   animation-delay: 0.32s;
 }
-.hero__eyebrow {
-  margin-bottom: 1.4rem;
-}
 .hero__title {
   max-width: 14ch;
   font-size: clamp(2.5rem, 6.4vw, 4.6rem);
@@ -1053,20 +1026,11 @@ html:lang(zh-Hans) .fact dd {
   margin-bottom: clamp(2rem, 5vh, 3.25rem);
 }
 .section__title {
-  margin-top: 1rem;
   font-size: clamp(1.9rem, 3.8vw, 3rem);
   color: var(--navy-800);
 }
 .section--dark .section__title {
   color: #fff;
-}
-.section__intro {
-  margin-top: 1rem;
-  font-size: 1.08rem;
-  color: var(--ink-soft);
-}
-.section--dark .section__intro {
-  color: #c5d6e3;
 }
 .block-title {
   font-family: var(--font-serif);
@@ -1078,10 +1042,6 @@ html:lang(zh-Hans) .fact dd {
 html:lang(zh-Hans) .block-title {
   font-family: var(--font-cjk);
   font-weight: 700;
-}
-.block-intro {
-  margin-top: 0.5rem;
-  color: var(--ink-soft);
 }
 .note {
   max-width: 760px;
@@ -2036,40 +1996,7 @@ html:lang(zh-Hans) .cookie-banner__title {
   background: rgba(15, 58, 92, 0.08);
   color: var(--navy-800);
 }
-.cookie-banner__options {
-  display: grid;
-  gap: 0.6rem;
-  padding: 0.85rem 0.9rem;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: rgba(15, 58, 92, 0.04);
-}
-.cookie-option {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.7rem;
-  align-items: start;
-  cursor: pointer;
-}
-.cookie-option input {
-  width: 20px;
-  height: 20px;
-  margin: 0.15rem 0 0;
-  accent-color: var(--navy-800);
-}
-.cookie-option > span {
-  display: grid;
-  gap: 0.1rem;
-}
-.cookie-option strong {
-  font-weight: 600;
-  color: var(--navy-800);
-}
-.cookie-option span span {
-  font-size: 0.86rem;
-  color: var(--ink-soft);
-}
-/* I tre pulsanti hanno lo stesso aspetto e la stessa larghezza: nessuna scelta e' piu' in vista delle altre. */
+/* I due pulsanti hanno lo stesso aspetto e la stessa larghezza: nessuna scelta e' piu' in vista dell'altra. */
 .cookie-banner__actions {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -2089,14 +2016,7 @@ html:lang(zh-Hans) .cookie-banner__title {
     linear-gradient(165deg, var(--navy-950), var(--navy-800));
 }
 .legal__title {
-  margin-top: 1rem;
   font-size: clamp(2.1rem, 5vw, 3.4rem);
-}
-.legal__lead {
-  max-width: 62ch;
-  margin-top: 1rem;
-  font-size: 1.08rem;
-  color: #cfdde9;
 }
 .legal__body {
   padding: clamp(2.5rem, 6vh, 4rem) 0 clamp(3.5rem, 8vh, 6rem);

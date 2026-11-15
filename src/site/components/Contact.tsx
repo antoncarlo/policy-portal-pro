@@ -14,10 +14,10 @@ export const Contact = ({ page, content }: PageProps) => {
   const optional = <span className="field__optional">({form.optional})</span>;
   return (
     <section className="section section--dark" id="contatti">
-      <div className="section__glow section__glow--a" aria-hidden="true" />
-      <div className="section__glow section__glow--b" aria-hidden="true" />
+      <div className="section__glow section__glow--a" aria-hidden="true" data-decor />
+      <div className="section__glow section__glow--b" aria-hidden="true" data-decor />
       <div className="container">
-        <SectionHead eyebrow={content.contact.eyebrow} title={content.contact.title} intro={content.contact.intro} light />
+        <SectionHead title={content.contact.title} />
         <div className="contact">
           <form
             className="contact-form glass-dark"

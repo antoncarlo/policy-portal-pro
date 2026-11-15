@@ -23,15 +23,13 @@ export const Layout = ({ page, content, tools, children }: PageProps & { tools: 
     <main id="contenuto">{children}</main>
     <Footer page={page} content={content} />
     <LangNotice page={page} />
-    {tools.statistics || tools.marketing ? <CookieBanner page={page} content={content} tools={tools} /> : null}
+    {tools.statistics || tools.marketing ? <CookieBanner page={page} content={content} /> : null}
   </>
 );
 
-/** Intestazione di una sezione: occhiello, titolo H2, introduzione facoltativa. */
-export const SectionHead = ({ eyebrow, title, intro, light = false }: { eyebrow: string; title: string; intro?: string; light?: boolean }) => (
+/** Intestazione di una sezione: il solo titolo H2, senza scritte sopra ne' sottotitoli sotto. */
+export const SectionHead = ({ title }: { title: string }) => (
   <header className="section__head" data-reveal>
-    <p className={light ? "eyebrow eyebrow--light" : "eyebrow"}>{eyebrow}</p>
     <h2 className="section__title">{title}</h2>
-    {intro ? <p className="section__intro">{intro}</p> : null}
   </header>
 );

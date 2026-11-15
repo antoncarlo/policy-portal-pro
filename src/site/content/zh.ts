@@ -42,7 +42,6 @@ export const zh: SiteContent = {
     home: "Tecno Advance MGA Broker：首页",
   },
   hero: {
-    eyebrow: "VIES担保 · 第633/1972号总统令第35条第7-quater款",
     lead: "总部在欧盟和欧洲经济区以外、通过税务代表在意大利履行增值税义务的企业，须向意大利税务局提交担保，才能进入并保留在VIES数据库中。您可以在线申请保险保函、随时查看进度，并收到带电子签名的保单。",
     facts: [
       { value: "5万欧元", label: "担保最低金额" },
@@ -65,7 +64,6 @@ export const zh: SiteContent = {
     ruiCheck: "在保险中介统一登记册中查询登记信息",
   },
   whatIs: {
-    eyebrow: "法规要点",
     title: "什么是VIES担保？",
     answer:
       "VIES担保是指：不在欧盟或欧洲经济区居住、并通过税务代表在意大利履行增值税义务的企业，为进入或保留在VIES欧盟内部交易数据库而向意大利税务局提供的担保。担保金额不低于5万欧元，期限不少于36个月。",
@@ -78,12 +76,11 @@ export const zh: SiteContent = {
       { term: "提交之后", text: "省级税务局审核担保是否符合要求并告知结果；自收到该通知起，即可申请加入VIES。" },
     ],
     formsTitle: "国债质押、银行保函还是保险保函",
-    formsIntro: "意大利税务局的规定允许三种担保形式。我们办理的是保险保函。",
     formsColumns: { form: "形式", issuer: "由谁出具", commitment: "意味着什么" },
     forms: [
       { form: "国债或国家担保证券质押", issuer: "将证券存入托管机构并设定限制", commitment: "在整个担保期内，证券一直被冻结。" },
       { form: "银行保函", issuer: "银行，依据第348/1982号法律第1条", commitment: "需要有银行愿意为总部在欧盟以外的企业出具。" },
-      { form: "保险保函", issuer: "保险公司，依据第348/1982号法律第1条", commitment: "投保人支付保费，无需质押证券。" },
+      { form: "保险保函", issuer: "保险公司，依据第348/1982号法律第1条", commitment: "投保人支付保费，无需质押证券。这是我们办理的形式。" },
     ],
     lawTitle: "自2027年1月1日起：条文编号改变，规则不变",
     law: "在2026年12月31日之前，该担保依据第633/1972号总统令第35条第7-quater款，由意大利经济财政部2024年12月4日部令（2024年12月13日第292号《官方公报》）和意大利税务局2025年4月14日第178713/2025号令具体实施。自2027年1月1日起适用《增值税统一法》（2026年1月19日第10号立法令，D.Lgs. 10/2026）：同一规则载于第68条第10款，凡引用已废止条文之处，均视为引用新条文（第170条第3款）。",
@@ -100,13 +97,11 @@ export const zh: SiteContent = {
     updated: "更新日期：",
   },
   audiences: {
-    eyebrow: "服务对象",
     title: "谁需要VIES保函？",
-    intro: "必须提供担保的企业，以及为客户办理担保的专业机构。",
     items: [
       {
         title: "税务代表、事务所和保险经纪人",
-        text: "在一个平台上管理您所代表的全部企业的VIES担保，不再依赖一长串邮件和附件。",
+        text: "在一个平台上管理您所代表的全部企业的VIES担保。",
         points: ["每批最多20份申请：一个Excel文件，每家企业一个文件夹", "自动核对文件，并列出缺少的文件", "对账单、电子签名和已出具的保单集中在一处"],
         cta: "告诉我们您的业务量",
       },
@@ -119,9 +114,7 @@ export const zh: SiteContent = {
     ],
   },
   steps: {
-    eyebrow: "办理路径",
     title: "如何办理VIES保险保函？",
-    intro: "共五步，全部在平台上完成：每一步都有记录，您随时知道申请进行到哪里。",
     items: [
       { title: "上传文件", text: "税务代表或企业在平台上传资料和文件：可以逐份上传，也可以按批次上传，每批最多20份。" },
       { title: "我们核对申请", text: "平台读取文件，检查是否齐全、数据是否一致。工作人员确认后，告知还缺少什么。" },
@@ -132,9 +125,7 @@ export const zh: SiteContent = {
     outcome: "提交之后，省级税务局审核担保并告知结果；此后即可申请加入VIES。",
   },
   portal: {
-    eyebrow: "工作工具",
     title: "为税务代表打造的在线平台",
-    intro: "一个围绕VIES担保实际工作而设计的专属空间：企业多、文件多、期限对所有人都一样。",
     features: [
       { title: "自动核对文件", text: "平台读取上传的文件，识别文件类型，并检查企业信息在各文件之间是否一致。" },
       { title: "每批最多20份申请", text: "一个包含数据的Excel文件，加上每家企业一个文件压缩包：一次上传即可创建整个批次。" },
@@ -158,9 +149,7 @@ export const zh: SiteContent = {
     },
   },
   documents: {
-    eyebrow: "需要准备什么",
     title: "需要哪些文件？",
-    intro: "为评估申请，保险公司需要了解境外企业、其代表人以及实际控制人。通常需要：",
     items: [
       { title: "企业登记文件", text: "境外企业的营业执照或公司注册证书，并附翻译件。" },
       { title: "法定代表人身份证件", text: "有效的护照或身份证，并附翻译件。" },
@@ -172,7 +161,6 @@ export const zh: SiteContent = {
     note: "清单可能因企业所在国家和保险公司的评估而有所不同：首次联系之后，我们会发送适用于您情况的最终清单。",
   },
   cost: {
-    eyebrow: "保费",
     title: "VIES保函的费用是多少？",
     answer: "VIES保函的费用就是保单的保费，由保险公司在审核文件之后确定，取决于担保金额、期限和境外企业的情况。我们不公布价目表：每一份申请都会收到书面报价，保费在保单出具之前支付。",
     factors: [
@@ -185,9 +173,7 @@ export const zh: SiteContent = {
     note: "索取报价并不意味着您必须投保。",
   },
   faq: {
-    eyebrow: "简明回答",
     title: "常见问题",
-    intro: "税务代表和境外企业最常问我们的问题。",
     items: [
       {
         q: "谁必须提供VIES担保？",
@@ -232,9 +218,7 @@ export const zh: SiteContent = {
     ],
   },
   contact: {
-    eyebrow: "联系我们",
     title: "联系方式",
-    intro: "告诉我们您的需求：一家企业还是一百家，索取报价还是咨询文件问题。我们会回复到您填写的邮箱。",
     form: {
       name: "姓名",
       company: "公司或事务所",
@@ -302,7 +286,7 @@ export const zh: SiteContent = {
           title: "谁处理您的数据",
           paragraphs: [
             "数据控制者为 Tecno Advance MGA Broker Srl，注册地址：Via Po, 102 - 00198 Roma（意大利），增值税号 17460381001，是登记于意大利保险中介统一登记册的保险中介，编号 B000746484。",
-            "有关您数据的任何问题，可以写信给隐私办公室 privacy@tecnomga.com，或数据保护官（DPO）dpo@tecnomga.com。",
+            "有关您数据的任何问题，可以写信给数据保护官（DPO）antoncarlo@tecnomga.com，或寄信至注册地址。",
             "本政策适用于 portale.tecnomga.com 网站的公开部分及其联系表单。合同关系和客户登录区域适用{notice}。",
           ],
           list: [],
@@ -352,7 +336,7 @@ export const zh: SiteContent = {
           list: [
             "Vercel Inc.：托管网站并运行其功能，位于都柏林（爱尔兰）的数据中心。",
             "Supabase Inc.：托管保存请求的数据库，位于爱尔兰的数据中心。",
-            "Google（Google Workspace）：提供电子邮件服务，请求通过该服务送达控制者的邮箱。",
+            "Google（Google Workspace）和 Resend：电子邮件服务，请求通过这些服务送达控制者的邮箱。",
             "Google Ireland Limited：Google Analytics 和 Google Ads，仅在您同意的情况下使用。",
             "Functional Software Inc.（Sentry）：接收网站意外的技术错误，不包含表单数据；其系统位于德国。",
           ],
@@ -361,7 +345,7 @@ export const zh: SiteContent = {
           title: "您的权利",
           paragraphs: [
             "您可以随时要求访问、更正、删除您的数据，限制处理以及数据可携带，并可以反对基于正当利益的处理（条例第15条至第22条）。如果您曾表示同意，可以撤回同意，撤回不影响此前已进行的处理。",
-            "行使权利请写信至 privacy@tecnomga.com 或注册地址。我们将按照条例第12条的规定在一个月内答复。",
+            "行使权利请写信至 antoncarlo@tecnomga.com 或注册地址。我们将按照条例第12条的规定在一个月内答复。",
             "如果您认为处理违反了条例，可以向意大利个人数据保护局（https://www.garanteprivacy.it/）或您居住或工作所在国家的监管机构投诉。",
           ],
           list: [],
@@ -425,19 +409,11 @@ export const zh: SiteContent = {
   legalNotice: "本页面为以推广为目的的广告信息。投保前请阅读保险信息文件（set informativo）。",
   cookieBanner: {
     title: "Cookie",
-    text: "我们使用技术性Cookie保证网站正常运行。经您同意，我们还会使用谷歌的Cookie进行统计并衡量广告效果。",
+    text: "我们使用技术性Cookie保证网站正常运行。经您同意，我们还会使用谷歌的Cookie进行访问统计并衡量广告效果。",
     accept: "接受",
     reject: "拒绝",
-    customise: "自定义",
-    save: "保存选择",
     close: "关闭并拒绝",
     policyLink: "阅读Cookie政策",
-    categories: {
-      necessary: { title: "必要", text: "保证网站运行，并记住您对Cookie的选择。" },
-      statistics: { title: "统计", text: "Google Analytics：以汇总方式告诉我们哪些页面被阅读。" },
-      marketing: { title: "营销", text: "Google Ads：衡量广告是否带来咨询。" },
-    },
-    alwaysOn: "始终启用",
   },
   langNotice: {
     text: "本页面提供中文版本。",

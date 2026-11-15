@@ -7,7 +7,7 @@ export const Faq = ({ content }: PageProps) => {
   return (
     <section className="section" id="domande">
       <div className="container container--narrow">
-        <SectionHead eyebrow={faq.eyebrow} title={faq.title} intro={faq.intro} />
+        <SectionHead title={faq.title} />
         <div className="faq">
           {faq.items.map((item, index) => (
             <details key={item.q} className="faq__item glass" open={index === 0} data-reveal>

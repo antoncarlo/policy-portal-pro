@@ -21,7 +21,7 @@ export const Hero = ({ page, content }: PageProps) => {
   const { hero } = content;
   return (
     <section className="hero" data-testid="site-hero">
-      <div className="hero__bg" aria-hidden="true">
+      <div className="hero__bg" aria-hidden="true" data-decor>
         {/* L'immagine fissa c'e' subito; il video lo carica src/site/client/hero-video.ts, a pagina pronta e solo
             se chi legge non ha chiesto meno movimento o meno dati. */}
         <video className="hero__media" data-hero-video muted loop playsInline preload="none" poster="/site-media/vies-vetro-apertura.webp" aria-hidden="true" tabIndex={-1}>
@@ -36,7 +36,6 @@ export const Hero = ({ page, content }: PageProps) => {
       </div>
       <div className="container hero__inner">
         <div className="hero__copy">
-          <p className="eyebrow eyebrow--light hero__eyebrow">{hero.eyebrow}</p>
           <h1 className="hero__title">{keepHyphenated(content.meta[page.id].h1)}</h1>
           <p className="hero__lead">{hero.lead}</p>
           <div className="hero__cta">
@@ -51,7 +50,7 @@ export const Hero = ({ page, content }: PageProps) => {
           </div>
           <p className="hero__note">{hero.note}</p>
         </div>
-        <div className="hero__visual" aria-hidden="true" data-tilt>
+        <div className="hero__visual" aria-hidden="true" data-decor data-tilt>
           <div className="policy-card policy-card--back glass-dark" />
           <div className="policy-card glass-dark">
             <div className="policy-card__head">

@@ -79,6 +79,10 @@ for (const url of [...pages].sort()) {
     for (const anchor of HOME_ANCHORS) if (!html.includes(`id="${anchor}"`)) fail(`${url}: manca la sezione #${anchor}`);
     if (!html.includes('"@type":"FAQPage"')) fail(`${url}: mancano i dati strutturati delle domande frequenti`);
   }
+  // I caratteri chiesti in anticipo devono esistere: un indirizzo sbagliato costa una richiesta a vuoto a ogni visita.
+  const preloads = [...html.matchAll(/<link rel="preload" as="font"[^>]*href="([^"]+)"/g)].map((match) => match[1]);
+  if (preloads.length === 0) fail(`${url}: nessun carattere chiesto in anticipo`);
+  for (const href of preloads) if (!existsSync(join(DIST, href))) fail(`${url}: carattere inesistente ${href}`);
   // Uno script eseguibile in linea verrebbe bloccato dalla CSP: sono ammessi solo i blocchi di dati.
   for (const match of html.matchAll(/<script(?![^>]*\ssrc=)([^>]*)>/g)) {
     if (!/type="application\/ld\+json"/.test(match[1])) fail(`${url}: script in linea non ammesso dalla CSP`);

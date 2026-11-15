@@ -43,7 +43,6 @@ export const it: SiteContent = {
     home: "Tecno Advance MGA Broker: pagina iniziale",
   },
   hero: {
-    eyebrow: "Garanzia VIES · art. 35, comma 7-quater, DPR 633/1972",
     lead: "La polizza fideiussoria che le società non residenti nell'UE o nello SEE, con rappresentante fiscale in Italia, prestano all'Agenzia delle Entrate per entrare e restare nel VIES. La richiedi online, la segui passo per passo, la ricevi firmata digitalmente.",
     facts: [
       { value: "50.000 €", label: "valore minimo della garanzia" },
@@ -66,7 +65,6 @@ export const it: SiteContent = {
     ruiCheck: "Verifica l'iscrizione sul Registro Unico degli Intermediari",
   },
   whatIs: {
-    eyebrow: "La norma, in breve",
     title: "Cos'è la garanzia VIES?",
     answer:
       "La garanzia VIES è la garanzia che una società non residente nell'Unione europea o nello Spazio economico europeo, con rappresentante fiscale in Italia, presta all'Agenzia delle Entrate per essere inclusa o restare nella banca dati VIES delle operazioni intracomunitarie. Vale almeno 50.000 euro e dura almeno 36 mesi.",
@@ -79,12 +77,11 @@ export const it: SiteContent = {
       { term: "Dopo la consegna", text: "La Direzione Provinciale verifica che la garanzia sia conforme e comunica l'esito: da quella comunicazione si può chiedere l'inclusione nel VIES." },
     ],
     formsTitle: "Cauzione, fideiussione bancaria o polizza fideiussoria",
-    formsIntro: "Il Provvedimento dell'Agenzia delle Entrate ammette tre forme di garanzia. La polizza fideiussoria è quella che intermediamo.",
     formsColumns: { form: "Forma", issuer: "Chi la rilascia", commitment: "Cosa comporta" },
     forms: [
       { form: "Cauzione in titoli di Stato o garantiti dallo Stato", issuer: "Deposito vincolato dei titoli presso un depositario", commitment: "I titoli restano vincolati per tutta la durata della garanzia." },
       { form: "Fideiussione bancaria", issuer: "Una banca, ai sensi dell'art. 1 della legge 348/1982", commitment: "Serve una banca disposta a rilasciarla a una società con sede fuori dall'UE." },
-      { form: "Polizza fideiussoria", issuer: "Un'impresa di assicurazione, ai sensi dell'art. 1 della legge 348/1982", commitment: "Il contraente paga un premio e non deposita titoli." },
+      { form: "Polizza fideiussoria", issuer: "Un'impresa di assicurazione, ai sensi dell'art. 1 della legge 348/1982", commitment: "Il contraente paga un premio e non deposita titoli. È la forma che intermediamo." },
     ],
     lawTitle: "Dal 1° gennaio 2027 cambia l'articolo, non la regola",
     law: "Fino al 31 dicembre 2026 la garanzia è prevista dall'art. 35, comma 7-quater, del DPR 633/1972, attuato dal decreto del Ministro dell'Economia e delle Finanze del 4 dicembre 2024 (Gazzetta Ufficiale n. 292 del 13 dicembre 2024) e dal Provvedimento dell'Agenzia delle Entrate prot. n. 178713/2025 del 14 aprile 2025. Dal 1° gennaio 2027 si applica il Testo unico IVA, il D.Lgs. 10/2026 (decreto legislativo 19 gennaio 2026, n. 10): la stessa regola è nell'art. 68, comma 10, e i riferimenti alla norma abrogata valgono per la nuova (art. 170, comma 3).",
@@ -101,13 +98,11 @@ export const it: SiteContent = {
     updated: "Aggiornato il",
   },
   audiences: {
-    eyebrow: "Per chi lavoriamo",
     title: "A chi serve la fideiussione VIES?",
-    intro: "A chi deve prestare la garanzia e a chi la gestisce per conto dei propri clienti.",
     items: [
       {
         title: "Rappresentanti fiscali, studi e broker",
-        text: "Segui le garanzie VIES di tutti i tuoi rappresentati da un solo portale, senza catene di email e allegati.",
+        text: "Gestisci da un solo portale le garanzie VIES di tutte le società che rappresenti.",
         points: ["Lotti fino a 20 pratiche con un file Excel e una cartella di documenti per società", "Controllo automatico dei documenti, con l'elenco di quelli che mancano", "Estratto conto, firme digitali e polizze emesse nello stesso posto"],
         cta: "Parlaci dei tuoi volumi",
       },
@@ -120,9 +115,7 @@ export const it: SiteContent = {
     ],
   },
   steps: {
-    eyebrow: "Il percorso",
     title: "Come si ottiene la polizza fideiussoria VIES?",
-    intro: "Cinque passi, tutti nel portale: ognuno resta tracciato e sai sempre a che punto è la pratica.",
     items: [
       { title: "Carichi i documenti", text: "Il rappresentante fiscale o la società carica i dati e i documenti nel portale: una pratica alla volta oppure in lotti fino a 20." },
       { title: "Controlliamo la pratica", text: "Il portale legge i documenti, verifica che ci siano tutti e che i dati coincidano. Un operatore conferma e segnala cosa manca." },
@@ -133,9 +126,7 @@ export const it: SiteContent = {
     outcome: "Dopo la consegna, la Direzione Provinciale verifica la garanzia e comunica l'esito: da quel momento si può chiedere l'inclusione nel VIES.",
   },
   portal: {
-    eyebrow: "Lo strumento di lavoro",
     title: "Il portale per rappresentanti fiscali",
-    intro: "Uno spazio riservato costruito sul lavoro reale delle garanzie VIES: molte società, molti documenti, scadenze uguali per tutti.",
     features: [
       { title: "Controllo automatico dei documenti", text: "Il portale legge i documenti caricati, riconosce di che tipo sono e verifica che i dati della società coincidano tra loro." },
       { title: "Lotti fino a 20 pratiche", text: "Un file Excel con i dati e un archivio di documenti per ogni società: il lotto nasce con un solo caricamento." },
@@ -159,9 +150,7 @@ export const it: SiteContent = {
     },
   },
   documents: {
-    eyebrow: "Cosa preparare",
     title: "Quali documenti servono?",
-    intro: "Per valutare la richiesta la compagnia deve conoscere la società estera, chi la rappresenta e chi la controlla. Di norma servono:",
     items: [
       { title: "Documento societario", text: "Licenza commerciale o certificato di costituzione della società estera, con traduzione." },
       { title: "Documento d'identità del legale rappresentante", text: "Passaporto o carta d'identità in corso di validità, con traduzione." },
@@ -173,7 +162,6 @@ export const it: SiteContent = {
     note: "L'elenco può cambiare secondo il Paese della società e la valutazione della compagnia: dopo il primo contatto inviamo quello definitivo per il tuo caso.",
   },
   cost: {
-    eyebrow: "Il premio",
     title: "Quanto costa la fideiussione VIES?",
     answer:
       "Il costo della fideiussione VIES è il premio della polizza, stabilito dalla compagnia di assicurazione dopo l'esame dei documenti. Dipende dall'importo garantito, dalla durata e dal profilo della società estera. Non pubblichiamo un listino: inviamo una quotazione scritta per ogni richiesta, e il premio si paga prima dell'emissione.",
@@ -187,9 +175,7 @@ export const it: SiteContent = {
     note: "Chiedere una quotazione non impegna a sottoscrivere la polizza.",
   },
   faq: {
-    eyebrow: "Risposte brevi",
     title: "Domande frequenti",
-    intro: "Le domande che riceviamo più spesso da rappresentanti fiscali e società estere.",
     items: [
       {
         q: "Chi deve prestare la garanzia VIES?",
@@ -234,9 +220,7 @@ export const it: SiteContent = {
     ],
   },
   contact: {
-    eyebrow: "Parliamone",
     title: "Contatti",
-    intro: "Scrivici cosa ti serve: una società sola o cento, una quotazione o un chiarimento sui documenti. Rispondiamo all'indirizzo che indichi.",
     form: {
       name: "Nome e cognome",
       company: "Società o studio",
@@ -304,7 +288,7 @@ export const it: SiteContent = {
           title: "Chi tratta i tuoi dati",
           paragraphs: [
             "Il titolare del trattamento è Tecno Advance MGA Broker Srl, con sede legale in Via Po, 102 - 00198 Roma, P.IVA 17460381001, intermediario assicurativo iscritto al Registro Unico degli Intermediari con il n. B000746484.",
-            "Per qualsiasi domanda sui tuoi dati puoi scrivere all'ufficio privacy, privacy@tecnomga.com, o al responsabile della protezione dei dati (DPO), dpo@tecnomga.com.",
+            "Per qualsiasi domanda sui tuoi dati puoi scrivere al responsabile della protezione dei dati (DPO), antoncarlo@tecnomga.com, o alla sede legale.",
             "Questa informativa riguarda la parte pubblica del sito portale.tecnomga.com e il suo modulo di contatto. Per i rapporti contrattuali e per l'area riservata vale l'{notice}.",
           ],
           list: [],
@@ -354,7 +338,7 @@ export const it: SiteContent = {
           list: [
             "Vercel Inc.: ospita il sito ed esegue le sue funzioni, nel centro dati di Dublino (Irlanda).",
             "Supabase Inc.: ospita la banca dati in cui sono salvate le richieste, nel centro dati in Irlanda.",
-            "Google (Google Workspace): fornisce la posta elettronica con cui la richiesta arriva alla casella del titolare.",
+            "Google (Google Workspace) e Resend: servizi di posta elettronica con cui la richiesta arriva alla casella del titolare.",
             "Google Ireland Limited: Google Analytics e Google Ads, solo se hai dato il consenso.",
             "Functional Software Inc. (Sentry): riceve gli errori tecnici imprevisti del sito, senza i dati del modulo; i suoi sistemi sono in Germania.",
           ],
@@ -363,7 +347,7 @@ export const it: SiteContent = {
           title: "I tuoi diritti",
           paragraphs: [
             "Puoi chiedere in ogni momento l'accesso ai tuoi dati, la rettifica, la cancellazione, la limitazione del trattamento e la portabilità, e puoi opporti al trattamento fondato sul legittimo interesse (articoli da 15 a 22 del Regolamento). Se hai dato un consenso puoi revocarlo, senza effetti su ciò che è stato fatto prima.",
-            "Per esercitare i tuoi diritti scrivi a privacy@tecnomga.com o alla sede legale. Rispondiamo entro un mese, come prevede l'art. 12 del Regolamento.",
+            "Per esercitare i tuoi diritti scrivi a antoncarlo@tecnomga.com o alla sede legale. Rispondiamo entro un mese, come prevede l'art. 12 del Regolamento.",
             "Se ritieni che il trattamento violi il Regolamento puoi proporre reclamo al Garante per la protezione dei dati personali (https://www.garanteprivacy.it/) o all'autorità di controllo del Paese in cui vivi o lavori.",
           ],
           list: [],
@@ -429,19 +413,11 @@ export const it: SiteContent = {
   legalNotice: "Messaggio pubblicitario con finalità promozionale. Prima della sottoscrizione leggere il set informativo.",
   cookieBanner: {
     title: "Cookie",
-    text: "Usiamo cookie tecnici per far funzionare il sito. Con il tuo consenso usiamo anche i cookie di Google per le statistiche e per misurare le campagne pubblicitarie.",
+    text: "Usiamo cookie tecnici per far funzionare il sito. Con il tuo consenso usiamo anche i cookie di Google per le statistiche di visita e per misurare le campagne pubblicitarie.",
     accept: "Accetta",
     reject: "Rifiuta",
-    customise: "Personalizza",
-    save: "Salva le scelte",
     close: "Chiudi e rifiuta",
     policyLink: "Leggi l'informativa sui cookie",
-    categories: {
-      necessary: { title: "Necessari", text: "Servono al funzionamento del sito e a ricordare la tua scelta sui cookie." },
-      statistics: { title: "Statistiche", text: "Google Analytics: ci dice quali pagine vengono lette, in forma aggregata." },
-      marketing: { title: "Marketing", text: "Google Ads: misura se una campagna porta richieste di contatto." },
-    },
-    alwaysOn: "Sempre attivi",
   },
   langNotice: {
     text: "Questa pagina è disponibile in italiano.",

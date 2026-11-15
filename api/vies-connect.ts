@@ -63,6 +63,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 }
 
+/**
+ * The JSON body of a request, however the platform hands it over: already parsed, as text, as bytes, or still to be
+ * read from the stream (this function does not let the platform parse bodies, see `config`). Null when it is not JSON.
+ */
+async function readJsonBody(req: VercelRequest): Promise<unknown> {
+  let body: unknown;
+  try {
+    body = req.body;
+  } catch {
+    return null;
+  }
+  if (body !== undefined && body !== null && typeof body !== 'string' && !Buffer.isBuffer(body)) return body;
+  const raw = typeof body === 'string' ? body : Buffer.isBuffer(body) ? body.toString('utf8') : await readRawBody(req);
+  if (!raw.trim()) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 /** The contact form of the public site: saved for the administrators and sent to the VIES mailbox. */
 async function handleContact(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -70,12 +91,7 @@ async function handleContact(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ ok: false, error: 'method_not_allowed' });
   }
   res.setHeader('Cache-Control', 'no-store');
-  let body: unknown = null;
-  try {
-    body = req.body;
-  } catch {
-    // a body that is not valid JSON: answered as an invalid request
-  }
+  const body = await readJsonBody(req);
   const result = await handleContactRequest(
     { supabase: createAdminClient(), sendMail, now: () => new Date() },
     { body, ip: getClientIp(req), contentType: header(req, 'content-type') },

@@ -14,10 +14,15 @@ const RENDER_MODULE = "/src/site/render.tsx";
 const CONFIG_MODULE = "/src/site/config.ts";
 const CLIENT_ENTRY = "src/site/client/main.ts";
 
+interface SiteAssets {
+  css: string[];
+  js: string;
+  fonts?: { heading?: string; body?: string };
+}
 interface RenderModule {
-  renderPage: (path: string, assets: { css: string[]; js: string }, env: unknown) => string | null;
-  renderAll: (assets: { css: string[]; js: string }, env: unknown) => Array<{ path: string; html: string }>;
-  renderExtraFiles?: (env: unknown, today: string) => Array<{ file: string; content: string }>;
+  renderPage: (path: string, assets: SiteAssets, env: unknown) => string | null;
+  renderAll: (assets: SiteAssets, env: unknown) => Array<{ path: string; html: string }>;
+  renderExtraFiles?: (env: unknown) => Array<{ file: string; content: string }>;
 }
 interface ConfigModule {
   readSiteEnv: (env: Record<string, string | undefined>) => unknown;
@@ -53,7 +58,7 @@ export const publicSitePlugin = (): Plugin => {
           const render = (await server.ssrLoadModule(RENDER_MODULE)) as RenderModule;
           const { readSiteEnv } = (await server.ssrLoadModule(CONFIG_MODULE)) as ConfigModule;
           const env = readSiteEnv(loadEnv(mode, root, "VITE_"));
-          const extra = render.renderExtraFiles?.(env, new Date().toISOString().slice(0, 10)).find((item) => `/${item.file}` === url);
+          const extra = render.renderExtraFiles?.(env).find((item) => `/${item.file}` === url);
           if (extra) {
             res.statusCode = 200;
             res.setHeader("Content-Type", extra.file.endsWith(".xml") ? "application/xml; charset=utf-8" : "text/plain; charset=utf-8");
@@ -79,7 +84,17 @@ export const publicSitePlugin = (): Plugin => {
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as Record<string, ManifestEntry>;
       const entry = manifest[CLIENT_ENTRY];
       if (!entry) throw new Error(`public site: l'ingresso ${CLIENT_ENTRY} manca dal manifest della build`);
-      const assets = { css: (entry.css ?? []).map((file) => `/${file}`), js: `/${entry.file}` };
+      // I caratteri della prima schermata (titolo e testo), per chiederli al browser prima del foglio di stile.
+      const built = fs.existsSync(path.join(outDir, "assets")) ? fs.readdirSync(path.join(outDir, "assets")) : [];
+      const font = (name: string) => {
+        const file = built.find((item) => item.startsWith(`${name}-`) && item.endsWith(".woff2"));
+        return file ? `/assets/${file}` : undefined;
+      };
+      const assets = {
+        css: (entry.css ?? []).map((file) => `/${file}`),
+        js: `/${entry.file}`,
+        fonts: { heading: font("lora-latin-600-normal"), body: font("inter-latin-400-normal") },
+      };
 
       // Un caricatore a parte, senza i plugin del progetto: nella build React non ha il runtime di sviluppo (jsxDEV),
       // quindi il JSX delle pagine va compilato con il runtime di produzione.
@@ -105,7 +120,7 @@ export const publicSitePlugin = (): Plugin => {
           fs.mkdirSync(dir, { recursive: true });
           fs.writeFileSync(path.join(dir, "index.html"), page.html);
         }
-        for (const item of render.renderExtraFiles?.(env, new Date().toISOString().slice(0, 10)) ?? []) {
+        for (const item of render.renderExtraFiles?.(env) ?? []) {
           fs.writeFileSync(path.join(outDir, item.file), item.content);
         }
         fs.rmSync(path.join(outDir, ".vite"), { recursive: true, force: true });

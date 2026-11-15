@@ -9,7 +9,7 @@ export const Audiences = ({ content }: PageProps) => {
   return (
     <section className="section section--tint" id="per-chi">
       <div className="container">
-        <SectionHead eyebrow={audiences.eyebrow} title={audiences.title} intro={audiences.intro} />
+        <SectionHead title={audiences.title} />
         <div className="audiences stagger">
           {audiences.items.map((item, index) => {
             const Icon = ICONS[index % ICONS.length];

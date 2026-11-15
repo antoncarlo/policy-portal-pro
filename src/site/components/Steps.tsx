@@ -7,7 +7,7 @@ export const Steps = ({ content }: PageProps) => {
   return (
     <section className="section" id="come-funziona">
       <div className="container">
-        <SectionHead eyebrow={steps.eyebrow} title={steps.title} intro={steps.intro} />
+        <SectionHead title={steps.title} />
         <ol className="steps" data-progress-line>
           {steps.items.map((step, index) => (
             <li key={step.title} className="step" data-step={index + 1} data-reveal>

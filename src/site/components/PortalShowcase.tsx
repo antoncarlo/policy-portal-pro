@@ -10,10 +10,10 @@ export const PortalShowcase = ({ content }: PageProps) => {
   const { portal } = content;
   return (
     <section className="section section--dark" id="portale">
-      <div className="section__glow section__glow--a" aria-hidden="true" />
-      <div className="section__glow section__glow--b" aria-hidden="true" />
+      <div className="section__glow section__glow--a" aria-hidden="true" data-decor />
+      <div className="section__glow section__glow--b" aria-hidden="true" data-decor />
       <div className="container">
-        <SectionHead eyebrow={portal.eyebrow} title={portal.title} intro={portal.intro} light />
+        <SectionHead title={portal.title} />
         <div className="portal">
           <ul className="features stagger">
             {portal.features.map((feature, index) => {

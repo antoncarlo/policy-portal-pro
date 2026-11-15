@@ -9,7 +9,7 @@ export const Documents = ({ content }: PageProps) => {
   return (
     <section className="section" id="documenti">
       <div className="container">
-        <SectionHead eyebrow={documents.eyebrow} title={documents.title} intro={documents.intro} />
+        <SectionHead title={documents.title} />
         <ul className="documents stagger">
           {documents.items.map((item, index) => {
             const Icon = ICONS[index % ICONS.length];

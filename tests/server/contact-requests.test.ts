@@ -307,4 +307,25 @@ describe("POST /api/contact", () => {
     assert.equal(state.status, 400);
     assert.equal((state.body as any).error, "invalid");
   });
+
+  it("reads the request also when the platform hands over the bytes instead of the parsed body", async () => {
+    for (const shape of ["stream", "string", "buffer"] as const) {
+      const { response, state } = mockResponse();
+      const json = JSON.stringify(valid({ message: `Richiesta arrivata come ${shape}, da leggere.` }));
+      const request = mockRequest({ method: "POST", headers: { "content-type": "application/json" }, query: { route: "contact" }, body: shape === "stream" ? json : undefined }) as any;
+      if (shape === "string") request.body = json;
+      if (shape === "buffer") request.body = Buffer.from(json, "utf8");
+      await handler(request as never, response);
+      assert.equal(state.status, 200, shape);
+    }
+    assert.equal(rows(db).length, 3);
+  });
+
+  it("a body that is not JSON is an invalid request, not an error of the server", async () => {
+    const { response, state } = mockResponse();
+    const request = mockRequest({ method: "POST", headers: { "content-type": "application/json" }, query: { route: "contact" }, body: "{not json" }) as any;
+    await handler(request as never, response);
+    assert.equal(state.status, 400);
+    assert.equal(rows(db).length, 0);
+  });
 });

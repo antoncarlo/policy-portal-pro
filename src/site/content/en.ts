@@ -42,7 +42,6 @@ export const en: SiteContent = {
     home: "Tecno Advance MGA Broker: home page",
   },
   hero: {
-    eyebrow: "VIES guarantee · Article 35(7-quater), Presidential Decree 633/1972",
     lead: "The surety bond that companies based outside the EU and the EEA, with a fiscal representative in Italy, give to the Italian Revenue Agency to enter and stay in VIES. Request it online, follow every step, receive it digitally signed.",
     facts: [
       { value: "€50,000", label: "minimum value of the guarantee" },
@@ -65,7 +64,6 @@ export const en: SiteContent = {
     ruiCheck: "Check the registration in the Single Register of Insurance Intermediaries",
   },
   whatIs: {
-    eyebrow: "The rule, in short",
     title: "What is the VIES guarantee?",
     answer:
       "The VIES guarantee is the guarantee that a company not resident in the European Union or the European Economic Area, with a fiscal representative in Italy, gives to the Italian Revenue Agency to be included, or to stay, in the VIES database of intra-EU traders. It is worth at least €50,000 and lasts at least 36 months.",
@@ -78,12 +76,11 @@ export const en: SiteContent = {
       { term: "After delivery", text: "The Provincial Directorate checks that the guarantee complies and communicates the outcome: from that communication, inclusion in VIES can be requested." },
     ],
     formsTitle: "Securities deposit, bank guarantee or surety bond",
-    formsIntro: "The Revenue Agency's order allows three forms of guarantee. The surety bond is the one we arrange.",
     formsColumns: { form: "Form", issuer: "Who provides it", commitment: "What it involves" },
     forms: [
       { form: "Deposit of government or government-guaranteed securities", issuer: "A restricted deposit of the securities with a custodian", commitment: "The securities stay tied up for the whole life of the guarantee." },
       { form: "Bank guarantee", issuer: "A bank, under Article 1 of Law 348/1982", commitment: "It takes a bank willing to issue it to a company based outside the EU." },
-      { form: "Surety bond", issuer: "An insurance company, under Article 1 of Law 348/1982", commitment: "The policyholder pays a premium and deposits no securities." },
+      { form: "Surety bond", issuer: "An insurance company, under Article 1 of Law 348/1982", commitment: "The policyholder pays a premium and deposits no securities. This is the form we arrange." },
     ],
     lawTitle: "From 1 January 2027 the article changes, the rule does not",
     law: "Until 31 December 2026 the guarantee is required by Article 35(7-quater) of Presidential Decree 633/1972, implemented by the decree of the Minister of Economy and Finance of 4 December 2024 (Official Gazette no. 292 of 13 December 2024) and by the Revenue Agency's order ref. 178713/2025 of 14 April 2025. From 1 January 2027 the Consolidated VAT Act applies (Legislative Decree no. 10 of 19 January 2026, D.Lgs. 10/2026): the same rule is in Article 68(10), and references to the repealed provision are read as references to the new one (Article 170(3)).",
@@ -100,13 +97,11 @@ export const en: SiteContent = {
     updated: "Last updated",
   },
   audiences: {
-    eyebrow: "Who we work for",
     title: "Who needs a VIES surety bond?",
-    intro: "Those who must give the guarantee, and those who manage it on behalf of their clients.",
     items: [
       {
         title: "Fiscal representatives, firms and brokers",
-        text: "Follow the VIES guarantees of all the companies you represent from one portal, without chains of emails and attachments.",
+        text: "Manage from one portal the VIES guarantees of all the companies you represent.",
         points: ["Batches of up to 20 applications with one Excel file and one folder of documents per company", "Automatic document check, with the list of what is missing", "Statement of account, digital signatures and issued bonds in the same place"],
         cta: "Tell us about your volumes",
       },
@@ -119,9 +114,7 @@ export const en: SiteContent = {
     ],
   },
   steps: {
-    eyebrow: "The path",
     title: "How do you get a VIES surety bond?",
-    intro: "Five steps, all in the portal: each one is recorded and you always know where the application stands.",
     items: [
       { title: "Upload the documents", text: "The fiscal representative or the company uploads data and documents to the portal: one application at a time, or in batches of up to 20." },
       { title: "We check the application", text: "The portal reads the documents, checks that none is missing and that the data match. A member of our staff confirms and reports what is missing." },
@@ -132,9 +125,7 @@ export const en: SiteContent = {
     outcome: "After delivery, the Provincial Directorate checks the guarantee and communicates the outcome: from then on, inclusion in VIES can be requested.",
   },
   portal: {
-    eyebrow: "The working tool",
     title: "The portal for fiscal representatives",
-    intro: "A private workspace built on the real work of VIES guarantees: many companies, many documents, the same deadlines for all.",
     features: [
       { title: "Automatic document check", text: "The portal reads the uploaded documents, recognises what each one is and checks that the company's data match across them." },
       { title: "Batches of up to 20 applications", text: "One Excel file with the data and one archive of documents per company: the batch is created in a single upload." },
@@ -158,9 +149,7 @@ export const en: SiteContent = {
     },
   },
   documents: {
-    eyebrow: "What to prepare",
     title: "Which documents are needed?",
-    intro: "To assess the request the insurer needs to know the foreign company, who represents it and who controls it. As a rule these are needed:",
     items: [
       { title: "Company document", text: "Business licence or certificate of incorporation of the foreign company, with translation." },
       { title: "Identity document of the legal representative", text: "Valid passport or identity card, with translation." },
@@ -172,7 +161,6 @@ export const en: SiteContent = {
     note: "The list may change with the company's country and the insurer's assessment: after the first contact we send the final one for your case.",
   },
   cost: {
-    eyebrow: "The premium",
     title: "How much does a VIES surety bond cost?",
     answer:
       "The cost of a VIES surety bond is the premium of the policy, set by the insurance company once it has examined the documents. It depends on the guaranteed amount, the duration and the profile of the foreign company. We publish no price list: we send a written quotation for each request, and the premium is paid before issue.",
@@ -186,9 +174,7 @@ export const en: SiteContent = {
     note: "Asking for a quotation does not commit you to taking out the bond.",
   },
   faq: {
-    eyebrow: "Short answers",
     title: "Frequently asked questions",
-    intro: "The questions we receive most often from fiscal representatives and foreign companies.",
     items: [
       {
         q: "Who must give the VIES guarantee in Italy?",
@@ -233,9 +219,7 @@ export const en: SiteContent = {
     ],
   },
   contact: {
-    eyebrow: "Let's talk",
     title: "Contact",
-    intro: "Tell us what you need: one company or a hundred, a quotation or a question about the documents. We reply to the address you give us.",
     form: {
       name: "Full name",
       company: "Company or firm",
@@ -303,7 +287,7 @@ export const en: SiteContent = {
           title: "Who processes your data",
           paragraphs: [
             "The data controller is Tecno Advance MGA Broker Srl, registered office at Via Po, 102 - 00198 Roma, Italy, VAT no. 17460381001, an insurance intermediary entered in the Italian Single Register of Insurance Intermediaries under no. B000746484.",
-            "For any question about your data you can write to the privacy office, privacy@tecnomga.com, or to the data protection officer (DPO), dpo@tecnomga.com.",
+            "For any question about your data you can write to the data protection officer (DPO), antoncarlo@tecnomga.com, or to the registered office.",
             "This notice covers the public part of the site portale.tecnomga.com and its contact form. Contractual relationships and the client area are covered by the {notice}.",
           ],
           list: [],
@@ -353,7 +337,7 @@ export const en: SiteContent = {
           list: [
             "Vercel Inc.: hosts the site and runs its functions, in the Dublin (Ireland) data centre.",
             "Supabase Inc.: hosts the database where the requests are saved, in its data centre in Ireland.",
-            "Google (Google Workspace): provides the email through which the request reaches the controller's mailbox.",
+            "Google (Google Workspace) and Resend: email services through which the request reaches the controller's mailbox.",
             "Google Ireland Limited: Google Analytics and Google Ads, only if you have given consent.",
             "Functional Software Inc. (Sentry): receives unexpected technical errors of the site, without the data of the form; its systems are in Germany.",
           ],
@@ -362,7 +346,7 @@ export const en: SiteContent = {
           title: "Your rights",
           paragraphs: [
             "At any time you can ask for access to your data, rectification, erasure, restriction of processing and portability, and you can object to processing based on legitimate interest (Articles 15 to 22 of the Regulation). If you have given consent you can withdraw it, without affecting what was done before.",
-            "To exercise your rights write to privacy@tecnomga.com or to the registered office. We reply within one month, as Article 12 of the Regulation requires.",
+            "To exercise your rights write to antoncarlo@tecnomga.com or to the registered office. We reply within one month, as Article 12 of the Regulation requires.",
             "If you believe the processing infringes the Regulation you can lodge a complaint with the Italian data protection authority, the Garante per la protezione dei dati personali (https://www.garanteprivacy.it/), or with the supervisory authority of the country where you live or work.",
           ],
           list: [],
@@ -428,19 +412,11 @@ export const en: SiteContent = {
   legalNotice: "Advertising message for promotional purposes. Before signing, read the policy documentation (set informativo).",
   cookieBanner: {
     title: "Cookies",
-    text: "We use technical cookies to make the site work. With your consent we also use Google cookies for statistics and to measure advertising campaigns.",
+    text: "We use technical cookies to make the site work. With your consent we also use Google cookies for visit statistics and to measure advertising campaigns.",
     accept: "Accept",
     reject: "Reject",
-    customise: "Customise",
-    save: "Save my choices",
     close: "Close and reject",
     policyLink: "Read the cookie notice",
-    categories: {
-      necessary: { title: "Necessary", text: "Needed for the site to work and to remember your cookie choice." },
-      statistics: { title: "Statistics", text: "Google Analytics: tells us which pages are read, in aggregate form." },
-      marketing: { title: "Marketing", text: "Google Ads: measures whether a campaign brings contact requests." },
-    },
-    alwaysOn: "Always on",
   },
   langNotice: {
     text: "This page is available in English.",

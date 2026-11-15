@@ -1,7 +1,7 @@
 // Da un percorso pubblico al documento HTML completo. Il corpo e' reso da React come HTML statico (nessuna
 // idratazione nel browser); la testata e' composta come testo, con escape.
 import { renderToStaticMarkup } from "react-dom/server";
-import { HREFLANG, type SiteEnv } from "./config";
+import { CONTENT_UPDATED, HREFLANG, type SiteEnv } from "./config";
 import { contentFor } from "./content";
 import { findPage, listPages, type PageRef } from "./routes";
 import { Layout } from "./components/Layout";
@@ -16,6 +16,8 @@ export interface SiteAssets {
   css: string[];
   /** Ingresso JavaScript del sito pubblico (modulo). */
   js: string;
+  /** I caratteri della prima schermata, da chiedere subito: quello dei titoli (latino) e quello del testo. */
+  fonts?: { heading?: string; body?: string };
 }
 
 const document = (page: PageRef, assets: SiteAssets, env: SiteEnv): string => {
@@ -33,6 +35,10 @@ const document = (page: PageRef, assets: SiteAssets, env: SiteEnv): string => {
     '<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=tecnomga-2">',
     '<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=tecnomga-2">',
     '<meta name="theme-color" content="#103657">',
+    // Il titolo cinese usa il carattere di sistema: li' serve solo il carattere del testo.
+    ...[page.lang === "zh" ? undefined : assets.fonts?.heading, assets.fonts?.body]
+      .filter((href): href is string => Boolean(href))
+      .map((href) => `<link rel="preload" as="font" type="font/woff2" href="${escapeHtml(href)}" crossorigin>`),
     ...assets.css.map((href) => `<link rel="stylesheet" href="${escapeHtml(href)}">`),
     `<script type="module" src="${escapeHtml(assets.js)}"></script>`,
     ...structured.map(jsonLd),
@@ -61,7 +67,9 @@ export const renderAll = (assets: SiteAssets, env: SiteEnv): Array<{ path: strin
   listPages().map((page) => ({ path: page.path, html: document(page, assets, env) }));
 
 /** I file serviti accanto alle pagine: la mappa del sito e la descrizione per le IA. */
-export const renderExtraFiles = (env: SiteEnv, today: string): Array<{ file: string; content: string }> => [
-  { file: "sitemap.xml", content: buildSitemapXml(env, today) },
+export const renderExtraFiles = (env: SiteEnv): Array<{ file: string; content: string }> => [
+  // La data della mappa e' quella dell'ultima verifica dei contenuti, non quella della build: a un motore di
+  // ricerca si dice che una pagina e' cambiata solo quando e' cambiata.
+  { file: "sitemap.xml", content: buildSitemapXml(env, CONTENT_UPDATED) },
   { file: "llms.txt", content: buildLlmsTxt(env) },
 ];

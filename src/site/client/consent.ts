@@ -1,5 +1,6 @@
-// Il consenso ai cookie nel browser. Senza identificativi di Google nella pagina non fa nulla. Con gli
-// identificativi: mostra il banner se manca una scelta valida, ricorda la scelta, e solo dopo un consenso carica lo
+// Il consenso ai cookie nel browser: un solo consenso per tutti i cookie non tecnici. Senza identificativi di
+// Google nella pagina non fa nulla. Con gli identificativi: mostra il banner se manca una scelta valida, ricorda
+// la scelta («Accetta» o «Rifiuta»; la chiusura vale rifiuto), e solo dopo un consenso carica lo
 // script di Google con la modalita' di consenso versione 2 (prima «negato a tutto», poi cio' che e' stato concesso).
 // Dopo un rifiuto non parte nulla; revocando un consenso i cookie di Google salvati dal sito vengono cancellati.
 import { CONSENT_KEY, DENIED, googleTagsToLoad, gtagConsent, parseConsent, serializeConsent, validTagIds, type ConsentChoice } from "../consent-core";
@@ -58,15 +59,13 @@ export function initConsent(): void {
   const banner = document.querySelector<HTMLElement>("[data-cookie-banner]");
   if (!banner || (!ids.ga4Id && !ids.adsId)) return;
 
-  const options = banner.querySelector<HTMLFormElement>("[data-consent-options]");
   const button = (action: string) => banner.querySelector<HTMLButtonElement>(`[data-consent="${action}"]`);
-  const box = (name: "statistics" | "marketing") => banner.querySelector<HTMLInputElement>(`input[name="${name}"]`);
   let choice = read();
   let started = false;
   const configured = new Set<string>();
 
-  /** Dice a Google cosa e' concesso e carica cio' che serve. Senza consensi, e senza uno script gia' partito, non fa nulla. */
-  const apply = (previous: ConsentChoice | null) => {
+  /** Dice a Google cosa e' concesso e carica cio' che serve. Senza consenso, e senza uno script gia' partito, non fa nulla. */
+  const apply = () => {
     const tags = googleTagsToLoad(choice, ids);
     if (!started && tags.length === 0) return;
     if (!started) {
@@ -87,51 +86,35 @@ export function initConsent(): void {
       configured.add(tag);
       gtag("config", tag);
     }
-    if (previous?.statistics && !choice?.statistics) removeCookies(GOOGLE_COOKIES.statistics);
-    if (previous?.marketing && !choice?.marketing) removeCookies(GOOGLE_COOKIES.marketing);
   };
 
-  const showOptions = (visible: boolean) => {
-    if (options) options.hidden = !visible;
-    const customise = button("customise");
-    const save = button("save");
-    if (customise) {
-      customise.hidden = visible;
-      customise.setAttribute("aria-expanded", String(visible));
-    }
-    if (save) save.hidden = !visible;
-  };
   const close = () => {
     banner.hidden = true;
-    showOptions(false);
     document.dispatchEvent(new CustomEvent("tecno:consent"));
   };
-  const decide = (next: { statistics: boolean; marketing: boolean }) => {
-    const previous = choice;
-    choice = write({ statistics: next.statistics && Boolean(ids.ga4Id), marketing: next.marketing && Boolean(ids.adsId) });
-    apply(previous);
+  /** Un solo consenso per tutto: accettare vale per statistiche e campagne, rifiutare per entrambe. */
+  const decide = (accepted: boolean) => {
+    choice = write({ statistics: accepted && Boolean(ids.ga4Id), marketing: accepted && Boolean(ids.adsId) });
+    apply();
+    // Cio' che non e' concesso non resta nel browser: anche i cookie di un consenso dato in passato e poi scaduto.
+    if (!choice.statistics) removeCookies(GOOGLE_COOKIES.statistics);
+    if (!choice.marketing) removeCookies(GOOGLE_COOKIES.marketing);
     close();
   };
-  const open = (withOptions: boolean) => {
-    const statistics = box("statistics");
-    const marketing = box("marketing");
-    if (statistics) statistics.checked = choice?.statistics === true;
-    if (marketing) marketing.checked = choice?.marketing === true;
-    showOptions(withOptions);
-    banner.hidden = false;
-  };
 
-  button("accept")?.addEventListener("click", () => decide({ statistics: true, marketing: true }));
-  button("reject")?.addEventListener("click", () => decide({ statistics: false, marketing: false }));
+  button("accept")?.addEventListener("click", () => decide(true));
+  button("reject")?.addEventListener("click", () => decide(false));
   // Chiudere senza scegliere vale come rifiuto.
-  button("close")?.addEventListener("click", () => decide({ statistics: false, marketing: false }));
-  button("customise")?.addEventListener("click", () => showOptions(true));
-  button("save")?.addEventListener("click", () => decide({ statistics: box("statistics")?.checked === true, marketing: box("marketing")?.checked === true }));
-  options?.addEventListener("submit", (event) => event.preventDefault());
+  button("close")?.addEventListener("click", () => decide(false));
 
-  // «Preferenze cookie» nel pie' di pagina: riapre il banner con la scelta fatta.
+  // «Preferenze cookie» nel pie' di pagina: riapre il banner, per cambiare la scelta.
   for (const item of document.querySelectorAll<HTMLElement>("[data-cookie-preferences-item]")) item.hidden = false;
-  for (const control of document.querySelectorAll("[data-cookie-preferences]")) control.addEventListener("click", () => open(true));
+  for (const control of document.querySelectorAll("[data-cookie-preferences]")) {
+    control.addEventListener("click", () => {
+      banner.hidden = false;
+      button("accept")?.focus();
+    });
+  }
 
   // Una richiesta inviata dal modulo: contatto per le statistiche, conversione per le campagne. Solo con il consenso.
   document.addEventListener("tecno:lead", () => {
@@ -140,6 +123,6 @@ export function initConsent(): void {
     if (choice.marketing && ids.adsId && conversionLabel) gtag("event", "conversion", { send_to: `${ids.adsId}/${conversionLabel}` });
   });
 
-  if (choice) apply(null);
-  else open(false);
+  if (choice) apply();
+  else banner.hidden = false;
 }
