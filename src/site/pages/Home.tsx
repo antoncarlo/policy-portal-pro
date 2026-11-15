@@ -5,6 +5,7 @@ import { Cost } from "../components/Cost";
 import { Documents } from "../components/Documents";
 import { Faq } from "../components/Faq";
 import { Hero } from "../components/Hero";
+import { LatestGuides } from "../components/LatestGuides";
 import type { PageProps } from "../components/Layout";
 import { PortalShowcase } from "../components/PortalShowcase";
 import { Steps } from "../components/Steps";
@@ -22,6 +23,7 @@ export const Home = (props: PageProps) => (
     <Documents {...props} />
     <Cost {...props} />
     <Faq {...props} />
+    <LatestGuides {...props} />
     <Contact {...props} />
   </>
 );

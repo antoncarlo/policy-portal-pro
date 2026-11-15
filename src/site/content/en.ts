@@ -1,3 +1,4 @@
+import { audiencePages } from "./audience/en";
 import type { SiteContent } from "./types";
 
 // Same facts as the Italian version, checked against the official texts (see it.ts). Italian terms are kept in
@@ -9,6 +10,24 @@ export const en: SiteContent = {
       description: "Surety bond for the Italian VIES guarantee: €50,000 for 36 months, for non-EU companies with a fiscal representative. See documents, steps and get in touch.",
       h1: "VIES guarantee in Italy for non-EU companies",
       label: "Home",
+    },
+    representatives: {
+      title: "VIES Surety Bonds for Fiscal Representatives | Tecno MGA",
+      description: "Manage the VIES surety bonds of the companies you represent in batches of up to 20: document checks, digital signatures and one statement, all in one portal.",
+      h1: "VIES surety bonds for fiscal representatives",
+      label: "Fiscal representatives",
+    },
+    sellers: {
+      title: "Italy VIES Guarantee for Non-EU Sellers | Tecno MGA",
+      description: "Selling in Italy from outside the EU? VIES registration takes a €50,000 guarantee for 36 months. See the documents, the steps and how to apply for the bond.",
+      h1: "Italy VIES guarantee for non-EU sellers",
+      label: "Non-EU sellers",
+    },
+    blog: {
+      title: "VIES Guarantee Italy: Rules, Documents, Guides | Tecno MGA",
+      description: "Guides to the Italian VIES guarantee: Article 35(7-quater), the documents you need, digitally signed bonds and how batches work in the Tecno portal. Read on.",
+      h1: "Guides to the Italian VIES guarantee",
+      label: "Guides",
     },
     privacy: {
       title: "Privacy Notice for the VIES Guarantee Site | Tecno MGA",
@@ -34,6 +53,7 @@ export const en: SiteContent = {
       { anchor: "domande", label: "FAQ" },
       { anchor: "contatti", label: "Contact" },
     ],
+    guides: "Guides",
     portal: "Client area",
     contact: "Get in touch",
     menu: "Open or close the menu",
@@ -104,15 +124,18 @@ export const en: SiteContent = {
         text: "Manage from one portal the VIES guarantees of all the companies you represent.",
         points: ["Batches of up to 20 applications with one Excel file and one folder of documents per company", "Automatic document check, with the list of what is missing", "Statement of account, digital signatures and issued bonds in the same place"],
         cta: "Tell us about your volumes",
+        more: "VIES surety bonds for fiscal representatives",
       },
       {
         title: "Foreign companies selling in Italy and the EU",
         text: "You are based outside the EU and the EEA, you sell online or to European customers, and you have appointed a fiscal representative in Italy: to operate in VIES you need the guarantee.",
         points: ["Site and portal in English, Italian and Chinese", "A clear list of documents, with the translations required", "A digitally signed bond, to be delivered through your fiscal representative"],
         cta: "Ask how to start",
+        more: "Italy VIES guarantee for non-EU sellers",
       },
     ],
   },
+  audiencePages,
   steps: {
     title: "How do you get a VIES surety bond?",
     items: [
@@ -262,6 +285,19 @@ export const en: SiteContent = {
       legalSeat: "Registered office",
       office: "Operating office",
     },
+  },
+  blog: {
+    by: "By",
+    published: "Published on",
+    updated: "Checked against the sources on",
+    summaryTitle: "In short",
+    faqTitle: "Frequently asked questions",
+    sourcesTitle: "Official sources",
+    relatedTitle: "Related guides",
+    allGuides: "All guides to the Italian VIES guarantee",
+    latestTitle: "Guides to the VIES guarantee",
+    feedTitle: "Tecno MGA guides to the Italian VIES guarantee",
+    cta: { title: "Do you need to give the VIES guarantee?", text: "Tell us about your case: we will list the documents you need and send you a written quotation.", button: "Get in touch" },
   },
   footer: {
     about: "Insurance intermediary. This site is dedicated to the VIES guarantee for non-resident businesses with a fiscal representative in Italy.",

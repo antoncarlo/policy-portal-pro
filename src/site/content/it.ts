@@ -1,3 +1,4 @@
+import { audiencePages } from "./audience/it";
 import type { SiteContent } from "./types";
 
 // Ogni affermazione normativa e' verificata sul testo ufficiale: Provvedimento dell'Agenzia delle Entrate
@@ -10,6 +11,24 @@ export const it: SiteContent = {
       description: "Polizza fideiussoria VIES da 50.000 euro per 36 mesi, art. 35 c. 7-quater DPR 633/1972. Per rappresentanti fiscali e società estere. Richiedi un contatto.",
       h1: "Fideiussione VIES per soggetti non residenti",
       label: "Home",
+    },
+    representatives: {
+      title: "Fideiussioni VIES per rappresentanti fiscali | Tecno MGA",
+      description: "Gestisci le fideiussioni VIES dei tuoi rappresentati in lotti fino a 20 pratiche: controllo dei documenti, firme digitali ed estratto conto in un solo portale.",
+      h1: "Fideiussioni VIES per rappresentanti fiscali e studi",
+      label: "Rappresentanti fiscali",
+    },
+    sellers: {
+      title: "Garanzia VIES per società extra UE che vendono in Italia",
+      description: "Vendi in Italia da fuori UE? Per l'iscrizione al VIES serve una garanzia di 50.000 euro per 36 mesi. Scopri documenti, passaggi e come richiedere la polizza.",
+      h1: "Garanzia VIES per società extra UE",
+      label: "Società extra UE",
+    },
+    blog: {
+      title: "Garanzia VIES: norme, documenti e guide | Blog Tecno MGA",
+      description: "Guide e aggiornamenti sulla garanzia VIES: art. 35 comma 7-quater, documenti necessari, firma digitale delle polizze e gestione dei lotti nel portale Tecno.",
+      h1: "Guide sulla garanzia VIES",
+      label: "Guide",
     },
     privacy: {
       title: "Informativa sulla privacy del sito VIES | Tecno MGA Broker",
@@ -35,6 +54,7 @@ export const it: SiteContent = {
       { anchor: "domande", label: "Domande" },
       { anchor: "contatti", label: "Contatti" },
     ],
+    guides: "Guide",
     portal: "Area riservata",
     contact: "Richiedi contatto",
     menu: "Apri o chiudi il menu",
@@ -105,15 +125,18 @@ export const it: SiteContent = {
         text: "Gestisci da un solo portale le garanzie VIES di tutte le società che rappresenti.",
         points: ["Lotti fino a 20 pratiche con un file Excel e una cartella di documenti per società", "Controllo automatico dei documenti, con l'elenco di quelli che mancano", "Estratto conto, firme digitali e polizze emesse nello stesso posto"],
         cta: "Parlaci dei tuoi volumi",
+        more: "Fideiussioni VIES per rappresentanti fiscali",
       },
       {
         title: "Società estere che vendono in Italia e nell'UE",
         text: "Hai sede fuori dall'UE e dallo SEE, vendi online o a clienti europei e hai nominato un rappresentante fiscale in Italia: per operare nel VIES serve la garanzia.",
         points: ["Sito e portale in italiano, inglese e cinese", "Elenco chiaro dei documenti, con le traduzioni richieste", "Polizza firmata digitalmente, da consegnare tramite il tuo rappresentante fiscale"],
         cta: "Chiedi come iniziare",
+        more: "Garanzia VIES per società extra UE",
       },
     ],
   },
+  audiencePages,
   steps: {
     title: "Come si ottiene la polizza fideiussoria VIES?",
     items: [
@@ -263,6 +286,19 @@ export const it: SiteContent = {
       legalSeat: "Sede legale",
       office: "Sede operativa",
     },
+  },
+  blog: {
+    by: "di",
+    published: "Pubblicato il",
+    updated: "Verificato sulle fonti il",
+    summaryTitle: "In breve",
+    faqTitle: "Domande frequenti",
+    sourcesTitle: "Fonti ufficiali",
+    relatedTitle: "Guide collegate",
+    allGuides: "Tutte le guide sulla garanzia VIES",
+    latestTitle: "Guide sulla garanzia VIES",
+    feedTitle: "Guide sulla garanzia VIES di Tecno MGA",
+    cta: { title: "Devi prestare la garanzia VIES?", text: "Raccontaci il tuo caso: ti indichiamo i documenti che servono e ti inviamo una quotazione scritta.", button: "Richiedi contatto" },
   },
   footer: {
     about: "Intermediario assicurativo. Questo sito è dedicato alla garanzia VIES per i soggetti non residenti con rappresentante fiscale in Italia.",

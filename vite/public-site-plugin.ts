@@ -121,7 +121,9 @@ export const publicSitePlugin = (): Plugin => {
           fs.writeFileSync(path.join(dir, "index.html"), page.html);
         }
         for (const item of render.renderExtraFiles?.(env) ?? []) {
-          fs.writeFileSync(path.join(outDir, item.file), item.content);
+          const target = path.join(outDir, item.file);
+          fs.mkdirSync(path.dirname(target), { recursive: true });
+          fs.writeFileSync(target, item.content);
         }
         fs.rmSync(path.join(outDir, ".vite"), { recursive: true, force: true });
       } finally {

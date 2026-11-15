@@ -440,6 +440,7 @@ textarea {
 }
 .lang-switch {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 2px;
   padding: 3px;
@@ -456,6 +457,7 @@ textarea {
   line-height: 1.2;
   text-align: center;
   text-decoration: none;
+  white-space: nowrap;
   color: var(--ink-soft);
   transition:
     background-color 0.2s var(--ease),
@@ -599,10 +601,12 @@ textarea {
     transition: transform 0.3s var(--ease);
   }
   .site-nav__list a:hover::after,
-  .site-nav__list a[aria-current="true"]::after {
+  .site-nav__list a[aria-current="true"]::after,
+  .site-nav__list a[aria-current="page"]::after {
     transform: scaleX(1);
   }
-  .site-nav__list a[aria-current="true"] {
+  .site-nav__list a[aria-current="true"],
+  .site-nav__list a[aria-current="page"] {
     color: var(--navy-800);
   }
   /* «Contatti» e' gia' il pulsante a destra. */
@@ -2063,6 +2067,237 @@ html:lang(zh-Hans) .cookie-banner__title {
   padding-top: 1.25rem;
   border-top: 1px solid var(--line);
   font-size: 0.9rem;
+}
+
+/* Con la voce «Guide» la barra ha nove voci: tra 1300 e 1399 px stanno piu' vicine. */
+@media (min-width: 1300px) and (max-width: 1399px) {
+  .site-nav {
+    gap: 0.4rem;
+  }
+  .site-nav__list a {
+    padding-inline: 0.45rem;
+  }
+  .site-nav__list a::after {
+    left: 0.45rem;
+    right: 0.45rem;
+  }
+  .site-nav__cta .btn {
+    padding-inline: 1rem;
+  }
+}
+
+/* ---------- Blog: articolo, indice, riquadri delle guide ---------- */
+.article__byline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.5rem;
+  margin-top: 1.25rem;
+  font-size: 0.92rem;
+  color: rgba(255, 255, 255, 0.78);
+}
+.article__byline strong {
+  font-weight: 600;
+  color: #fff;
+}
+.article__summary {
+  padding: clamp(1.25rem, 3vw, 1.9rem);
+  border-radius: var(--radius);
+  box-shadow: inset 4px 0 0 var(--bronze-500);
+}
+.article__body .article__summary h2 {
+  margin-bottom: 0.5rem;
+  font-size: clamp(1.2rem, 2.2vw, 1.45rem);
+}
+.article__body .article__summary p {
+  margin-top: 0;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+.article__body .faq {
+  margin-top: 1.2rem;
+}
+.article__body .faq__a {
+  margin-top: 0;
+}
+.article__body .sources {
+  margin-top: 2.75rem;
+}
+.article__body .sources__list {
+  padding-left: 0;
+  list-style: none;
+}
+.article-steps {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1.2rem;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+.article-steps li {
+  position: relative;
+  display: grid;
+  gap: 0.2rem;
+  padding: 1rem 1.2rem 1rem 3.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.6);
+  counter-increment: step;
+}
+.article-steps li::before {
+  content: counter(step);
+  position: absolute;
+  top: 1rem;
+  left: 1.1rem;
+  display: grid;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 50%;
+  background: var(--navy-800);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.article-steps strong {
+  color: var(--navy-800);
+}
+.article-steps span {
+  color: var(--ink-soft);
+}
+.article__body .article-note {
+  padding: 1rem 1.2rem;
+  border-left: 3px solid var(--bronze-500);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: rgba(176, 137, 104, 0.1);
+}
+.article__cta {
+  margin-top: 3rem;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  border-radius: var(--radius);
+  color: #fff;
+  background:
+    radial-gradient(90% 140% at 100% 0%, #1b5a8a 0%, transparent 60%),
+    linear-gradient(165deg, var(--navy-950), var(--navy-800));
+  box-shadow: var(--shadow-soft);
+}
+.article__body .article__cta h2 {
+  margin-bottom: 0.5rem;
+  color: #fff;
+}
+.article__body .article__cta p {
+  margin: 0 0 1.25rem;
+  color: rgba(255, 255, 255, 0.84);
+}
+.article__body .article__cta .btn {
+  color: #fff;
+}
+.article__related {
+  margin-top: 3rem;
+}
+.article__related .link-arrow {
+  margin-top: 1.5rem;
+}
+.guide-cards {
+  display: grid;
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+}
+.guide-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: clamp(1.25rem, 3vw, 1.75rem);
+  border-radius: var(--radius);
+  transition:
+    transform 0.35s var(--ease),
+    box-shadow 0.35s var(--ease);
+}
+.guide-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-soft);
+}
+.guide-card .guide-card__title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: var(--navy-800);
+}
+:lang(zh-Hans) .guide-card .guide-card__title {
+  font-family: var(--font-cjk);
+}
+.guide-card .guide-card__title a {
+  color: inherit;
+  text-decoration: none;
+}
+/* Tutto il riquadro porta all'articolo. */
+.guide-card .guide-card__title a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.guide-card .guide-card__text {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+}
+.guide-card .guide-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: auto 0 0;
+  padding-top: 0.6rem;
+  font-size: 0.85rem;
+  color: var(--bronze-700);
+}
+/* ---------- Pagine per pubblico ---------- */
+.audience-page__lead {
+  max-width: 46rem;
+  margin-top: 1.25rem;
+  font-size: clamp(1.05rem, 1.6vw, 1.2rem);
+  color: rgba(255, 255, 255, 0.86);
+}
+.audience-page__lead a {
+  color: #fff;
+}
+.audience-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-top: 1.75rem;
+}
+.audience .audience__contact {
+  display: inline-block;
+  margin-top: 0.9rem;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-decoration-color: rgba(15, 58, 92, 0.25);
+}
+.audience--dark .audience__contact {
+  color: rgba(255, 255, 255, 0.78);
+  text-decoration-color: rgba(255, 255, 255, 0.35);
+}
+.guides__all {
+  margin-top: 2rem;
+}
+.blog-index__body {
+  padding: clamp(2.5rem, 6vh, 4rem) 0 clamp(3.5rem, 8vh, 6rem);
+}
+@media (min-width: 720px) {
+  .guide-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1100px) {
+  .blog-index .guide-cards,
+  .section .guide-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 /* ---------- Comparsa allo scorrimento ---------- */

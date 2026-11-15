@@ -8,14 +8,23 @@ import { gzipSync } from "node:zlib";
 
 const DIST = "dist";
 const MAX_SITE_JS_GZIP = 150 * 1024;
-const REQUIRED = ["/", "/en/", "/zh/", "/privacy/", "/en/privacy/", "/zh/privacy/", "/cookie/", "/en/cookie/", "/zh/cookie/"];
+const REQUIRED = [
+  "/", "/en/", "/zh/", "/privacy/", "/en/privacy/", "/zh/privacy/", "/cookie/", "/en/cookie/", "/zh/cookie/",
+  "/rappresentanti-fiscali/", "/en/fiscal-representatives/", "/zh/fiscal-representatives/", "/venditori-esteri/", "/en/non-eu-sellers/", "/zh/non-eu-sellers/",
+  "/blog/", "/en/blog/", "/zh/blog/",
+];
+/** Gli indici del blog per lingua: sotto ognuno stanno gli articoli e il feed. */
+const BLOGS = ["/blog/", "/en/blog/", "/zh/blog/"];
+/** Quanti articoli deve avere almeno ogni lingua. */
+const MIN_ARTICLES = 8;
+const isArticle = (url) => BLOGS.some((blog) => url.startsWith(blog) && url !== blog);
 const LANG_ATTR = { "": "it", en: "en", zh: "zh-Hans" };
 // Il testo minimo di una pagina, letto come lo legge chi non esegue JavaScript (crawler, motori di risposta).
 // Il cinese dice le stesse cose in meno caratteri.
 const MIN_TEXT = { it: 1500, en: 1500, "zh-Hans": 700 };
 /** La homepage nelle tre lingue: oltre al testo deve avere le sue otto sezioni e le domande frequenti. */
 const HOME_PAGES = new Set(["/", "/en/", "/zh/"]);
-const HOME_ANCHORS = ["cos-e", "per-chi", "come-funziona", "portale", "documenti", "costo", "domande", "contatti"];
+const HOME_ANCHORS = ["cos-e", "per-chi", "come-funziona", "portale", "documenti", "costo", "domande", "guide", "contatti"];
 const bodyText = (html) =>
   (html.split(/<body[^>]*>/)[1] ?? "")
     .replace(/<script[\s\S]*?<\/script>/g, " ")
@@ -79,6 +88,13 @@ for (const url of [...pages].sort()) {
     for (const anchor of HOME_ANCHORS) if (!html.includes(`id="${anchor}"`)) fail(`${url}: manca la sezione #${anchor}`);
     if (!html.includes('"@type":"FAQPage"')) fail(`${url}: mancano i dati strutturati delle domande frequenti`);
   }
+  // Un articolo si presenta come tale: chi lo firma, quando, e i dati strutturati dell'articolo.
+  if (isArticle(url)) {
+    if (!html.includes('"@type":"BlogPosting"')) fail(`${url}: mancano i dati strutturati dell'articolo`);
+    if (!/<meta name="author" content="[^"]+">/.test(html) || !html.includes('property="article:published_time"')) fail(`${url}: mancano autore o data nella testata`);
+    if (!/<time datetime="\d{4}-\d{2}-\d{2}"/i.test(html)) fail(`${url}: manca la data visibile dell'articolo`);
+  }
+  if (!/<link rel="alternate" type="application\/atom\+xml"/.test(html)) fail(`${url}: la testata non annuncia il feed delle guide`);
   // I caratteri chiesti in anticipo devono esistere: un indirizzo sbagliato costa una richiesta a vuoto a ogni visita.
   const preloads = [...html.matchAll(/<link rel="preload" as="font"[^>]*href="([^"]+)"/g)].map((match) => match[1]);
   if (preloads.length === 0) fail(`${url}: nessun carattere chiesto in anticipo`);
@@ -88,6 +104,22 @@ for (const url of [...pages].sort()) {
     if (!/type="application\/ld\+json"/.test(match[1])) fail(`${url}: script in linea non ammesso dalla CSP`);
   }
 }
+
+// 2b. Il blog: articoli per lingua e feed.
+for (const blog of BLOGS) {
+  const articles = [...pages].filter((url) => url.startsWith(blog) && url !== blog);
+  if (articles.length < MIN_ARTICLES) fail(`${blog}: ${articles.length} articoli, attesi almeno ${MIN_ARTICLES}`);
+  const feedFile = join(DIST, blog, "feed.xml");
+  if (!existsSync(feedFile)) fail(`manca il feed ${blog}feed.xml`);
+  else {
+    const feed = read(feedFile);
+    if (!feed.startsWith("<?xml") || !feed.includes('<feed xmlns="http://www.w3.org/2005/Atom"')) fail(`${blog}feed.xml: non e' un feed Atom`);
+    const entries = (feed.match(/<entry>/g) ?? []).length;
+    if (entries !== articles.length) fail(`${blog}feed.xml: ${entries} voci per ${articles.length} articoli`);
+  }
+}
+const sitemap = existsSync(join(DIST, "sitemap.xml")) ? read(join(DIST, "sitemap.xml")) : "";
+for (const url of pages) if (!sitemap.includes(`${url}</loc>`)) fail(`${url}: manca dalla sitemap`);
 
 // 3. Immagini e video del sito: leggeri, e il video dell'apertura non si carica mai da solo.
 const MEDIA = join(DIST, "site-media");

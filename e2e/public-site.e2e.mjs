@@ -382,6 +382,57 @@ const banner = (page) => page.locator("[data-cookie-banner]");
   await ctx.close();
 }
 
+// The blog and the pages for each audience (second delivery)
+{
+  // without JavaScript: the index, an article with tables, a page for an audience, the feed
+  const { ctx, page } = await open({ javaScriptEnabled: false });
+  let response = await page.goto(`${BASE}/blog/`, { waitUntil: "load" });
+  check("blog senza JS: l'indice risponde e mostra gli otto articoli", response.status() === 200 && (await page.locator("article.guide-card").count()) === 8 && (await page.locator("h1").innerText()) === "Guide sulla garanzia VIES");
+  response = await page.goto(`${BASE}/blog/garanzia-rappresentante-fiscale-e-garanzia-vies/`, { waitUntil: "load" });
+  const text = (await page.locator("body").innerText()).replace(/\s+/g, " ");
+  const expected = ["Anton Carlo Santoro", "15 novembre 2026", "In breve", "48 mesi dalla consegna", "Fonti ufficiali", "prot. n. 186368/2025"];
+  check("articolo senza JS: titolo, firma, data, risposta diretta, tabella e fonti nel testo", response.status() === 200 && (await page.locator("h1").count()) === 1 && expected.every((needle) => text.includes(needle)), expected.filter((needle) => !text.includes(needle)).join(","));
+  check("articolo senza JS: la prima domanda è aperta e le altre restano nell'HTML", (await page.locator(".faq__item[open]").count()) === 1 && (await page.locator(".faq__item").count()) >= 3);
+  check("articolo senza JS: sopra il titolo non c'è nulla e sotto ogni titolo di sezione c'è subito il testo", (await page.evaluate(() => document.querySelector(".article__hero .container")?.firstElementChild?.tagName)) === "H1" && (await page.evaluate(() => [...document.querySelectorAll(".article__body > section > h2")].every((h2) => h2.parentElement.firstElementChild === h2))));
+  response = await page.goto(`${BASE}/en/fiscal-representatives/`, { waitUntil: "load" });
+  check("pagina per pubblico senza JS: titolo inglese, cinque passi e invito al contatto", response.status() === 200 && (await page.locator("h1").innerText()) === "VIES surety bonds for fiscal representatives" && (await page.locator(".article-steps li").count()) === 5 && (await page.locator('a[href="/en/#contatti"]').count()) >= 1);
+  response = await page.goto(`${BASE}/blog/feed.xml`);
+  check("feed delle guide: risponde come XML con una voce per articolo", response.status() === 200 && /xml/.test(response.headers()["content-type"] ?? "") && ((await response.text()).match(/<entry>/g) ?? []).length === 8, response.headers()["content-type"]);
+  await ctx.close();
+}
+{
+  // with JavaScript, desktop: from the home page to the blog, to an article, to its translation, to a page for an audience
+  const { ctx, page, pageErrors, external } = await open();
+  await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+  check("PC, homepage: i riquadri «Per chi» portano alle pagine dedicate e ci sono tre guide", (await page.locator('#per-chi a[href="/rappresentanti-fiscali/"]').count()) === 1 && (await page.locator('#per-chi a[href="/venditori-esteri/"]').count()) === 1 && (await page.locator("#guide article.guide-card").count()) === 3);
+  await page.locator('[data-testid="site-nav"] .site-nav__item--guide a').click();
+  await page.waitForURL(`${BASE}/blog/`);
+  check("PC: la voce «Guide» della barra porta all'indice del blog, segnata come pagina corrente", (await page.locator('[data-testid="site-nav"] .site-nav__item--guide a').getAttribute("aria-current")) === "page");
+  await page.locator("article.guide-card a").first().click();
+  await page.waitForURL(`${BASE}/blog/garanzia-vies-cos-e-chi-deve-prestarla/`);
+  check("PC: dal riquadro si arriva all'articolo", (await page.locator("h1").innerText()).startsWith("Garanzia VIES"));
+  await page.locator('[data-testid="site-lang-en"]').click();
+  await page.waitForURL(`${BASE}/en/blog/vies-guarantee-italy-explained/`);
+  check("PC: il cambio lingua porta allo stesso articolo in inglese", (await page.getAttribute("html", "lang")) === "en" && (await page.locator("h1").innerText()).startsWith("VIES guarantee in Italy"));
+  await page.locator('.article__body a[href="/en/non-eu-sellers/"]').first().click();
+  await page.waitForURL(`${BASE}/en/non-eu-sellers/`);
+  check("PC: un link nel testo dell'articolo porta alla pagina per le società extra UE", (await page.locator("h1").innerText()) === "Italy VIES guarantee for non-EU sellers");
+  check("PC, blog: nessun errore e nessuna richiesta verso altri siti", pageErrors.length === 0 && external.length === 0, [...pageErrors, ...new Set(external)].join(" | "));
+  await ctx.close();
+}
+for (const [width, height] of [[360, 740], [390, 844], [768, 1024]]) {
+  // phone and tablet: tables, steps and cards stay inside the screen
+  const { ctx, page } = await open({ viewport: { width, height }, hasTouch: true, isMobile: width < 700 });
+  for (const path of ["/blog/", "/blog/garanzia-rappresentante-fiscale-e-garanzia-vies/", "/zh/blog/deposit-bank-guarantee-or-surety-bond/", "/venditori-esteri/"]) {
+    await page.goto(`${BASE}${path}`, { waitUntil: "networkidle" });
+    const out = await overflow(page);
+    const cut = await page.evaluate((limit) => [...document.querySelectorAll("main h1, main h2, main .table-wrap, main .guide-card, main .article-steps li, main .article__cta")].filter((element) => { const box = element.getBoundingClientRect(); return box.width > 0 && (box.left < -1 || box.right > limit + 1); }).length, width);
+    check(`${width}px ${path}: nessuno scorrimento orizzontale e nessun titolo, tabella o riquadro fuori dallo schermo`, out <= 0 && cut === 0, `${out}/${cut}`);
+  }
+  if (width === 390) await page.screenshot({ path: SHOTS + "public-site-article-phone.png", fullPage: true });
+  await ctx.close();
+}
+
 await browser.close();
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} ok`);

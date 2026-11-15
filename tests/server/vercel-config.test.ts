@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { listPages } from "../../src/site/routes";
 
 // Le regole di vercel.json decidono cosa i motori di ricerca possono indicizzare e quale politica di sicurezza
 // vale per ogni pagina. Qui si applicano come le applica Vercel: `source` e' un'espressione che deve coprire
@@ -13,9 +14,13 @@ const matches = (source: string, path: string) => new RegExp(`^${source}(?:/)?$`
 const headersFor = (path: string) => vercel.headers.filter((rule) => matches(rule.source, path)).flatMap((rule) => rule.headers);
 const values = (path: string, key: string) => headersFor(path).filter((header) => header.key === key).map((header) => header.value);
 
-const PRIVATE = ["/dashboard", "/practices", "/practices/abc-123", "/auth", "/vies", "/settings", "/user-management", "/api/health", "/api/contact", "/app.html", "/assets/main-abc.js", "/energia", "/zhongguo", "/version.json"];
-const PUBLIC = ["/", "/en", "/en/", "/zh", "/zh/", "/privacy", "/privacy/", "/cookie/", "/en/privacy/", "/zh/cookie/", "/en/index.html"];
-const OPEN_FILES = ["/sitemap.xml", "/robots.txt", "/llms.txt", "/site-media/hero.webp"];
+const PRIVATE = ["/dashboard", "/practices", "/practices/abc-123", "/auth", "/vies", "/settings", "/user-management", "/api/health", "/api/contact", "/app.html", "/assets/main-abc.js", "/energia", "/zhongguo", "/version.json", "/blogger", "/blog-admin", "/venditori", "/rappresentanti", "/venditori-esteri-2"];
+const PUBLIC = [
+  "/", "/en", "/en/", "/zh", "/zh/", "/privacy", "/privacy/", "/cookie/", "/en/privacy/", "/zh/cookie/", "/en/index.html",
+  "/blog", "/blog/", "/blog/garanzia-vies-cos-e-chi-deve-prestarla/", "/blog/un-articolo-futuro", "/rappresentanti-fiscali", "/rappresentanti-fiscali/", "/venditori-esteri/",
+  "/en/blog/vies-guarantee-italy-explained/", "/zh/blog/", "/en/fiscal-representatives/", "/zh/non-eu-sellers/",
+];
+const OPEN_FILES = ["/sitemap.xml", "/robots.txt", "/llms.txt", "/site-media/hero.webp", "/blog/feed.xml", "/en/blog/feed.xml", "/zh/blog/feed.xml"];
 
 describe("vercel.json: what is public and what stays private", () => {
   it("keeps every private page out of the search engines, with the portal's own security policy", () => {
@@ -43,6 +48,20 @@ describe("vercel.json: what is public and what stays private", () => {
 
   it("does not hide the sitemap, robots.txt, llms.txt and the site's images", () => {
     for (const path of OPEN_FILES) expect(values(path, "X-Robots-Tag"), path).toEqual([]);
+  });
+
+  it("treats every page the site generates as public: a page left out of the rules would answer noindex", () => {
+    for (const page of listPages()) {
+      expect(values(page.path, "X-Robots-Tag"), page.path).toEqual([]);
+      const csp = values(page.path, "Content-Security-Policy");
+      expect(csp, page.path).toHaveLength(1);
+      expect(csp[0], page.path).toContain("https://www.googletagmanager.com");
+    }
+  });
+
+  it("serves the feeds of the guides as Atom", () => {
+    for (const path of ["/blog/feed.xml", "/en/blog/feed.xml", "/zh/blog/feed.xml"]) expect(values(path, "Content-Type"), path).toEqual(["application/atom+xml; charset=utf-8"]);
+    expect(values("/sitemap.xml", "Content-Type")).toEqual([]);
   });
 
   it("sends the common security headers on every path, once", () => {

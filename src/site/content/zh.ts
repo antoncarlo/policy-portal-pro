@@ -1,3 +1,4 @@
+import { audiencePages } from "./audience/zh";
 import type { SiteContent } from "./types";
 
 // 与意大利语版本内容一致，法规表述均已对照官方文本核实（见 it.ts）。
@@ -9,6 +10,24 @@ export const zh: SiteContent = {
       description: "非欧盟企业通过税务代表在意大利登记VIES，须提供不少于5万欧元、期限不少于36个月的担保。了解所需文件与办理流程，并在线提交咨询。",
       h1: "面向非欧盟企业的意大利VIES保函",
       label: "首页",
+    },
+    representatives: {
+      title: "税务代表VIES保函批量办理 | Tecno MGA",
+      description: "税务代表和事务所可在一个平台上批量办理所代表企业的VIES保函：每批最多20份申请，自动核对文件，电子签名与对账单集中管理。",
+      h1: "面向税务代表和事务所的VIES保函",
+      label: "税务代表",
+    },
+    sellers: {
+      title: "非欧盟卖家意大利VIES担保指南 | Tecno MGA",
+      description: "从欧盟以外向意大利销售？加入VIES须提供不少于5万欧元、期限不少于36个月的担保。了解所需文件、办理步骤以及如何申请保函。",
+      h1: "非欧盟卖家如何办理意大利VIES担保",
+      label: "非欧盟企业",
+    },
+    blog: {
+      title: "意大利VIES担保：法规、文件与指南 | Tecno MGA",
+      description: "意大利VIES担保指南：第35条第7-quater款的规定、所需文件、带电子签名的保单，以及在 Tecno 平台上如何批量办理。",
+      h1: "意大利VIES担保指南",
+      label: "指南",
     },
     privacy: {
       title: "隐私政策：意大利VIES保函网站 | Tecno MGA",
@@ -34,6 +53,7 @@ export const zh: SiteContent = {
       { anchor: "domande", label: "常见问题" },
       { anchor: "contatti", label: "联系我们" },
     ],
+    guides: "指南",
     portal: "客户登录",
     contact: "提交咨询",
     menu: "打开或关闭菜单",
@@ -104,15 +124,18 @@ export const zh: SiteContent = {
         text: "在一个平台上管理您所代表的全部企业的VIES担保。",
         points: ["每批最多20份申请：一个Excel文件，每家企业一个文件夹", "自动核对文件，并列出缺少的文件", "对账单、电子签名和已出具的保单集中在一处"],
         cta: "告诉我们您的业务量",
+        more: "面向税务代表的VIES保函",
       },
       {
         title: "在意大利和欧盟销售的境外企业",
         text: "您的总部在欧盟和欧洲经济区以外，在线销售或向欧洲客户销售，并已在意大利委任税务代表：要在VIES中开展业务，就需要提供担保。",
         points: ["网站和平台提供中文、英文和意大利文", "清晰的文件清单，并注明需要的翻译件", "带电子签名的保单，通过您的税务代表提交"],
         cta: "咨询如何开始",
+        more: "面向非欧盟卖家的意大利VIES担保",
       },
     ],
   },
+  audiencePages,
   steps: {
     title: "如何办理VIES保险保函？",
     items: [
@@ -261,6 +284,19 @@ export const zh: SiteContent = {
       legalSeat: "注册地址",
       office: "办公地址",
     },
+  },
+  blog: {
+    by: "作者：",
+    published: "发布于",
+    updated: "来源核对日期：",
+    summaryTitle: "要点",
+    faqTitle: "常见问题",
+    sourcesTitle: "官方来源",
+    relatedTitle: "相关指南",
+    allGuides: "全部意大利VIES担保指南",
+    latestTitle: "VIES担保指南",
+    feedTitle: "Tecno MGA 意大利VIES担保指南",
+    cta: { title: "需要提供VIES担保吗？", text: "请告诉我们您的情况：我们会列出所需文件，并向您发送书面报价。", button: "提交咨询" },
   },
   footer: {
     about: "保险中介。本网站专门介绍通过税务代表在意大利履行增值税义务的非居民企业的VIES担保。",

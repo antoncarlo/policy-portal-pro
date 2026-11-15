@@ -36,7 +36,7 @@ export const Hero = ({ page, content }: PageProps) => {
       </div>
       <div className="container hero__inner">
         <div className="hero__copy">
-          <h1 className="hero__title">{keepHyphenated(content.meta[page.id].h1)}</h1>
+          <h1 className="hero__title">{keepHyphenated(content.meta.home.h1)}</h1>
           <p className="hero__lead">{hero.lead}</p>
           <div className="hero__cta">
             <a className="btn btn--bronze btn--lg" href="#contatti">

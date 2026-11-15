@@ -18,6 +18,7 @@
     "test:api-imports": "node scripts/check-vercel-api-relative-imports.mjs",
     "test:csp-hosts": "node scripts/check-csp-connect-hosts.mjs",
     "test:public-site": "node scripts/check-public-site.mjs",
+    "site:indexnow": "node scripts/site/indexnow.mjs",
     "test:vies-practices": "node scripts/check-vies-practice-materialization.mjs",
     "test:vies-zip-upload": "node scripts/check-vies-zip-sequential-processing.mjs",
     "test:vies-schema": "node scripts/check-vies-schema-safety.mjs",

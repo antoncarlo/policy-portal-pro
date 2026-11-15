@@ -1,5 +1,6 @@
 // I testi del sito pubblico, uguali per struttura nelle tre lingue (lo verifica tests/site/content.test.ts).
-import type { PageId } from "../routes";
+import type { ArticleSection } from "../blog/types";
+import type { StaticPageId } from "../routes";
 
 /** Le ancore delle sezioni della homepage, uguali in tutte le lingue: un link condiviso funziona in ogni versione. */
 export const ANCHORS = ["cos-e", "per-chi", "come-funziona", "portale", "documenti", "costo", "domande", "contatti"] as const;
@@ -19,6 +20,22 @@ export interface PageMeta {
   label: string;
 }
 
+/** Le due pagine per pubblico: chi gestisce le garanzie per i propri clienti e chi deve prestarla. */
+export type AudienceId = "representatives" | "sellers";
+export const AUDIENCE_IDS: AudienceId[] = ["representatives", "sellers"];
+
+export interface AudienceContent {
+  /** La risposta diretta sotto il titolo: 40-60 parole. */
+  lead: string;
+  /** Stessi blocchi degli articoli (src/site/blog/types.ts), con i collegamenti nel testo. */
+  sections: ArticleSection[];
+  /** Risposte di 40-60 parole. */
+  faq: Array<{ q: string; a: string }>;
+  cta: { title: string; text: string; button: string };
+  /** Titolo dei riquadri con le guide scritte per quel pubblico. */
+  guidesTitle: string;
+}
+
 export interface TitledText {
   title: string;
   text: string;
@@ -35,10 +52,13 @@ export interface LegalSection {
 export type MockTone = "done" | "progress" | "waiting" | "missing";
 
 export interface SiteContent {
-  meta: Record<PageId, PageMeta>;
+  /** Le pagine fisse; titolo e descrizione di un articolo stanno nell'articolo (src/site/meta.ts). */
+  meta: Record<StaticPageId, PageMeta>;
   nav: {
     /** Una voce per sezione, nell'ordine della pagina. */
     items: Array<{ anchor: Anchor; label: string }>;
+    /** La voce che porta all'indice del blog. */
+    guides: string;
     portal: string;
     contact: string;
     menu: string;
@@ -78,8 +98,10 @@ export interface SiteContent {
   };
   audiences: {
     title: string;
-    items: Array<{ title: string; text: string; points: string[]; cta: string }>;
+    /** `more` e' il testo del link alla pagina dedicata, nello stesso ordine di AUDIENCE_IDS. */
+    items: Array<{ title: string; text: string; points: string[]; cta: string; more: string }>;
   };
+  audiencePages: Record<AudienceId, AudienceContent>;
   steps: {
     title: string;
     items: TitledText[];
@@ -149,6 +171,24 @@ export interface SiteContent {
       legalSeat: string;
       office: string;
     };
+  };
+  /** Le scritte delle pagine del blog; i testi degli articoli stanno in src/site/blog. */
+  blog: {
+    /** Prima del nome di chi firma. */
+    by: string;
+    published: string;
+    /** Prima della data dell'ultima verifica sulle fonti. */
+    updated: string;
+    summaryTitle: string;
+    faqTitle: string;
+    sourcesTitle: string;
+    relatedTitle: string;
+    allGuides: string;
+    /** Titolo della sezione della homepage con le guide. */
+    latestTitle: string;
+    /** Nome del feed delle guide, come lo mostra un lettore di feed. */
+    feedTitle: string;
+    cta: { title: string; text: string; button: string };
   };
   footer: {
     about: string;
