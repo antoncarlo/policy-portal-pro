@@ -6,7 +6,6 @@ import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-route
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { UpdateNotifier } from "./components/UpdateNotifier";
-import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -34,7 +33,8 @@ const AppRoutes = () => {
   return (
     <ErrorBoundary resetKey={pathname}>
       <Routes>
-        <Route path="/" element={<Index />} />
+        {/* La homepage pubblica e' una pagina statica (vite/public-site-plugin.ts): dentro il portale la radice porta alla dashboard. */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />

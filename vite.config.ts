@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { publicSitePlugin } from "./vite/public-site-plugin";
 
 // Identificativo univoco della build: viene incorporato nel bundle e scritto in
 // /version.json, cosi' le schede aperte possono accorgersi di un nuovo deploy
@@ -28,7 +29,7 @@ export default defineConfig(() => ({
   define: {
     __BUILD_ID__: JSON.stringify(buildId),
   },
-  plugins: [react(), versionFilePlugin()],
+  plugins: [react(), versionFilePlugin(), publicSitePlugin()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

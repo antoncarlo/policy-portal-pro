@@ -8,10 +8,13 @@
 |---|---|---|
 | Lint, tipi (app e API), regressioni | `npm run lint` · `npm run typecheck` · `npm run test:checks` | stile, errori di tipo, script di sorveglianza su VIES, importazioni delle funzioni |
 | Prove sul server | `npm test` (Vitest) | funzioni delle API con un database finto: notifiche email, flusso delle pratiche e callback della compagnia, consegne in uscita, account e recupero password, rate limit, firma dei webhook, registro email, avvisi, rinnovi, termini delle integrazioni, offboarding, monitoraggio |
-| Prove nel browser | `npm run test:e2e` (Playwright) | pagine reali con la rete simulata: accesso e 2FA, sezioni del flusso, lotti, bozza e documenti da firmare, notifiche, offboarding, registro di audit, rinnovi, pagina di errore, adattamento a telefono/iPad/PC |
+| Prove nel browser | `npm run test:e2e` (Playwright) | pagine reali con la rete simulata: accesso e 2FA, sezioni del flusso, lotti, bozza e documenti da firmare, notifiche, offboarding, registro di audit, rinnovi, pagina di errore, adattamento a telefono/iPad/PC, sito pubblico (senza JavaScript, lingue, modulo contatti, cookie) |
 | Audit dipendenze, build | `node scripts/audit-gate.mjs` · `npx vite build` | vulnerabilità alte e critiche, compilazione |
+| Sito pubblico generato (dopo la build) | `npm run test:public-site` | le nove pagine pubbliche come HTML completo, guscio del portale separato e non indicizzabile, peso di script, immagini e video (`docs/public-site.md`) |
 | Migrazioni da zero (a mano, come «Supabase Preview») | `scripts/check-migrations-fresh.sh` | applica `supabase/migrations/*.sql` in ordine di nome su un Postgres 16 locale vuoto (cluster in `/tmp/pgsim`, porta 54329) con gli schemi `auth`, `storage` e `cron` simulati; si ferma al primo file che fallisce |
 | Migrazioni da zero come l'anteprima Supabase (a mano, serve Docker) | `npx supabase@2.118.0 start -x realtime,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor` poi `npx supabase@2.118.0 db reset --local` | stack Supabase reale (Postgres 17, Auth e Storage con le loro tabelle): applica le migrazioni con le stesse regole del check, compreso il controllo delle versioni uniche |
+
+Le prove nel browser girano in CI su `ubuntu-24.04` (runner fissato in `.github/workflows/ci.yml`): Playwright 1.56 non installa Chromium su Ubuntu 26.04, l'immagine a cui punta oggi `ubuntu-latest`. Si torna a `ubuntu-latest` quando Playwright viene aggiornato a una versione che la supporta.
 
 ## SECTION 02 — In locale
 

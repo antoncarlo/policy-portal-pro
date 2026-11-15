@@ -145,7 +145,8 @@ const measure = (vw) => {
   const offscreen = [];
   for (const el of document.querySelectorAll("body *")) {
     if (offscreen.length >= 6) break;
-    if (!visible(el) || el.closest("[data-radix-popper-content-wrapper], [role=tooltip], .toaster, [data-sonner-toaster]")) continue;
+    // le decorazioni (aloni, sfondi) possono uscire dal bordo: non sono contenuto, e chi le disegna le dichiara tali
+    if (!visible(el) || el.closest("[data-radix-popper-content-wrapper], [role=tooltip], .toaster, [data-sonner-toaster], [data-decor]")) continue;
     const r = el.getBoundingClientRect();
     if (getComputedStyle(el).position === "fixed" && r.left >= vw) continue; // pannelli chiusi fuori schermo (cassetto)
     if (r.right > vw + 2 && !insideScroller(el)) offscreen.push(`${el.tagName.toLowerCase()}${el.className && typeof el.className === "string" ? "." + el.className.split(/\s+/).slice(0, 3).join(".") : ""} → ${Math.round(r.right)}px: ${(el.textContent || "").trim().slice(0, 40)}`);

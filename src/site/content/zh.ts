@@ -1,0 +1,423 @@
+import type { SiteContent } from "./types";
+
+// 与意大利语版本内容一致，法规表述均已对照官方文本核实（见 it.ts）。
+// 意大利机构名称在首次出现时保留原文，方便读者与文件上的名称对应。
+export const zh: SiteContent = {
+  meta: {
+    home: {
+      title: "意大利VIES保函：5万欧元、36个月 | Tecno MGA",
+      description: "非欧盟企业通过税务代表在意大利登记VIES，须提供不少于5万欧元、期限不少于36个月的担保。了解所需文件与办理流程，并在线提交咨询。",
+      h1: "面向非欧盟企业的意大利VIES保函",
+      label: "首页",
+    },
+    privacy: {
+      title: "隐私政策：意大利VIES保函网站 | Tecno MGA",
+      description: "Tecno Advance MGA Broker Srl 如何处理访问本网站并提交咨询者的个人数据：处理目的、法律依据、保存期限以及您享有的各项权利。",
+      h1: "隐私政策",
+      label: "隐私政策",
+    },
+    cookie: {
+      title: "Cookie政策：意大利VIES保函网站 | Tecno MGA",
+      description: "本网站使用哪些Cookie：必要的技术性Cookie始终启用，谷歌的统计与营销Cookie仅在您同意后启用，您可以随时更改自己的选择。",
+      h1: "Cookie政策",
+      label: "Cookie政策",
+    },
+  },
+  nav: {
+    items: [
+      { anchor: "cos-e", label: "什么是VIES担保" },
+      { anchor: "per-chi", label: "适用对象" },
+      { anchor: "come-funziona", label: "办理流程" },
+      { anchor: "portale", label: "在线平台" },
+      { anchor: "documenti", label: "所需文件" },
+      { anchor: "costo", label: "费用" },
+      { anchor: "domande", label: "常见问题" },
+      { anchor: "contatti", label: "联系我们" },
+    ],
+    portal: "客户登录",
+    contact: "提交咨询",
+    menu: "打开或关闭菜单",
+    languages: "网站语言",
+    skip: "跳到正文",
+    home: "Tecno Advance MGA Broker：首页",
+  },
+  hero: {
+    lead: "总部在欧盟和欧洲经济区以外、通过税务代表在意大利履行增值税义务的企业，须向意大利税务局提交担保，才能进入并保留在VIES数据库中。您可以在线申请保险保函、随时查看进度，并收到带电子签名的保单。",
+    facts: [
+      { value: "5万欧元", label: "担保最低金额" },
+      { value: "36个月", label: "最短期限" },
+      { value: "第35条第7-quater款", label: "第633/1972号总统令" },
+    ],
+    primary: "提交咨询",
+    secondary: "客户登录",
+    note: "服务对象：税务代表、专业事务所、保险经纪人和境外企业。",
+    card: { title: "VIES保险保函", beneficiaryLabel: "受益人", beneficiary: "意大利税务局省级税务局", signed: "已电子签名", status: "已出具" },
+  },
+  trust: {
+    label: "为什么选择 Tecno MGA",
+    items: [
+      { title: "已登记的保险中介", text: "登记于意大利保险中介统一登记册（RUI）B类，编号 B000746484，可在意大利保险监管局（IVASS）网站查询。" },
+      { title: "受IVASS监管", text: "在意大利从事保险中介业务，须接受意大利保险监管局（IVASS）的监管。" },
+      { title: "文件逐一核对", text: "每一份申请在提交保险公司之前，都经过平台自动核对和工作人员的人工复核。" },
+      { title: "电子签名保单", text: "保险公司以带电子签名的文件（.p7m）出具保函，用于提交给主管的省级税务局。" },
+    ],
+    ruiCheck: "在保险中介统一登记册中查询登记信息",
+  },
+  whatIs: {
+    title: "什么是VIES担保？",
+    answer:
+      "VIES担保是指：不在欧盟或欧洲经济区居住、并通过税务代表在意大利履行增值税义务的企业，为进入或保留在VIES欧盟内部交易数据库而向意大利税务局提供的担保。担保金额不低于5万欧元，期限不少于36个月。",
+    facts: [
+      { term: "谁必须提供", text: "不在欧盟成员国或欧洲经济区国家居住、依据第633/1972号总统令第17条第3款委任税务代表在意大利履行增值税义务、并打算进行欧盟内部交易的纳税人。" },
+      { term: "金额", text: "最低担保金额为5万欧元。" },
+      { term: "期限", text: "自提交给意大利税务局省级税务局之日起不少于36个月。" },
+      { term: "受益人", text: "税务代表税务住所所在地的意大利税务局省级税务局（Direzione Provinciale）现任局长。担保由企业本人或通过税务代表提交给该局。" },
+      { term: "何时提供", text: "已有意大利增值税号的企业，在申请加入VIES之前提供；尚未取得增值税号的企业，在提交开业申报时一并提供。" },
+      { term: "提交之后", text: "省级税务局审核担保是否符合要求并告知结果；自收到该通知起，即可申请加入VIES。" },
+    ],
+    formsTitle: "国债质押、银行保函还是保险保函",
+    formsColumns: { form: "形式", issuer: "由谁出具", commitment: "意味着什么" },
+    forms: [
+      { form: "国债或国家担保证券质押", issuer: "将证券存入托管机构并设定限制", commitment: "在整个担保期内，证券一直被冻结。" },
+      { form: "银行保函", issuer: "银行，依据第348/1982号法律第1条", commitment: "需要有银行愿意为总部在欧盟以外的企业出具。" },
+      { form: "保险保函", issuer: "保险公司，依据第348/1982号法律第1条", commitment: "投保人支付保费，无需质押证券。这是我们办理的形式。" },
+    ],
+    lawTitle: "自2027年1月1日起：条文编号改变，规则不变",
+    law: "在2026年12月31日之前，该担保依据第633/1972号总统令第35条第7-quater款，由意大利经济财政部2024年12月4日部令（2024年12月13日第292号《官方公报》）和意大利税务局2025年4月14日第178713/2025号令具体实施。自2027年1月1日起适用《增值税统一法》（2026年1月19日第10号立法令，D.Lgs. 10/2026）：同一规则载于第68条第10款，凡引用已废止条文之处，均视为引用新条文（第170条第3款）。",
+    sourcesTitle: "官方来源（意大利语）",
+    sources: [
+      { label: "意大利税务局：2025年4月14日第178713/2025号令", href: "https://www.agenziaentrate.gov.it/portale/provvedimento-del-14-aprile-2025" },
+      { label: "意大利税务局：加入VIES数据库的法规与实务", href: "https://www.agenziaentrate.gov.it/portale/schede/istanze/inclusione-archivio-vies/normativa-e-prassi-partita-iva" },
+      { label: "Normattiva：1972年10月26日第633号总统令第35条", href: "https://www.normattiva.it/uri-res/N2Ls?urn:nir:presidente.repubblica:decreto:1972-10-26;633~art35" },
+      { label: "Normattiva：2026年1月19日第10号立法令《增值税统一法》（第68、170、171条）", href: "https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legislativo:2026-01-19;10" },
+      { label: "FiscoOggi（意大利税务局官方刊物）：有税务代表的非欧盟企业加入VIES的新规定", href: "https://www.fiscooggi.it/portale/-/soggetti-extra-ue-con-rappresentante-nuove-regole-per-operare-nel-vies" },
+      { label: "欧盟委员会：VIES增值税号验证", href: "https://ec.europa.eu/taxation_customs/vies/" },
+    ],
+    disclaimer: "以上为一般性信息，不构成税务或法律意见。具体情况请咨询您的税务代表或顾问。",
+    updated: "更新日期：",
+  },
+  audiences: {
+    title: "谁需要VIES保函？",
+    items: [
+      {
+        title: "税务代表、事务所和保险经纪人",
+        text: "在一个平台上管理您所代表的全部企业的VIES担保。",
+        points: ["每批最多20份申请：一个Excel文件，每家企业一个文件夹", "自动核对文件，并列出缺少的文件", "对账单、电子签名和已出具的保单集中在一处"],
+        cta: "告诉我们您的业务量",
+      },
+      {
+        title: "在意大利和欧盟销售的境外企业",
+        text: "您的总部在欧盟和欧洲经济区以外，在线销售或向欧洲客户销售，并已在意大利委任税务代表：要在VIES中开展业务，就需要提供担保。",
+        points: ["网站和平台提供中文、英文和意大利文", "清晰的文件清单，并注明需要的翻译件", "带电子签名的保单，通过您的税务代表提交"],
+        cta: "咨询如何开始",
+      },
+    ],
+  },
+  steps: {
+    title: "如何办理VIES保险保函？",
+    items: [
+      { title: "上传文件", text: "税务代表或企业在平台上传资料和文件：可以逐份上传，也可以按批次上传，每批最多20份。" },
+      { title: "我们核对申请", text: "平台读取文件，检查是否齐全、数据是否一致。工作人员确认后，告知还缺少什么。" },
+      { title: "草稿与付款", text: "保险公司评估申请并出具保单草稿。您收到对账单并支付保费。" },
+      { title: "电子签名", text: "下载需要签署的文件，完成电子签名后重新上传：平台识别每一个已签名文件，并归入对应的申请。" },
+      { title: "保单出具", text: "您收到保险公司电子签名的正式保单，可用于提交给意大利税务局省级税务局。" },
+    ],
+    outcome: "提交之后，省级税务局审核担保并告知结果；此后即可申请加入VIES。",
+  },
+  portal: {
+    title: "为税务代表打造的在线平台",
+    features: [
+      { title: "自动核对文件", text: "平台读取上传的文件，识别文件类型，并检查企业信息在各文件之间是否一致。" },
+      { title: "每批最多20份申请", text: "一个包含数据的Excel文件，加上每家企业一个文件压缩包：一次上传即可创建整个批次。" },
+      { title: "批量电子签名", text: "需要签署的文件一起下载、一起上传：每个.p7m文件都会回到对应的申请。" },
+      { title: "对账单", text: "每个批次一份对账单，列明已批准保单的保费，在出具之前支付。" },
+      { title: "进度与到期日", text: "每份申请都显示当前进度。到期列表显示即将满36个月的保单。" },
+      { title: "与其他系统对接", text: "事务所和平台可以从自己的系统发送申请并接收更新。" },
+    ],
+    api: { text: "您使用自己的管理软件吗？", cta: "阅读API文档" },
+    mock: {
+      title: "示例批次",
+      lot: "4份申请",
+      columns: { company: "企业", documents: "文件", status: "状态" },
+      rows: [
+        { company: "Alfa Trading Ltd", documents: "6/6", status: "保单已出具", tone: "done" },
+        { company: "Beta Home Co.", documents: "6/6", status: "签署中", tone: "progress" },
+        { company: "Gamma Tech Ltd", documents: "6/6", status: "审核中", tone: "waiting" },
+        { company: "Delta Sports Co.", documents: "5/6", status: "缺少一份文件", tone: "missing" },
+      ],
+      note: "示例数据，与真实客户无关。",
+    },
+  },
+  documents: {
+    title: "需要哪些文件？",
+    items: [
+      { title: "企业登记文件", text: "境外企业的营业执照或公司注册证书，并附翻译件。" },
+      { title: "法定代表人身份证件", text: "有效的护照或身份证，并附翻译件。" },
+      { title: "所在国登记机关出具的信息", text: "中国企业：国家企业信用信息公示系统的报告；香港企业：商业登记证。" },
+      { title: "最终受益人声明", text: "说明谁控制该企业，用于反洗钱核查。" },
+      { title: "税务代表授权书", text: "企业委任意大利税务代表的文件。" },
+      { title: "支持出具保函的声明", text: "由企业法定代表人签署的声明。" },
+    ],
+    note: "清单可能因企业所在国家和保险公司的评估而有所不同：首次联系之后，我们会发送适用于您情况的最终清单。",
+  },
+  cost: {
+    title: "VIES保函的费用是多少？",
+    answer: "VIES保函的费用就是保单的保费，由保险公司在审核文件之后确定，取决于担保金额、期限和境外企业的情况。我们不公布价目表：每一份申请都会收到书面报价，保费在保单出具之前支付。",
+    factors: [
+      { title: "担保金额", text: "法定最低金额为5万欧元。" },
+      { title: "期限", text: "自提交给意大利税务局之日起至少36个月。" },
+      { title: "企业情况", text: "企业文件、经营业务和所在国家。" },
+      { title: "申请数量", text: "管理多家企业的机构可以按批次提交申请。" },
+    ],
+    cta: "索取报价",
+    note: "索取报价并不意味着您必须投保。",
+  },
+  faq: {
+    title: "常见问题",
+    items: [
+      {
+        q: "谁必须提供VIES担保？",
+        a: "不在欧盟成员国或欧洲经济区国家居住、通过税务代表在意大利履行增值税义务、并打算进行欧盟内部交易的纳税人。在欧盟或欧洲经济区设立的企业不在此义务范围内。依据是意大利税务局2025年4月14日令第1.1点。",
+      },
+      {
+        q: "担保金额是多少，期限多长？",
+        a: "最低担保金额为5万欧元，期限不得少于36个月，自提交给主管的意大利税务局省级税务局之日起计算。依据是2025年4月14日令第2.3点和第2.7点，该令是对2024年12月4日部令的具体实施。",
+      },
+      {
+        q: "VIES担保可以采用哪些形式？",
+        a: "共有三种形式：国债或国家担保证券质押、银行保函，或由保险公司出具的保险保函；后两种依据第348/1982号法律第1条出具。采用保险保函时，投保人支付保费，在整个担保期内无需质押证券。",
+      },
+      {
+        q: "担保以谁为受益人，提交到哪里？",
+        a: "担保以税务代表税务住所所在地的意大利税务局省级税务局现任局长为受益人，由企业本人或通过税务代表提交给该局。该局审核担保是否符合要求并告知结果；自那时起，即可申请加入VIES。",
+      },
+      {
+        q: "什么时候必须提供担保？",
+        a: "已有意大利增值税号的企业，在申请加入VIES之前提供担保；尚未取得增值税号的企业，在提交申请加入VIES的开业申报时一并提供。该令于2025年4月14日公布时已在VIES中的企业，当时有六十天时间补办。",
+      },
+      {
+        q: "不提供担保会怎样？",
+        a: "意大利税务局会通过认证电子邮件或挂号信通知税务代表，启动将企业从VIES中除名的程序。自收到通知起，还有六十天可以补交担保。如果仍未提交，税务局将依职权把该增值税号从欧盟内部交易纳税人数据库中除名。",
+      },
+      {
+        q: "2027年起法律依据会改变吗？",
+        a: "会：改变的是条文编号，规则不变。自2027年1月1日起适用《增值税统一法》，即2026年1月19日第10号立法令。VIES担保规定在第68条第10款，承接第633/1972号总统令第35条第7-quater款。凡引用已废止条文之处，均视为引用新条文。",
+      },
+      {
+        q: "税务代表可以同时办理多份申请吗？",
+        a: "可以。税务代表或事务所在平台上每批最多上传20份申请：一个包含数据的Excel文件，加上每家企业一个文件夹。平台核对文件、提示缺少的文件，并跟进每一份申请直到保单出具，每个批次只有一份对账单。",
+      },
+      {
+        q: "保单是由 Tecno MGA 出具的吗？",
+        a: "不是。保单由保险公司出具。Tecno Advance MGA Broker Srl 是登记于意大利保险中介统一登记册的保险中介，编号 B000746484，受IVASS监管：负责收集并核对文件、向保险公司提交申请，并交付已出具且带电子签名的保单。",
+      },
+      {
+        q: "境外企业的文件需要翻译吗？",
+        a: "需要。企业的营业执照或公司注册证书，以及法定代表人的身份证件，都要连同翻译件一起上传，这样保险公司和平台才能读取企业名称、注册地址和签署人的信息。首次联系之后，我们会说明需要哪些翻译件以及翻译成哪种语言。",
+      },
+    ],
+  },
+  contact: {
+    title: "联系方式",
+    form: {
+      name: "姓名",
+      company: "公司或事务所",
+      role: "您的身份",
+      rolePlaceholder: "请选择",
+      roles: {
+        fiscal_representative: "税务代表",
+        professional_firm: "专业事务所",
+        broker: "保险经纪人或代理人",
+        foreign_company: "境外企业",
+        other: "其他",
+      },
+      country: "国家或地区",
+      email: "电子邮箱",
+      phone: "电话",
+      volume: "预计申请数量",
+      volumeHint: "例如：1份、每月20份、每年100份",
+      message: "留言",
+      optional: "选填",
+      consent: "我已阅读{privacy}，并希望贵公司与我联系。",
+      privacyLink: "隐私政策",
+      submit: "提交咨询",
+      sending: "正在提交…",
+      success: "咨询已提交。我们会回复到您填写的邮箱。",
+      error: "提交失败。请稍后再试，或发送邮件至 vies@tecnomga.com。",
+      invalid: "请检查标出的栏目。",
+      fieldErrors: {
+        required: "此项为必填。",
+        email: "电子邮箱地址无效。",
+        message: "请至少填写十个字符。",
+        consent: "需要您的同意，我们才能与您联系。",
+      },
+      noscript: "本表单需要启用JavaScript。您也可以发送邮件至 vies@tecnomga.com。",
+    },
+    details: {
+      title: "联系信息",
+      email: "电子邮箱",
+      phone: "电话",
+      pec: "认证电子邮箱（PEC）",
+      legalSeat: "注册地址",
+      office: "办公地址",
+    },
+  },
+  footer: {
+    about: "保险中介。本网站专门介绍通过税务代表在意大利履行增值税义务的非居民企业的VIES担保。",
+    rui: "登记于意大利保险中介统一登记册（RUI）B类，编号",
+    vat: "增值税号",
+    site: "网站",
+    legal: "法律信息",
+    contacts: "联系信息",
+    privacy: "隐私政策",
+    cookie: "Cookie政策",
+    cookiePreferences: "Cookie设置",
+    apiDocs: "API文档",
+    complaintsTitle: "投诉",
+    complaints: "对中介机构业务的投诉，请以书面形式寄送至注册地址或认证电子邮箱。您也可以按照 ivass.it 上说明的方式向IVASS投诉。",
+    rights: "保留所有权利。",
+  },
+  legal: {
+    updated: "最后更新：",
+    noticeLabel: "Tecno Advance MGA Broker 的通用隐私声明（意大利语）",
+    privacy: {
+      sections: [
+        {
+          title: "谁处理您的数据",
+          paragraphs: [
+            "数据控制者为 Tecno Advance MGA Broker Srl，注册地址：Via Po, 102 - 00198 Roma（意大利），增值税号 17460381001，是登记于意大利保险中介统一登记册的保险中介，编号 B000746484。",
+            "有关您数据的任何问题，可以写信给数据保护官（DPO）antoncarlo@tecnomga.com，或寄信至注册地址。",
+            "本政策适用于 portale.tecnomga.com 网站的公开部分及其联系表单。合同关系和客户登录区域适用{notice}。",
+          ],
+          list: [],
+        },
+        {
+          title: "我们收集哪些数据",
+          paragraphs: [
+            "我们不会把您的IP地址与联系请求一起保存。为防止表单被滥用，系统会由IP地址生成一个加密代码，无法从中还原出地址，最多保存一天。",
+            "我们不通过表单索取、也不希望收到特殊类别的数据（例如健康数据）或文件：申请所需的文件只在客户登录区域上传。",
+          ],
+          list: [
+            "您在联系表单中填写的数据：姓名、公司或事务所、身份、国家或地区、电子邮箱、留言内容，以及您选择填写的电话和预计申请数量。我们还会记录提交请求时的页面语言和页面。",
+            "浏览数据：IP地址、浏览器类型、请求的页面、日期和时间。这些数据由托管网站的系统自动记录，用于保证网站运行和安全。",
+            "保存在您浏览器中的偏好：您对Cookie和语言的选择。",
+            "谷歌工具收集的数据，仅在您同意的情况下收集：详见{cookie}页面。",
+          ],
+        },
+        {
+          title: "处理目的和法律依据",
+          paragraphs: [
+            "我们不会使用表单数据向您发送您未要求的新闻邮件或商业信息，也不会作出仅基于自动化处理的决定。",
+            "表单中的必填项用于回复您：没有这些信息，我们无法与您联系。",
+          ],
+          list: [
+            "回复您的请求，并在您提出要求时准备报价：这是应您的要求采取的订约前措施（欧盟第2016/679号条例第6条第1款b项）。",
+            "保证网站运行、保护网站并防止表单被滥用：这是我们的正当利益（第6条第1款f项）。",
+            "使用谷歌工具进行访问统计和广告效果衡量：仅在您同意的情况下进行（第6条第1款a项），您可以随时通过页脚的“Cookie设置”撤回同意。",
+          ],
+        },
+        {
+          title: "保存期限",
+          paragraphs: [],
+          list: [
+            "联系请求：自提交之日起24个月，之后从平台列表中自动删除。如果请求之后形成合同关系，则按通用隐私声明处理数据。",
+            "载有请求的电子邮件，保存在控制者的邮箱中：保存至处理完毕所需的时间。",
+            "浏览数据：按托管网站的服务商日志的技术保存期限保存。",
+            "Cookie选择：在您的浏览器中保存六个月，之后我们会再次询问。",
+          ],
+        },
+        {
+          title: "数据接收方",
+          paragraphs: [
+            "数据由控制者授权的人员以及为其提供技术服务的服务商（作为数据处理者）处理：",
+            "其中部分服务商位于美国。当处理涉及向欧洲经济区以外传输数据时，传输依据条例第45条和第46条规定的保障措施进行：对已通过《数据隐私框架》认证的机构适用充分性决定，或采用标准合同条款。",
+            "我们不出售您的数据，也不向其他方披露，除非法律或主管机关要求。如果请求转为正式申请，必要的数据将按通用隐私声明所述提供给保险公司。",
+          ],
+          list: [
+            "Vercel Inc.：托管网站并运行其功能，位于都柏林（爱尔兰）的数据中心。",
+            "Supabase Inc.：托管保存请求的数据库，位于爱尔兰的数据中心。",
+            "Google（Google Workspace）和 Resend：电子邮件服务，请求通过这些服务送达控制者的邮箱。",
+            "Google Ireland Limited：Google Analytics 和 Google Ads，仅在您同意的情况下使用。",
+            "Functional Software Inc.（Sentry）：接收网站意外的技术错误，不包含表单数据；其系统位于德国。",
+          ],
+        },
+        {
+          title: "您的权利",
+          paragraphs: [
+            "您可以随时要求访问、更正、删除您的数据，限制处理以及数据可携带，并可以反对基于正当利益的处理（条例第15条至第22条）。如果您曾表示同意，可以撤回同意，撤回不影响此前已进行的处理。",
+            "行使权利请写信至 antoncarlo@tecnomga.com 或注册地址。我们将按照条例第12条的规定在一个月内答复。",
+            "如果您认为处理违反了条例，可以向意大利个人数据保护局（https://www.garanteprivacy.it/）或您居住或工作所在国家的监管机构投诉。",
+          ],
+          list: [],
+        },
+        {
+          title: "本政策的变更",
+          paragraphs: ["当处理方式或服务商发生变化时，我们会更新本页面。最后更新日期标注在页面底部。"],
+          list: [],
+        },
+      ],
+    },
+    cookie: {
+      intro: [
+        {
+          title: "什么是Cookie",
+          paragraphs: ["Cookie是网站保存在您浏览器中的小文件。类似的工具（例如浏览器的本地存储）用途相同：在页面之间记住某些信息。本页面列出 portale.tecnomga.com 网站公开部分在您浏览器中保存的内容及其原因。"],
+          list: [],
+        },
+        {
+          title: "我们使用什么",
+          paragraphs: [
+            "本网站不使用自有的画像类Cookie。网站使用技术性工具记住您的选择，并且仅在您同意的情况下使用谷歌的工具进行访问统计和广告效果衡量。",
+            "在您作出选择之前以及拒绝之后，不会加载任何谷歌脚本。如果您拒绝，网站照常运行。",
+          ],
+          list: [],
+        },
+      ],
+      tableTitle: "列表",
+      columns: { name: "名称", purpose: "用途", duration: "期限", owner: "所属方" },
+      rows: [
+        { name: "tecno-consent-v1（本地存储）", purpose: "必要。记住您对Cookie的选择。", duration: "6个月", owner: "Tecno MGA" },
+        { name: "tecno-lang-choice（本地存储）", purpose: "必要。记住您已选择语言，避免再次显示提示。", duration: "直到您清除浏览器数据", owner: "Tecno MGA" },
+        { name: "_ga", purpose: "统计，仅在同意后使用。Google Analytics：区分访问者。", duration: "2年", owner: "Google" },
+        { name: "_ga_<ID>", purpose: "统计，仅在同意后使用。Google Analytics：保持访问状态。", duration: "2年", owner: "Google" },
+        { name: "_gcl_au", purpose: "营销，仅在同意后使用。Google Ads：将访问与广告关联，以统计咨询数量。", duration: "90天", owner: "Google" },
+        { name: "_gcl_aw", purpose: "营销，仅在同意后使用。Google Ads：记住您点击进入的广告。", duration: "90天", owner: "Google" },
+        { name: "IDE（doubleclick.net）", purpose: "营销，仅在同意后使用。Google Ads：在谷歌域名上衡量广告效果。", duration: "最长13个月", owner: "Google" },
+      ],
+      after: [
+        {
+          title: "如何更改选择",
+          paragraphs: [
+            "您可以随时通过页脚的“Cookie设置”改变主意：新的选择立即生效；拒绝之后，网站保存的谷歌Cookie会被删除。您也可以在浏览器设置中删除Cookie。",
+            "当网站未启用谷歌工具时，无需作出任何选择，“Cookie设置”也不会出现。",
+          ],
+          list: [],
+        },
+        {
+          title: "客户登录区域",
+          paragraphs: ["登录之后，平台的客户区域使用自己的技术性工具来保持会话并记住语言。这些工具不用于画像。"],
+          list: [],
+        },
+        {
+          title: "谁处理数据",
+          paragraphs: ["数据控制者为 Tecno Advance MGA Broker Srl。谷歌工具收集的数据同时由 Google Ireland Limited 处理。其余内容请阅读{privacy}页面。"],
+          list: [],
+        },
+      ],
+    },
+  },
+  legalNotice: "本页面为以推广为目的的广告信息。投保前请阅读保险信息文件（set informativo）。",
+  cookieBanner: {
+    title: "Cookie",
+    text: "我们使用技术性Cookie保证网站正常运行。经您同意，我们还会使用谷歌的Cookie进行访问统计并衡量广告效果。",
+    accept: "接受",
+    reject: "拒绝",
+    close: "关闭并拒绝",
+    policyLink: "阅读Cookie政策",
+  },
+  langNotice: {
+    text: "本页面提供中文版本。",
+    action: "切换到中文",
+    dismiss: "关闭",
+  },
+};

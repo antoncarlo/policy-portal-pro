@@ -2,15 +2,27 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "devCommand": "npm run dev",
-  "regions": ["dub1"],
+  "regions": [
+    "dub1"
+  ],
   "installCommand": "npm install",
   "framework": "vite",
   "functions": {
-    "api/portal-actions.ts": { "maxDuration": 60 },
-    "api/vies-control.ts": { "maxDuration": 60 },
-    "api/vies-connect.ts": { "maxDuration": 60 },
-    "api/webhook-receive-policy.ts": { "maxDuration": 60 },
-    "api/cron-vies-orchestrator.ts": { "maxDuration": 60 }
+    "api/portal-actions.ts": {
+      "maxDuration": 60
+    },
+    "api/vies-control.ts": {
+      "maxDuration": 60
+    },
+    "api/vies-connect.ts": {
+      "maxDuration": 60
+    },
+    "api/webhook-receive-policy.ts": {
+      "maxDuration": 60
+    },
+    "api/cron-vies-orchestrator.ts": {
+      "maxDuration": 60
+    }
   },
   "rewrites": [
     {
@@ -46,8 +58,12 @@
       "destination": "/api/vies-connect?route=login-failure"
     },
     {
+      "source": "/api/contact",
+      "destination": "/api/vies-connect?route=contact"
+    },
+    {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/app.html"
     }
   ],
   "headers": [
@@ -77,7 +93,12 @@
         {
           "key": "Cross-Origin-Opener-Policy",
           "value": "same-origin-allow-popups"
-        },
+        }
+      ]
+    },
+    {
+      "source": "/((?!(?:en|zh|privacy|cookie|site-media)(?:/|$)|sitemap\\.xml$|robots\\.txt$|llms\\.txt$).+)",
+      "headers": [
         {
           "key": "X-Robots-Tag",
           "value": "noindex, nofollow, noarchive"
@@ -85,6 +106,28 @@
         {
           "key": "Content-Security-Policy",
           "value": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://nesblhtjqiavdfsrtfom.supabase.co https://zwbvpfmdccbdockwksoy.supabase.co; font-src 'self' data:; connect-src 'self' blob: https://nesblhtjqiavdfsrtfom.supabase.co https://nesblhtjqiavdfsrtfom.storage.supabase.co wss://nesblhtjqiavdfsrtfom.supabase.co https://zwbvpfmdccbdockwksoy.supabase.co https://zwbvpfmdccbdockwksoy.storage.supabase.co wss://zwbvpfmdccbdockwksoy.supabase.co https://*.ingest.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io; worker-src 'self' blob:; frame-src 'self' blob: https://nesblhtjqiavdfsrtfom.supabase.co https://zwbvpfmdccbdockwksoy.supabase.co; object-src 'self' blob:; media-src 'self' blob:; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+        }
+      ]
+    },
+    {
+      "source": "/",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://www.googleadservices.com https://www.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.googletagmanager.com https://*.google-analytics.com https://googleads.g.doubleclick.net https://www.google.com https://www.google.it; font-src 'self' data:; connect-src 'self' https://www.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com https://www.google.com https://googleads.g.doubleclick.net https://pagead2.googlesyndication.com; frame-src https://td.doubleclick.net https://bid.g.doubleclick.net https://www.googletagmanager.com; media-src 'self'; worker-src 'self'; object-src 'none'; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    },
+    {
+      "source": "/((?=(?:en|zh|privacy|cookie)(?:/|$)).*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://www.googleadservices.com https://www.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.googletagmanager.com https://*.google-analytics.com https://googleads.g.doubleclick.net https://www.google.com https://www.google.it; font-src 'self' data:; connect-src 'self' https://www.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com https://www.google.com https://googleads.g.doubleclick.net https://pagead2.googlesyndication.com; frame-src https://td.doubleclick.net https://bid.g.doubleclick.net https://www.googletagmanager.com; media-src 'self'; worker-src 'self'; object-src 'none'; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
         }
       ]
     },
@@ -98,7 +141,7 @@
       ]
     },
     {
-      "source": "/",
+      "source": "/app.html",
       "headers": [
         {
           "key": "Cache-Control",
@@ -107,11 +150,11 @@
       ]
     },
     {
-      "source": "/index.html",
+      "source": "/site-media/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "no-cache"
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
         }
       ]
     }

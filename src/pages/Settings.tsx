@@ -17,23 +17,26 @@ import { ApiKeysSettings } from "@/components/settings/admin/ApiKeysSettings";
 import { ApiKeyMappingSettings } from "@/components/settings/admin/ApiKeyMappingSettings";
 import { ConnectionsSettings } from "@/components/settings/admin/ConnectionsSettings";
 import { SigningTemplatesSettings } from "@/components/settings/admin/SigningTemplatesSettings";
+import { ContactRequests } from "@/components/settings/admin/ContactRequests";
 import { SessionsSettings } from "@/components/settings/SessionsSettings";
 import { CommunicationEmails } from "@/components/settings/CommunicationEmails";
 import { MyWorkStatistics } from "@/components/settings/MyWorkStatistics";
 import { MyWorkLog } from "@/components/settings/MyWorkLog";
 import { MyWorkSigning } from "@/components/settings/MyWorkSigning";
 import { signingMessages } from "@/i18n/messages/signing";
-import { User, Lock, Settings2, Users, FileText, FileSignature, Shield, BarChart3, Activity, Database, Mail, Monitor, Webhook, Key, Link2, Cable } from "lucide-react";
+import { User, Lock, Settings2, Users, FileText, FileSignature, Shield, BarChart3, Activity, Database, Mail, Monitor, Webhook, Key, Link2, Cable, Inbox } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMessages } from "@/i18n";
 import { settingsMessages } from "@/i18n/messages/settings";
 import { connectionsMessages } from "@/i18n/messages/connections";
+import { contactRequestsMessages } from "@/i18n/messages/contactRequests";
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState("profile");
   const m = useMessages(settingsMessages);
   const connections = useMessages(connectionsMessages).settings;
   const signing = useMessages(signingMessages);
+  const contactRequests = useMessages(contactRequestsMessages);
   const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
@@ -150,6 +153,10 @@ const Settings = () => {
                   <FileSignature className="h-4 w-4" />
                   <span className="hidden group-data-[state=active]:inline sm:inline">{signing.settings.tab}</span>
                 </TabsTrigger>
+                <TabsTrigger value="contact-requests" className={TAB_CLASS} aria-label={contactRequests.tab} title={contactRequests.tab} data-testid="settings-tab-contact-requests">
+                  <Inbox className="h-4 w-4" />
+                  <span className="hidden group-data-[state=active]:inline sm:inline">{contactRequests.tab}</span>
+                </TabsTrigger>
               </>
             )}
             {showMyWorkTabs && (
@@ -256,6 +263,10 @@ const Settings = () => {
 
               <TabsContent value="signing" className="space-y-4">
                 <SigningTemplatesSettings />
+              </TabsContent>
+
+              <TabsContent value="contact-requests" className="space-y-4">
+                <ContactRequests />
               </TabsContent>
             </>
           )}
