@@ -1,16 +1,22 @@
 # Sito pubblico VIES
 
-*La parte pubblica di `portale.tecnomga.com`: una homepage sulla garanzia VIES in italiano, inglese e cinese, le pagine Privacy e Cookie, il modulo di contatto verso `vies@tecnomga.com`. Le pagine sono HTML completo generato alla build, leggibile da motori di ricerca e motori di risposta senza JavaScript; il portale riservato resta dietro `/auth` e non è indicizzabile. Progetto in `docs/superpowers/specs/2026-11-15-sito-pubblico-vies-design.md`.*
+*La parte pubblica di `portale.tecnomga.com`: una homepage sulla garanzia VIES in italiano, inglese e cinese, due pagine per pubblico, un blog con otto guide firmate, le pagine Privacy e Cookie, il modulo di contatto verso `vies@tecnomga.com`. Le pagine sono HTML completo generato alla build, leggibile da motori di ricerca e motori di risposta senza JavaScript; il portale riservato resta dietro `/auth` e non è indicizzabile. Progetto in `docs/superpowers/specs/2026-11-15-sito-pubblico-vies-design.md`.*
 
 ## SECTION 01 — Cosa viene pubblicato
 
 | Indirizzo | Contenuto |
 |---|---|
 | `/`, `/en/`, `/zh/` | Homepage: apertura, fascia di fiducia, cos'è la garanzia, per chi, cinque passi, il portale, documenti, costo, domande frequenti, contatti. Ogni sezione ha il solo titolo: nessuna scritta sopra, nessun sottotitolo sotto |
+| `/rappresentanti-fiscali/`, `/en/fiscal-representatives/`, `/zh/fiscal-representatives/` | Pagina per rappresentanti fiscali e studi: cosa chiede la norma, come si lavora nel portale, domande, guide dedicate |
+| `/venditori-esteri/`, `/en/non-eu-sellers/`, `/zh/non-eu-sellers/` | Pagina per le società extra UE: quando la garanzia le riguarda, cosa fare, documenti, domande |
+| `/blog/`, `/en/blog/`, `/zh/blog/` | Indice delle guide |
+| `/blog/<articolo>/`, `/en/blog/<article>/`, `/zh/blog/<article>/` | Le otto guide, firmate, con risposta diretta, sezioni, domande, fonti ufficiali e data dell'ultima verifica. Inglese e cinese usano lo stesso segmento |
+| `/blog/feed.xml`, `/en/blog/feed.xml`, `/zh/blog/feed.xml` | Feed Atom delle guide, annunciato nella testata di ogni pagina |
 | `/privacy/`, `/en/privacy/`, `/zh/privacy/` | Informativa sulla privacy del sito e del modulo |
 | `/cookie/`, `/en/cookie/`, `/zh/cookie/` | Cosa il sito salva nel browser, per nome |
-| `/sitemap.xml` | Le nove pagine con le alternative per lingua e la data della build |
-| `/llms.txt` | Il sito descritto ai motori basati su IA |
+| `/sitemap.xml` | Tutte le pagine con le alternative per lingua; la data è quella dell'ultima verifica dei contenuti (per un articolo, la sua) |
+| `/llms.txt` | Il sito descritto ai motori basati su IA, con le guide per lingua e chi le firma |
+| `/<chiave>.txt` | La chiave di IndexNow (SECTION 03) |
 | `/robots.txt` | Apre il sito ai crawler (anche delle IA), chiude solo `/api/` |
 | `/site-media/*` | Immagini, video dell'apertura, immagini per i social |
 | `/app.html` | Il guscio del portale riservato: lo riceve ogni altro indirizzo |
@@ -23,10 +29,14 @@ Le ancore delle sezioni sono uguali nelle tre lingue: `#cos-e`, `#per-chi`, `#co
 |---|---|
 | `vite/public-site-plugin.ts` | In sviluppo serve le pagine; nella build le scrive in `dist/`, con `sitemap.xml` e `llms.txt`, e rinomina il guscio del portale in `app.html` |
 | `src/site/config.ts` | Origine, lingue, dati dell'intermediario, variabili d'ambiente, data di aggiornamento dei contenuti |
-| `src/site/routes.ts` | Elenco delle pagine e dei percorsi per lingua |
+| `src/site/routes.ts` | Elenco delle pagine e dei percorsi per lingua; ogni articolo è una pagina |
+| `src/site/blog/` | Tipi degli articoli, registro (`index.ts`) e testi: `articles/<lingua>/<id>.ts` |
+| `src/site/content/audience/{it,en,zh}.ts` | Testi delle due pagine per pubblico |
+| `src/site/inline.ts`, `src/site/meta.ts` | Collegamenti scritti nel testo; titolo e descrizione di ogni pagina |
 | `src/site/content/{types,it,en,zh}.ts` | Tutti i testi, con la stessa struttura nelle tre lingue |
 | `src/site/components/`, `src/site/pages/` | Sezioni e pagine (React reso come HTML statico, senza idratazione) |
-| `src/site/seo.ts`, `schema.ts`, `sitemap.ts` | Testata, dati strutturati, mappa del sito, `llms.txt` |
+| `src/site/seo.ts`, `schema.ts`, `sitemap.ts` | Testata, dati strutturati, mappa del sito, `llms.txt`, feed |
+| `scripts/site/indexnow.mjs` | Invio a IndexNow delle pagine cambiate |
 | `src/site/site.css` | Stile indipendente da quello del portale: vetro, colori Tecno, movimento |
 | `src/site/client/` | Script del browser: menu, comparsa, movimento, lingua, modulo, consenso, video |
 | `src/site/consent-core.ts` | Regole del consenso ai cookie |
@@ -36,14 +46,38 @@ Le ancore delle sezioni sono uguali nelle tre lingue: `#cos-e`, `#per-chi`, `#co
 
 **Aggiornare una norma.** Ogni affermazione normativa rimanda a una fonte ufficiale in `whatIs.sources`. Dopo la verifica sulle fonti si aggiorna `CONTENT_UPDATED` in `src/site/config.ts`: è la data mostrata nella pagina.
 
-**Aggiungere una pagina.** 1) un identificativo in `PageId` e i percorsi in `SLUGS` (`src/site/routes.ts`); 2) titolo, descrizione, H1 ed etichetta in `meta` nelle tre lingue; 3) il componente della pagina in `src/site/pages/` e la scelta in `src/site/render.tsx`; 4) il prefisso del percorso nelle due regole di `vercel.json` (quella riservata lo esclude, quella pubblica lo include) e in `tests/server/vercel-config.test.ts`; 5) il percorso tra quelli attesi in `scripts/check-public-site.mjs`.
+**Scrivere o aggiornare un articolo.** Un articolo è un modulo per lingua in `src/site/blog/articles/<lingua>/<id>.ts`: titolo, descrizione, H1, parola chiave, risposta diretta (`summary`), sezioni fatte di blocchi (paragrafo, elenco, passi, tabella, avvertenza), domande e fonti ufficiali. Niente HTML: i collegamenti si scrivono nel testo come `[testo](article:<id>)`, `[testo](page:<id>)`, `[testo](section:<ancora>)` o `[testo](https://…)`. Per un articolo nuovo: l'id in `ARTICLE_IDS` (`src/site/blog/types.ts`), i tre file, una riga in ciascun `articles/<lingua>/index.ts`, date e guide collegate in `META` (`src/site/blog/index.ts`). L'articolo compare nel sito solo quando esiste in tutte e tre le lingue. Dopo una verifica sulle fonti si aggiorna `updated` in `META`: è la data mostrata, quella della sitemap e quella del feed. `tests/site/blog.test.ts` controlla lunghezze (titolo 50-60, descrizione 150-160, risposte 40-60 parole), stessa struttura nelle tre lingue, collegamenti che portano a pagine esistenti, sole fonti ufficiali, nessun prezzo e nessun nome di compagnia.
+
+**Aggiungere una pagina.** 1) un identificativo in `PageId` e i percorsi in `SLUGS` (`src/site/routes.ts`); 2) titolo, descrizione, H1 ed etichetta in `meta` nelle tre lingue; 3) il componente della pagina in `src/site/pages/` e la scelta in `src/site/render.tsx`; 4) il prefisso del percorso nelle due regole di `vercel.json` (quella riservata lo esclude, quella pubblica lo include): un test verifica che ogni pagina generata sia pubblica; 5) il percorso tra quelli attesi in `scripts/check-public-site.mjs`.
 
 ## SECTION 03 — Indicizzazione e sicurezza
 
-- `vercel.json` ha due regole di intestazioni: le pagine pubbliche (`/`, `/en`, `/zh`, `/privacy`, `/cookie`) hanno una politica di sicurezza propria, che ammette gli indirizzi di Google e non quelli del database; ogni altro indirizzo ha `X-Robots-Tag: noindex, nofollow, noarchive` e la politica del portale. `tests/server/vercel-config.test.ts` applica le regole come le applica Vercel.
+- `vercel.json` ha due regole di intestazioni: le pagine pubbliche (`/`, `/en`, `/zh`, `/privacy`, `/cookie`, `/blog`, `/rappresentanti-fiscali`, `/venditori-esteri`) hanno una politica di sicurezza propria, che ammette gli indirizzi di Google e non quelli del database; ogni altro indirizzo ha `X-Robots-Tag: noindex, nofollow, noarchive` e la politica del portale. `tests/server/vercel-config.test.ts` applica le regole come le applica Vercel.
 - Nessuno script in linea: nelle pagine ci sono solo blocchi di dati strutturati. Il JavaScript del sito è un solo file.
-- Dati strutturati: intermediario assicurativo con RUI e sedi, servizio, domande frequenti e passi (homepage), briciole di pane (pagine di testo).
+- Dati strutturati: intermediario assicurativo con RUI e sedi su ogni pagina; servizio, domande frequenti e passi (homepage); servizio, domande e briciole (pagine per pubblico); articolo firmato (`BlogPosting` con autore, date, fonti), domande e briciole a tre livelli (articoli); `Blog` con i suoi articoli (indice).
 - Alternative per lingua: `it`, `en`, `zh-Hans`; predefinita l'inglese.
+- **IndexNow.** Bing, Yandex, Naver e Seznam rileggono subito le pagine segnalate con IndexNow (Bing alimenta Copilot e la ricerca di ChatGPT). La chiave è il file `public/<chiave>.txt`; `scripts/site/indexnow.mjs` legge la sitemap online e invia le pagine la cui data è degli ultimi due giorni, quindi una pubblicazione del portale che non tocca il sito pubblico non invia nulla. Dopo ogni push su `main` il job `indexnow` della CI aspetta che la pubblicazione sia online e fa l'invio; a mano: `npm run site:indexnow -- --all` (tutte le pagine) o `--dry-run` (mostra senza inviare). Google non usa IndexNow.
+- **Google.** Serve una proprietà in Search Console (SECTION 09): da lì si invia `sitemap.xml` e si chiede l'indicizzazione delle pagine principali. Senza, Google trova il sito solo seguendo i link di altri siti, e oggi `tecnomga.com` non collega il portale.
+
+## SECTION 03-bis — Parole chiave e pubblico
+
+Una ricerca, una pagina: la homepage tiene «fideiussione VIES» e gli articoli non la usano come parola chiave principale. «VIES» da solo porta al sito della Commissione europea e non è un obiettivo.
+
+| Pagina | Ricerca a cui risponde |
+|---|---|
+| `/` | fideiussione VIES |
+| `/rappresentanti-fiscali/` | fideiussione VIES rappresentante fiscale |
+| `/venditori-esteri/` | garanzia VIES società extra UE |
+| `/blog/garanzia-vies-cos-e-chi-deve-prestarla/` | garanzia VIES: cos'è, chi deve prestarla |
+| `/blog/cauzione-fideiussione-bancaria-polizza-fideiussoria/` | cauzione o polizza fideiussoria VIES |
+| `/blog/documenti-fideiussione-vies/` | documenti per la fideiussione VIES |
+| `/blog/dalla-richiesta-alla-polizza-vies/` | come si ottiene la polizza VIES |
+| `/blog/lotto-20-pratiche-vies-rappresentanti-fiscali/` | lotto di pratiche VIES |
+| `/blog/polizze-firmate-digitalmente-p7m/` | file p7m, polizza firmata digitalmente |
+| `/blog/garanzia-rappresentante-fiscale-e-garanzia-vies/` | garanzia del rappresentante fiscale |
+| `/blog/venditori-extra-ue-partita-iva-vies/` | partita IVA italiana e VIES per società extra UE |
+
+Paesi di riferimento indicati dal titolare: Italia, Europa, Cina, Giappone, India, Pakistan, Stati Uniti, Brasile, Vietnam. Le pagine in inglese servono India, Pakistan, Stati Uniti e il resto d'Europa; quelle in cinese agenti e rappresentanti che lavorano con società cinesi. Giapponese, portoghese e vietnamita non ci sono ancora: la struttura le accoglie aggiungendo una lingua in `src/site/config.ts` e i testi tradotti.
 
 ## SECTION 04 — Modulo contatti
 
@@ -96,10 +130,10 @@ Il video è caricato dallo script a pagina pronta; con «riduci movimento» o ri
 
 | Comando | Cosa verifica |
 |---|---|
-| `npx vitest run tests/site` | Testi, pagine, testata, dati strutturati, consenso, modulo, immagini |
+| `npx vitest run tests/site` | Testi, pagine, articoli e pagine per pubblico, testata, dati strutturati, feed, IndexNow, consenso, modulo, immagini |
 | `npx vitest run tests/server/contact-requests.test.ts` | Modulo contatti sul server |
-| `npx vite build && npm run test:public-site` | Le nove pagine generate, il guscio del portale separato, pesi |
-| `node e2e/run.mjs public-site contact-requests landing-header` | Il sito nel browser: senza JavaScript, telefono, lingue, modulo, cookie, elenco per gli amministratori |
+| `npx vite build && npm run test:public-site` | Tutte le pagine generate (otto articoli per lingua), feed, sitemap, il guscio del portale separato, pesi |
+| `node e2e/run.mjs public-site contact-requests landing-header` | Il sito nel browser: senza JavaScript, telefono, lingue, modulo, cookie, blog e articoli, pagine per pubblico, elenco per gli amministratori |
 
 ## SECTION 09 — Cosa serve dal titolare
 
@@ -109,6 +143,8 @@ Nessuno di questi punti blocca la pubblicazione: il sito è indicizzabile anche 
 |---|---|---|
 | Google Search Console: proprietà di dominio `tecnomga.com` (record TXT nel DNS; `VITE_GSC_VERIFICATION` non serve) oppure proprietà con prefisso `https://portale.tecnomga.com/` (meta tag: il codice va in `VITE_GSC_VERIFICATION`) | Leggere ricerche, clic e stato dell'indicizzazione; inviare `sitemap.xml` | Google trova comunque il sito, ma non si vede cosa cerca chi arriva né eventuali errori |
 | Bing Webmaster: importazione da Search Console (nessuna variabile) oppure meta tag (`VITE_BING_VERIFICATION`) | Bing alimenta Copilot e la ricerca di ChatGPT | Come sopra, per Bing |
+| Un link dal sito aziendale `tecnomga.com` verso `portale.tecnomga.com` | È la strada con cui Google scopre un sito nuovo e gli dà fiducia | Il portale resta senza link in ingresso |
+| Qualifica di chi firma gli articoli | Oggi la firma è «Anton Carlo Santoro, Tecno Advance MGA Broker Srl»: con una qualifica verificabile l'autorevolezza cresce | Firma senza qualifica |
 | Google Analytics 4 (`VITE_GA4_ID`) | Visite e richieste inviate dal modulo | Nessun dato sulle visite; il banner dei cookie non compare |
 | Google Ads (`VITE_GOOGLE_ADS_ID`, `VITE_GOOGLE_ADS_CONVERSION_LABEL`) | Contare le richieste come conversioni delle campagne | Le campagne partono lo stesso, ma senza sapere quali annunci portano richieste |
 | Conferma dell'avvertenza pubblicitaria e del testo sui reclami | Requisiti IVASS sulla pubblicità dei prodotti assicurativi | — |
