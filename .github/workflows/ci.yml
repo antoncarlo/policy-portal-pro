@@ -65,3 +65,21 @@ jobs:
           name: e2e-artifacts
           path: e2e/artifacts
           if-no-files-found: ignore
+
+  # After a push to main, once the checks are green: tell the search engines that use IndexNow (Bing, Yandex, Naver,
+  # Seznam) which public pages changed. Only pages whose date in the sitemap is recent are sent, so an ordinary
+  # deploy of the portal sends nothing. It waits for the deploy of this commit to be online. A failure here does
+  # not make the run red: the site works the same, the pages are just read later.
+  indexnow:
+    if: github.event_name == 'push'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Notify IndexNow of the pages that changed
+        run: node scripts/site/indexnow.mjs --days=2 --after="${{ github.event.head_commit.timestamp }}"
