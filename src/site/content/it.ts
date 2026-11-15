@@ -282,6 +282,17 @@ export const it: SiteContent = {
       office: "Sede operativa",
     },
   },
+  blog: {
+    by: "di",
+    published: "Pubblicato il",
+    updated: "Verificato sulle fonti il",
+    summaryTitle: "In breve",
+    faqTitle: "Domande frequenti",
+    sourcesTitle: "Fonti ufficiali",
+    relatedTitle: "Guide collegate",
+    allGuides: "Tutte le guide sulla garanzia VIES",
+    cta: { title: "Devi prestare la garanzia VIES?", text: "Raccontaci il tuo caso: ti indichiamo i documenti che servono e ti inviamo una quotazione scritta.", button: "Richiedi contatto" },
+  },
   footer: {
     about: "Intermediario assicurativo. Questo sito è dedicato alla garanzia VIES per i soggetti non residenti con rappresentante fiscale in Italia.",
     rui: "Iscritta alla sezione B del Registro Unico degli Intermediari assicurativi (RUI) n.",

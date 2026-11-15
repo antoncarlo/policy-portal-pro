@@ -151,6 +151,20 @@ export interface SiteContent {
       office: string;
     };
   };
+  /** Le scritte delle pagine del blog; i testi degli articoli stanno in src/site/blog. */
+  blog: {
+    /** Prima del nome di chi firma. */
+    by: string;
+    published: string;
+    /** Prima della data dell'ultima verifica sulle fonti. */
+    updated: string;
+    summaryTitle: string;
+    faqTitle: string;
+    sourcesTitle: string;
+    relatedTitle: string;
+    allGuides: string;
+    cta: { title: string; text: string; button: string };
+  };
   footer: {
     about: string;
     rui: string;

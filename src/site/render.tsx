@@ -1,14 +1,18 @@
 // Da un percorso pubblico al documento HTML completo. Il corpo e' reso da React come HTML statico (nessuna
 // idratazione nel browser); la testata e' composta come testo, con escape.
 import { renderToStaticMarkup } from "react-dom/server";
+import { ARTICLES, AUTHOR, articleOf, type ArticleId } from "./blog";
 import { CONTENT_UPDATED, HREFLANG, type SiteEnv } from "./config";
 import { contentFor } from "./content";
 import { metaOf } from "./meta";
-import { findPage, listPages, pageKind, type PageRef } from "./routes";
+import { plainText } from "./inline";
+import { findPage, listPages, pageKind, pathOf, type PageRef } from "./routes";
 import { Layout } from "./components/Layout";
+import { ArticlePage } from "./pages/ArticlePage";
+import { BlogIndex } from "./pages/BlogIndex";
 import { Home } from "./pages/Home";
 import { LegalPage } from "./pages/Legal";
-import { breadcrumbSchema, faqSchema, howToSchema, jsonLd, organizationSchema, serviceSchema } from "./schema";
+import { articleSchema, blogSchema, breadcrumbSchema, faqSchema, howToSchema, jsonLd, organizationSchema, serviceSchema } from "./schema";
 import { escapeHtml, headTags } from "./seo";
 import { buildLlmsTxt, buildSitemapXml } from "./sitemap";
 
@@ -25,15 +29,22 @@ const document = (page: PageRef, assets: SiteAssets, env: SiteEnv): string => {
   const content = contentFor(page.lang);
   const meta = metaOf(page);
   const kind = pageKind(page.id);
+  const crumb = (id: PageRef["id"]) => ({ name: metaOf({ id, lang: page.lang, path: pathOf(id, page.lang) }).label, path: pathOf(id, page.lang) });
+  const entry = kind === "article" ? articleOf(page.id as ArticleId) : undefined;
   const structured = [organizationSchema(env)];
   if (kind === "home") {
     // Le stesse domande e gli stessi passi che il lettore vede nella pagina.
     structured.push(serviceSchema(page, meta, env), faqSchema(content.faq.items), howToSchema(content.steps.title, content.steps.items.map((step) => ({ name: step.title, text: step.text }))));
-  } else structured.push(breadcrumbSchema(page, { home: content.meta.home.label, page: meta.label }, env));
+  } else if (entry) {
+    const article = entry.content[page.lang];
+    structured.push(articleSchema(page, entry, env), faqSchema(article.faq.map((item) => ({ q: item.q, a: plainText(item.a) }))), breadcrumbSchema([crumb("home"), crumb("blog"), crumb(page.id)], env));
+  } else if (kind === "blog") {
+    structured.push(blogSchema(page, meta, ARTICLES, env), breadcrumbSchema([crumb("home"), crumb(page.id)], env));
+  } else structured.push(breadcrumbSchema([crumb("home"), crumb(page.id)], env));
   const head = [
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">',
-    headTags(page, meta, env),
+    headTags(page, meta, env, entry ? { article: { published: entry.published, updated: entry.updated, author: AUTHOR.name } } : {}),
     '<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=tecnomga-2">',
     '<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=tecnomga-2">',
     '<meta name="theme-color" content="#103657">',
@@ -51,8 +62,12 @@ const document = (page: PageRef, assets: SiteAssets, env: SiteEnv): string => {
         <Home page={page} content={content} />
       ) : kind === "legal" ? (
         <LegalPage page={page} content={content} />
+      ) : kind === "article" ? (
+        <ArticlePage page={page} content={content} />
+      ) : kind === "blog" ? (
+        <BlogIndex page={page} content={content} />
       ) : (
-        // Segnaposto: le pagine del blog e quelle per pubblico arrivano con i compiti successivi.
+        // Segnaposto: le pagine per pubblico arrivano con il compito successivo.
         <article className="legal">
           <header className="legal__hero">
             <div className="container container--narrow">

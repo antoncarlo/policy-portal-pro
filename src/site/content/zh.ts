@@ -280,6 +280,17 @@ export const zh: SiteContent = {
       office: "办公地址",
     },
   },
+  blog: {
+    by: "作者：",
+    published: "发布于",
+    updated: "来源核对日期：",
+    summaryTitle: "要点",
+    faqTitle: "常见问题",
+    sourcesTitle: "官方来源",
+    relatedTitle: "相关指南",
+    allGuides: "全部意大利VIES担保指南",
+    cta: { title: "需要提供VIES担保吗？", text: "请告诉我们您的情况：我们会列出所需文件，并向您发送书面报价。", button: "提交咨询" },
+  },
   footer: {
     about: "保险中介。本网站专门介绍通过税务代表在意大利履行增值税义务的非居民企业的VIES担保。",
     rui: "登记于意大利保险中介统一登记册（RUI）B类，编号",

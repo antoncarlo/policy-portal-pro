@@ -128,7 +128,7 @@ describe("structured data", () => {
     expect((faq.mainEntity ?? []).map((item) => [item["@type"], item.name, item.acceptedAnswer?.text])).toEqual([["Question", "Q1?", "A1"], ["Question", "Q2?", "A2"]]);
     const howTo = node(howToSchema("How it works", [{ name: "One", text: "First" }, { name: "Two", text: "Second" }]));
     expect((howTo.step ?? []).map((step) => [step.position, step.name])).toEqual([[1, "One"], [2, "Two"]]);
-    const crumbs = node(breadcrumbSchema({ id: "privacy", lang: "en", path: "/en/privacy/" }, { home: "Home", page: "Privacy" }, env));
+    const crumbs = node(breadcrumbSchema([{ name: "Home", path: "/en/" }, { name: "Privacy", path: "/en/privacy/" }], env));
     expect((crumbs.itemListElement ?? []).map((item) => [item.position, item.name, item.item])).toEqual([[1, "Home", `${ORIGIN}/en/`], [2, "Privacy", `${ORIGIN}/en/privacy/`]]);
   });
 

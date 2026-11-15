@@ -13,18 +13,23 @@ export const absoluteUrl = (env: SiteEnv, path: string) => `${env.origin}${path}
 /** Immagine 1200x630 mostrata quando si condivide il link, una per lingua. */
 export const socialImage = (env: SiteEnv, lang: Lang) => `${env.origin}/site-media/og-${lang}.png`;
 
-export const headTags = (page: PageRef, meta: { title: string; description: string }, env: SiteEnv): string => {
+/** Cio' che la testata di un articolo ha in piu': chi lo firma e le sue date (AAAA-MM-GG). */
+export interface HeadExtra {
+  article?: { published: string; updated: string; author: string };
+}
+
+export const headTags = (page: PageRef, meta: { title: string; description: string }, env: SiteEnv, extra: HeadExtra = {}): string => {
   const url = absoluteUrl(env, page.path);
   const image = socialImage(env, page.lang);
   const tags = [
     `<title>${escapeHtml(meta.title)}</title>`,
     `<meta name="description" content="${escapeHtml(meta.description)}">`,
-    `<meta name="author" content="${escapeHtml(COMPANY.name)}">`,
+    `<meta name="author" content="${escapeHtml(extra.article?.author ?? COMPANY.name)}">`,
     '<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">',
     `<link rel="canonical" href="${escapeHtml(url)}">`,
     ...LANGS.map((lang) => `<link rel="alternate" hreflang="${HREFLANG[lang]}" href="${escapeHtml(absoluteUrl(env, pathOf(page.id, lang)))}">`),
     `<link rel="alternate" hreflang="x-default" href="${escapeHtml(absoluteUrl(env, pathOf(page.id, DEFAULT_LANG)))}">`,
-    '<meta property="og:type" content="website">',
+    `<meta property="og:type" content="${extra.article ? "article" : "website"}">`,
     `<meta property="og:site_name" content="${escapeHtml(COMPANY.name)}">`,
     `<meta property="og:title" content="${escapeHtml(meta.title)}">`,
     `<meta property="og:description" content="${escapeHtml(meta.description)}">`,
@@ -39,6 +44,13 @@ export const headTags = (page: PageRef, meta: { title: string; description: stri
     `<meta name="twitter:description" content="${escapeHtml(meta.description)}">`,
     `<meta name="twitter:image" content="${escapeHtml(image)}">`,
   ];
+  if (extra.article) {
+    tags.push(
+      `<meta property="article:published_time" content="${escapeHtml(extra.article.published)}">`,
+      `<meta property="article:modified_time" content="${escapeHtml(extra.article.updated)}">`,
+      `<meta property="article:author" content="${escapeHtml(extra.article.author)}">`,
+    );
+  }
   if (env.gscVerification) tags.push(`<meta name="google-site-verification" content="${escapeHtml(env.gscVerification)}">`);
   if (env.bingVerification) tags.push(`<meta name="msvalidate.01" content="${escapeHtml(env.bingVerification)}">`);
   return tags.join("\n");

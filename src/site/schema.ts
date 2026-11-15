@@ -1,7 +1,10 @@
 // Dati strutturati (JSON-LD, vocabolario schema.org): dicono ai motori di ricerca e alle IA chi e' l'intermediario,
 // che servizio offre, quali domande trovano risposta nella pagina e in che ordine si svolgono i passi.
-import { COMPANY, HREFLANG, type SiteEnv } from "./config";
+import { AUTHOR, type ArticleEntry } from "./blog";
+import { COMPANY, HREFLANG, type Lang, type SiteEnv } from "./config";
+import { plainText } from "./inline";
 import { pathOf, type PageRef } from "./routes";
+import { socialImage } from "./seo";
 
 const CONTEXT = "https://schema.org";
 export const organizationId = (env: SiteEnv) => `${env.origin}/#organization`;
@@ -61,13 +64,58 @@ export const howToSchema = (name: string, steps: Array<{ name: string; text: str
   step: steps.map((step, index) => ({ "@type": "HowToStep", position: index + 1, name: step.name, text: step.text })),
 });
 
-export const breadcrumbSchema = (page: PageRef, labels: { home: string; page: string }, env: SiteEnv): object => ({
+/** Il percorso dalla homepage alla pagina: una voce per livello. */
+export const breadcrumbSchema = (items: Array<{ name: string; path: string }>, env: SiteEnv): object => ({
   "@context": CONTEXT,
   "@type": "BreadcrumbList",
-  itemListElement: [
-    { "@type": "ListItem", position: 1, name: labels.home, item: `${env.origin}${pathOf("home", page.lang)}` },
-    { "@type": "ListItem", position: 2, name: labels.page, item: `${env.origin}${page.path}` },
-  ],
+  itemListElement: items.map((item, index) => ({ "@type": "ListItem", position: index + 1, name: item.name, item: `${env.origin}${item.path}` })),
+});
+
+const blogId = (lang: Lang, env: SiteEnv) => `${env.origin}${pathOf("blog", lang)}#blog`;
+const authorNode = (env: SiteEnv) => ({ "@type": "Person", name: AUTHOR.name, worksFor: { "@id": organizationId(env) } });
+
+/** Un articolo: chi lo firma, chi lo pubblica, quando, e su quali fonti poggia. */
+export const articleSchema = (page: PageRef, entry: ArticleEntry, env: SiteEnv): object => {
+  const article = entry.content[page.lang];
+  const url = `${env.origin}${page.path}`;
+  return {
+    "@context": CONTEXT,
+    "@type": "BlogPosting",
+    "@id": `${url}#article`,
+    headline: article.h1,
+    description: article.description,
+    abstract: plainText(article.summary),
+    keywords: article.keyword,
+    inLanguage: HREFLANG[page.lang],
+    datePublished: entry.published,
+    dateModified: entry.updated,
+    author: authorNode(env),
+    publisher: { "@id": organizationId(env) },
+    mainEntityOfPage: { "@type": "WebPage", "@id": url },
+    image: socialImage(env, page.lang),
+    isPartOf: { "@id": blogId(page.lang, env) },
+    citation: article.sources.map((source) => source.href),
+  };
+};
+
+/** L'indice del blog, con l'elenco degli articoli. */
+export const blogSchema = (page: PageRef, meta: { h1: string; description: string }, entries: ArticleEntry[], env: SiteEnv): object => ({
+  "@context": CONTEXT,
+  "@type": "Blog",
+  "@id": blogId(page.lang, env),
+  name: meta.h1,
+  description: meta.description,
+  url: `${env.origin}${page.path}`,
+  inLanguage: HREFLANG[page.lang],
+  publisher: { "@id": organizationId(env) },
+  blogPost: entries.map((entry) => ({
+    "@type": "BlogPosting",
+    headline: entry.content[page.lang].h1,
+    url: `${env.origin}${pathOf(entry.id, page.lang)}`,
+    datePublished: entry.published,
+    dateModified: entry.updated,
+    author: authorNode(env),
+  })),
 });
 
 /** Il blocco di dati nella pagina. "<" e' scritto come \u003c: nessun valore puo' chiudere il blocco. */

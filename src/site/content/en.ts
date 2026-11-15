@@ -281,6 +281,17 @@ export const en: SiteContent = {
       office: "Operating office",
     },
   },
+  blog: {
+    by: "By",
+    published: "Published on",
+    updated: "Checked against the sources on",
+    summaryTitle: "In short",
+    faqTitle: "Frequently asked questions",
+    sourcesTitle: "Official sources",
+    relatedTitle: "Related guides",
+    allGuides: "All guides to the Italian VIES guarantee",
+    cta: { title: "Do you need to give the VIES guarantee?", text: "Tell us about your case: we will list the documents you need and send you a written quotation.", button: "Get in touch" },
+  },
   footer: {
     about: "Insurance intermediary. This site is dedicated to the VIES guarantee for non-resident businesses with a fiscal representative in Italy.",
     rui: "Entered in section B of the Italian Single Register of Insurance Intermediaries (RUI) under no.",
