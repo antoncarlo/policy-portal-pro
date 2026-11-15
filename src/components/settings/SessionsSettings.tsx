@@ -67,7 +67,8 @@ export const SessionsSettings = () => {
       const { error } = await supabase.auth.signOut({ scope });
       if (error) throw error;
       if (done) done();
-      else window.location.href = "/";
+      // La radice del sito e' la homepage pubblica: chi esce dal portale torna alla pagina di accesso.
+      else window.location.href = "/auth";
     } catch (error) {
       toast({
         variant: "destructive",

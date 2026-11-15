@@ -4,7 +4,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { HREFLANG, type SiteEnv } from "./config";
 import { contentFor } from "./content";
 import { findPage, listPages, type PageRef } from "./routes";
-import { breadcrumbSchema, jsonLd, organizationSchema, serviceSchema } from "./schema";
+import { Layout } from "./components/Layout";
+import { Home } from "./pages/Home";
+import { LegalPage } from "./pages/Legal";
+import { breadcrumbSchema, faqSchema, howToSchema, jsonLd, organizationSchema, serviceSchema } from "./schema";
 import { escapeHtml, headTags } from "./seo";
 import { buildLlmsTxt, buildSitemapXml } from "./sitemap";
 
@@ -19,8 +22,10 @@ const document = (page: PageRef, assets: SiteAssets, env: SiteEnv): string => {
   const content = contentFor(page.lang);
   const meta = content.meta[page.id];
   const structured = [organizationSchema(env)];
-  if (page.id === "home") structured.push(serviceSchema(page, meta, env));
-  else structured.push(breadcrumbSchema(page, { home: content.meta.home.label, page: meta.label }, env));
+  if (page.id === "home") {
+    // Le stesse domande e gli stessi passi che il lettore vede nella pagina.
+    structured.push(serviceSchema(page, meta, env), faqSchema(content.faq.items), howToSchema(content.steps.title, content.steps.items.map((step) => ({ name: step.title, text: step.text }))));
+  } else structured.push(breadcrumbSchema(page, { home: content.meta.home.label, page: meta.label }, env));
   const head = [
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">',
@@ -33,9 +38,9 @@ const document = (page: PageRef, assets: SiteAssets, env: SiteEnv): string => {
     ...structured.map(jsonLd),
   ].join("\n");
   const body = renderToStaticMarkup(
-    <main>
-      <h1>{meta.h1}</h1>
-    </main>,
+    <Layout page={page} content={content}>
+      {page.id === "home" ? <Home page={page} content={content} /> : <LegalPage page={page} content={content} />}
+    </Layout>,
   );
   return `<!doctype html>\n<html lang="${HREFLANG[page.lang]}" data-page="${page.id}">\n<head>\n${head}\n</head>\n<body class="site">\n${body}\n</body>\n</html>\n`;
 };

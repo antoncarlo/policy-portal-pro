@@ -45,14 +45,15 @@ async function open({ signIn, language = "it" }) {
 const text = async (page) => (await page.locator("body").innerText()).replace(/\s+/g, " ");
 const waitReports = async (log, n) => { for (let i = 0; i < 30 && log.reports.length < n; i += 1) await new Promise((r) => setTimeout(r, 100)); };
 
-// 1) the sign-in dialog of the landing page: a wrong password is reported, with the address only
+// 1) the sign-in page (reached from «Area riservata» on the public home page): a wrong password is reported, with the address only
 {
   const { ctx, page, log, pageErrors } = await open({ signIn: "invalid" });
   await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
-  await page.locator("header nav button", { hasText: "Accedi" }).click();
-  await page.locator("input[name=email]").fill("Anna.Rossi@Example.test");
-  await page.locator("input[name=password]").fill("Segreta#12345");
-  await page.locator("form button[type=submit]").click();
+  await page.locator('[data-testid="site-hero"] a[href="/auth"]').click();
+  await page.waitForURL(/\/auth$/);
+  await page.locator("input[name=signin-email]").fill("Anna.Rossi@Example.test");
+  await page.locator("input[name=signin-password]").fill("Segreta#12345");
+  await page.locator("form button[type=submit]").first().click();
   await waitReports(log, 1);
   check("1 password sbagliata: una segnalazione al portale", log.reports.length === 1 && log.reports[0].method === "POST", JSON.stringify(log.reports));
   const sent = JSON.parse(log.reports[0]?.raw || "{}");
@@ -64,7 +65,7 @@ const waitReports = async (log, n) => { for (let i = 0; i < 30 && log.reports.le
   await ctx.close();
 }
 
-// 2) the sign-in page: same
+// 2) opening the sign-in page directly: same
 {
   const { ctx, page, log } = await open({ signIn: "invalid" });
   await page.goto(`${BASE}/auth`, { waitUntil: "networkidle" });
@@ -79,22 +80,20 @@ const waitReports = async (log, n) => { for (let i = 0; i < 30 && log.reports.le
 // 3) a sign-in that works, or a problem that is not the password, is not reported
 {
   const { ctx, page, log } = await open({ signIn: "ok" });
-  await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
-  await page.locator("header nav button", { hasText: "Accedi" }).click();
-  await page.locator("input[name=email]").fill("anna@example.test");
-  await page.locator("input[name=password]").fill("Corretta#12345");
-  await page.locator("form button[type=submit]").click();
+  await page.goto(`${BASE}/auth`, { waitUntil: "networkidle" });
+  await page.locator("input[name=signin-email]").fill("anna@example.test");
+  await page.locator("input[name=signin-password]").fill("Corretta#12345");
+  await page.locator("form button[type=submit]").first().click();
   await page.waitForTimeout(800);
   check("3 accesso riuscito: nessuna segnalazione", log.tokenCalls >= 1 && log.reports.length === 0, JSON.stringify(log.reports));
   await ctx.close();
 }
 {
   const { ctx, page, log } = await open({ signIn: "server-error" });
-  await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
-  await page.locator("header nav button", { hasText: "Accedi" }).click();
-  await page.locator("input[name=email]").fill("anna@example.test");
-  await page.locator("input[name=password]").fill("Corretta#12345");
-  await page.locator("form button[type=submit]").click();
+  await page.goto(`${BASE}/auth`, { waitUntil: "networkidle" });
+  await page.locator("input[name=signin-email]").fill("anna@example.test");
+  await page.locator("input[name=signin-password]").fill("Corretta#12345");
+  await page.locator("form button[type=submit]").first().click();
   await page.waitForTimeout(1000);
   check("3 errore del servizio di accesso (non la password): nessuna segnalazione", log.tokenCalls >= 1 && log.reports.length === 0, JSON.stringify(log.reports));
   await ctx.close();
@@ -104,11 +103,10 @@ const waitReports = async (log, n) => { for (let i = 0; i < 30 && log.reports.le
 {
   const { ctx, page, log } = await open({ signIn: "invalid" });
   await ctx.route(`${BASE}/api/login-failure`, (route) => route.abort("failed"));
-  await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
-  await page.locator("header nav button", { hasText: "Accedi" }).click();
-  await page.locator("input[name=email]").fill("anna@example.test");
-  await page.locator("input[name=password]").fill("Sbagliata#1");
-  await page.locator("form button[type=submit]").click();
+  await page.goto(`${BASE}/auth`, { waitUntil: "networkidle" });
+  await page.locator("input[name=signin-email]").fill("anna@example.test");
+  await page.locator("input[name=signin-password]").fill("Sbagliata#1");
+  await page.locator("form button[type=submit]").first().click();
   await page.waitForTimeout(800);
   check("4 segnalazione non consegnata: l'utente vede solo il messaggio di sempre", /Email o password non corretti/.test(await text(page)) && log.reports.length === 0, (await text(page)).slice(0, 300));
   await ctx.close();

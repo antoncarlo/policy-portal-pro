@@ -12,6 +12,24 @@ export const DEFAULT_LANG: Lang = "en";
 
 export const DEFAULT_ORIGIN = "https://portale.tecnomga.com";
 
+/** Come ogni lingua chiama se stessa: nel selettore della lingua e negli avvisi. */
+export const LANG_NAMES: Record<Lang, string> = { it: "Italiano", en: "English", zh: "中文" };
+/** La sigla mostrata nella barra. */
+export const LANG_SHORT: Record<Lang, string> = { it: "IT", en: "EN", zh: "中文" };
+
+/** Data dell'ultima verifica dei contenuti normativi sulle fonti ufficiali (AAAA-MM-GG). */
+export const CONTENT_UPDATED = "2026-11-15";
+const DATE_LOCALE: Record<Lang, string> = { it: "it-IT", en: "en-GB", zh: "zh-CN" };
+/** La data scritta per esteso nella lingua della pagina: «15 novembre 2026». */
+export const formatDate = (lang: Lang, iso: string): string =>
+  new Intl.DateTimeFormat(DATE_LOCALE[lang], { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`));
+
+/** Dove chiunque puo' verificare l'iscrizione dell'intermediario al Registro Unico (IVASS). */
+export const RUI_CHECK_URL = "https://ruipubblico.ivass.it/rui-pubblica/ng/";
+/** Rotte del portale riservato raggiunte dal sito pubblico. */
+export const PORTAL_LOGIN_PATH = "/auth";
+export const API_DOCS_PATH = "/api-docs";
+
 export interface SiteEnv {
   /** Origine canonica, senza barra finale. */
   origin: string;
