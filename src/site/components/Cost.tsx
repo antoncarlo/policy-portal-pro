@@ -6,6 +6,7 @@ export const Cost = ({ content }: PageProps) => {
   const { cost } = content;
   return (
     <section className="section section--tint" id="costo">
+      <img className="cost__art" src="/site-media/vies-lastre-vetro.webp" alt="" width={1100} height={615} loading="lazy" decoding="async" />
       <div className="container cost">
         <div className="cost__main">
           <SectionHead eyebrow={cost.eyebrow} title={cost.title} />

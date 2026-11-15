@@ -1,4 +1,5 @@
-// L'apertura: titolo, i tre dati della garanzia, i due inviti. Lo sfondo e' fatto di aloni che si muovono piano;
+// L'apertura: titolo, i tre dati della garanzia, i due inviti. Lo sfondo e' un'immagine di vetro e luce (un video
+// breve in ciclo, quando si puo') con aloni che si muovono piano;
 // la scheda di vetro a destra e' una polizza stilizzata, decorativa (i dati veri sono nell'elenco sotto).
 import { ArrowRight, Check, FileSignature, LogIn, ShieldCheck } from "lucide-react";
 import { PORTAL_LOGIN_PATH } from "../config";
@@ -21,6 +22,13 @@ export const Hero = ({ page, content }: PageProps) => {
   return (
     <section className="hero" data-testid="site-hero">
       <div className="hero__bg" aria-hidden="true">
+        {/* L'immagine fissa c'e' subito; il video lo carica src/site/client/hero-video.ts, a pagina pronta e solo
+            se chi legge non ha chiesto meno movimento o meno dati. */}
+        <video className="hero__media" data-hero-video muted loop playsInline preload="none" poster="/site-media/vies-vetro-apertura.webp" aria-hidden="true" tabIndex={-1}>
+          <source data-src="/site-media/vies-vetro-apertura.webm" type="video/webm" />
+          <source data-src="/site-media/vies-vetro-apertura.mp4" type="video/mp4" />
+        </video>
+        <span className="hero__shade" />
         <span className="aurora aurora--a" />
         <span className="aurora aurora--b" />
         <span className="aurora aurora--c" />

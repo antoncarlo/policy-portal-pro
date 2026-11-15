@@ -55,11 +55,16 @@ for (const [path, lang, h1] of [["/", "it", "Fideiussione VIES per soggetti non 
 // 2) desktop, with JavaScript: nothing fails, nothing is loaded from other sites, the header leads where it says
 {
   const { ctx, page, pageErrors, external } = await open();
+  const requested = [];
+  page.on("request", (request) => requested.push(request.url()));
   await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
   check("PC: nessun errore JavaScript", pageErrors.length === 0, pageErrors.join(" | "));
   check("PC: nessuna richiesta verso altri siti (font, script, immagini sono del sito)", external.length === 0, [...new Set(external)].join(", "));
   check("PC: le voci del menu sono in riga e il pulsante del menu non si vede", (await page.locator('[data-testid="site-nav"] a[href="#cos-e"]').isVisible()) && !(await page.locator('[data-testid="site-menu-toggle"]').isVisible()));
   check("PC: nessuno scorrimento orizzontale", (await overflow(page)) === 0);
+  await page.waitForFunction(() => document.querySelector("video[data-hero-video] source")?.getAttribute("src"), null, { timeout: 5000 }).catch(() => {});
+  const hero = await page.evaluate(() => { const video = document.querySelector("video[data-hero-video]"); return { sources: [...video.querySelectorAll("source")].map((source) => source.getAttribute("src")), poster: video.getAttribute("poster"), muted: video.muted }; });
+  check("PC: a pagina pronta il video dell'apertura viene caricato dallo script, muto, con l'immagine fissa sotto", hero.sources.join() === "/site-media/vies-vetro-apertura.webm,/site-media/vies-vetro-apertura.mp4" && hero.poster === "/site-media/vies-vetro-apertura.webp" && hero.muted === true && requested.some((url) => url.endsWith("/site-media/vies-vetro-apertura.webm") || url.endsWith("/site-media/vies-vetro-apertura.mp4")), JSON.stringify(hero));
   await page.screenshot({ path: SHOTS + "public-site-desktop.png" });
 
   // sections below the screen wait and then appear when reached
@@ -152,7 +157,11 @@ for (const width of [360, 390]) {
 // 5) «reduce motion»: nothing waits for an animation, the page is all there
 {
   const { ctx, page } = await open({ reducedMotion: "reduce" });
+  const videos = [];
+  page.on("request", (request) => { if (/\.(webm|mp4)(\?|$)/.test(request.url())) videos.push(request.url()); });
   await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(600);
+  check("riduci movimento: il video dell'apertura non viene nemmeno scaricato, resta l'immagine fissa", videos.length === 0 && (await page.evaluate(() => [...document.querySelectorAll("video[data-hero-video] source")].every((source) => !source.getAttribute("src")))), videos.join(", "));
   const state = await page.evaluate(() => ({
     waiting: document.querySelectorAll(".is-waiting").length,
     running: document.getAnimations().filter((animation) => animation.playState === "running").length,

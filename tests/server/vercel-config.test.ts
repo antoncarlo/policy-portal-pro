@@ -64,6 +64,13 @@ describe("vercel.json: what is public and what stays private", () => {
     expect(values("/app.html", "Cache-Control")).toEqual(["no-cache"]);
     expect(values("/", "Cache-Control")).toEqual(["no-cache"]);
   });
+
+  it("lets the browser keep the images and the video of the site for a day, and nothing else of the site's media rule", () => {
+    for (const path of ["/site-media/vies-vetro-apertura.webm", "/site-media/og-it.png", "/site-media/tecno-mga-logo-chiaro.svg"]) {
+      expect(values(path, "Cache-Control"), path).toEqual(["public, max-age=86400, stale-while-revalidate=604800"]);
+    }
+    for (const path of ["/", "/en/", "/dashboard", "/api/contact", "/assets/site-abc.js"]) expect(values(path, "Cache-Control").join(), path).not.toContain("max-age=86400");
+  });
 });
 
 describe("robots.txt", () => {

@@ -85,7 +85,32 @@ for (const url of [...pages].sort()) {
   }
 }
 
-// 3. Il peso del JavaScript delle pagine pubbliche.
+// 3. Immagini e video del sito: leggeri, e il video dell'apertura non si carica mai da solo.
+const MEDIA = join(DIST, "site-media");
+const MAX_VIDEO = 1.5 * 1024 * 1024;
+const MAX_IMAGE = 700 * 1024;
+if (!existsSync(MEDIA)) fail("manca dist/site-media (immagini e video del sito)");
+else {
+  for (const name of readdirSync(MEDIA)) {
+    const size = statSync(join(MEDIA, name)).size;
+    const limit = /\.(webm|mp4)$/.test(name) ? MAX_VIDEO : MAX_IMAGE;
+    if (size > limit) fail(`site-media/${name}: ${size} byte, oltre il limite di ${limit}`);
+  }
+  for (const lang of ["it", "en", "zh"]) if (!existsSync(join(MEDIA, `og-${lang}.png`))) fail(`manca l'immagine per i social site-media/og-${lang}.png`);
+}
+for (const url of HOME_PAGES) {
+  const path = join(DIST, url, "index.html");
+  if (!existsSync(path)) continue;
+  const video = read(path).match(/<video\b[^>]*>[\s\S]*?<\/video>/)?.[0] ?? "";
+  if (!video) fail(`${url}: manca il video dell'apertura`);
+  else {
+    for (const attribute of ["poster=", "muted", "playsinline", 'preload="none"']) if (!video.toLowerCase().includes(attribute)) fail(`${url}: il video dell'apertura non ha ${attribute}`);
+    if (/autoplay/i.test(video) || /<source[^>]*\ssrc=/.test(video)) fail(`${url}: il video dell'apertura si caricherebbe da solo`);
+    for (const [, file] of video.matchAll(/(?:poster|data-src)="\/site-media\/([^"]+)"/g)) if (!existsSync(join(MEDIA, file))) fail(`${url}: manca site-media/${file}`);
+  }
+}
+
+// 4. Il peso del JavaScript delle pagine pubbliche.
 let total = 0;
 for (const src of scripts) {
   const path = join(DIST, src);

@@ -662,8 +662,16 @@ html:lang(zh-Hans) .eyebrow {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.55;
-  mix-blend-mode: screen;
+  object-position: 78% 40%;
+  opacity: 0.9;
+}
+/* Il velo che tiene leggibile il testo sopra l'immagine: pieno a sinistra, leggero a destra, scuro in basso. */
+.hero__shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, var(--navy-950) 0%, rgba(6, 24, 38, 0.9) 34%, rgba(6, 24, 38, 0.35) 70%, rgba(6, 24, 38, 0.15) 100%),
+    linear-gradient(180deg, rgba(6, 24, 38, 0.55) 0%, transparent 28%, transparent 62%, rgba(10, 39, 64, 0.92) 100%);
 }
 .aurora {
   position: absolute;
@@ -675,7 +683,7 @@ html:lang(zh-Hans) .eyebrow {
   height: 62vmax;
   left: -22vmax;
   top: -30vmax;
-  background: radial-gradient(circle at 50% 50%, rgba(47, 127, 181, 0.55), transparent 62%);
+  background: radial-gradient(circle at 50% 50%, rgba(47, 127, 181, 0.38), transparent 62%);
   animation: drift-a 24s ease-in-out infinite alternate;
 }
 .aurora--b {
@@ -683,7 +691,7 @@ html:lang(zh-Hans) .eyebrow {
   height: 48vmax;
   right: -16vmax;
   top: 6%;
-  background: radial-gradient(circle at 50% 50%, rgba(201, 168, 130, 0.42), transparent 60%);
+  background: radial-gradient(circle at 50% 50%, rgba(201, 168, 130, 0.22), transparent 60%);
   animation: drift-b 30s ease-in-out infinite alternate;
 }
 .aurora--c {
@@ -691,7 +699,7 @@ html:lang(zh-Hans) .eyebrow {
   height: 44vmax;
   left: 28%;
   bottom: -30vmax;
-  background: radial-gradient(circle at 50% 50%, rgba(31, 106, 160, 0.5), transparent 62%);
+  background: radial-gradient(circle at 50% 50%, rgba(31, 106, 160, 0.34), transparent 62%);
   animation: drift-c 34s ease-in-out infinite alternate;
 }
 .hero__grid {
@@ -1012,7 +1020,10 @@ html:lang(zh-Hans) .fact dd {
   isolation: isolate;
   overflow: clip;
   color: #fff;
-  background: linear-gradient(170deg, var(--navy-950) 0%, var(--navy-900) 50%, var(--navy-800) 100%);
+  background:
+    linear-gradient(170deg, rgba(6, 24, 38, 0.86) 0%, rgba(10, 39, 64, 0.7) 50%, rgba(15, 58, 92, 0.82) 100%),
+    url("/site-media/vies-onde-blu.webp") center / cover no-repeat,
+    var(--navy-900);
 }
 .section__glow {
   position: absolute;
@@ -1571,7 +1582,24 @@ html:lang(zh-Hans) .audience__title {
 }
 
 /* ---------- Costo ---------- */
+.section--tint:has(.cost__art) {
+  overflow: clip;
+}
+/* Lastre di vetro, decorative: dietro i riquadri, sfumate verso il testo. */
+.cost__art {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: min(62vw, 900px);
+  height: auto;
+  opacity: 0.55;
+  transform: translateY(-50%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 45%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 45%);
+  pointer-events: none;
+}
 .cost {
+  position: relative;
   display: grid;
   gap: 2.5rem;
   align-items: start;
