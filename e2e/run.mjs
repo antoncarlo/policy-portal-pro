@@ -11,6 +11,9 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 const PORT = Number(process.env.E2E_PORT ?? 5300);
 const BASE = `http://127.0.0.1:${PORT}`;
+// The corporate site (tecnomga.com) is a second, static-only site with its own dev server: scenarios named corp-*.
+const CORP_PORT = Number(process.env.E2E_CORP_PORT ?? 5301);
+const CORP_BASE = `http://127.0.0.1:${CORP_PORT}`;
 const here = new URL("./", import.meta.url).pathname;
 mkdirSync(`${here}artifacts`, { recursive: true });
 
@@ -33,26 +36,38 @@ const env = {
   VITE_GA4_ID: "G-E2ETEST001",
   VITE_GOOGLE_ADS_ID: "AW-1234567890",
   VITE_GOOGLE_ADS_CONVERSION_LABEL: "e2eLabel_1",
+  // Same for the corporate site, and the address its quotation form posts to (answered by the scenarios).
+  VITE_CORP_GA4_ID: "G-E2ETEST002",
+  VITE_CORP_CONTACT_ENDPOINT: "https://portale.tecnomga.com/api/contact",
 };
 
 const server = spawn("npx", ["vite", "--host", "127.0.0.1", "--port", String(PORT), "--strictPort"], { env, stdio: ["ignore", "pipe", "pipe"], detached: true });
 let serverLog = "";
 server.stdout.on("data", (chunk) => (serverLog += chunk));
 server.stderr.on("data", (chunk) => (serverLog += chunk));
+const needsCorp = scenarios.some((name) => name.startsWith("corp-"));
+const corpServer = needsCorp
+  ? spawn("npx", ["vite", "--config", "vite.corp.config.ts", "--host", "127.0.0.1", "--port", String(CORP_PORT), "--strictPort"], { env, stdio: ["ignore", "pipe", "pipe"], detached: true })
+  : null;
+corpServer?.stdout.on("data", (chunk) => (serverLog += chunk));
+corpServer?.stderr.on("data", (chunk) => (serverLog += chunk));
 const stopServer = () => {
-  try {
-    process.kill(-server.pid, "SIGTERM");
-  } catch {
-    // already gone
+  for (const child of [server, corpServer]) {
+    if (!child) continue;
+    try {
+      process.kill(-child.pid, "SIGTERM");
+    } catch {
+      // already gone
+    }
   }
 };
 process.on("exit", stopServer);
 process.on("SIGINT", () => process.exit(130));
 
-async function waitForServer() {
+async function waitForServer(base = BASE) {
   for (let attempt = 0; attempt < 120; attempt += 1) {
     try {
-      const response = await fetch(BASE);
+      const response = await fetch(base);
       if (response.ok) return;
     } catch {
       // not up yet
@@ -65,12 +80,13 @@ async function waitForServer() {
 
 function runScenario(name) {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, [`${here}${name}`], { env: { ...env, E2E_BASE: BASE }, stdio: "inherit" });
+    const child = spawn(process.execPath, [`${here}${name}`], { env: { ...env, E2E_BASE: BASE, E2E_CORP_BASE: CORP_BASE }, stdio: "inherit" });
     child.on("exit", (code) => resolve(code ?? 1));
   });
 }
 
 await waitForServer();
+if (needsCorp) await waitForServer(CORP_BASE);
 const failed = [];
 for (const name of scenarios) {
   console.log(`\n=== ${name}`);
