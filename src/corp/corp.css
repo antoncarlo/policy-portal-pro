@@ -798,8 +798,147 @@ address {
 .quote__grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 1.25rem;
-  max-width: 640px;
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (min-width: 1024px) {
+  .quote__grid {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
+    gap: 2rem;
+  }
+}
+.quote-form {
+  display: grid;
+  gap: 1.1rem;
+  padding: clamp(1.4rem, 3.2vw, 2.4rem);
+}
+@media (min-width: 640px) {
+  .quote-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .field--wide {
+    grid-column: 1 / -1;
+  }
+}
+.field {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.field label {
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: #dbe7f0;
+}
+.field__optional {
+  font-weight: 400;
+  color: var(--navy-300);
+}
+.field input:not([type="checkbox"]),
+.field select,
+.field textarea {
+  width: 100%;
+  min-height: 48px;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  background: rgba(4, 18, 29, 0.45);
+  color: #fff;
+  font: inherit;
+  font-size: 1rem;
+  transition:
+    border-color 0.2s var(--ease),
+    background-color 0.2s var(--ease),
+    box-shadow 0.2s var(--ease);
+}
+.field textarea {
+  min-height: 132px;
+  resize: vertical;
+}
+.field select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%239fbdd3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.9rem center;
+  padding-right: 2.4rem;
+}
+.field select option {
+  color: var(--ink);
+  background: #fff;
+}
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--bronze-400);
+  background: rgba(4, 18, 29, 0.65);
+  box-shadow: 0 0 0 3px rgba(201, 168, 130, 0.25);
+}
+.field [aria-invalid="true"] {
+  border-color: #f5b3ab;
+}
+.field__error {
+  font-size: 0.82rem;
+  color: #f5b3ab;
+}
+.field--check {
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 0.7rem;
+}
+.field--check input {
+  width: 20px;
+  height: 20px;
+  margin: 0.2rem 0 0;
+  accent-color: var(--bronze-500);
+}
+.field--check label {
+  font-size: 0.92rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.field--check label a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.field--check .field__error {
+  grid-column: 2;
+}
+/* Campo trappola: fuori dallo schermo, non nascosto con display (alcuni programmi lo saltano). */
+.field--trap {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.quote-form__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+.quote-form .btn[disabled] {
+  opacity: 0.6;
+  cursor: default;
+}
+.form-status {
+  flex: 1 1 220px;
+  font-size: 0.93rem;
+}
+.form-status:empty {
+  display: none;
+}
+.form-status[data-state="success"] {
+  color: #8fe0b8;
+}
+.form-status[data-state="error"],
+.form-status[data-state="invalid"] {
+  color: #f5b3ab;
+}
+.form-noscript {
+  font-size: 0.9rem;
+  color: #f0d3ae;
 }
 .quote__contacts {
   padding: clamp(1.5rem, 3vw, 2.2rem);

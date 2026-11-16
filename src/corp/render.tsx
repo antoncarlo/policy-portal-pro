@@ -65,7 +65,7 @@ const document = (page: CorpPage, assets: SiteAssets, env: CorpEnv): string => {
   const body = renderToStaticMarkup(
     <Layout page={page} content={content} measurement={Boolean(env.ga4Id)}>
       {kind === "home" ? (
-        <Home page={page} content={content} />
+        <Home page={page} content={content} contactEndpoint={env.contactEndpoint} />
       ) : (
         <section className="page-head">
           <div className="container">

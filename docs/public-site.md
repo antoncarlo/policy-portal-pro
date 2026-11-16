@@ -83,6 +83,8 @@ Paesi di riferimento indicati dal titolare: Italia, Europa, Cina, Giappone, Indi
 
 `POST /api/contact` (una rotta di `api/vies-connect.ts`) accetta solo JSON e risponde `200 { ok: true }`, `400 { error: "invalid", fields }`, `415`, `429 { error: "rate_limited" }` o `500 { error: "unavailable" }`.
 
+La stessa rotta riceve le richieste di preventivo del sito aziendale (`tecnomga.com`), che la chiama dal proprio indirizzo con `site: "corporate"`: la tabella che segue vale per il sito VIES, le differenze sono subito sotto.
+
 | Regola | Valore |
 |---|---|
 | Campi obbligatori | nome, società, ruolo, paese, email, messaggio (10-4000 caratteri), consenso |
@@ -93,6 +95,17 @@ Paesi di riferimento indicati dal titolare: Italia, Europa, Cina, Giappone, Indi
 | Conservazione | 24 mesi, poi cancellazione automatica (`contact-requests-retention`) |
 
 La tabella `contact_requests` è scrivibile solo dal server. Gli amministratori la leggono in **Impostazioni › Richieste di contatto** e possono cambiare solo lo stato («da gestire» / «gestita»).
+
+| Richieste del sito aziendale (`site: "corporate"`) | Valore |
+|---|---|
+| Campi obbligatori | nome, email, messaggio (10-4000 caratteri), consenso. Società, telefono e prodotto sono facoltativi; ruolo e Paese non si chiedono |
+| Prodotto | uno degli undici del sito (`src/corp/products.ts`) oppure `altro`; fuori elenco la richiesta è rifiutata |
+| Email | a `CORPORATE_CONTACT_INBOX` (predefinito `info@tecnomga.com`), risposta diretta a chi ha scritto |
+| Chi può chiamare da un browser | `https://tecnomga.com` e `https://www.tecnomga.com`, sempre; altri indirizzi (per esempio quello di prova) solo se elencati in `CONTACT_ALLOWED_ORIGINS`. Il permesso vale per la sola lettura della risposta: non passano cookie né credenziali |
+| Antispam, indirizzo IP, conservazione | come per il sito VIES |
+| Nell'elenco degli amministratori | etichetta «Sito aziendale» e prodotto; il titolo è la società, oppure la persona se la società non è indicata |
+
+Le colonne `site` e `product` arrivano con la migrazione `20261116000000_contact_requests_site.sql`. Una richiesta del sito VIES è scritta con le sole colonne di prima: si salva anche se il server è pubblicato prima della migrazione.
 
 ## SECTION 05 — Cookie e misurazione
 
@@ -110,7 +123,9 @@ Il consenso unico è una scelta del titolare, confermata il 15/11/2026: le linee
 | `VITE_GSC_VERIFICATION` | Vercel, letta alla build | Codice di verifica di Google Search Console (meta tag) |
 | `VITE_BING_VERIFICATION` | Vercel, letta alla build | Codice di verifica di Bing Webmaster |
 | `VITE_SITE_ORIGIN` | Vercel, letta alla build | Origine canonica, se diversa da `https://portale.tecnomga.com` |
-| `CONTACT_INBOX` | Vercel, letta dalle funzioni | Casella che riceve le richieste, se diversa da `vies@tecnomga.com` |
+| `CONTACT_INBOX` | Vercel, letta dalle funzioni | Casella che riceve le richieste del sito VIES, se diversa da `vies@tecnomga.com` |
+| `CORPORATE_CONTACT_INBOX` | Vercel, letta dalle funzioni | Casella che riceve le richieste di preventivo del sito aziendale, se diversa da `info@tecnomga.com` |
+| `CONTACT_ALLOWED_ORIGINS` | Vercel, letta dalle funzioni | Indirizzi in più, separati da virgola, da cui un browser può inviare il modulo (solo origini `https://…` intere). `tecnomga.com` e `www.tecnomga.com` sono sempre ammessi |
 
 Le variabili `VITE_*` sono lette durante la build: dopo ogni modifica serve una nuova pubblicazione.
 

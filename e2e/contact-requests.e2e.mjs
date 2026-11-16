@@ -1,5 +1,6 @@
-// Impostazioni → «Richieste di contatto»: le richieste arrivate dal modulo del sito pubblico. Le vedono e le
-// segnano come gestite solo gli amministratori; un collaboratore non ha nemmeno la scheda.
+// Impostazioni → «Richieste di contatto»: le richieste arrivate dal modulo del sito pubblico VIES e dal modulo di
+// preventivo del sito aziendale. Le vedono e le segnano come gestite solo gli amministratori; un collaboratore non
+// ha nemmeno la scheda.
 import { chromium } from "playwright";
 const BASE = process.env.E2E_BASE ?? "http://127.0.0.1:5300";
 const SHOTS = new URL("./artifacts/", import.meta.url).pathname;
@@ -15,13 +16,15 @@ const check = (name, ok, extra = "") => { results.push({ name, ok }); console.lo
 
 const request = (n, over = {}) => ({
   id: `00000000-0000-4000-8000-0000000003${String(n).padStart(2, "0")}`, created_at: `2026-11-1${n}T09:30:00Z`, name: `Persona ${n}`, company: `Studio ${n}`, role: "fiscal_representative", country: "Italia",
-  email: `persona${n}@example.test`, phone: null, volume: null, message: `Messaggio della richiesta ${n}.\nSeconda riga.`, lang: "it", page: "/", email_sent: true, email_error: null, status: "new", handled_at: null, handled_by: null, ...over,
+  email: `persona${n}@example.test`, phone: null, volume: null, message: `Messaggio della richiesta ${n}.\nSeconda riga.`, lang: "it", page: "/", email_sent: true, email_error: null, status: "new", handled_at: null, handled_by: null, site: "portal", product: null, ...over,
 });
+// una richiesta di preventivo dal sito aziendale: niente società, ruolo e Paese; c'è il prodotto
+const quote = (n, over = {}) => request(n, { name: "Marco Bianchi", company: null, role: null, country: null, email: "marco.bianchi@example.test", message: "Vorrei un preventivo per un cantiere.", site: "corporate", product: "car", ...over });
 
 const browser = await chromium.launch();
 async function open(role) {
   const ctx = await browser.newContext({ locale: "it-IT", viewport: { width: 1360, height: 1000 } });
-  const rows = [request(3, { company: "Shenzhen Trading Ltd", role: "foreign_company", country: "Cina", lang: "zh", page: "/zh/", phone: "+86 138 0000 0000", volume: "20 al mese", message: "<b>Vorremmo</b> una quotazione." }), request(2, { email_sent: false, email_error: "SMTP timeout" }), request(1, { status: "handled", handled_at: "2026-11-12T10:00:00Z", handled_by: UID })];
+  const rows = [request(3, { company: "Shenzhen Trading Ltd", role: "foreign_company", country: "Cina", lang: "zh", page: "/zh/", phone: "+86 138 0000 0000", volume: "20 al mese", message: "<b>Vorremmo</b> una quotazione." }), request(2, { email_sent: false, email_error: "SMTP timeout" }), request(1, { status: "handled", handled_at: "2026-11-12T10:00:00Z", handled_by: UID }), quote(0, { status: "handled", handled_at: "2026-11-11T10:00:00Z", handled_by: UID }), quote(9, { id: "00000000-0000-4000-8000-000000000399", created_at: "2026-11-10T08:00:00Z", status: "handled", handled_at: "2026-11-11T11:00:00Z", handled_by: UID, company: "Edil Bianchi Srl", product: null, email_sent: false, email_error: "SMTP timeout" })];
   const log = { writes: [], reads: 0 };
   const hdr = { "access-control-allow-origin": BASE, "access-control-allow-headers": "*", "access-control-allow-methods": "*", "access-control-expose-headers": "content-range" };
   await ctx.route(`${SUPA}/**`, async (route) => {
@@ -90,12 +93,19 @@ async function open(role) {
   check("1 la richiesta gestita esce dall'elenco «Da gestire» e il conteggio scende", (await page.getByTestId("contact-requests-count").innerText()) === "1 richiesta da gestire");
 
   await page.getByTestId("contact-requests-filter-handled").click();
-  check("1 «Gestite» mostra le richieste gestite, con la data", (await cards.count()) === 2 && /Gestita il/.test(await cards.first().innerText()));
+  check("1 «Gestite» mostra le richieste gestite, con la data", (await cards.count()) === 4 && /Gestita il/.test(await cards.first().innerText()));
   await cards.first().getByRole("button", { name: /Riporta a/ }).click();
-  await page.waitForFunction(() => document.querySelectorAll('[data-testid="contact-request"]').length === 1);
+  await page.waitForFunction(() => document.querySelectorAll('[data-testid="contact-request"]').length === 3);
   check("1 una richiesta gestita si può riportare a «da gestire»", log.writes.length === 2 && log.writes[1].body.status === "new" && log.writes[1].body.handled_at === null && log.writes[1].body.handled_by === null, JSON.stringify(log.writes[1]));
   await page.getByTestId("contact-requests-filter-all").click();
-  check("1 «Tutte» le mostra tutte", (await cards.count()) === 3);
+  check("1 «Tutte» le mostra tutte, quelle del sito VIES e quelle del sito aziendale", (await cards.count()) === 5 && (await page.locator('[data-testid="contact-request"][data-site="corporate"]').count()) === 2);
+  const quoteCard = (await page.locator('[data-testid="contact-request"][data-site="corporate"]').first().innerText()).replace(/\s+/g, " ");
+  check("1 una richiesta del sito aziendale è intestata alla persona e dice sito e prodotto, senza ruolo né Paese", /^Marco Bianchi/.test(quoteCard) && /Sito aziendale/.test(quoteCard) && /Prodotto: CAR/.test(quoteCard) && !/null|undefined/.test(quoteCard), quoteCard.slice(0, 240));
+  const quoteReply = await page.locator('[data-testid="contact-request"][data-site="corporate"]').first().locator('a[href^="mailto:"]').getAttribute("href");
+  check("1 la risposta a una richiesta di preventivo non parla di VIES", quoteReply === "mailto:marco.bianchi@example.test?subject=Richiesta%20di%20preventivo%3A%20Marco%20Bianchi", quoteReply ?? "");
+  const companyQuote = (await page.locator('[data-testid="contact-request"][data-site="corporate"]').nth(1).innerText()).replace(/\s+/g, " ");
+  check("1 con la società indicata il titolo è la società; senza prodotto lo dice; l'email non partita nomina la casella aziendale", /^Edil Bianchi Srl/.test(companyQuote) && /Marco Bianchi · Prodotto: non indicato/.test(companyQuote) && /Email non inviata alla casella aziendale/.test(companyQuote), companyQuote.slice(0, 260));
+  check("1 le richieste del sito VIES portano la loro etichetta", /Sito VIES/.test(await page.locator('[data-testid="contact-request"][data-site="portal"]').first().innerText()));
   check("1 nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
   await ctx.close();
 }

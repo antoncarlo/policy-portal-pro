@@ -1,17 +1,19 @@
-// La richiesta di preventivo: i recapiti diretti. Il modulo si aggiunge qui accanto.
+// La richiesta di preventivo: il modulo e, accanto, i recapiti diretti.
 import { Mail, Phone } from "lucide-react";
 import { COMPANY } from "../config";
 import { GlassCard } from "./GlassCard";
 import { SectionHead, type PageProps } from "./Layout";
+import { QuoteForm } from "./QuoteForm";
 
-export const Quote = ({ content }: PageProps) => {
+export const Quote = ({ page, content, endpoint }: PageProps & { endpoint: string }) => {
   const { quote } = content.home;
   return (
     <section className="section quote" id="preventivo" aria-labelledby="preventivo-titolo">
       <div className="container">
         <SectionHead title={quote.title} id="preventivo-titolo" />
         <div className="quote__grid">
-          <GlassCard className="quote__contacts" data-reveal>
+          <QuoteForm page={page} content={content} endpoint={endpoint} />
+          <GlassCard as="aside" className="quote__contacts" data-reveal>
             <p className="quote__lead">{quote.lead}</p>
             <ul className="quote__list">
               <li>

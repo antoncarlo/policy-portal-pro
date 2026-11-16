@@ -338,8 +338,8 @@ export type Database = {
       }
       contact_requests: {
         Row: {
-          company: string
-          country: string
+          company: string | null
+          country: string | null
           created_at: string
           email: string
           email_error: string | null
@@ -352,13 +352,15 @@ export type Database = {
           name: string
           page: string | null
           phone: string | null
-          role: string
+          product: string | null
+          role: string | null
+          site: string
           status: string
           volume: string | null
         }
         Insert: {
-          company: string
-          country: string
+          company?: string | null
+          country?: string | null
           created_at?: string
           email: string
           email_error?: string | null
@@ -371,13 +373,15 @@ export type Database = {
           name: string
           page?: string | null
           phone?: string | null
-          role: string
+          product?: string | null
+          role?: string | null
+          site?: string
           status?: string
           volume?: string | null
         }
         Update: {
-          company?: string
-          country?: string
+          company?: string | null
+          country?: string | null
           created_at?: string
           email?: string
           email_error?: string | null
@@ -390,7 +394,9 @@ export type Database = {
           name?: string
           page?: string | null
           phone?: string | null
-          role?: string
+          product?: string | null
+          role?: string | null
+          site?: string
           status?: string
           volume?: string | null
         }

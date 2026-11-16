@@ -7,7 +7,8 @@ import { Products } from "../components/Products";
 import { Quote } from "../components/Quote";
 import { Steps } from "../components/Steps";
 
-export const Home = (props: PageProps) => (
+/** `contactEndpoint`: l'indirizzo a cui il modulo di preventivo invia la richiesta. */
+export const Home = ({ contactEndpoint, ...props }: PageProps & { contactEndpoint: string }) => (
   <>
     <Hero {...props} />
     <Products {...props} />
@@ -15,6 +16,6 @@ export const Home = (props: PageProps) => (
     <Founders {...props} />
     <Companies {...props} />
     <Steps {...props} />
-    <Quote {...props} />
+    <Quote {...props} endpoint={contactEndpoint} />
   </>
 );

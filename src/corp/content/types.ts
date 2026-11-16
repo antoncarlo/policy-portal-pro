@@ -87,7 +87,35 @@ export interface CorpContent {
     founders: { title: string; text: string };
     companies: { title: string; names: string[] };
     steps: { title: string; items: Array<{ title: string; text: string }> };
-    quote: { title: string; lead: string; emailLabel: string; phoneLabel: string };
+    quote: {
+      title: string;
+      lead: string;
+      emailLabel: string;
+      phoneLabel: string;
+      form: {
+        name: string;
+        company: string;
+        email: string;
+        phone: string;
+        product: string;
+        /** La voce vuota dell'elenco dei prodotti. */
+        productPlaceholder: string;
+        productOther: string;
+        message: string;
+        /** Accanto ai campi non obbligatori. */
+        optional: string;
+        /** Il testo del consenso: {privacy} e' il link all'informativa. */
+        consent: string;
+        privacyLink: string;
+        submit: string;
+        sending: string;
+        success: string;
+        error: string;
+        invalid: string;
+        fieldErrors: { required: string; email: string; message: string; consent: string };
+        noscript: string;
+      };
+    };
   };
   /** Avvertenza sulla pubblicita' dei prodotti assicurativi. */
   legalNotice: string;

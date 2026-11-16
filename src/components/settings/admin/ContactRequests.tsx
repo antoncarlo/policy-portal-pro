@@ -1,5 +1,6 @@
 // Impostazioni → «Richieste di contatto» (solo amministratori): le richieste arrivate dal modulo del sito pubblico
-// VIES. Si leggono, si risponde per email e si segnano come gestite; il testo della richiesta non si modifica.
+// VIES e dal modulo di preventivo del sito aziendale. Si leggono, si risponde per email e si segnano come gestite;
+// il testo della richiesta non si modifica.
 import { useCallback, useEffect, useState } from "react";
 import { Inbox, Loader2, Mail, MailWarning, RefreshCw, RotateCcw, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +11,7 @@ import { formatDateTime, getMessages, useMessages } from "@/i18n";
 import { commonMessages } from "@/i18n/messages/common";
 import { contactRequestsMessages } from "@/i18n/messages/contactRequests";
 import { supabase } from "@/integrations/supabase/client";
-import { contactReplyHref, contactStatusChange, countToHandle, type ContactRequestRow, type ContactRequestStatus } from "@/lib/contactRequests";
+import { contactReplyHref, contactRequestHeading, contactStatusChange, countToHandle, type ContactRequestRow, type ContactRequestStatus } from "@/lib/contactRequests";
 
 type Filter = "all" | ContactRequestStatus;
 const FILTERS: Filter[] = ["new", "handled", "all"];
@@ -97,23 +98,27 @@ export const ContactRequests = () => {
         <ul className="space-y-3">
           {shown.map((row) => {
             const handled = row.status === "handled";
+            const corporate = row.site === "corporate";
+            // Chi scrive: dal sito VIES con ruolo e Paese, dal sito aziendale con il prodotto del preventivo.
+            const who = corporate
+              ? [row.company ? row.name : null, `${m.product}: ${row.product ? (m.products[row.product] ?? row.product) : m.productNone}`]
+              : [row.name, row.role ? (m.roles[row.role] ?? row.role) : null, row.country];
             return (
-              <li key={row.id} className="rounded-lg border bg-card/60 p-4" data-testid="contact-request" data-status={handled ? "handled" : "new"}>
+              <li key={row.id} className="rounded-lg border bg-card/60 p-4" data-testid="contact-request" data-status={handled ? "handled" : "new"} data-site={corporate ? "corporate" : "portal"}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-semibold">{row.company}</h3>
+                      <h3 className="font-semibold">{contactRequestHeading(row)}</h3>
+                      <Badge variant="secondary">{m.sites[corporate ? "corporate" : "portal"]}</Badge>
                       <Badge variant={handled ? "outline" : "default"}>{handled ? m.statuses.handled : m.statuses.new}</Badge>
                       {!row.email_sent && (
                         <Badge variant="destructive" title={row.email_error ? m.emailNotSentReason(row.email_error) : undefined}>
                           <MailWarning className="mr-1 h-3 w-3" />
-                          {m.emailNotSent}
+                          {m.emailNotSent(row.site)}
                         </Badge>
                       )}
                     </div>
-                    <p className="mt-1 text-sm">
-                      {row.name} · {m.roles[row.role] ?? row.role} · {row.country}
-                    </p>
+                    <p className="mt-1 text-sm">{who.filter(Boolean).join(" · ")}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {m.receivedOn(formatDateTime(row.created_at))} · {m.fromPage(m.languages[row.lang] ?? row.lang, row.page ?? "")}
                       {handled && row.handled_at ? ` · ${m.handledOn(formatDateTime(row.handled_at))}` : ""}

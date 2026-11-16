@@ -4,15 +4,18 @@ import { escapeHtml, type MailMessage, type MailResult } from './mailer.js';
 import { hitRateLimit } from './rate-limit.js';
 
 /**
- * The contact form of the public VIES site (POST /api/contact).
+ * The contact form of the public VIES site and the quote form of the company site (POST /api/contact).
  *
  * A request is validated here (the browser's checks are a courtesy, not a defence), saved for the administrators
- * and sent to the VIES mailbox with the answer going straight to who wrote. The endpoint is public, so:
+ * and sent to the mailbox of its site (VIES for the portal, the company one for tecnomga.com) with the answer going
+ * straight to who wrote. The endpoint is public, so:
  *  - a trap field and a minimum filling time tell programs from people: a program gets the same answer as a
  *    person, but nothing is saved and no email leaves;
  *  - each caller can send a few requests an hour. The caller's address is never stored: the counters use a keyed
  *    fingerprint of it, which cannot be turned back into the address;
- *  - only JSON is taken, so a form posted from another site cannot use the endpoint;
+ *  - only JSON is taken, so a plain form posted from another site cannot use the endpoint; a browser on another
+ *    site may send JSON only if that site is one of the company's own (see `contactAllowedOrigins`): no cookie or
+ *    credential is ever involved, the permission only lets the company site read the answer;
  *  - everything typed reaches the email as text, never as HTML, and one-line fields cannot carry a line break.
  * If the email cannot leave, the request stays saved with the reason; if the database is down, the email still
  * leaves. Only when both fail is the sender told to try again.
@@ -22,6 +25,12 @@ export const CONTACT_ROLES = ['fiscal_representative', 'professional_firm', 'bro
 export type ContactRole = (typeof CONTACT_ROLES)[number];
 export const CONTACT_LANGS = ['it', 'en', 'zh'] as const;
 export type ContactLang = (typeof CONTACT_LANGS)[number];
+/** Where a request comes from: the VIES site of the portal, or the company site (tecnomga.com). */
+export const CONTACT_SITES = ['portal', 'corporate'] as const;
+export type ContactSite = (typeof CONTACT_SITES)[number];
+/** The products of the company site (src/corp/products.ts, kept equal by a test) plus «altro». */
+export const CONTACT_PRODUCTS = ['fideiussioni', 'car', 'decennale-postuma', 'rc-professionale', 'd-and-o', 'pet', 'fotovoltaico', 'impresa-commercio', 'casa', 'auto', 'infortuni-malattia', 'altro'] as const;
+export type ContactProduct = (typeof CONTACT_PRODUCTS)[number];
 
 /** A person does not fill the form in less than this. */
 export const CONTACT_MIN_ELAPSED_MS = 3000;
@@ -30,16 +39,56 @@ export const CONTACT_MAX_PER_HOUR = 5;
 /** Calls of any kind taken from one caller in an hour, valid or not. */
 export const CONTACT_MAX_CALLS_PER_HOUR = 60;
 const WINDOW_SECONDS = 3600;
-const DEFAULT_INBOX = 'vies@tecnomga.com';
+const DEFAULT_INBOX: Record<ContactSite, string> = { portal: 'vies@tecnomga.com', corporate: 'info@tecnomga.com' };
+const INBOX_VARIABLE: Record<ContactSite, string> = { portal: 'CONTACT_INBOX', corporate: 'CORPORATE_CONTACT_INBOX' };
+
+/** The mailbox a request is sent to: each site has its own, and each can be changed with its variable. */
+export const contactInbox = (site: ContactSite): string => process.env[INBOX_VARIABLE[site]]?.trim() || DEFAULT_INBOX[site];
+
+/** The company's own addresses: a browser there may always send a request. */
+const COMPANY_ORIGINS = ['https://tecnomga.com', 'https://www.tecnomga.com'];
+
+/**
+ * The sites whose pages may call the endpoint from a browser: the company's own, plus those listed (comma
+ * separated) in CONTACT_ALLOWED_ORIGINS, for a test address. Only whole https origins count: no path, no wildcard.
+ */
+export function contactAllowedOrigins(listed: string | undefined = process.env.CONTACT_ALLOWED_ORIGINS): string[] {
+  const origins = [...COMPANY_ORIGINS];
+  for (const entry of (listed ?? '').split(',')) {
+    const value = entry.trim().toLowerCase();
+    if (!/^https:\/\/[a-z0-9.-]+(:\d+)?$/.test(value)) continue;
+    if (!origins.includes(value)) origins.push(value);
+  }
+  return origins;
+}
+
+/** The origin to answer with, when the caller's is one of the allowed ones (compared whole); null otherwise. */
+export function allowedOrigin(origin: string | undefined, allowed: string[]): string | null {
+  const value = (origin ?? '').trim().toLowerCase();
+  return value && allowed.includes(value) ? value : null;
+}
+
+/** The headers that let an allowed site read the answer. `Vary` is always there: the answer depends on who asks. */
+export function contactCorsHeaders(origin: string | undefined, allowed: string[] = contactAllowedOrigins()): Record<string, string> {
+  const granted = allowedOrigin(origin, allowed);
+  if (!granted) return { Vary: 'Origin' };
+  return { Vary: 'Origin', 'Access-Control-Allow-Origin': granted, 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '86400' };
+}
 
 const LIMITS = { name: 120, company: 120, country: 80, email: 200, phone: 40, volume: 40, messageMin: 10, messageMax: 4000, page: 200 } as const;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export interface ContactInput {
+  site: ContactSite;
   name: string;
-  company: string;
-  role: ContactRole;
-  country: string;
+  /** Asked by the portal; optional on the company site. */
+  company?: string;
+  /** Asked by the portal only. */
+  role?: ContactRole;
+  /** Asked by the portal only. */
+  country?: string;
+  /** The product the quote is for: company site only. */
+  product?: ContactProduct;
   email: string;
   phone?: string;
   volume?: string;
@@ -80,14 +129,24 @@ export function validateContact(body: unknown): ContactValidation {
   const raw = body as Record<string, unknown>;
   const fields: string[] = [];
 
+  // No site means the portal, as before the company site existed. A site that is not one of ours says nothing
+  // about which fields to ask for, so it is the only thing reported.
+  const siteGiven = oneLine(raw.site);
+  if (siteGiven && !CONTACT_SITES.includes(siteGiven as ContactSite)) return { ok: false, fields: ['site'] };
+  const site: ContactSite = siteGiven === 'corporate' ? 'corporate' : 'portal';
+  const portal = site === 'portal';
+
   const name = oneLine(raw.name);
   if (!name || name.length > LIMITS.name) fields.push('name');
+  // Company, role and country are what the portal asks; the company site asks for a product instead.
   const company = oneLine(raw.company);
-  if (!company || company.length > LIMITS.company) fields.push('company');
+  if ((portal && !company) || company.length > LIMITS.company) fields.push('company');
   const role = oneLine(raw.role) as ContactRole;
-  if (!CONTACT_ROLES.includes(role)) fields.push('role');
+  if (portal && !CONTACT_ROLES.includes(role)) fields.push('role');
   const country = oneLine(raw.country);
-  if (!country || country.length > LIMITS.country) fields.push('country');
+  if (portal && (!country || country.length > LIMITS.country)) fields.push('country');
+  const product = oneLine(raw.product) as ContactProduct;
+  if (!portal && product && !CONTACT_PRODUCTS.includes(product)) fields.push('product');
   const email = oneLine(raw.email).toLowerCase();
   if (!email || email.length > LIMITS.email || !EMAIL_PATTERN.test(email)) fields.push('email');
   const phone = oneLine(raw.phone);
@@ -106,10 +165,12 @@ export function validateContact(body: unknown): ContactValidation {
   return {
     ok: true,
     value: {
+      site,
       name,
-      company,
-      role,
-      country,
+      company: company || undefined,
+      role: portal ? role : undefined,
+      country: portal ? country : undefined,
+      product: !portal && product ? product : undefined,
       email,
       phone: phone || undefined,
       volume: volume || undefined,
@@ -143,33 +204,64 @@ const ROLE_LABELS: Record<ContactRole, string> = {
 };
 const LANG_LABELS: Record<ContactLang, string> = { it: 'italiano', en: 'inglese', zh: 'cinese' };
 
-/** The email to the VIES mailbox, in Italian: every value is escaped. */
+/** The products as the mailbox reads them, in Italian. */
+const PRODUCT_LABELS: Record<ContactProduct, string> = {
+  fideiussioni: 'Fideiussioni e cauzioni',
+  car: 'CAR',
+  'decennale-postuma': 'Decennale postuma',
+  'rc-professionale': 'RC professionale',
+  'd-and-o': 'D&O',
+  pet: 'Pet',
+  fotovoltaico: 'Fotovoltaico',
+  'impresa-commercio': 'Impresa e commercio',
+  casa: 'Casa',
+  auto: 'Auto',
+  'infortuni-malattia': 'Infortuni e malattia',
+  altro: 'Altro',
+};
+
+/** The email to the mailbox of the site, in Italian: every value is escaped. */
 export function contactEmail(input: ContactInput, inbox: string, now: Date): MailMessage {
-  const rows: Array<[string, string]> = [
-    ['Nome e cognome', input.name],
-    ['Società o studio', input.company],
-    ['Chi è', ROLE_LABELS[input.role]],
-    ['Paese', input.country],
-    ['Email', input.email],
-    ['Telefono', input.phone ?? '—'],
-    ['Pratiche stimate', input.volume ?? '—'],
-    ['Lingua della pagina', LANG_LABELS[input.lang]],
-    ['Pagina', input.page ?? '—'],
-    ['Ricevuta', `${now.toISOString().slice(0, 16).replace('T', ' ')} UTC`],
-  ];
+  const portal = input.site === 'portal';
+  const product = input.product ? PRODUCT_LABELS[input.product] : 'prodotto non indicato';
+  const received: [string, string] = ['Ricevuta', `${now.toISOString().slice(0, 16).replace('T', ' ')} UTC`];
+  const rows: Array<[string, string]> = portal
+    ? [
+        ['Nome e cognome', input.name],
+        ['Società o studio', input.company ?? '—'],
+        ['Chi è', input.role ? ROLE_LABELS[input.role] : '—'],
+        ['Paese', input.country ?? '—'],
+        ['Email', input.email],
+        ['Telefono', input.phone ?? '—'],
+        ['Pratiche stimate', input.volume ?? '—'],
+        ['Lingua della pagina', LANG_LABELS[input.lang]],
+        ['Pagina', input.page ?? '—'],
+        received,
+      ]
+    : [
+        ['Nome e cognome', input.name],
+        ['Società', input.company ?? '—'],
+        ['Prodotto', product],
+        ['Email', input.email],
+        ['Telefono', input.phone ?? '—'],
+        ['Lingua della pagina', LANG_LABELS[input.lang]],
+        ['Pagina', input.page ?? '—'],
+        received,
+      ];
   const table = rows
     .map(([label, value]) => `<tr><td style="padding:6px 16px 6px 0;color:#40566a;vertical-align:top;white-space:nowrap">${escapeHtml(label)}</td><td style="padding:6px 0;color:#0d2233"><strong>${escapeHtml(value)}</strong></td></tr>`)
     .join('');
   const html = [
     '<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#0d2233">',
-    '<h2 style="margin:0 0 12px;color:#0f3a5c">Richiesta di contatto dal sito VIES</h2>',
+    `<h2 style="margin:0 0 12px;color:#0f3a5c">${portal ? 'Richiesta di contatto dal sito VIES' : 'Richiesta di preventivo dal sito tecnomga.com'}</h2>`,
     `<table style="border-collapse:collapse">${table}</table>`,
     '<h3 style="margin:20px 0 8px;color:#0f3a5c">Messaggio</h3>',
     `<p style="margin:0;padding:12px 16px;border-left:3px solid #b08968;background:#f6f3ee;white-space:pre-wrap">${escapeHtml(input.message)}</p>`,
     '<p style="margin:20px 0 0;color:#40566a;font-size:13px">Rispondendo a questa email si scrive direttamente a chi ha inviato la richiesta. La richiesta è anche nell’elenco «Richieste di contatto» del portale.</p>',
     '</div>',
   ].join('');
-  return { to: inbox, subject: `Richiesta di contatto VIES: ${input.company} (${input.country})`, html, replyTo: input.email };
+  const subject = portal ? `Richiesta di contatto VIES: ${input.company ?? '—'} (${input.country ?? '—'})` : `Richiesta di preventivo dal sito: ${product} (${input.name})`;
+  return { to: inbox, subject, html, replyTo: input.email };
 }
 
 export interface ContactDeps {
@@ -214,10 +306,13 @@ export async function handleContactRequest(deps: ContactDeps, call: ContactCall)
     const { data, error } = await deps.supabase
       .from('contact_requests')
       .insert({
+        // A request of the portal is written with the columns the table always had: it is saved also while the
+        // columns of the company site are not there yet (the server can go live before the migration).
+        ...(input.site === 'corporate' ? { site: 'corporate', product: input.product ?? null } : {}),
         name: input.name,
-        company: input.company,
-        role: input.role,
-        country: input.country,
+        company: input.company ?? null,
+        role: input.role ?? null,
+        country: input.country ?? null,
         email: input.email,
         phone: input.phone ?? null,
         volume: input.volume ?? null,
@@ -238,7 +333,7 @@ export async function handleContactRequest(deps: ContactDeps, call: ContactCall)
 
   let mail: MailResult;
   try {
-    mail = await deps.sendMail(contactEmail(input, process.env.CONTACT_INBOX?.trim() || DEFAULT_INBOX, deps.now()));
+    mail = await deps.sendMail(contactEmail(input, contactInbox(input.site), deps.now()));
   } catch (error) {
     mail = { success: false, error: error instanceof Error ? error.message : 'Errore di invio sconosciuto' };
   }

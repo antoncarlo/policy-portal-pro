@@ -6,7 +6,7 @@ import { checkEnv } from './_lib/env.js';
 import { captureServerError } from './_lib/monitoring.js';
 import { handleResendWebhook } from './_lib/resend-webhook.js';
 import { recordLoginFailure } from './_lib/login-failures.js';
-import { handleContactRequest } from './_lib/contact-requests.js';
+import { contactCorsHeaders, handleContactRequest } from './_lib/contact-requests.js';
 import { sendMail } from './_lib/mailer.js';
 import { bearerMatches } from './_lib/secrets.js';
 import { readPortalRegistry } from './_lib/vies-orchestrator.js';
@@ -17,7 +17,8 @@ import { readPortalRegistry } from './_lib/vies-orchestrator.js';
  *   GET  /api/health                 is the portal up; with the cron secret also what is configured (names only)
  *   POST /api/resend-webhook         delivery reports from the email provider (signed by Svix, see resend-webhook.ts)
  *   POST /api/login-failure          the sign-in page reports a failed sign-in (the address, never the password; see login-failures.ts)
- *   POST /api/contact                the contact form of the public VIES site (see contact-requests.ts)
+ *   POST /api/contact                the contact form of the public VIES site and the quote form of the company
+ *                                    site, which calls from its own address (see contact-requests.ts)
  *   POST /api/vies-portal-callback   answers from the company's portal (signed, see vies-callback.ts)
  *   POST /api/vies-intake            a portal sends in a lot: create_lot, complete_lot (X-API-Key)
  *   GET  /api/vies-intake-status     state of the lots sent in (X-API-Key)
@@ -84,10 +85,16 @@ async function readJsonBody(req: VercelRequest): Promise<unknown> {
   }
 }
 
-/** The contact form of the public site: saved for the administrators and sent to the VIES mailbox. */
+/**
+ * The contact form of the public site and the quote form of the company site: saved for the administrators and
+ * sent to the mailbox of the site. The company site calls from another address, so its browser first asks whether
+ * it may (OPTIONS): only the company's own addresses are told yes.
+ */
 async function handleContact(req: VercelRequest, res: VercelResponse) {
+  for (const [name, value] of Object.entries(contactCorsHeaders(header(req, 'origin')))) res.setHeader(name, value);
+  if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
+    res.setHeader('Allow', 'POST, OPTIONS');
     return res.status(405).json({ ok: false, error: 'method_not_allowed' });
   }
   res.setHeader('Cache-Control', 'no-store');

@@ -157,6 +157,94 @@ for (const width of [360, 390]) {
   check("homepage: nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
   await ctx.close();
 }
+// 8) quote form: an empty form does not leave; a filled one goes to the portal as JSON with site, product and language
+{
+  const ENDPOINT = "https://portale.tecnomga.com/api/contact";
+  const cors = { "access-control-allow-origin": new URL(BASE).origin, "access-control-allow-methods": "POST, OPTIONS", "access-control-allow-headers": "Content-Type", vary: "Origin" };
+  const { ctx, page, pageErrors } = await open();
+  const calls = [];
+  let answer = { status: 200, body: { ok: true } };
+  await ctx.route(ENDPOINT, async (route) => {
+    const request = route.request();
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
+    calls.push({ method: request.method(), type: request.headers()["content-type"], body: request.postDataJSON() });
+    return route.fulfill({ status: answer.status, contentType: "application/json", headers: cors, body: JSON.stringify(answer.body) });
+  });
+  await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+  const form = page.locator("form[data-quote-form]");
+  const submit = form.locator("button[type=submit]");
+  const status = form.locator("[data-form-status]");
+  check("preventivo: il modulo punta al portale e con lo script il pulsante si accende", (await form.getAttribute("action")) === ENDPOINT && (await submit.isEnabled()));
+  await page.evaluate(() => { window.__leads = 0; document.addEventListener("tecno:lead", () => { window.__leads += 1; }); });
+
+  await submit.click();
+  await page.waitForTimeout(200);
+  const invalid = await form.locator('[aria-invalid="true"]').evaluateAll((nodes) => nodes.map((node) => node.getAttribute("name")));
+  check("preventivo: vuoto non parte e segna nome, email, messaggio e consenso", calls.length === 0 && invalid.join(",") === "name,email,message,consent", `${calls.length} ${invalid.join(",")}`);
+  check("preventivo: vuoto dice di controllare i campi e porta al primo", (await status.innerText()) === "Controlla i campi evidenziati." && (await page.evaluate(() => document.activeElement?.getAttribute("name"))) === "name");
+  check("preventivo: ogni errore e' scritto sotto il suo campo e collegato al campo", (await form.locator(".field__error").count()) === 4 && (await form.locator('[name="email"]').getAttribute("aria-describedby")) === "quote-email-error" && (await form.locator("#quote-email-error").innerText()) === "Campo obbligatorio.");
+
+  // the product card fills the product in
+  await page.locator('[data-product="car"] a[data-quote-product]').click();
+  check("preventivo: «Chiedi un preventivo» su un prodotto lo sceglie nel modulo", (await form.locator('[name="product"]').inputValue()) === "car");
+  await form.locator('[name="name"]').fill("  Marco   Bianchi ");
+  check("preventivo: correggendo un campo il suo errore sparisce", (await form.locator('[name="name"]').getAttribute("aria-invalid")) === null && (await form.locator(".field__error").count()) === 3);
+  await form.locator('[name="email"]').fill("marco@");
+  await form.locator('[name="message"]').fill("Vorrei un preventivo per un cantiere a Roma.");
+  await form.locator('[name="consent"]').check();
+  await submit.click();
+  await page.waitForTimeout(200);
+  check("preventivo: un indirizzo email scritto male e' segnalato e non parte nulla", calls.length === 0 && (await form.locator("#quote-email-error").innerText()) === "Indirizzo email non valido.");
+  await form.locator('[name="email"]').fill("marco@example.test");
+  await page.waitForTimeout(3100);
+  await submit.click();
+  await page.waitForFunction(() => document.querySelector("form[data-quote-form] [data-form-status]")?.getAttribute("data-state") === "success", null, { timeout: 5000 }).catch(() => {});
+  const sent = calls[0]?.body ?? {};
+  check("preventivo: la richiesta parte come JSON verso il portale", calls.length === 1 && calls[0].method === "POST" && /^application\/json/.test(calls[0].type ?? ""), JSON.stringify(calls[0] ?? {}));
+  check("preventivo: porta sito, prodotto, lingua, pagina e i valori ripuliti", sent.site === "corporate" && sent.product === "car" && sent.lang === "it" && sent.page === "/" && sent.name === "Marco Bianchi" && sent.email === "marco@example.test" && sent.consent === true && sent.company === "", JSON.stringify(sent));
+  check("preventivo: il campo trappola resta vuoto e il tempo impiegato e' quello di una persona", sent.website === "" && Number.isInteger(sent.elapsedMs) && sent.elapsedMs >= 3000, JSON.stringify({ website: sent.website, elapsedMs: sent.elapsedMs }));
+  check("preventivo: a invio riuscito lo dice, svuota il modulo e avvisa la pagina", (await status.innerText()) === "Richiesta inviata. Ti rispondiamo all'indirizzo che hai indicato." && (await form.locator('[name="name"]').inputValue()) === "" && (await page.evaluate(() => window.__leads)) === 1);
+  const trap = await form.locator('[name="website"]').evaluate((node) => ({ tab: node.tabIndex, left: node.getBoundingClientRect().right }));
+  check("preventivo: il campo trappola e' fuori dallo schermo e dal giro dei tasti", trap.tab === -1 && trap.left < 0, JSON.stringify(trap));
+
+  // the server refuses a field, then is unavailable
+  const fill = async () => { await form.locator('[name="name"]').fill("Marco Bianchi"); await form.locator('[name="email"]').fill("marco@example.test"); await form.locator('[name="message"]').fill("Vorrei un preventivo per un cantiere a Roma."); await form.locator('[name="consent"]').check(); };
+  answer = { status: 400, body: { ok: false, error: "invalid", fields: ["email"] } };
+  await fill();
+  await submit.click();
+  await page.waitForFunction(() => document.querySelector("form[data-quote-form] [data-form-status]")?.getAttribute("data-state") === "invalid", null, { timeout: 5000 }).catch(() => {});
+  check("preventivo: un campo rifiutato dal server e' segnalato sul campo", (await form.locator('[name="email"]').getAttribute("aria-invalid")) === "true" && (await form.locator('[name="name"]').inputValue()) === "Marco Bianchi");
+  answer = { status: 500, body: { ok: false, error: "unavailable" } };
+  await submit.click();
+  await page.waitForFunction(() => document.querySelector("form[data-quote-form] [data-form-status]")?.getAttribute("data-state") === "error", null, { timeout: 5000 }).catch(() => {});
+  check("preventivo: se il server non risponde bene lo dice, da' l'indirizzo a cui scrivere e non perde quanto scritto", /info@tecnomga\.com/.test(await status.innerText()) && (await form.locator('[name="message"]').inputValue()).length > 10 && (await submit.isEnabled()));
+  check("preventivo: nessun errore JS", pageErrors.filter((text) => !/Failed to load resource/.test(text)).length === 0, pageErrors.join(" | "));
+  await ctx.close();
+}
+// the form in English says its messages in English and sends the language
+{
+  const { ctx, page } = await open({ viewport: { width: 390, height: 800 } });
+  const bodies = [];
+  await ctx.route("https://portale.tecnomga.com/api/contact", (route) => {
+    const cors = { "access-control-allow-origin": new URL(BASE).origin, "access-control-allow-methods": "POST, OPTIONS", "access-control-allow-headers": "Content-Type" };
+    if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
+    bodies.push(route.request().postDataJSON());
+    return route.fulfill({ status: 200, contentType: "application/json", headers: cors, body: '{"ok":true}' });
+  });
+  await page.goto(`${BASE}/en/`, { waitUntil: "networkidle" });
+  const form = page.locator("form[data-quote-form]");
+  await form.locator("button[type=submit]").click();
+  check("preventivo in inglese, telefono: i messaggi sono in inglese e il modulo non esce dal bordo", (await form.locator("[data-form-status]").innerText()) === "Please check the highlighted fields." && (await overflow(page)) === 0);
+  await form.locator('[name="name"]').fill("Mark White");
+  await form.locator('[name="email"]').fill("mark@example.test");
+  await form.locator('[name="product"]').selectOption("d-and-o");
+  await form.locator('[name="message"]').fill("I would like a quotation for our board.");
+  await form.locator('[name="consent"]').check();
+  await form.locator("button[type=submit]").click();
+  await page.waitForFunction(() => document.querySelector("form[data-quote-form] [data-form-status]")?.getAttribute("data-state") === "success", null, { timeout: 5000 }).catch(() => {});
+  check("preventivo in inglese: la richiesta porta la lingua e la pagina inglesi", bodies.length === 1 && bodies[0].lang === "en" && bodies[0].page === "/en/" && bodies[0].product === "d-and-o", JSON.stringify(bodies[0] ?? {}));
+  await ctx.close();
+}
 // tablet: nothing wider than the screen either
 {
   const { ctx, page } = await open({ viewport: { width: 820, height: 1180 } });
