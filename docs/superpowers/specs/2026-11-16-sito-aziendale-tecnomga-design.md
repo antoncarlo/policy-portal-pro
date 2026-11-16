@@ -186,18 +186,18 @@ Ricevuti il 16/11/2026 con l'approvazione del progetto:
 
 | Dato | Valore | Stato |
 |---|---|---|
-| Sede legale | Via Po 102, 00198 Roma (MUP, informativa privacy e portale). Il titolare ha scritto «Viale Parioli 102», che non risulta in nessun documento | In attesa di conferma; fino ad allora si usa Via Po 102 |
+| Sede legale | Via Po 102, 00198 Roma, come nel MUP, nell'informativa privacy e nel portale | Confermato |
 | Sede operativa | Via Michele Mercati 18, 00197 Roma | Come sul portale |
 | Reclami | Via email a `info@tecnomga.com`, per iscritto alla sede legale. Helpet non c'entra | Confermato |
 | Compagnie con cui Tecno lavora | Generali, AXA, Vittoria, Helpet, Markel | Confermato; solo i nomi, senza loghi finché non c'è un'autorizzazione scritta. Markel solo nell'elenco generale, mai accanto alle VIES |
-| Soci fondatori e gruppo | Vittoria e Mapfre si possono citare, ma solo riferendosi ai soci fondatori di Tecno | Testo da approvare: bozza proposta al titolare |
+| Soci fondatori | Anton Carlo Santoro e Barbara Santoro | Confermato |
+| Testo sul gruppo | «I soci fondatori di Tecno MGA, Anton Carlo Santoro e Barbara Santoro, hanno fondato anche Helpet, realtà dedicata agli animali domestici cresciuta in Vittoria hub, l'incubatore di Vittoria Assicurazioni. Da questa esperienza nasce la nostra linea per i pet, sviluppata con Mapfre.» Vittoria e Mapfre si citano solo in questa frase, riferita ai soci fondatori | Approvato dal titolare; si pubblica così, senza varianti |
 | Termini e condizioni | Il PDF collegato oggi è quello dell'app Helpet | Non si riporta nel nuovo sito |
 
 Ancora da ricevere. Finché un dato manca, la parte che lo usa non viene pubblicata.
 
 | Dato | Dove serve |
 |---|---|
-| Testo esatto su soci fondatori, Helpet, Vittoria e Mapfre | Home, Chi siamo, Pet |
 | Autorizzazione all'uso dei loghi delle compagnie | Home |
 | Numeri da dichiarare, se documentabili | Home, Chi siamo |
 | Quale RC oltre alla professionale (per esempio RC d'impresa) | Prodotti |
