@@ -637,11 +637,12 @@ address {
     linear-gradient(90deg, rgba(4, 18, 29, 0.94) 0%, rgba(4, 18, 29, 0.8) 30%, rgba(4, 18, 29, 0.18) 62%, transparent 80%),
     linear-gradient(180deg, rgba(4, 18, 29, 0.55) 0%, transparent 22%, transparent 70%, var(--night) 100%);
 }
-/* Su tablet e telefono il testo passa sopra le luci: il velo copre tutta la larghezza e l'apertura non occupa
-   piu' dell'altezza che le serve. */
+/* Su tablet e telefono il testo passa sopra le luci: il velo copre tutta la larghezza. L'apertura riempie lo
+   schermo di un telefono (il mondo dell'apertura animata non lascia strisce sotto) ma su un tablet in verticale
+   si ferma prima. */
 @media (max-width: 899px) {
   .hero {
-    min-height: min(100svh, 760px);
+    min-height: min(100svh, 940px);
   }
   .hero__media::after {
     background:
@@ -1085,6 +1086,85 @@ address {
 .quote__list a {
   font-weight: 600;
   overflow-wrap: anywhere;
+}
+
+/* ---------- Apertura animata ---------- */
+/* Al primo arrivo sulla homepage il mondo parte in grande e da solo, si allontana fino a passare in secondo piano,
+   poi compaiono la barra e il testo. La accende /intro.js (classe «intro» sulla pagina) e la spegne
+   src/corp/client/intro.ts; senza quella classe, o con «riduci movimento», la pagina e' ferma e tutta visibile.
+   Ogni animazione finisce nello stato normale dell'elemento: togliere la classe non sposta nulla. */
+@media (prefers-reduced-motion: no-preference) {
+  html.intro .hero__poster,
+  html.intro .hero__video {
+    transform-origin: 80% 60%;
+    will-change: transform;
+    animation: intro-world 3s cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+  html.intro .hero__media::after {
+    animation: intro-fade 2.2s ease both 0.6s;
+  }
+  html.intro .hero__title {
+    animation: intro-rise 1s var(--ease) both 1.8s;
+  }
+  html.intro .hero__lead {
+    animation: intro-rise 1s var(--ease) both 2s;
+  }
+  html.intro .hero__actions {
+    animation: intro-rise 1s var(--ease) both 2.2s;
+  }
+  html.intro .hero__chips {
+    animation: intro-rise 1s var(--ease) both 2.4s;
+  }
+  html.intro .site-header {
+    animation: intro-drop 0.9s var(--ease) both 2.1s;
+  }
+  html.intro .cookie-banner,
+  html.intro .lang-notice,
+  html.intro .scroll-progress {
+    animation: intro-fade 0.6s ease both 3.2s;
+  }
+}
+@keyframes intro-world {
+  from {
+    transform: scale(1.65);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes intro-fade {
+  from {
+    opacity: 0;
+    visibility: hidden;
+  }
+  to {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+@keyframes intro-rise {
+  from {
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(26px);
+  }
+  to {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+  }
+}
+@keyframes intro-drop {
+  from {
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-18px);
+  }
+  to {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+  }
 }
 
 /* ---------- Comparsa allo scorrimento ---------- */

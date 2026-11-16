@@ -9,9 +9,12 @@ import { initLangNotice } from "../../site/client/lang";
 import { initMenu } from "../../site/client/menu";
 import { initMotion } from "../../site/client/motion";
 import { initReveal } from "../../site/client/reveal";
+import { initIntro } from "./intro";
 import { initQuoteForm } from "./quote";
 
 const start = () => {
+  // Per prima: l'apertura animata si spegne da sola o al primo gesto di chi legge.
+  initIntro();
   initMenu();
   initReveal();
   initMotion();

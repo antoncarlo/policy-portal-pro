@@ -8,9 +8,14 @@ const check = (name, ok, extra = "") => { results.push({ name, ok }); console.lo
 const browser = await chromium.launch();
 const GOOGLE = /^https:\/\/([a-z0-9-]+\.)*(googletagmanager\.com|google-analytics\.com|analytics\.google\.com|doubleclick\.net|google\.com|google\.it)\//;
 const REFUSED = JSON.stringify({ statistics: false, marketing: false, decidedAt: new Date().toISOString() });
-/** `consent`: "refused" (default: the cookie banner stays out of the way), "ask" (first visit, no choice yet). */
-async function open({ consent = "refused", ...options } = {}) {
+/**
+ * `consent`: "refused" (default: the cookie banner stays out of the way), "ask" (first visit, no choice yet).
+ * `intro`: false (default: as for someone who comes from another page of the site, so the animated opening of the
+ * home page does not play and the checks see the page still), true (a first arrival: the opening plays).
+ */
+async function open({ consent = "refused", intro = false, ...options } = {}) {
   const ctx = await browser.newContext({ locale: "it-IT", viewport: { width: 1440, height: 900 }, ...options });
+  if (!intro) await ctx.addInitScript(() => { try { Object.defineProperty(document, "referrer", { configurable: true, get: () => `${location.origin}/privacy/` }); } catch { /* the page decides by itself */ } });
   const google = [];
   await ctx.route(GOOGLE, (route) => { google.push(route.request().url()); return route.fulfill({ status: 200, contentType: "application/javascript", body: "/* e2e */" }); });
   if (consent === "refused") await ctx.addInitScript((value) => { try { if (!localStorage.getItem("tecno-consent-v1")) localStorage.setItem("tecno-consent-v1", value); } catch { /* storage unavailable */ } }, REFUSED);
@@ -263,6 +268,86 @@ for (const width of [360, 390]) {
   check("cookie: il rimando porta all'informativa sulla privacy", (await page.locator("h1").innerText()) === "Informativa sulla privacy");
   check("privacy: il rimando all'informativa generale si apre in un'altra scheda", (await page.locator('.legal__body a[target="_blank"][rel="noopener noreferrer"]').first().getAttribute("href")) === "https://tecnomga.com/wp-content/uploads/2025/12/Informativaprivacytecno-1_1.pdf");
   check("pagine legali: nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
+  await ctx.close();
+}
+// 10) animated opening of the home page: the world alone and large, then it moves back and the site appears
+const openingState = (page) => page.evaluate(() => {
+  const css = (selector) => getComputedStyle(document.querySelector(selector));
+  return { intro: document.documentElement.classList.contains("intro"), title: Number(css(".hero__title").opacity), header: css(".site-header").visibility, veil: Number(getComputedStyle(document.querySelector(".hero__media"), "::after").opacity), scale: Number(new DOMMatrix(css(".hero__poster").transform).a.toFixed(3)) };
+});
+{
+  const { ctx, page, pageErrors } = await open({ intro: true });
+  await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
+  const early = await openingState(page);
+  check("apertura: al primo arrivo il mondo e' in grande e da solo; testo, barra e velo non ci sono ancora", early.intro && early.scale > 1.3 && early.title < 0.1 && early.header === "hidden" && early.veil < 0.2, JSON.stringify(early));
+  check("apertura: il mondo in grande non allarga la pagina", (await overflow(page)) === 0);
+  await page.waitForTimeout(1500);
+  const middle = await openingState(page);
+  check("apertura: il mondo si allontana piano", middle.intro && middle.scale < early.scale && middle.scale > 1, JSON.stringify(middle));
+  await page.waitForTimeout(3000);
+  const late = await openingState(page);
+  check("apertura: a fine corsa c'e' tutto il sito, con il mondo sullo sfondo, e l'apertura e' spenta", !late.intro && late.scale === 1 && late.title === 1 && late.header === "visible" && late.veil === 1, JSON.stringify(late));
+  const video = await page.evaluate(async () => { const node = document.querySelector("video[data-hero-video]"); const first = node.currentTime; await new Promise((resolve) => setTimeout(resolve, 900)); return { source: node.currentSrc.split("/").pop(), paused: node.paused, moved: node.currentTime !== first, width: node.videoWidth }; });
+  check("apertura: il video a ciclo continuo e' partito sopra l'immagine ferma", /^apertura\.(webm|mp4)$/.test(video.source) && !video.paused && video.moved && video.width === 1920, JSON.stringify(video));
+  check("apertura: nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
+  await ctx.close();
+}
+{
+  // nobody has to wait: the first gesture ends the opening
+  const { ctx, page } = await open({ intro: true });
+  await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+  const before = await openingState(page);
+  await page.mouse.wheel(0, 240);
+  await page.waitForTimeout(150);
+  const after = await openingState(page);
+  check("apertura: al primo scorrimento si spegne subito e il sito e' tutto li'", before.intro && !after.intro && after.title === 1 && after.header === "visible" && after.scale === 1, JSON.stringify({ before, after }));
+  await ctx.close();
+}
+{
+  const { ctx, page } = await open({ intro: true });
+  await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+  await page.keyboard.press("Tab");
+  await page.waitForTimeout(150);
+  check("apertura: anche un tasto la spegne, per chi naviga da tastiera", !(await openingState(page)).intro);
+  await ctx.close();
+}
+{
+  // from another page of the site, back, to a section, with reduced motion: no opening
+  const { ctx, page } = await open({ intro: true });
+  await page.goto(`${BASE}/privacy/`, { waitUntil: "networkidle" });
+  await page.locator(".site-header a[href='/']").first().click();
+  await page.waitForURL(`${BASE}/`);
+  await page.waitForLoadState("domcontentloaded");
+  const fromInside = await openingState(page);
+  check("apertura: non parte per chi arriva da un'altra pagina del sito", !fromInside.intro && fromInside.title === 1 && fromInside.scale === 1, JSON.stringify(fromInside));
+  await page.goto(`${BASE}/#preventivo`, { waitUntil: "domcontentloaded" });
+  check("apertura: non parte per chi arriva dritto alla sezione del preventivo", !(await openingState(page)).intro);
+  await ctx.close();
+}
+{
+  const { ctx, page } = await open({ intro: true, reducedMotion: "reduce" });
+  await page.goto(`${BASE}/`, { waitUntil: "load" });
+  await page.waitForTimeout(600);
+  const still = await openingState(page);
+  const video = await page.evaluate(() => { const node = document.querySelector("video[data-hero-video]"); return { source: node.currentSrc, loaded: [...node.querySelectorAll("source")].some((source) => source.hasAttribute("src")) }; });
+  check("con «riduci movimento»: nessuna apertura, il testo e' subito visibile e il video non viene scaricato", !still.intro && still.title === 1 && still.scale === 1 && video.source === "" && !video.loaded, JSON.stringify({ still, video }));
+  await ctx.close();
+}
+{
+  const { ctx, page } = await open({ intro: true, javaScriptEnabled: false });
+  await page.goto(`${BASE}/`, { waitUntil: "load" });
+  const plain = await page.locator(".hero__title").evaluate((node) => ({ opacity: getComputedStyle(node).opacity, intro: document.documentElement.classList.contains("intro") }));
+  check("senza JavaScript: nessuna apertura, il titolo e' visibile", plain.opacity === "1" && !plain.intro, JSON.stringify(plain));
+  await ctx.close();
+}
+{
+  const { ctx, page } = await open({ intro: true, viewport: { width: 390, height: 800 } });
+  await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
+  const early = await openingState(page);
+  check("apertura su telefono: parte, e la pagina non esce dal bordo", early.intro && early.scale > 1.3 && (await overflow(page)) === 0, JSON.stringify(early));
+  await page.waitForTimeout(4400);
+  const late = await openingState(page);
+  check("apertura su telefono: a fine corsa testo e barra ci sono", !late.intro && late.title === 1 && late.header === "visible" && (await overflow(page)) === 0, JSON.stringify(late));
   await ctx.close();
 }
 // tablet: nothing wider than the screen either

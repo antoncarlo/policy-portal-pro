@@ -44,6 +44,8 @@ const document = (page: CorpPage, assets: SiteAssets, env: CorpEnv): string => {
   const head = [
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">',
+    // L'apertura animata della homepage si decide prima che la pagina sia disegnata: un file del sito, non rimandato.
+    ...(kind === "home" ? ['<script src="/intro.js"></script>'] : []),
     headTags({
       def: CORP,
       page,
