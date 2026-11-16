@@ -9,6 +9,7 @@ import { COMPANY, CORP, CORP_CONTENT_UPDATED, type CorpEnv, type CorpLang } from
 import { contentFor } from "./content";
 import { metaOf } from "./meta";
 import { findPage, listPages, pageKind, pathOf, type CorpPage } from "./routes";
+import { Layout } from "./components/Layout";
 
 export interface SiteAssets {
   /** Fogli di stile del sito. */
@@ -57,9 +58,13 @@ const document = (page: CorpPage, assets: SiteAssets, env: CorpEnv): string => {
     ...structured.map(jsonLd),
   ].join("\n");
   const body = renderToStaticMarkup(
-    <main id="contenuto">
-      <h1>{meta.h1}</h1>
-    </main>,
+    <Layout page={page} content={content} measurement={Boolean(env.ga4Id)}>
+      <section className="page-head">
+        <div className="container">
+          <h1 className="page-head__title">{meta.h1}</h1>
+        </div>
+      </section>
+    </Layout>,
   );
   return htmlDocument({ lang: CORP.hreflang[page.lang], siteId: CORP.id, pageId: page.id, head, body, bodyClass: "corp", attrs: { "data-ga4": env.ga4Id } });
 };
