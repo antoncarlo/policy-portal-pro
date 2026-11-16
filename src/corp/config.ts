@@ -76,4 +76,6 @@ export const COMPANY = {
   email: "info@tecnomga.com",
   /** Responsabile della protezione dei dati (DPO): lo stesso recapito del portale. */
   dpoEmail: "antoncarlo@tecnomga.com",
+  /** L'informativa generale (clienti e rapporti contrattuali): lo stesso documento a cui rimanda il portale. */
+  privacyNoticeUrl: "https://tecnomga.com/wp-content/uploads/2025/12/Informativaprivacytecno-1_1.pdf",
 } as const;

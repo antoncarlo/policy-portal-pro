@@ -245,6 +245,26 @@ for (const width of [360, 390]) {
   check("preventivo in inglese: la richiesta porta la lingua e la pagina inglesi", bodies.length === 1 && bodies[0].lang === "en" && bodies[0].page === "/en/" && bodies[0].product === "d-and-o", JSON.stringify(bodies[0] ?? {}));
   await ctx.close();
 }
+// 9) privacy and cookies: readable text on a light sheet, the cookie table fits a phone, the links work
+{
+  const { ctx, page, pageErrors } = await open({ viewport: { width: 360, height: 800 } });
+  for (const path of ["/privacy/", "/cookie/", "/en/privacy/", "/en/cookie/"]) {
+    await page.goto(`${BASE}${path}`, { waitUntil: "networkidle" });
+    check(`${path} telefono 360: la pagina non esce dal bordo`, (await overflow(page)) === 0, String(await overflow(page)));
+    const colors = await page.locator(".legal__body p").first().evaluate((node) => ({ text: getComputedStyle(node).color, sheet: getComputedStyle(node.closest(".legal__sheet")).backgroundImage }));
+    check(`${path}: il testo e' scuro su un foglio chiaro`, colors.text === "rgb(64, 86, 106)" && /gradient/.test(colors.sheet), JSON.stringify(colors));
+  }
+  await page.goto(`${BASE}/cookie/`, { waitUntil: "networkidle" });
+  const names = await page.locator(".compare tbody th code").allInnerTexts();
+  check("cookie: con la misurazione attiva l'elenco ha la scelta sui cookie, la lingua e i due cookie di Google Analytics", names.join("|") === "tecno-consent-v1 (archivio locale)|tecno-lang-choice (archivio locale)|_ga|_ga_<ID>", names.join("|"));
+  check("cookie: su telefono ogni cella dice a che colonna appartiene", (await page.locator(".compare td").first().evaluate((node) => getComputedStyle(node, "::before").content)) === '"A cosa serve"');
+  await page.locator('.legal__body a[href="/privacy/"]').first().click();
+  await page.waitForURL(`${BASE}/privacy/`);
+  check("cookie: il rimando porta all'informativa sulla privacy", (await page.locator("h1").innerText()) === "Informativa sulla privacy");
+  check("privacy: il rimando all'informativa generale si apre in un'altra scheda", (await page.locator('.legal__body a[target="_blank"][rel="noopener noreferrer"]').first().getAttribute("href")) === "https://tecnomga.com/wp-content/uploads/2025/12/Informativaprivacytecno-1_1.pdf");
+  check("pagine legali: nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
+  await ctx.close();
+}
 // tablet: nothing wider than the screen either
 {
   const { ctx, page } = await open({ viewport: { width: 820, height: 1180 } });

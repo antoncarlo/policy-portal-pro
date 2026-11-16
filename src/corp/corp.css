@@ -446,6 +446,125 @@ address {
   max-width: 20ch;
 }
 
+/* ---------- Pagine di testo (privacy, cookie) ---------- */
+/* Il titolo sta sul blu notte; il testo si legge su un foglio chiaro. */
+.legal__sheet {
+  color: var(--ink);
+  background: linear-gradient(180deg, var(--paper), var(--paper-cool));
+}
+.legal__body {
+  padding: clamp(2.5rem, 6vh, 4rem) 0 clamp(3.5rem, 8vh, 6rem);
+}
+.legal__body section + section {
+  margin-top: 2.75rem;
+}
+.legal__body h2 {
+  margin-bottom: 0.9rem;
+  font-size: clamp(1.4rem, 2.6vw, 1.8rem);
+  color: var(--navy-800);
+}
+.legal__body p,
+.legal__body ul {
+  margin-top: 0.8rem;
+  color: var(--ink-soft);
+}
+.legal__body ul {
+  padding-left: 1.2rem;
+  list-style: disc;
+}
+.legal__body li + li {
+  margin-top: 0.35rem;
+}
+.legal__body a {
+  color: var(--navy-700);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+.legal__body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  overflow-wrap: anywhere;
+}
+.legal__updated {
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.9rem;
+}
+.table-wrap {
+  margin-top: 1.4rem;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+}
+.compare {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+  text-align: left;
+}
+.compare thead th {
+  padding: 1rem 1.25rem;
+  background: var(--navy-800);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.compare tbody th,
+.compare td {
+  padding: 1.05rem 1.25rem;
+  border-top: 1px solid var(--line);
+  vertical-align: top;
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+.compare tbody th {
+  min-width: 11rem;
+  font-weight: 600;
+  color: var(--navy-800);
+}
+@media (max-width: 719px) {
+  .compare thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .compare,
+  .compare tbody,
+  .compare tr,
+  .compare th,
+  .compare td {
+    display: block;
+  }
+  .compare tr {
+    padding: 0.4rem 0 0.8rem;
+    border-top: 1px solid var(--line);
+  }
+  .compare tr:first-child {
+    border-top: 0;
+  }
+  .compare tbody th,
+  .compare td {
+    padding: 0.45rem 1.1rem;
+    border: 0;
+  }
+  .compare td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--bronze-600);
+  }
+}
+
 /* ---------- Sezioni ---------- */
 .section {
   position: relative;

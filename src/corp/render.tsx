@@ -11,6 +11,7 @@ import { metaOf } from "./meta";
 import { findPage, listPages, pageKind, pathOf, type CorpPage } from "./routes";
 import { Layout } from "./components/Layout";
 import { Home } from "./pages/Home";
+import { LegalPage } from "./pages/Legal";
 
 export interface SiteAssets {
   /** Fogli di stile del sito. */
@@ -67,11 +68,7 @@ const document = (page: CorpPage, assets: SiteAssets, env: CorpEnv): string => {
       {kind === "home" ? (
         <Home page={page} content={content} contactEndpoint={env.contactEndpoint} />
       ) : (
-        <section className="page-head">
-          <div className="container">
-            <h1 className="page-head__title">{meta.h1}</h1>
-          </div>
-        </section>
+        <LegalPage page={page} content={content} measurement={Boolean(env.ga4Id)} />
       )}
     </Layout>,
   );
