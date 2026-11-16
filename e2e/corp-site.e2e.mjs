@@ -281,6 +281,7 @@ const openingState = (page) => page.evaluate(() => {
   const early = await openingState(page);
   check("apertura: al primo arrivo il mondo e' in grande e da solo; testo, barra e velo non ci sono ancora", early.intro && early.scale > 1.3 && early.title < 0.1 && early.header === "hidden" && early.veil < 0.2, JSON.stringify(early));
   check("apertura: il mondo in grande non allarga la pagina", (await overflow(page)) === 0);
+  check("apertura: finche' dura si vede l'immagine ferma, il video non viene ancora scaricato", (await page.evaluate(() => document.querySelector("video[data-hero-video]").currentSrc)) === "");
   await page.waitForTimeout(1500);
   const middle = await openingState(page);
   check("apertura: il mondo si allontana piano", middle.intro && middle.scale < early.scale && middle.scale > 1, JSON.stringify(middle));

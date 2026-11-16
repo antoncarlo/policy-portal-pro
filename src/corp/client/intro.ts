@@ -3,17 +3,22 @@
 // legge tocca, scorre o preme un tasto, perche' nessuno debba aspettare per usare la pagina.
 
 /** Durata dell'apertura nello stile (src/corp/corp.css), con un margine. */
-export const INTRO_MS = 4000;
+export const INTRO_MS = 3200;
 const SKIP_EVENTS = ["wheel", "touchstart", "pointerdown", "keydown", "scroll"] as const;
 
-export function initIntro(): void {
+/** `onEnd`: cio' che aspetta la fine dell'apertura (il video di sfondo); subito, se l'apertura non c'e'. */
+export function initIntro(onEnd: () => void = () => {}): void {
   const root = document.documentElement;
-  if (!root.classList.contains("intro")) return;
+  if (!root.classList.contains("intro")) {
+    onEnd();
+    return;
+  }
   let timer = 0;
   const end = () => {
     root.classList.remove("intro");
     window.clearTimeout(timer);
     for (const name of SKIP_EVENTS) window.removeEventListener(name, end);
+    onEnd();
   };
   for (const name of SKIP_EVENTS) window.addEventListener(name, end, { passive: true });
   timer = window.setTimeout(end, INTRO_MS);

@@ -5,8 +5,6 @@
 @import "@fontsource/inter/latin-500.css";
 @import "@fontsource/inter/latin-600.css";
 @import "@fontsource/inter/latin-700.css";
-@import "@fontsource/inter/latin-ext-400.css";
-@import "@fontsource/inter/latin-ext-600.css";
 @import "@fontsource/lora/latin-500.css";
 @import "@fontsource/lora/latin-600.css";
 @import "@fontsource/lora/latin-600-italic.css";
@@ -1092,36 +1090,39 @@ address {
 /* Al primo arrivo sulla homepage il mondo parte in grande e da solo, si allontana fino a passare in secondo piano,
    poi compaiono la barra e il testo. La accende /intro.js (classe «intro» sulla pagina) e la spegne
    src/corp/client/intro.ts; senza quella classe, o con «riduci movimento», la pagina e' ferma e tutta visibile.
-   Ogni animazione finisce nello stato normale dell'elemento: togliere la classe non sposta nulla. */
+   Ogni animazione finisce nello stato normale dell'elemento: togliere la classe non sposta nulla.
+   Il titolo comincia a comparire dopo circa un secondo, mentre il mondo si sta ancora allontanando: e' l'elemento
+   su cui Google misura la velocita' di caricamento (LCP), e un'attesa piu' lunga la porterebbe fuori dalla fascia
+   buona proprio per chi arriva da una ricerca. */
 @media (prefers-reduced-motion: no-preference) {
   html.intro .hero__poster,
   html.intro .hero__video {
     transform-origin: 80% 60%;
     will-change: transform;
-    animation: intro-world 3s cubic-bezier(0.4, 0, 0.2, 1) both;
+    animation: intro-world 2.4s cubic-bezier(0.4, 0, 0.2, 1) both;
   }
   html.intro .hero__media::after {
-    animation: intro-fade 2.2s ease both 0.6s;
+    animation: intro-fade 1.6s ease both 0.3s;
   }
   html.intro .hero__title {
-    animation: intro-rise 1s var(--ease) both 1.8s;
+    animation: intro-rise 0.8s var(--ease) both 0.9s;
   }
   html.intro .hero__lead {
-    animation: intro-rise 1s var(--ease) both 2s;
+    animation: intro-rise 0.8s var(--ease) both 1.05s;
   }
   html.intro .hero__actions {
-    animation: intro-rise 1s var(--ease) both 2.2s;
+    animation: intro-rise 0.8s var(--ease) both 1.2s;
   }
   html.intro .hero__chips {
-    animation: intro-rise 1s var(--ease) both 2.4s;
+    animation: intro-rise 0.8s var(--ease) both 1.35s;
   }
   html.intro .site-header {
-    animation: intro-drop 0.9s var(--ease) both 2.1s;
+    animation: intro-drop 0.8s var(--ease) both 1.1s;
   }
   html.intro .cookie-banner,
   html.intro .lang-notice,
   html.intro .scroll-progress {
-    animation: intro-fade 0.6s ease both 3.2s;
+    animation: intro-fade 0.6s ease both 2.4s;
   }
 }
 @keyframes intro-world {

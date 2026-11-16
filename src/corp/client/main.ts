@@ -13,13 +13,13 @@ import { initIntro } from "./intro";
 import { initQuoteForm } from "./quote";
 
 const start = () => {
-  // Per prima: l'apertura animata si spegne da sola o al primo gesto di chi legge.
-  initIntro();
+  // Per prima: l'apertura animata si spegne da sola o al primo gesto di chi legge. Il video di sfondo aspetta che
+  // sia finita (durante l'apertura si vede l'immagine ferma, identica al suo primo fotogramma), poi parte a pagina
+  // pronta, mai con «riduci movimento» o con il risparmio dati.
+  initIntro(initHeroVideo);
   initMenu();
   initReveal();
   initMotion();
-  // Il video dell'apertura parte solo a pagina pronta, mai con «riduci movimento» o con il risparmio dati.
-  initHeroVideo();
   initQuoteForm();
   // Prima il consenso: l'avviso della lingua aspetta che il banner dei cookie sia chiuso.
   initConsent();

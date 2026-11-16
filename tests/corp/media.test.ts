@@ -65,6 +65,15 @@ describe("sito aziendale: immagini", () => {
     }
   });
 
+  it("carica i soli caratteri tipografici che servono a italiano e inglese", () => {
+    // I file per sottoinsieme di @fontsource non dichiarano a quali caratteri servono: importare anche l'esteso
+    // («latin-ext») fa scaricare a ogni visita due file per peso, uno dei quali inutile (70 kB in piu').
+    const css = readFileSync("src/corp/corp.css", "utf8");
+    const imports = [...css.matchAll(/@import "@fontsource\/([a-z]+)\/([a-z0-9-]+)\.css";/g)].map((match) => `${match[1]}/${match[2]}`);
+    expect(imports.length).toBeGreaterThanOrEqual(4);
+    for (const name of imports) expect(name, name).toMatch(/^(inter|lora)\/latin-\d{3}(-italic)?$/);
+  });
+
   it("la pagina dichiara ai social l'immagine della sua lingua", () => {
     for (const lang of CORP.langs) {
       const html = renderPage(pathOf("home", lang), assets, readCorpEnv({}))!;
