@@ -18,4 +18,11 @@ export interface CorpContent {
     /** Link per saltare al contenuto, per chi naviga da tastiera. */
     skip: string;
   };
+  /** Come il sito si presenta alle IA (llms.txt) e nei dati strutturati. */
+  about: {
+    /** Una o due frasi su chi e' e cosa fa l'intermediario. */
+    summary: string;
+    /** Il tipo di servizio, per i dati strutturati. */
+    serviceType: string;
+  };
 }

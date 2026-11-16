@@ -23,6 +23,21 @@ else {
       if (!existsSync(join(DIST, match[1]))) problems.push(`${path}: manca il file ${match[1]}`);
     }
   }
+  // I file accanto alle pagine, e la coerenza dei segnali di indicizzazione tra loro.
+  for (const name of ["sitemap.xml", "robots.txt", "llms.txt"]) if (!existsSync(join(DIST, name))) problems.push(`manca ${name}`);
+  if (existsSync(join(DIST, "robots.txt")) && existsSync(join(DIST, "index.html"))) {
+    const robots = readFileSync(join(DIST, "robots.txt"), "utf8");
+    const home = readFileSync(join(DIST, "index.html"), "utf8");
+    const closed = /^Disallow: \/\s*$/m.test(robots);
+    const noindex = /<meta name="robots" content="noindex/.test(home);
+    if (closed !== noindex) problems.push("robots.txt e le pagine non dicono la stessa cosa sull'indicizzazione");
+    if (!closed && !/^Sitemap: https:\/\//m.test(robots)) problems.push("robots.txt non indica la sitemap");
+  }
+  if (existsSync(join(DIST, "sitemap.xml"))) {
+    const locs = [...readFileSync(join(DIST, "sitemap.xml"), "utf8").matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => new URL(match[1]).pathname);
+    for (const path of REQUIRED) if (!locs.includes(path)) problems.push(`la sitemap non elenca ${path}`);
+    for (const path of locs) if (!existsSync(join(DIST, path, "index.html"))) problems.push(`la sitemap elenca ${path}, che non esiste`);
+  }
   for (const stray of ["app.html", "version.json"]) if (existsSync(join(DIST, stray))) problems.push(`${stray} appartiene al portale, non al sito aziendale`);
 }
 if (problems.length) {

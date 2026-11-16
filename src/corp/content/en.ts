@@ -23,4 +23,8 @@ export const en: CorpContent = {
     },
   },
   nav: { skip: "Skip to content" },
+  about: {
+    summary: "Tecno Advance MGA Broker Srl is an insurance broker based in Rome, entered in section B of the Italian Single Register of Insurance Intermediaries. It arranges surety bonds, CAR and ten-year latent defects cover, professional indemnity, D&O, pet insurance and other policies for businesses and families.",
+    serviceType: "Insurance brokerage",
+  },
 };

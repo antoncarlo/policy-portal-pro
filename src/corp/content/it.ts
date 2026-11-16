@@ -22,4 +22,8 @@ export const it: CorpContent = {
     },
   },
   nav: { skip: "Vai al contenuto" },
+  about: {
+    summary: "Tecno Advance MGA Broker Srl è un broker assicurativo con sede a Roma, iscritto alla sezione B del Registro Unico degli Intermediari. Intermedia fideiussioni e cauzioni, polizze CAR e decennale postuma, RC professionale, D&O, coperture per animali domestici e altre polizze per imprese e famiglie.",
+    serviceType: "Intermediazione assicurativa",
+  },
 };
