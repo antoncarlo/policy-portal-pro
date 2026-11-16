@@ -37,6 +37,10 @@ jobs:
         run: npx vite build
       - name: Public site check (pages rendered to HTML, private shell kept apart)
         run: npm run test:public-site
+      - name: Corporate site build (tecnomga.com, static pages only)
+        run: npm run build:corp
+      - name: Corporate site check
+        run: npm run test:corp-site
 
   # Browser scenarios against the dev server with the network mocked (nothing real is touched).
   # The runner is pinned: `ubuntu-latest` moved to Ubuntu 26.04, where Playwright 1.56 cannot install Chromium
