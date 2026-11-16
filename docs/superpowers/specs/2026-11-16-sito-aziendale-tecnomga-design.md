@@ -1,6 +1,6 @@
 # Nuovo sito aziendale tecnomga.com — progetto
 
-*Il sito aziendale di Tecno Advance MGA Broker Srl viene rifatto da capo, in codice e fuori da WordPress, con la stessa tecnologia del sito pubblico del portale: pagine veloci, un'apertura scenica, una pagina solida per ogni prodotto, scritta per farsi trovare da Google e dalle IA. Questo documento fissa che cosa si costruisce e perché; il piano di lavoro viene dopo la sua approvazione.*
+*Approvato dal titolare il 16/11/2026. Il sito aziendale di Tecno Advance MGA Broker Srl viene rifatto da capo, in codice e fuori da WordPress, con la stessa tecnologia del sito pubblico del portale: pagine veloci, un'apertura scenica, una pagina solida per ogni prodotto, scritta per farsi trovare da Google e dalle IA. Questo documento fissa che cosa si costruisce e perché; il piano di lavoro viene dopo la sua approvazione.*
 
 ## SECTION 01 — Perché e per chi
 
@@ -57,7 +57,7 @@ Il titolare ha indicato come prodotti più venduti: fideiussioni (VIES comprese)
 
 - **Intermediario vigilato.** Su ogni pagina: denominazione, iscrizione al RUI, sedi, PEC, vigilanza IVASS, modalità di reclamo, avviso «messaggio pubblicitario». Gli obblighi precisi per il sito di un intermediario si verificano sui regolamenti IVASS in fase di scrittura.
 - **Regola di precisione.** Ogni fatto viene da una fonte primaria letta in sessione oppure dal titolare. Ciò che non è verificato non si scrive.
-- **Dati societari.** Sede legale e recapiti dei reclami sul sito attuale non coincidono con quelli del portale: si pubblicano solo dopo la conferma del titolare (SECTION 11).
+- **Dati societari.** I dati dell'intermediario si prendono dai documenti ufficiali della società (MUP, informativa privacy) e dal titolare (SECTION 11), non dal sito attuale, che riporta recapiti di un'altra società.
 - **Gusto del titolare** (già espresso per il portale): niente scritte piccole sopra i titoli, niente sottotitoli sotto i titoli di sezione, banner dei cookie con un solo consenso.
 - **Posta.** Il cambio di indirizzo del sito non deve toccare la posta di `tecnomga.com`.
 - **Unione e pubblicazione** solo con l'ok esplicito del titolare, a controlli verdi.
@@ -96,7 +96,7 @@ Il titolare ha indicato come prodotti più venduti: fideiussioni (VIES comprese)
 | Contatti | richiesta di preventivo | |
 | Privacy, Cookie, Reclami, Informative | | Le informative raccolgono i documenti oggi in PDF |
 
-I quattro tipi di fideiussione sono una proposta: il titolare ha detto «fideiussioni di tutti i tipi» senza elencarli. All'approvazione può toglierne o aggiungerne.
+I quattro tipi di fideiussione sono una proposta approvata con il progetto: il titolare ha detto «fideiussioni di tutti i tipi» senza elencarli e può toglierne o aggiungerne.
 
 Ogni pagina esiste in italiano e in inglese, con indirizzi tradotti e rimandi reciproci tra le lingue; la lingua predefinita è l'italiano. L'inglese riporta gli stessi fatti dell'italiano, non testi diversi. Gli indirizzi esatti si scelgono in fase di piano, con una verifica delle parole cercate.
 
@@ -180,21 +180,29 @@ Dei testi attuali si riusa solo ciò che è corretto e in italiano; il resto si 
   4. Verifica di pagine, reindirizzamenti, modulo e certificato.
   5. WordPress resta spento ma conservato. Per tornare indietro basta rimettere i record di prima.
 
-## SECTION 11 — Dati che servono dal titolare
+## SECTION 11 — Dati del titolare
 
-Finché un dato manca, la parte che lo usa non viene pubblicata.
+Ricevuti il 16/11/2026 con l'approvazione del progetto:
+
+| Dato | Valore | Stato |
+|---|---|---|
+| Sede legale | Via Po 102, 00198 Roma (MUP, informativa privacy e portale). Il titolare ha scritto «Viale Parioli 102», che non risulta in nessun documento | In attesa di conferma; fino ad allora si usa Via Po 102 |
+| Sede operativa | Via Michele Mercati 18, 00197 Roma | Come sul portale |
+| Reclami | Via email a `info@tecnomga.com`, per iscritto alla sede legale. Helpet non c'entra | Confermato |
+| Compagnie con cui Tecno lavora | Generali, AXA, Vittoria, Helpet, Markel | Confermato; solo i nomi, senza loghi finché non c'è un'autorizzazione scritta. Markel solo nell'elenco generale, mai accanto alle VIES |
+| Soci fondatori e gruppo | Vittoria e Mapfre si possono citare, ma solo riferendosi ai soci fondatori di Tecno | Testo da approvare: bozza proposta al titolare |
+| Termini e condizioni | Il PDF collegato oggi è quello dell'app Helpet | Non si riporta nel nuovo sito |
+
+Ancora da ricevere. Finché un dato manca, la parte che lo usa non viene pubblicata.
 
 | Dato | Dove serve |
 |---|---|
-| Sede legale corretta (oggi: Via Michele Mercati 18 sul sito, Via Po 102 sul portale) | Piè di pagina, Chi siamo, dati strutturati |
-| Indirizzo ed email per i reclami (oggi: Viale Parioli 74, `reclami@helpetapp.com`) | Piè di pagina, pagina Reclami |
-| Come descrivere il gruppo: Helpet Servizi, Vittoria Assicurazioni, Mapfre. Testo esatto e conferma che i nomi si possono citare | Home, Chi siamo, Pet |
-| Compagnie da nominare o mostrare con il logo, con autorizzazione | Home |
+| Testo esatto su soci fondatori, Helpet, Vittoria e Mapfre | Home, Chi siamo, Pet |
+| Autorizzazione all'uso dei loghi delle compagnie | Home |
 | Numeri da dichiarare, se documentabili | Home, Chi siamo |
-| Tipi di fideiussione da trattare con una pagina dedicata | Fideiussioni |
 | Quale RC oltre alla professionale (per esempio RC d'impresa) | Prodotti |
 | Profili social reali | Piè di pagina, Contatti |
-| Documenti aggiornati: informativa privacy, MUP, vendita a distanza, termini | Informative |
+| Documenti aggiornati: informativa privacy, MUP, vendita a distanza | Informative |
 | Persone da mostrare, se volute: nome, ruolo, foto, consenso | Chi siamo |
 | Identificativo di Analytics | Misurazione |
 
