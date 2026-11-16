@@ -1,10 +1,11 @@
 // I file grafici del sito aziendale: quelli dichiarati esistono, hanno le dimensioni dichiarate e non pesano.
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { readCorpEnv } from "../../src/corp/config";
+import { CORP, readCorpEnv } from "../../src/corp/config";
 import { contentFor } from "../../src/corp/content";
-import { COMPANY_LOGOS, HERO_POSTER } from "../../src/corp/media";
-import { renderAll } from "../../src/corp/render";
+import { COMPANY_LOGOS, HERO_POSTER, HERO_VIDEO } from "../../src/corp/media";
+import { renderAll, renderPage } from "../../src/corp/render";
+import { pathOf } from "../../src/corp/routes";
 import { webpSize } from "../helpers/webp";
 
 const assets = { css: ["/assets/corp.css"], js: "/assets/corp.js" };
@@ -30,12 +31,44 @@ describe("sito aziendale: immagini", () => {
     for (const [name, logo] of Object.entries(COMPANY_LOGOS)) expect(statSync(publicFile(logo.src)).size, name).toBeLessThanOrEqual(60 * 1024);
   });
 
-  it("ogni immagine che le pagine chiamano sotto /companies/ e /media/ esiste", () => {
+  it("ogni file che le pagine chiamano sotto /companies/ e /media/ esiste: immagini, video dell'apertura e immagini per i social", () => {
     const wanted = new Set<string>();
     for (const { html } of renderAll(assets, readCorpEnv({}))) for (const [url] of html.matchAll(/\/(?:companies|media)\/[A-Za-z0-9._-]+/g)) wanted.add(url);
-    // Il video dell'apertura e le immagini per i social arrivano con la grafica (compito 7): fino ad allora non si pretendono.
-    const images = [...wanted].filter((url) => !/\.(mp4|webm)$/.test(url) && !url.startsWith("/media/og-"));
-    expect(images.length).toBeGreaterThanOrEqual(6);
-    for (const url of images) expect(existsSync(publicFile(url)), url).toBe(true);
+    expect(wanted.size).toBeGreaterThanOrEqual(10);
+    for (const url of wanted) expect(existsSync(publicFile(url)), url).toBe(true);
+  });
+
+  it("il video dell'apertura c'e' nei due formati e nessuno dei due supera i 3 MB", () => {
+    expect(HERO_VIDEO.map((file) => file.src)).toEqual(["/media/apertura.webm", "/media/apertura.mp4"]);
+    for (const file of HERO_VIDEO) {
+      expect(existsSync(publicFile(file.src)), file.src).toBe(true);
+      expect(statSync(publicFile(file.src)).size, file.src).toBeLessThanOrEqual(3 * 1024 * 1024);
+      expect(statSync(publicFile(file.src)).size, file.src).toBeGreaterThan(100 * 1024);
+    }
+  });
+
+  it("l'immagine ferma dell'apertura e' in formato largo, almeno 1600 px, e non supera i 200 kB", () => {
+    expect(HERO_POSTER.width).toBeGreaterThanOrEqual(1600);
+    expect(HERO_POSTER.width / HERO_POSTER.height).toBeCloseTo(16 / 9, 1);
+    expect(statSync(publicFile(HERO_POSTER.src)).size).toBeLessThanOrEqual(200 * 1024);
+  });
+
+  it("c'e' un'immagine 1200x630 per i social in ogni lingua, sotto i 700 kB", () => {
+    for (const lang of CORP.langs) {
+      const file = publicFile(`/media/og-${lang}.png`);
+      expect(existsSync(file), lang).toBe(true);
+      const bytes = readFileSync(file);
+      // PNG: larghezza e altezza stanno nell'intestazione.
+      expect(bytes.readUInt32BE(16), lang).toBe(1200);
+      expect(bytes.readUInt32BE(20), lang).toBe(630);
+      expect(bytes.length, lang).toBeLessThanOrEqual(700 * 1024);
+    }
+  });
+
+  it("la pagina dichiara ai social l'immagine della sua lingua", () => {
+    for (const lang of CORP.langs) {
+      const html = renderPage(pathOf("home", lang), assets, readCorpEnv({}))!;
+      expect(html, lang).toContain(`<meta property="og:image" content="https://tecnomga.com/media/og-${lang}.png">`);
+    }
   });
 });

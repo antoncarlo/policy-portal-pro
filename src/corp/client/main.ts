@@ -1,9 +1,10 @@
 // Ingresso del sito aziendale nel browser. Le pagine sono HTML completo: qui si aggiungono solo menu, movimento
-// (comparsa allo scorrimento, riflesso del vetro sotto il puntatore), modulo di preventivo, consenso ai cookie e
-// avviso della lingua.
+// (comparsa allo scorrimento, riflesso del vetro sotto il puntatore, video dell'apertura), modulo di preventivo,
+// consenso ai cookie e avviso della lingua.
 // I comportamenti sono gli stessi del sito del portale: leggono solo attributi e classi della pagina.
 import "../corp.css";
 import { initConsent } from "../../site/client/consent";
+import { initHeroVideo } from "../../site/client/hero-video";
 import { initLangNotice } from "../../site/client/lang";
 import { initMenu } from "../../site/client/menu";
 import { initMotion } from "../../site/client/motion";
@@ -14,6 +15,8 @@ const start = () => {
   initMenu();
   initReveal();
   initMotion();
+  // Il video dell'apertura parte solo a pagina pronta, mai con «riduci movimento» o con il risparmio dati.
+  initHeroVideo();
   initQuoteForm();
   // Prima il consenso: l'avviso della lingua aspetta che il banner dei cookie sia chiuso.
   initConsent();

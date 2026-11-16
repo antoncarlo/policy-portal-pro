@@ -1,7 +1,7 @@
 // I file grafici del sito aziendale (cartella sites/tecnomga/public/media) e le loro dimensioni reali.
 
 /** L'immagine ferma dell'apertura: le dimensioni sono dichiarate nella pagina perche' il testo non salti al caricamento. */
-export const HERO_POSTER = { src: "/media/apertura.webp", width: 1344, height: 752 } as const;
+export const HERO_POSTER = { src: "/media/apertura.webp", width: 1920, height: 1080 } as const;
 
 /** Il video a ciclo continuo dell'apertura, nei due formati: il browser prende il primo che sa leggere. */
 export const HERO_VIDEO = [
