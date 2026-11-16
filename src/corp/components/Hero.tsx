@@ -11,7 +11,7 @@ export const Hero = ({ page, content }: PageProps) => {
   return (
     <section className="hero" id="apertura">
       <div className="hero__media">
-        <img className="hero__poster" src={HERO_POSTER.src} alt={hero.posterAlt} width={HERO_POSTER.width} height={HERO_POSTER.height} fetchPriority="high" decoding="async" />
+        <img className="hero__poster" src={HERO_POSTER.src} alt={hero.posterAlt} width={HERO_POSTER.width} height={HERO_POSTER.height} {...{ fetchpriority: "high" }} decoding="async" />
         <video className="hero__video" data-hero-video muted loop playsInline preload="none" aria-hidden="true" tabIndex={-1}>
           {HERO_VIDEO.map((file) => (
             <source key={file.src} data-src={file.src} type={file.type} />

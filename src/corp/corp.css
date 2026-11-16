@@ -733,21 +733,50 @@ address {
   line-height: 1.6;
   color: #fff;
 }
-.companies {
-  padding-top: 0;
+/* I loghi delle societa': una fascia bianca, perche' ogni logo resti con i suoi colori e sul suo fondo. */
+.section--white {
+  color: var(--ink);
+  background: #fff;
 }
-.companies__list {
+.companies {
+  padding-block: clamp(3rem, 6vw, 4.5rem);
+}
+.companies .section__head {
+  margin-bottom: clamp(1.75rem, 3vw, 2.5rem);
+}
+.companies__logos {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.9rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2.25rem 3rem;
 }
-.companies__name {
-  padding: 1rem 1.7rem;
-  border-radius: 999px;
-  font-family: var(--font-serif);
-  font-size: clamp(1.1rem, 2vw, 1.35rem);
-  font-weight: 600;
-  color: #fff;
+.companies__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.companies__logo img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+@media (max-width: 899px) {
+  .companies__logos {
+    justify-content: center;
+    gap: 2rem 3.25rem;
+  }
+}
+@media (max-width: 559px) {
+  .companies__logos {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem 1.5rem;
+  }
+  /* L'ultimo, da solo sulla riga, sta al centro. */
+  .companies__logo:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
 }
 
 /* ---------- Passi ---------- */

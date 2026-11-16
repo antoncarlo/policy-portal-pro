@@ -189,7 +189,7 @@ Ricevuti il 16/11/2026 con l'approvazione del progetto:
 | Sede legale | Via Po 102, 00198 Roma, come nel MUP, nell'informativa privacy e nel portale | Confermato |
 | Sede operativa | Via Michele Mercati 18, 00197 Roma | Come sul portale |
 | Reclami | Via email a `info@tecnomga.com`, per iscritto alla sede legale. Helpet non c'entra | Confermato |
-| Compagnie con cui Tecno lavora | Generali, AXA, Vittoria, Helpet, Markel | Confermato; solo i nomi, senza loghi finché non c'è un'autorizzazione scritta. Markel solo nell'elenco generale, mai accanto alle VIES |
+| Compagnie con cui Tecno lavora | Generali, AXA, Vittoria, Helpet, Markel | Confermato. Dal 16/11/2026 si mostrano con il loro logo: lo ha chiesto il titolare, che ha fornito i cinque file. I loghi non si alterano (solo ritaglio dei margini e riduzione) e stanno su fondo bianco. Che ogni società consenta l'uso del proprio marchio lo conferma il titolare prima del passaggio del dominio (consegna 6). Markel solo in questo elenco, mai accanto alle VIES |
 | Soci fondatori | Anton Carlo Santoro e Barbara Santoro | Confermato |
 | Testo sul gruppo | «I soci fondatori di Tecno MGA, Anton Carlo Santoro e Barbara Santoro, hanno fondato anche Helpet, realtà dedicata agli animali domestici cresciuta in Vittoria hub, l'incubatore di Vittoria Assicurazioni. Da questa esperienza nasce la nostra linea per i pet, sviluppata con Mapfre.» Vittoria e Mapfre si citano solo in questa frase, riferita ai soci fondatori | Approvato dal titolare; si pubblica così, senza varianti |
 | Termini e condizioni | Il PDF collegato oggi è quello dell'app Helpet | Non si riporta nel nuovo sito |
@@ -198,7 +198,7 @@ Ancora da ricevere. Finché un dato manca, la parte che lo usa non viene pubblic
 
 | Dato | Dove serve |
 |---|---|
-| Autorizzazione all'uso dei loghi delle compagnie | Home |
+| Conferma che ogni società consente l'uso del proprio logo (i file li ha forniti il titolare il 16/11/2026) | Home, prima del passaggio del dominio |
 | Numeri da dichiarare, se documentabili | Home, Chi siamo |
 | Quale RC oltre alla professionale (per esempio RC d'impresa) | Prodotti |
 | Profili social reali | Piè di pagina, Contatti |

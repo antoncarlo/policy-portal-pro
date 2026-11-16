@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { readCorpEnv } from "../../src/corp/config";
 import { contentFor } from "../../src/corp/content";
+import { COMPANY_LOGOS } from "../../src/corp/media";
 import { FEATURED, PRODUCT_IDS } from "../../src/corp/products";
 import { renderPage } from "../../src/corp/render";
 
@@ -44,7 +45,7 @@ describe("homepage", () => {
     expect(img).toMatch(/\salt="[^"]{10,}"/);
     expect(img).toMatch(/\swidth="\d+"/);
     expect(img).toMatch(/\sheight="\d+"/);
-    expect(img).toContain('fetchPriority="high"');
+    expect(img).toContain('fetchpriority="high"');
     const video = hero.match(/<video\b[^>]*>/)?.[0] ?? "";
     expect(video).toContain("data-hero-video");
     expect(video).not.toMatch(/\ssrc=/);
@@ -84,15 +85,29 @@ describe("homepage", () => {
     expect(section).toContain('href="https://ruipubblico.ivass.it/rui-pubblica/ng/"');
   });
 
-  it("i soci fondatori e le societa' compaiono una sola volta, senza loghi", () => {
+  it("i soci fondatori compaiono una sola volta; le societa' sono mostrate con il loro logo, senza riquadri", () => {
     const html = main(page("/"));
     const text = html.replace(/<[^>]+>/g, " ");
     expect(count(text, "Anton Carlo Santoro")).toBe(1);
     expect(count(text, "Mapfre")).toBe(1);
-    expect(count(text, "Markel")).toBe(1);
     const companies = html.slice(html.indexOf('id="compagnie"'), html.indexOf('id="come-funziona"'));
-    expect(companies).not.toContain("<img");
-    for (const name of contentFor("it").home.companies.names) expect(companies).toContain(name);
+    const names = contentFor("it").home.companies.names;
+    const logos = [...companies.matchAll(/<img\b[^>]*>/g)].map((match) => match[0]);
+    expect(logos).toHaveLength(names.length);
+    names.forEach((name, index) => {
+      const logo = COMPANY_LOGOS[name];
+      // Il nome resta nella pagina come testo alternativo: lo leggono i lettori di schermo e i motori.
+      expect(logos[index], name).toContain(`alt="${name}"`);
+      expect(logos[index], name).toContain(`src="${logo.src}"`);
+      expect(logos[index], name).toContain(`width="${logo.width}"`);
+      expect(logos[index], name).toContain(`height="${logo.height}"`);
+      expect(logos[index], name).toContain('loading="lazy"');
+    });
+    // Markel si legge una sola volta in tutta la pagina: nel testo alternativo del suo logo.
+    expect(count(html, "Markel")).toBe(1);
+    // I loghi stanno su una fascia chiara, ognuno con i suoi colori: niente riquadri di vetro attorno.
+    expect(html).toContain('<section class="section section--white companies" id="compagnie"');
+    expect(companies).not.toContain("glass-card");
   });
 
   it("i passi sono un elenco numerato di tre voci", () => {

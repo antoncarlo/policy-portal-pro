@@ -124,7 +124,8 @@ for (const width of [360, 390]) {
   check("homepage senza JS: undici prodotti, sei in evidenza", (await page.locator("[data-product]").count()) === 11 && (await page.locator(".product-card--featured").count()) === 6);
   check("homepage senza JS: i prodotti si leggono anche senza movimento", await page.locator('[data-product="infortuni-malattia"] h3').isVisible());
   const text = await page.locator("main").innerText();
-  check("homepage senza JS: la frase sui soci fondatori e l'elenco delle compagnie", /Anton Carlo Santoro e Barbara Santoro/.test(text) && /Vittoria hub/.test(text) && ["Generali", "AXA", "Vittoria", "Helpet", "Markel"].every((name) => text.includes(name)));
+  const altNames = await page.locator("#compagnie img").evaluateAll((nodes) => nodes.map((img) => img.getAttribute("alt")));
+  check("homepage senza JS: la frase sui soci fondatori e le societa' con il loro nome", /Anton Carlo Santoro e Barbara Santoro/.test(text) && /Vittoria hub/.test(text) && altNames.join(",") === "Generali,AXA,Vittoria,Helpet,Markel", altNames.join(","));
   check("homepage senza JS: nessun prezzo e nessun tempo di emissione", !/€|\beuro\b/i.test(text) && !/\b\d+\s*(ore|minuti|giorni)\b/i.test(text), text.match(/.{0,30}(€|\beuro\b|\d+\s*(ore|minuti|giorni)).{0,30}/i)?.[0] ?? "");
   await ctx.close();
 }
@@ -133,6 +134,11 @@ for (const width of [360, 390]) {
   await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
   const poster = await page.locator(".hero__poster").evaluate((img) => ({ loaded: img.complete && img.naturalWidth > 0, width: img.getAttribute("width"), height: img.getAttribute("height"), alt: img.getAttribute("alt") ?? "" }));
   check("homepage: l'immagine ferma dell'apertura e' caricata, con dimensioni e testo alternativo", poster.loaded && Number(poster.width) > 0 && Number(poster.height) > 0 && poster.alt.length > 10, JSON.stringify(poster));
+  await page.locator("#compagnie").scrollIntoViewIfNeeded();
+  await page.waitForFunction(() => [...document.querySelectorAll("#compagnie img")].every((img) => img.complete && img.naturalWidth > 0), null, { timeout: 5000 }).catch(() => {});
+  const logos = await page.locator("#compagnie img").evaluateAll((nodes) => nodes.map((img) => ({ alt: img.alt, loaded: img.complete && img.naturalWidth > 0, sharp: img.naturalWidth >= img.getBoundingClientRect().width * 2 - 1 })));
+  check("homepage: i cinque loghi delle societa' sono caricati, nitidi e con il nome come testo alternativo", logos.map((logo) => logo.alt).join(",") === "Generali,AXA,Vittoria,Helpet,Markel" && logos.every((logo) => logo.loaded && logo.sharp), JSON.stringify(logos));
+  check("homepage: i loghi stanno su fondo bianco", (await page.locator("#compagnie").evaluate((node) => getComputedStyle(node).backgroundColor)) === "rgb(255, 255, 255)");
   const card = await page.locator('[data-product="fideiussioni"]').evaluate((node) => {
     const style = getComputedStyle(node);
     return { blur: style.backdropFilter || style.webkitBackdropFilter || "", glow: node.hasAttribute("data-glow"), portal: node.querySelector('a[href="https://portale.tecnomga.com/"]') !== null };

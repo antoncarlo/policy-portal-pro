@@ -16,7 +16,7 @@
 - Dati dell'intermediario: Tecno Advance MGA Broker Srl, RUI B000746484, P.IVA 17460381001, sede legale Via Po 102 - 00198 Roma, sede operativa Via Michele Mercati 18 - 00197 Roma, telefono 06.97638088, PEC `tecnoadvancemgabroker@legalmail.it`, email `info@tecnomga.com`.
 - Reclami: via email a `info@tecnomga.com`, per iscritto alla sede legale. Helpet non compare nei reclami né nei documenti.
 - Testo sul gruppo, da pubblicare identico: «I soci fondatori di Tecno MGA, Anton Carlo Santoro e Barbara Santoro, hanno fondato anche Helpet, realtà dedicata agli animali domestici cresciuta in Vittoria hub, l'incubatore di Vittoria Assicurazioni. Da questa esperienza nasce la nostra linea per i pet, sviluppata con Mapfre.» Vittoria e Mapfre non compaiono altrove riferite al gruppo.
-- Compagnie con cui Tecno lavora: Generali, AXA, Vittoria, Helpet, Markel. Solo nomi, nessun logo. Markel solo nell'elenco generale, mai accanto alle VIES.
+- Compagnie con cui Tecno lavora: Generali, AXA, Vittoria, Helpet, Markel. Dal 16/11/2026, su richiesta del titolare, con il loro logo (file forniti da lui, non alterati, su fondo bianco); il nome resta come testo alternativo. Markel solo in questo elenco, mai accanto alle VIES.
 - Vietati: prezzi, tempi di emissione, promesse di accettazione, numeri o primati non documentati, persone inventate, testi di modello, affermazioni normative senza fonte primaria letta in sessione.
 - Dove un dato del titolare manca, la sezione non compare.
 - Gusto: niente scritte piccole sopra i titoli, niente sottotitoli sotto i titoli di sezione, banner dei cookie con un solo consenso («Accetta» / «Rifiuta»).
