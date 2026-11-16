@@ -1,4 +1,5 @@
 // La forma dei testi del sito aziendale: la stessa in ogni lingua.
+import type { ProductId } from "../products";
 import type { CorpPageId } from "../routes";
 
 /** Le sezioni della homepage: i loro identificativi sono gli stessi in ogni lingua. */
@@ -55,6 +56,38 @@ export interface CorpContent {
     complaintsTitle: string;
     complaints: string;
     rights: string;
+  };
+  home: {
+    hero: {
+      /** Una frase sotto il titolo: che cosa intermedia Tecno MGA. */
+      lead: string;
+      primary: string;
+      secondary: string;
+      /** Tre fatti verificabili, mostrati come targhette. */
+      chips: string[];
+      /** Descrizione dell'immagine dell'apertura, per chi non la vede. */
+      posterAlt: string;
+    };
+    products: {
+      title: string;
+      items: Record<ProductId, { name: string; line: string }>;
+      /** Invito nel riquadro di ogni prodotto. */
+      quote: string;
+      /** Rimando al portale per le fideiussioni VIES. */
+      viesLink: string;
+    };
+    broker: {
+      title: string;
+      points: Array<{ title: string; text: string }>;
+      /** Link alla verifica pubblica dell'iscrizione. */
+      ruiCheck: string;
+      sourcesTitle: string;
+      sources: Array<{ label: string; href: string }>;
+    };
+    founders: { title: string; text: string };
+    companies: { title: string; names: string[] };
+    steps: { title: string; items: Array<{ title: string; text: string }> };
+    quote: { title: string; lead: string; emailLabel: string; phoneLabel: string };
   };
   /** Avvertenza sulla pubblicita' dei prodotti assicurativi. */
   legalNotice: string;

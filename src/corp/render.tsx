@@ -3,13 +3,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { headTags } from "../site-kit/head";
 import { escapeHtml, htmlDocument } from "../site-kit/html";
-import { breadcrumbSchema, jsonLd, organizationSchema, serviceSchema } from "../site-kit/schema";
+import { breadcrumbSchema, howToSchema, jsonLd, organizationSchema, serviceSchema } from "../site-kit/schema";
 import { buildLlmsTxt, buildRobotsTxt, buildSitemapXml } from "../site-kit/sitemap";
 import { COMPANY, CORP, CORP_CONTENT_UPDATED, type CorpEnv, type CorpLang } from "./config";
 import { contentFor } from "./content";
 import { metaOf } from "./meta";
 import { findPage, listPages, pageKind, pathOf, type CorpPage } from "./routes";
 import { Layout } from "./components/Layout";
+import { Home } from "./pages/Home";
 
 export interface SiteAssets {
   /** Fogli di stile del sito. */
@@ -33,7 +34,11 @@ const document = (page: CorpPage, assets: SiteAssets, env: CorpEnv): string => {
   const crumb = (id: CorpPage["id"]) => ({ name: metaOf({ id, lang: page.lang }).label, path: pathOf(id, page.lang) });
   const structured = [organizationSchema({ company: COMPANY, origin: env.origin, logo: logoUrl(env), languages: [...CORP.langs] })];
   if (kind === "home") {
-    structured.push(serviceSchema({ origin: env.origin, path: page.path, name: meta.h1, description: meta.description, lang: CORP.hreflang[page.lang], serviceType: content.about.serviceType }));
+    // Gli stessi passi che il lettore vede nella pagina.
+    structured.push(
+      serviceSchema({ origin: env.origin, path: page.path, name: meta.h1, description: meta.description, lang: CORP.hreflang[page.lang], serviceType: content.about.serviceType }),
+      howToSchema(content.home.steps.title, content.home.steps.items.map((step) => ({ name: step.title, text: step.text }))),
+    );
   } else structured.push(breadcrumbSchema([crumb("home"), crumb(page.id)], env.origin));
   const head = [
     '<meta charset="utf-8">',
@@ -59,11 +64,15 @@ const document = (page: CorpPage, assets: SiteAssets, env: CorpEnv): string => {
   ].join("\n");
   const body = renderToStaticMarkup(
     <Layout page={page} content={content} measurement={Boolean(env.ga4Id)}>
-      <section className="page-head">
-        <div className="container">
-          <h1 className="page-head__title">{meta.h1}</h1>
-        </div>
-      </section>
+      {kind === "home" ? (
+        <Home page={page} content={content} />
+      ) : (
+        <section className="page-head">
+          <div className="container">
+            <h1 className="page-head__title">{meta.h1}</h1>
+          </div>
+        </section>
+      )}
     </Layout>,
   );
   return htmlDocument({ lang: CORP.hreflang[page.lang], siteId: CORP.id, pageId: page.id, head, body, bodyClass: "corp", attrs: { "data-ga4": env.ga4Id } });

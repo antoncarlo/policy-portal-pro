@@ -40,8 +40,13 @@ describe("pie' di pagina: i dati dell'intermediario", () => {
     expect(footer(renderPage("/en/", assets, env)!)).toContain('href="/en/privacy/"');
   });
 
-  it("non porta con se' nulla del vecchio sito ne' di altre societa'", () => {
-    for (const page of pages) expect(page.html, page.path).not.toMatch(/helpet|parioli|example\.com|tecnoinsurance|manusvm|officinawebdesi|vies@tecnomga/i);
+  it("non porta con se' nulla del vecchio sito", () => {
+    for (const page of pages) expect(page.html, page.path).not.toMatch(/parioli|example\.com|tecnoinsurance|manusvm|officinawebdesi|vies@tecnomga|helpetapp/i);
+  });
+
+  it("Helpet non compare nei dati dell'intermediario, nei reclami ne' nelle pagine legali", () => {
+    for (const page of pages) expect(footer(page.html), page.path).not.toMatch(/helpet/i);
+    for (const path of ["/privacy/", "/en/privacy/", "/cookie/", "/en/cookie/"]) expect(renderPage(path, assets, env), path).not.toMatch(/helpet/i);
   });
 
   it("i link verso l'esterno si aprono in una scheda nuova senza passare il riferimento", () => {

@@ -57,6 +57,59 @@ export const en: CorpContent = {
     complaints: "Complaints about the intermediary's conduct are made in writing to the registered office or by email to info@tecnomga.com. You may also turn to IVASS, as explained on ivass.it.",
     rights: "All rights reserved.",
   },
+  home: {
+    hero: {
+      lead: "Surety bonds, cover for building sites, liability of professionals and of company directors, policies for families and for pets.",
+      primary: "Ask for a quotation",
+      secondary: "See the products",
+      chips: ["Section B of the RUI, no. B000746484", "Supervised by IVASS", "Based in Rome"],
+      posterAlt: "The Earth at night seen from space, protected by a shield of glass",
+    },
+    products: {
+      title: "Our products",
+      items: {
+        fideiussioni: { name: "Surety bonds", line: "Guarantees for tenders and public contracts, for obligations towards public bodies and for private contracts." },
+        car: { name: "CAR", line: "Contractors' all risks cover: damage to the works under construction and to third parties during the works." },
+        "decennale-postuma": { name: "Ten-year latent defects", line: "For ten years after completion it covers damage to the building caused by serious construction defects." },
+        "rc-professionale": { name: "Professional indemnity", line: "Protects professionals against claims for mistakes made in the course of their work." },
+        "d-and-o": { name: "D&O", line: "Protects directors, statutory auditors and officers against claims arising from their decisions." },
+        pet: { name: "Pet", line: "Cover for dogs and cats: from veterinary expenses to third-party liability." },
+        fotovoltaico: { name: "Solar plants", line: "Damage to the plant and loss of energy production." },
+        "impresa-commercio": { name: "Business and retail", line: "Fire, theft and third-party liability for companies, shops and offices." },
+        casa: { name: "Home", line: "Fire, theft and damage to third parties for the home and those who live in it." },
+        auto: { name: "Motor", line: "Motor third-party liability and additional cover for the vehicle." },
+        "infortuni-malattia": { name: "Accident and sickness", line: "Financial support when an accident or an illness stops you working." },
+      },
+      quote: "Ask for a quotation",
+      viesLink: "VIES surety bonds: go to the portal",
+    },
+    // Same facts and sources as the Italian text.
+    broker: {
+      title: "Why turn to a broker",
+      points: [
+        { title: "We work on your instructions", text: "Under the Italian Private Insurance Code a broker acts on the client's instructions and has no power to represent insurance companies; an agent, by contrast, acts in the name or on behalf of one or more companies." },
+        { title: "No exclusivity", text: "We have no contractual obligation to offer only the contracts of one or more insurance companies." },
+        { title: "Registered and supervised", text: "We are entered in section B of the Italian Single Register of Insurance Intermediaries under no. B000746484 and supervised by IVASS." },
+      ],
+      ruiCheck: "Check the registration on the IVASS website",
+      sourcesTitle: "Sources",
+      sources: [{ label: "Normattiva, Legislative Decree no. 209 of 7 September 2005, Private Insurance Code, Article 109 (in Italian)", href: "https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legislativo:2005-09-07;209~art109" }],
+    },
+    founders: {
+      title: "Who is behind Tecno MGA",
+      text: "The founding partners of Tecno MGA, Anton Carlo Santoro and Barbara Santoro, also founded Helpet, a business dedicated to pets that grew within Vittoria hub, the incubator of Vittoria Assicurazioni. That experience gave rise to our pet line, developed with Mapfre.",
+    },
+    companies: { title: "Who we work with", names: ["Generali", "AXA", "Vittoria", "Helpet", "Markel"] },
+    steps: {
+      title: "How to ask for a quotation",
+      items: [
+        { title: "Tell us what you need", text: "Fill in the form or write to us: name the product and describe your situation." },
+        { title: "We tell you what it takes", text: "We list the documents and the information needed for the quotation." },
+        { title: "You receive the proposal", text: "We send you the insurance company's proposal with the pre-contractual documentation." },
+      ],
+    },
+    quote: { title: "Ask for a quotation", lead: "Write to us or call: name the product you are interested in and we will tell you what the quotation takes.", emailLabel: "Email", phoneLabel: "Phone" },
+  },
   legalNotice: "Advertising message for promotional purposes. Before signing, read the policy documentation (set informativo).",
   cookieBanner: {
     title: "Cookies",

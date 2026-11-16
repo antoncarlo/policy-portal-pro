@@ -56,6 +56,60 @@ export const it: CorpContent = {
     complaints: "I reclami sul comportamento dell'intermediario si presentano per iscritto alla sede legale oppure via email a info@tecnomga.com. Resta possibile rivolgersi all'IVASS, con le modalità indicate su ivass.it.",
     rights: "Tutti i diritti riservati.",
   },
+  home: {
+    hero: {
+      lead: "Fideiussioni e cauzioni, polizze per i cantieri, responsabilità dei professionisti e degli amministratori, coperture per la famiglia e gli animali domestici.",
+      primary: "Richiedi un preventivo",
+      secondary: "Scopri i prodotti",
+      chips: ["Sezione B del RUI n. B000746484", "Vigilanza IVASS", "Sede a Roma"],
+      posterAlt: "La Terra di notte vista dallo spazio, protetta da uno scudo di vetro",
+    },
+    products: {
+      title: "I nostri prodotti",
+      items: {
+        fideiussioni: { name: "Fideiussioni e cauzioni", line: "Garanzie per gare e appalti, per obblighi verso la pubblica amministrazione e per contratti tra privati." },
+        car: { name: "CAR", line: "La polizza «tutti i rischi» del cantiere: danni all'opera in costruzione e a terzi durante i lavori." },
+        "decennale-postuma": { name: "Decennale postuma", line: "Per dieci anni dalla fine dei lavori copre i danni all'immobile dovuti a gravi difetti costruttivi." },
+        "rc-professionale": { name: "RC professionale", line: "Tutela il professionista dalle richieste di risarcimento per errori commessi nell'attività." },
+        "d-and-o": { name: "D&O", line: "Protegge amministratori, sindaci e dirigenti dalle richieste di risarcimento legate alle loro decisioni." },
+        pet: { name: "Pet", line: "Coperture per cani e gatti: dalle spese veterinarie alla responsabilità civile." },
+        fotovoltaico: { name: "Fotovoltaico", line: "Danni all'impianto e mancata produzione di energia." },
+        "impresa-commercio": { name: "Impresa e commercio", line: "Incendio, furto e responsabilità civile per aziende, negozi e uffici." },
+        casa: { name: "Casa", line: "Incendio, furto e danni a terzi per l'abitazione e chi la abita." },
+        auto: { name: "Auto", line: "Responsabilità civile auto e garanzie accessorie per il veicolo." },
+        "infortuni-malattia": { name: "Infortuni e malattia", line: "Un sostegno economico se un infortunio o una malattia fermano il lavoro." },
+      },
+      quote: "Chiedi un preventivo",
+      viesLink: "Fideiussioni VIES: vai al portale",
+    },
+    // Fonti verificate il 16/11/2026: art. 109, commi 1 e 2 lett. a) e b), del D.Lgs. 209/2005 (Normattiva);
+    // MUP della societa', sezione IV lett. c) (assenza di obblighi di esclusiva) e sezione I (iscrizione al RUI).
+    broker: {
+      title: "Perché rivolgersi a un broker",
+      points: [
+        { title: "Lavoriamo su tuo incarico", text: "Il broker agisce su incarico del cliente e non ha poteri di rappresentanza delle compagnie; l'agente, invece, agisce in nome o per conto di una o più compagnie. Lo stabilisce il Codice delle assicurazioni private." },
+        { title: "Nessun vincolo di esclusiva", text: "Non abbiamo obblighi contrattuali che ci impongano di proporre soltanto i contratti di una o più compagnie." },
+        { title: "Iscritti e vigilati", text: "Siamo iscritti alla sezione B del Registro Unico degli Intermediari con il numero B000746484 e soggetti alla vigilanza dell'IVASS." },
+      ],
+      ruiCheck: "Verifica l'iscrizione sul sito dell'IVASS",
+      sourcesTitle: "Fonti",
+      sources: [{ label: "Normattiva, D.Lgs. 7 settembre 2005, n. 209, Codice delle assicurazioni private, art. 109", href: "https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legislativo:2005-09-07;209~art109" }],
+    },
+    founders: {
+      title: "Chi c'è dietro Tecno MGA",
+      text: "I soci fondatori di Tecno MGA, Anton Carlo Santoro e Barbara Santoro, hanno fondato anche Helpet, realtà dedicata agli animali domestici cresciuta in Vittoria hub, l'incubatore di Vittoria Assicurazioni. Da questa esperienza nasce la nostra linea per i pet, sviluppata con Mapfre.",
+    },
+    companies: { title: "Con chi lavoriamo", names: ["Generali", "AXA", "Vittoria", "Helpet", "Markel"] },
+    steps: {
+      title: "Come si richiede un preventivo",
+      items: [
+        { title: "Raccontaci cosa ti serve", text: "Compila il modulo o scrivici: indica il prodotto e la tua situazione." },
+        { title: "Ti diciamo cosa occorre", text: "Ti indichiamo i documenti e le informazioni necessari per la quotazione." },
+        { title: "Ricevi la proposta", text: "Ti inviamo la proposta della compagnia con la documentazione precontrattuale." },
+      ],
+    },
+    quote: { title: "Richiedi un preventivo", lead: "Scrivici o chiamaci: indica il prodotto che ti interessa e ti diciamo che cosa occorre per la quotazione.", emailLabel: "Email", phoneLabel: "Telefono" },
+  },
   legalNotice: "Messaggio pubblicitario con finalità promozionale. Prima della sottoscrizione leggere il set informativo.",
   cookieBanner: {
     title: "Cookie",

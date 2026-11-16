@@ -115,6 +115,51 @@ for (const width of [360, 390]) {
   await ctx.close();
 }
 
+// 7) home page: every section is in the HTML, the product cards are glass, the opening shows its still image
+{
+  const { ctx, page } = await open({ javaScriptEnabled: false });
+  await page.goto(`${BASE}/`, { waitUntil: "load" });
+  const sections = await page.locator("main section[id]").evaluateAll((nodes) => nodes.map((node) => node.id));
+  check("homepage senza JS: le sezioni ci sono tutte e in ordine", sections.join(",") === "apertura,prodotti,broker,fondatori,compagnie,come-funziona,preventivo", sections.join(","));
+  check("homepage senza JS: undici prodotti, sei in evidenza", (await page.locator("[data-product]").count()) === 11 && (await page.locator(".product-card--featured").count()) === 6);
+  check("homepage senza JS: i prodotti si leggono anche senza movimento", await page.locator('[data-product="infortuni-malattia"] h3').isVisible());
+  const text = await page.locator("main").innerText();
+  check("homepage senza JS: la frase sui soci fondatori e l'elenco delle compagnie", /Anton Carlo Santoro e Barbara Santoro/.test(text) && /Vittoria hub/.test(text) && ["Generali", "AXA", "Vittoria", "Helpet", "Markel"].every((name) => text.includes(name)));
+  check("homepage senza JS: nessun prezzo e nessun tempo di emissione", !/€|\beuro\b/i.test(text) && !/\b\d+\s*(ore|minuti|giorni)\b/i.test(text), text.match(/.{0,30}(€|\beuro\b|\d+\s*(ore|minuti|giorni)).{0,30}/i)?.[0] ?? "");
+  await ctx.close();
+}
+{
+  const { ctx, page, pageErrors, external } = await open();
+  await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+  const poster = await page.locator(".hero__poster").evaluate((img) => ({ loaded: img.complete && img.naturalWidth > 0, width: img.getAttribute("width"), height: img.getAttribute("height"), alt: img.getAttribute("alt") ?? "" }));
+  check("homepage: l'immagine ferma dell'apertura e' caricata, con dimensioni e testo alternativo", poster.loaded && Number(poster.width) > 0 && Number(poster.height) > 0 && poster.alt.length > 10, JSON.stringify(poster));
+  const card = await page.locator('[data-product="fideiussioni"]').evaluate((node) => {
+    const style = getComputedStyle(node);
+    return { blur: style.backdropFilter || style.webkitBackdropFilter || "", glow: node.hasAttribute("data-glow"), portal: node.querySelector('a[href="https://portale.tecnomga.com/"]') !== null };
+  });
+  check("homepage: il riquadro delle fideiussioni e' di vetro e porta al portale VIES", /blur\(/.test(card.blur) && card.glow && card.portal, JSON.stringify(card));
+  const portalLinks = await page.locator('main a[href^="https://portale.tecnomga.com"]').count();
+  check("homepage: il rimando al portale VIES sta solo nel riquadro delle fideiussioni", portalLinks === 1, String(portalLinks));
+  await page.locator('[data-product="car"] a[data-quote-product]').click();
+  await page.waitForTimeout(400);
+  check("homepage: «Chiedi un preventivo» porta alla sezione del preventivo", new URL(page.url()).hash === "#preventivo" && (await page.locator("#preventivo").isVisible()));
+  // every section becomes visible when reached: nothing stays hidden waiting for a scroll that already happened
+  await page.evaluate(async () => { for (let y = 0; y <= document.documentElement.scrollHeight; y += 400) { window.scrollTo(0, y); await new Promise((resolve) => setTimeout(resolve, 60)); } });
+  await page.waitForTimeout(900);
+  check("homepage: dopo lo scorrimento nessun contenuto resta nascosto", (await page.locator(".is-waiting").count()) === 0, String(await page.locator(".is-waiting").count()));
+  check("homepage: nessuna richiesta verso l'esterno", external.length === 0, [...new Set(external)].join(", "));
+  check("homepage: nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
+  await ctx.close();
+}
+// tablet: nothing wider than the screen either
+{
+  const { ctx, page } = await open({ viewport: { width: 820, height: 1180 } });
+  await page.goto(`${BASE}/en/`, { waitUntil: "networkidle" });
+  check("tablet 820, inglese: la pagina non esce dal bordo", (await overflow(page)) === 0, String(await overflow(page)));
+  check("tablet 820, inglese: undici prodotti", (await page.locator("[data-product]").count()) === 11);
+  await ctx.close();
+}
+
 await browser.close();
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} ok`);
