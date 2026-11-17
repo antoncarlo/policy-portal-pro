@@ -1,7 +1,7 @@
 // I file grafici del sito aziendale: quelli dichiarati esistono, hanno le dimensioni dichiarate e non pesano.
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { CORP, readCorpEnv } from "../../src/corp/config";
+import { COMPANY, CORP, readCorpEnv } from "../../src/corp/config";
 import { contentFor } from "../../src/corp/content";
 import { COMPANY_LOGOS, HERO_POSTER, HERO_VIDEO } from "../../src/corp/media";
 import { renderAll, renderPage } from "../../src/corp/render";
@@ -72,6 +72,14 @@ describe("sito aziendale: immagini", () => {
     const imports = [...css.matchAll(/@import "@fontsource\/([a-z]+)\/([a-z0-9-]+)\.css";/g)].map((match) => `${match[1]}/${match[2]}`);
     expect(imports.length).toBeGreaterThanOrEqual(4);
     for (const name of imports) expect(name, name).toMatch(/^(inter|lora)\/latin-\d{3}(-italic)?$/);
+  });
+
+  it("l'informativa privacy generale della societa' e' un documento del sito, ed e' quello a cui rimandano le pagine", () => {
+    expect(COMPANY.privacyNoticeUrl).toBe("/documenti/informativa-privacy.pdf");
+    const bytes = readFileSync(publicFile(COMPANY.privacyNoticeUrl));
+    expect(bytes.toString("latin1", 0, 5)).toBe("%PDF-");
+    expect(bytes.length).toBeLessThanOrEqual(1024 * 1024);
+    for (const lang of CORP.langs) expect(renderPage(pathOf("privacy", lang), assets, readCorpEnv({}))!, lang).toContain(`href="${COMPANY.privacyNoticeUrl}"`);
   });
 
   it("la pagina dichiara ai social l'immagine della sua lingua", () => {

@@ -4,6 +4,53 @@
   "outputDirectory": "dist",
   "framework": null,
   "trailingSlash": true,
+  "redirects": [
+    {
+      "source": "/about-us",
+      "destination": "/#fondatori",
+      "permanent": true
+    },
+    {
+      "source": "/en/about-us",
+      "destination": "/en/#fondatori",
+      "permanent": true
+    },
+    {
+      "source": "/contact",
+      "destination": "/#preventivo",
+      "permanent": true
+    },
+    {
+      "source": "/en/contact",
+      "destination": "/en/#preventivo",
+      "permanent": true
+    },
+    {
+      "source": "/(services|fideiussioni-e-cauzioni|decennale-postuma-e-car|ar-fotovoltaico|business-insurance|home-insurance|vehicle-insurance|health-insurance|life-insurance|travel-insurance)",
+      "destination": "/#prodotti",
+      "permanent": true
+    },
+    {
+      "source": "/en/(services|fideiussioni-e-cauzioni|decennale-postuma-e-car|ar-fotovoltaico|business-insurance|home-insurance|vehicle-insurance|health-insurance|life-insurance|travel-insurance)",
+      "destination": "/en/#prodotti",
+      "permanent": true
+    },
+    {
+      "source": "/portale-assicurativo",
+      "destination": "https://portale.tecnomga.com/",
+      "permanent": true
+    },
+    {
+      "source": "/en/portale-assicurativo",
+      "destination": "https://portale.tecnomga.com/",
+      "permanent": true
+    },
+    {
+      "source": "/wp-content/uploads/2025/12/Informativaprivacytecno-1_1.pdf",
+      "destination": "/documenti/informativa-privacy.pdf",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -35,7 +82,7 @@
       ]
     },
     {
-      "source": "/((?!(?:assets|media|companies|brand)/|favicon\\.|apple-touch-icon\\.png$|sitemap\\.xml$|robots\\.txt$|llms\\.txt$).*)",
+      "source": "/((?!(?:assets|media|companies|brand|documenti)/|favicon\\.|apple-touch-icon\\.png$|sitemap\\.xml$|robots\\.txt$|llms\\.txt$).*)",
       "headers": [
         {
           "key": "Content-Security-Policy",
@@ -53,7 +100,7 @@
       ]
     },
     {
-      "source": "/((?:media|companies|brand)/.*)",
+      "source": "/((?:media|companies|brand|documenti)/.*)",
       "headers": [
         {
           "key": "Cache-Control",

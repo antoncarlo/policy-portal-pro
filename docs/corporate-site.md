@@ -1,6 +1,6 @@
 # Sito aziendale tecnomga.com
 
-*Il nuovo sito di Tecno Advance MGA Broker Srl: pagine statiche in italiano e inglese, generate come HTML completo alla build e leggibili da motori di ricerca e motori di risposta senza JavaScript. È un sito a parte rispetto al portale (`portale.tecnomga.com`): stesso repository, pubblicazione separata, nessuna funzione propria. Il modulo di preventivo invia al servizio contatti del portale. Finché non passa il dominio, il sito non è indicizzabile. Progetto in `docs/superpowers/specs/2026-11-16-sito-aziendale-tecnomga-design.md`.*
+*Il nuovo sito di Tecno Advance MGA Broker Srl: pagine statiche in italiano e inglese, generate come HTML completo alla build e leggibili da motori di ricerca e motori di risposta senza JavaScript. È un sito a parte rispetto al portale (`portale.tecnomga.com`): stesso repository, pubblicazione separata, nessuna funzione propria. Il modulo di preventivo invia al servizio contatti del portale. Si indicizza quando il progetto di produzione ha `VITE_CORP_INDEXABLE=true`. Progetto in `docs/superpowers/specs/2026-11-16-sito-aziendale-tecnomga-design.md`.*
 
 ## SECTION 01 — Cosa viene pubblicato
 
@@ -14,6 +14,7 @@
 | `/llms.txt` | Il sito descritto ai motori basati su IA: chi è l'intermediario, che cosa intermedia, dove sono le pagine |
 | `/intro.js` | Lo script che decide l'apertura animata (SECTION 05) |
 | `/media/*`, `/companies/*`, `/brand/*` | Video e immagine ferma dell'apertura, immagini per i social; loghi delle società; logo Tecno MGA |
+| `/documenti/informativa-privacy.pdf` | Informativa privacy generale della società (versione dicembre 2025), la stessa pubblicata finora sul vecchio sito |
 
 Le ancore delle sezioni sono uguali nelle due lingue: `#prodotti`, `#broker`, `#come-funziona`, `#preventivo`.
 
@@ -95,7 +96,7 @@ Tutte lette alla build, nel progetto Vercel del sito aziendale: dopo una modific
 
 | Variabile | A cosa serve |
 |---|---|
-| `VITE_CORP_INDEXABLE` | `true` apre il sito ai motori di ricerca. Da impostare solo al passaggio del dominio |
+| `VITE_CORP_INDEXABLE` | `true` apre il sito ai motori di ricerca. Impostata nel progetto di produzione; senza, le pagine chiedono di non essere indicizzate |
 | `VITE_CORP_ORIGIN` | Origine canonica, se diversa da `https://tecnomga.com` |
 | `VITE_CORP_CONTACT_ENDPOINT` | Indirizzo del servizio contatti, se diverso da `https://portale.tecnomga.com/api/contact`. Cambiandolo va aggiornata anche la politica dei contenuti in `sites/tecnomga/vercel.json` |
 | `VITE_CORP_GA4_ID` | Identificativo di Google Analytics 4 (`G-…`) |
@@ -103,31 +104,39 @@ Tutte lette alla build, nel progetto Vercel del sito aziendale: dopo una modific
 
 Nel progetto Vercel del **portale**: `CORPORATE_CONTACT_INBOX` e `CONTACT_ALLOWED_ORIGINS` (`docs/public-site.md`, SECTION 06).
 
-## SECTION 09 — Pubblicazione e passaggio del dominio
+## SECTION 09 — Pubblicazione in produzione e passaggio del dominio
 
-Il sito aziendale è un progetto Vercel a parte, collegato allo stesso repository. Il collegamento usato per lo sviluppo non ha il permesso di creare progetti: lo crea il titolare.
+Il sito va in produzione direttamente, senza indirizzo di prova (decisione del titolare del 17/11/2026). È un progetto Vercel a parte, collegato allo stesso repository: il collegamento usato per lo sviluppo non ha il permesso di crearlo, quindi lo crea il titolare.
 
-| Impostazione del progetto | Valore |
+**1. Creare il progetto** (Vercel → Add New → Project → `antoncarlo/policy-portal-pro` → Import):
+
+| Impostazione | Valore |
 |---|---|
-| Nome | `tecnomga-site` |
-| Repository | `antoncarlo/policy-portal-pro`, ramo di produzione `main` |
-| Root Directory | `sites/tecnomga` |
+| Project Name | `tecnomga-site` |
+| Root Directory | `sites/tecnomga` (pulsante «Edit» accanto alla cartella) |
 | Framework Preset | Other |
-| Build, Install, Output | Lasciati vuoti: li dà `sites/tecnomga/vercel.json` (installa e costruisce dalla radice del repository, pubblica `dist`) |
-| «Include files outside the root directory in the Build Step» | Attivo (è il valore predefinito) |
-| Variabili d'ambiente | Nessuna: senza `VITE_CORP_INDEXABLE` il sito resta non indicizzabile |
+| Build, Install, Output | lasciati come sono: li dà `sites/tecnomga/vercel.json` (installa e costruisce dalla radice del repository, pubblica `dist`) |
+| Environment Variables | `VITE_CORP_INDEXABLE` = `true` (apre il sito ai motori di ricerca) |
 
-Con la protezione predefinita del gruppo, l'indirizzo `tecnomga-site.vercel.app` è visibile solo a chi ha accesso a Vercel: va bene per la verifica del titolare, ma PageSpeed non lo raggiunge. Per una misura pubblica serve un sottodominio di prova (per esempio `nuovo.tecnomga.com`) aggiunto al progetto.
+Il ramo di produzione è `main`: ogni modifica unita su `main` ripubblica il sito.
 
-Passaggio del dominio (consegna 6), nell'ordine:
+**2. Collegare il dominio** (progetto `tecnomga-site` → Settings → Domains): aggiungere `tecnomga.com` e `www.tecnomga.com`, con `www` che rimanda a `tecnomga.com`. Vercel mostra i record da inserire; di norma sono un record `A` per `tecnomga.com` verso `76.76.21.21` e un `CNAME` per `www` verso `cname.vercel-dns.com`. Valgono quelli mostrati da Vercel.
 
-1. Il titolare conferma che ogni società consente l'uso del proprio logo.
-2. I documenti (informativa generale, set informativi) sono ospitati nel nuovo sito, con un reindirizzamento dal vecchio percorso `/wp-content/uploads/2025/12/Informativaprivacytecno-1_1.pdf`, a cui rimandano oggi il portale e la pagina Privacy.
-3. Reindirizzamenti dalle pagine del vecchio sito alle nuove.
-4. Nel progetto Vercel: domini `tecnomga.com` e `www.tecnomga.com`, `VITE_CORP_INDEXABLE=true`, codici di verifica.
-5. Il titolare cambia nel DNS (Register.it) i soli record del sito; i record della posta non si toccano.
-6. Verifica di pagine, reindirizzamenti, modulo e certificato; sitemap inviata a Search Console e Bing.
-7. WordPress resta spento ma conservato: per tornare indietro basta rimettere i record di prima.
+**3. Cambiare il DNS** su Register.it: si sostituiscono **solo** il record `A` di `tecnomga.com` e il record di `www`. I record della posta (`MX`, `SPF`/`TXT`, `DKIM`, `autodiscover` e simili) e quelli del portale (`portale`, `ag7qylvcsqkw.portale`) non si toccano. Il cambio si vede di solito in pochi minuti, al massimo entro un giorno.
+
+**4. Verifiche** dopo il cambio: pagine, certificato, modulo di preventivo (una richiesta di prova arriva a `info@tecnomga.com` e compare in **Impostazioni › Richieste di contatto** del portale), reindirizzamenti dal vecchio sito (tabella sotto). Poi Search Console: proprietà di dominio `tecnomga.com` (verifica con un record `TXT` su Register.it), invio di `https://tecnomga.com/sitemap.xml`; stessa cosa su Bing Webmaster.
+
+**5. Per tornare indietro** basta rimettere su Register.it i record di prima: WordPress resta acceso e intatto finché non si decide di spegnerlo.
+
+| Dal vecchio sito | Al nuovo |
+|---|---|
+| `/about-us/` (e `/en/about-us/`) | `/#fondatori` (`/en/#fondatori`) |
+| `/services/` e le pagine prodotto (`/fideiussioni-e-cauzioni/`, `/decennale-postuma-e-car/`, `/ar-fotovoltaico/`, `/business-insurance/`, `/home-insurance/`, `/vehicle-insurance/`, `/health-insurance/`, `/life-insurance/`, `/travel-insurance/`), anche sotto `/en/` | `/#prodotti` (`/en/#prodotti`) |
+| `/contact/` (e `/en/contact/`) | `/#preventivo` (`/en/#preventivo`) |
+| `/portale-assicurativo/` (e `/en/`) | `https://portale.tecnomga.com/` |
+| `/wp-content/uploads/2025/12/Informativaprivacytecno-1_1.pdf` (a cui rimanda anche il portale) | `/documenti/informativa-privacy.pdf`, copia identica del documento |
+
+Tutti permanenti (308). Le pagine di servizio di WordPress (autori, categorie, modelli, «hello-world», «test-aj») non vengono riportate e rispondono «non trovato», come i documenti non riportati: il MUP e l'informativa sulla vendita a distanza del vecchio sito sono legati alla collaborazione con l'agenzia Vittoria e a Helpet, indicano il sito `tecnoinsurance.com` e mandano i recessi a Vittoria Assicurazioni; i termini e condizioni sono quelli di Helpet. Le versioni aggiornate si pubblicano in `sites/tecnomga/public/documenti/` quando il titolare le fornisce.
 
 ## SECTION 10 — Prove
 
@@ -145,7 +154,9 @@ Misura in locale del 16/11/2026 con Lighthouse 12 sulla build servita compressa:
 
 | Dato | Serve per |
 |---|---|
-| Conferma dell'uso dei loghi da parte di ogni società | Passaggio del dominio |
+| Conferma dell'uso dei loghi da parte di ogni società | Loghi in homepage (il titolare ha fornito i file e ha chiesto di pubblicarli) |
+| MUP e informativa sulla vendita a distanza aggiornati | Documenti del sito: quelli del vecchio sito non sono stati riportati (SECTION 09) |
+| Informativa privacy generale aggiornata | Il documento di dicembre 2025 rimanda ancora a `www.tecnoinsurance.com` per i partner commerciali |
 | Identificativo di Google Analytics | Misurazione delle visite |
 | Documenti aggiornati (informativa generale, set informativi) | Pagina Informative, consegna 3 |
 | Quali polizze di responsabilità civile oltre alla professionale, numeri documentabili, persone, profili social | Pagine dei prodotti e Chi siamo, consegne 2 e 3 |

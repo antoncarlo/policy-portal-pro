@@ -124,9 +124,12 @@ describe("sites/tecnomga/vercel.json: the company site", () => {
     outputDirectory?: string;
     framework?: string | null;
     rewrites?: unknown[];
+    redirects?: Array<{ source: string; destination: string; permanent?: boolean }>;
     functions?: unknown;
     crons?: unknown;
   };
+  /** Dove porta un indirizzo del vecchio sito WordPress: la destinazione del primo reindirizzamento che lo copre. */
+  const redirectOf = (path: string) => (corp.redirects ?? []).find((rule) => matches(rule.source, path));
   const corpValues = (path: string, key: string) =>
     corp.headers
       .filter((rule) => matches(rule.source, path))
@@ -146,6 +149,58 @@ describe("sites/tecnomga/vercel.json: the company site", () => {
     expect(corp.functions).toBeUndefined();
     expect(corp.crons).toBeUndefined();
     expect(corp.rewrites ?? []).toEqual([]);
+  });
+
+  it("the pages of the old WordPress site that search engines know lead to the new ones, permanently", () => {
+    const expected: Record<string, string> = {
+      "/about-us/": "/#fondatori",
+      "/services/": "/#prodotti",
+      "/contact/": "/#preventivo",
+      "/fideiussioni-e-cauzioni/": "/#prodotti",
+      "/decennale-postuma-e-car/": "/#prodotti",
+      "/ar-fotovoltaico/": "/#prodotti",
+      "/business-insurance/": "/#prodotti",
+      "/home-insurance/": "/#prodotti",
+      "/vehicle-insurance/": "/#prodotti",
+      "/health-insurance/": "/#prodotti",
+      "/life-insurance/": "/#prodotti",
+      "/travel-insurance/": "/#prodotti",
+      "/en/about-us/": "/en/#fondatori",
+      "/en/services/": "/en/#prodotti",
+      "/en/contact/": "/en/#preventivo",
+      "/en/fideiussioni-e-cauzioni/": "/en/#prodotti",
+      "/en/decennale-postuma-e-car/": "/en/#prodotti",
+      "/en/ar-fotovoltaico/": "/en/#prodotti",
+      "/en/business-insurance/": "/en/#prodotti",
+      "/en/home-insurance/": "/en/#prodotti",
+      "/en/vehicle-insurance/": "/en/#prodotti",
+      "/en/health-insurance/": "/en/#prodotti",
+      "/en/life-insurance/": "/en/#prodotti",
+      "/en/travel-insurance/": "/en/#prodotti",
+      "/portale-assicurativo/": "https://portale.tecnomga.com/",
+      "/en/portale-assicurativo/": "https://portale.tecnomga.com/",
+    };
+    for (const [from, to] of Object.entries(expected)) {
+      for (const path of [from, from.replace(/\/$/, "")]) {
+        const rule = redirectOf(path);
+        expect(rule?.destination, path).toBe(to);
+        expect(rule?.permanent, path).toBe(true);
+      }
+    }
+  });
+
+  it("the general privacy notice keeps its old address, to which the portal links, and leads to the copy hosted by the new site", () => {
+    const rule = redirectOf("/wp-content/uploads/2025/12/Informativaprivacytecno-1_1.pdf");
+    expect(rule?.destination).toBe("/documenti/informativa-privacy.pdf");
+    expect(rule?.permanent).toBe(true);
+  });
+
+  it("what the new site does not carry over is not found: no redirect to the home page that would pass for an answer", () => {
+    for (const path of [
+      "/hello-world/", "/test-aj/", "/author/officinawebdesi/", "/category/uncategorized/", "/elementskit-content/dynamic-content-widget-720d6f67-83ca625/", "/metform-form/final-form/",
+      "/wp-content/uploads/2025/12/MUP-TECNO-1-1.pdf", "/wp-content/uploads/2025/12/vendita-a-distanza-tecno.pdf", "/wp-content/uploads/2025/12/terms-and-conditions.pdf",
+      "/", "/en/", "/privacy/", "/cookie/", "/en/privacy/", "/media/apertura.webp", "/documenti/informativa-privacy.pdf",
+    ]) expect(redirectOf(path), path).toBeUndefined();
   });
 
   it("every address ends with a slash, like the routes of the site", () => {
@@ -199,7 +254,7 @@ describe("sites/tecnomga/vercel.json: the company site", () => {
 
   it("lets the browser keep the files with a fingerprint in the name for a year, images and video for a day, and never the pages", () => {
     expect(corpValues("/assets/site-E-6NjboQ.css", "Cache-Control")).toEqual(["public, max-age=31536000, immutable"]);
-    for (const path of ["/media/apertura.webm", "/media/og-it.png", "/companies/axa.webp", "/brand/tecno-mga-logo.png"]) expect(corpValues(path, "Cache-Control"), path).toEqual(["public, max-age=86400, stale-while-revalidate=604800"]);
+    for (const path of ["/media/apertura.webm", "/media/og-it.png", "/companies/axa.webp", "/brand/tecno-mga-logo.png", "/documenti/informativa-privacy.pdf"]) expect(corpValues(path, "Cache-Control"), path).toEqual(["public, max-age=86400, stale-while-revalidate=604800"]);
     for (const path of PAGES) expect(corpValues(path, "Cache-Control"), path).toEqual([]);
   });
 });
