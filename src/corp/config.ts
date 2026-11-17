@@ -18,7 +18,7 @@ export const CORP: SiteDefinition<CorpLang> = {
 };
 
 /** Data dell'ultima verifica dei contenuti sulle fonti (AAAA-MM-GG): e' la data mostrata e quella della sitemap. */
-export const CORP_CONTENT_UPDATED = "2026-11-16";
+export const CORP_CONTENT_UPDATED = "2026-11-17";
 const DATE_LOCALE: Record<CorpLang, string> = { it: "it-IT", en: "en-GB" };
 export const formatDate = (lang: CorpLang, iso: string): string =>
   new Intl.DateTimeFormat(DATE_LOCALE[lang], { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`));

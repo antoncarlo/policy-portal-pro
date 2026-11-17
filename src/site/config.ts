@@ -21,6 +21,8 @@ export const LANG_SHORT: Record<Lang, string> = { it: "IT", en: "EN", zh: "中�
 
 /** Data dell'ultima verifica dei contenuti normativi sulle fonti ufficiali (AAAA-MM-GG). */
 export const CONTENT_UPDATED = "2026-11-15";
+/** Ultimo aggiornamento delle pagine Privacy e Cookie: è distinto da CONTENT_UPDATED, la data dell'ultima verifica delle norme. */
+export const LEGAL_UPDATED = "2026-11-17";
 const DATE_LOCALE: Record<Lang, string> = { it: "it-IT", en: "en-GB", zh: "zh-CN" };
 /** La data scritta per esteso nella lingua della pagina: «15 novembre 2026». */
 export const formatDate = (lang: Lang, iso: string): string =>

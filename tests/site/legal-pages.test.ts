@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { COMPANY, LANGS, readSiteEnv, type Lang } from "../../src/site/config";
+import { COMPANY, CONTENT_UPDATED, LANGS, LEGAL_UPDATED, readSiteEnv, type Lang } from "../../src/site/config";
 import { CONSENT_KEY } from "../../src/site/consent-core";
 import { contentFor } from "../../src/site/content";
 import { renderAll, renderPage } from "../../src/site/render";
@@ -87,6 +87,42 @@ describe("privacy page", () => {
     const count = (lang: Lang) => contentFor(lang).legal.privacy.sections.length;
     expect(count("en")).toBe(count("it"));
     expect(count("zh")).toBe(count("it"));
+  });
+});
+
+describe("visit statistics with Vercel Web Analytics", () => {
+  const PRIVACY: Record<Lang, RegExp[]> = {
+    it: [/senza cookie e senza salvare nulla nel tuo browser/, /cancellato dopo 24 ore/, /fornisce le statistiche di visita \(Vercel Web Analytics\)/],
+    en: [/without cookies and without saving anything in your browser/, /deleted after 24 hours/, /provides the visit statistics \(Vercel Web Analytics\)/],
+    zh: [/不使用Cookie，也不在您的浏览器中保存任何内容/, /24小时后删除/, /提供访问统计（Vercel Web Analytics）/],
+  };
+  const RESERVED: Record<Lang, RegExp> = {
+    it: /Anche nell'area riservata le statistiche delle pagine viste sono raccolte con Vercel Web Analytics/,
+    en: /In the client area too, the statistics of the pages viewed are collected with Vercel Web Analytics/,
+    zh: /在客户区域内，浏览页面的统计同样通过 Vercel Web Analytics 收集/,
+  };
+
+  it("the privacy page says what is collected, without cookies, for how long and by whom, with and without Google's tools", () => {
+    for (const env of [plain, measured]) for (const lang of LANGS) for (const fact of PRIVACY[lang]) expect(text(page("privacy", lang, env)).replace(/&#x27;/g, "'"), `${lang}: ${fact}`).toMatch(fact);
+  });
+
+  it("the cookie page says it, for the public pages and the reserved area, and lists nothing of it in the browser", () => {
+    for (const env of [plain, measured]) {
+      for (const lang of LANGS) {
+        const body = text(page("cookie", lang, env)).replace(/&#x27;/g, "'");
+        expect(body, lang).toContain("Vercel Web Analytics");
+        expect(body, lang).toMatch(RESERVED[lang]);
+        expect(main(page("cookie", lang, env)), lang).not.toMatch(/<code>[^<]*(vercel|_va)[^<]*<\/code>/i);
+      }
+    }
+  });
+
+  it("the legal pages carry their own date of update, apart from the date of the last check of the rules", () => {
+    for (const lang of LANGS) {
+      for (const id of ["privacy", "cookie"] as const) expect(main(page(id, lang)), `${lang} ${id}`).toContain(`<time dateTime="${LEGAL_UPDATED}">`);
+      expect(main(page("home", lang)), lang).toContain(`<time dateTime="${CONTENT_UPDATED}">`);
+    }
+    expect(LEGAL_UPDATED).toBe("2026-11-17");
   });
 });
 

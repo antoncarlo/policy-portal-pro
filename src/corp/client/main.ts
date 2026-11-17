@@ -3,6 +3,7 @@
 // consenso ai cookie e avviso della lingua.
 // I comportamenti sono gli stessi del sito del portale: leggono solo attributi e classi della pagina.
 import "../corp.css";
+import { initAnalytics } from "../../site-kit/client/analytics";
 import { initConsent } from "../../site/client/consent";
 import { initHeroVideo } from "../../site/client/hero-video";
 import { initLangNotice } from "../../site/client/lang";
@@ -24,6 +25,8 @@ const start = () => {
   // Prima il consenso: l'avviso della lingua aspetta che il banner dei cookie sia chiuso.
   initConsent();
   initLangNotice();
+  // Statistiche senza cookie: non dipendono dal consenso (vedi la pagina Cookie).
+  initAnalytics();
 };
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });

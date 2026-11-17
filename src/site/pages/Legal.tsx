@@ -1,6 +1,6 @@
 // Le pagine di testo, con il solo titolo in apertura: Privacy (chi tratta i dati, perche', per quanto, con chi, quali diritti) e Cookie (cosa si
 // salva nel browser, per nome). Stessa struttura nelle tre lingue.
-import { CONTENT_UPDATED, formatDate } from "../config";
+import { LEGAL_UPDATED, formatDate } from "../config";
 import type { PageProps } from "../components/Layout";
 import { Rich } from "../components/Rich";
 import type { LegalSection } from "../content/types";
@@ -85,7 +85,7 @@ export const LegalPage = (props: PageProps) => {
           legal.privacy.sections.map((section) => <Section key={section.title} section={section} {...props} />)
         )}
         <p className="legal__updated">
-          {legal.updated} <time dateTime={CONTENT_UPDATED}>{formatDate(page.lang, CONTENT_UPDATED)}</time>
+          {legal.updated} <time dateTime={LEGAL_UPDATED}>{formatDate(page.lang, LEGAL_UPDATED)}</time>
         </p>
       </div>
     </article>

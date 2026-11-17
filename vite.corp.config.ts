@@ -10,6 +10,8 @@ export default defineConfig(() => ({
   publicDir: "sites/tecnomga/public",
   server: { host: "::", port: 5301 },
   build: { outDir: "sites/tecnomga/dist", emptyOutDir: true },
+  // Vercel Web Analytics solo nelle build fatte su Vercel: in locale e nelle prove lo script non esiste.
+  define: { __VERCEL_ANALYTICS__: JSON.stringify(process.env.VERCEL === "1") },
   plugins: [
     staticSitePlugin({
       name: "tecnomga-corporate-site",

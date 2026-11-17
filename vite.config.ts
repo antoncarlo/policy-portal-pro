@@ -28,6 +28,8 @@ export default defineConfig(() => ({
   },
   define: {
     __BUILD_ID__: JSON.stringify(buildId),
+    // Vercel Web Analytics solo nelle build fatte su Vercel: in locale e nelle prove lo script non esiste.
+    __VERCEL_ANALYTICS__: JSON.stringify(process.env.VERCEL === "1"),
   },
   plugins: [react(), versionFilePlugin(), publicSitePlugin()],
   resolve: {

@@ -26,6 +26,7 @@ export const legalEn = (measurement: boolean): CorpLegal => ({
         list: [
           "Data you write in the quotation form: full name, email, the text of the message and, if you give them, company, phone and product. We also record the language and the page the request was sent from.",
           "Browsing data: IP address, browser type, pages requested, date and time. They are recorded automatically by the systems hosting the site, to make it work and to protect it.",
+          "Visit statistics with Vercel Web Analytics, without cookies and without saving anything in your browser: page visited, referring page, country, region and city, operating system, browser and device type. Visitors are told apart by a code derived from the request, which is deleted after 24 hours: the data are used only in aggregate form and are not linked to you or to your IP address. Before sending, we remove from the page address everything the statistics do not need.",
           measurement ? "Preferences saved in your browser: your cookie choice and your language choice." : "Preferences saved in your browser: your language choice.",
           ...when(measurement, "Data collected by Google Analytics, only if you have given consent: they are described on the {cookie} page."),
         ],
@@ -39,6 +40,7 @@ export const legalEn = (measurement: boolean): CorpLegal => ({
         list: [
           "Answering your request and preparing the quotation you ask for: these are pre-contractual steps taken at your request (Article 6(1)(b) of Regulation (EU) 2016/679).",
           "Making the site work, protecting it and preventing abuse of the form: this is our legitimate interest (Article 6(1)(f)).",
+          "Visit statistics in aggregate form with Vercel Web Analytics, without cookies, to understand which pages are useful and improve the site: this is our legitimate interest (Article 6(1)(f)).",
           ...when(measurement, "Visit statistics with Google Analytics: only with your consent (Article 6(1)(a)), which you can withdraw at any time from “Cookie preferences” in the footer."),
         ],
       },
@@ -49,6 +51,7 @@ export const legalEn = (measurement: boolean): CorpLegal => ({
           "Quotation requests: 24 months from sending, then they are deleted automatically from the archive where we keep them. If a contract follows from the request, the data are processed under the general privacy notice.",
           "The email carrying the request, in the controller's mailbox: for the time needed to handle it.",
           "Browsing data: for the technical retention of the logs of the provider hosting the site.",
+          "Visit statistics: the code that tells visitors apart is deleted after 24 hours; only aggregate data remain.",
           ...when(measurement, "Cookie choice: six months in your browser, then we ask again."),
         ],
       },
@@ -60,7 +63,7 @@ export const legalEn = (measurement: boolean): CorpLegal => ({
           "We do not sell your data and we do not disclose them to anyone else, unless the law or an authority requires it. If a contract follows from the request, the necessary data are disclosed to the insurance company, as described in the general privacy notice.",
         ],
         list: [
-          "Vercel Inc.: hosts the site; the function that receives the form runs in its Dublin (Ireland) data centre.",
+          "Vercel Inc.: hosts the site and provides the visit statistics (Vercel Web Analytics); the function that receives the form runs in its Dublin (Ireland) data centre.",
           "Supabase Inc.: hosts the database where the requests are saved, in its data centre in Ireland.",
           "Google (Google Workspace) and Resend: email services through which the request reaches the controller's mailbox.",
           ...when(measurement, "Google Ireland Limited: Google Analytics, only if you have given consent."),
@@ -98,8 +101,12 @@ export const legalEn = (measurement: boolean): CorpLegal => ({
           ? [
               "The site uses no profiling cookies of its own. It uses technical tools to remember your choices and, only if you agree, Google Analytics for visit statistics.",
               "Before your choice, and after a refusal, no Google script is loaded. If you refuse, the site works in the same way.",
+              "Visit statistics are collected with Vercel Web Analytics, which uses no cookies and saves nothing in your browser: this is why it is not in the list. What it collects is described on the {privacy} page.",
             ]
-          : ["The site uses no profiling cookies and no measurement tools. It saves in your browser only your language choice, so the notice is not shown again."],
+          : [
+              "The site uses no profiling cookies and no measurement cookies. It saves in your browser only your language choice, so the notice is not shown again.",
+              "Visit statistics are collected with Vercel Web Analytics, which uses no cookies and saves nothing in your browser: this is why it is not in the list. What it collects is described on the {privacy} page.",
+            ],
         list: [],
       },
     ],
@@ -130,7 +137,7 @@ export const legalEn = (measurement: boolean): CorpLegal => ({
           },
       {
         title: "Who processes the data",
-        paragraphs: [`The controller is Tecno Advance MGA Broker Srl.${measurement ? " The data collected by Google Analytics are also processed by Google Ireland Limited." : ""} For everything else read the {privacy} page.`],
+        paragraphs: [`The controller is Tecno Advance MGA Broker Srl. The cookieless visit statistics are provided by Vercel Inc.${measurement ? " The data collected by Google Analytics are also processed by Google Ireland Limited." : ""} For everything else read the {privacy} page.`],
         list: [],
       },
     ],
