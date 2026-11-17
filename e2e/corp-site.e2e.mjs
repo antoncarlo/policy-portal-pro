@@ -154,10 +154,21 @@ for (const width of [360, 390]) {
   await page.locator('[data-product="car"] a[data-quote-product]').click();
   await page.waitForTimeout(400);
   check("homepage: «Chiedi un preventivo» porta alla sezione del preventivo", new URL(page.url()).hash === "#preventivo" && (await page.locator("#preventivo").isVisible()));
-  // every section becomes visible when reached: nothing stays hidden waiting for a scroll that already happened
-  await page.evaluate(async () => { for (let y = 0; y <= document.documentElement.scrollHeight; y += 400) { window.scrollTo(0, y); await new Promise((resolve) => setTimeout(resolve, 60)); } });
-  await page.waitForTimeout(900);
-  check("homepage: dopo lo scorrimento nessun contenuto resta nascosto", (await page.locator(".is-waiting").count()) === 0, String(await page.locator(".is-waiting").count()));
+  // Each waiting element is brought on screen, as a reader scrolling the page would, and must appear: a fast
+  // programmatic scroll can pass an element between two frames of the browser, which no reader does.
+  let stuck = "";
+  for (let guard = 0; guard < 60; guard += 1) {
+    const next = await page.$(".is-waiting");
+    if (!next) break;
+    await next.scrollIntoViewIfNeeded();
+    const appeared = await next.evaluate((node) => new Promise((resolve) => {
+      const until = Date.now() + 3000;
+      const tick = () => (!node.classList.contains("is-waiting") ? resolve(true) : Date.now() > until ? resolve(false) : requestAnimationFrame(tick));
+      tick();
+    }));
+    if (!appeared) { stuck = await next.evaluate((node) => `${node.tagName.toLowerCase()}.${node.className}`); break; }
+  }
+  check("homepage: ogni contenuto compare quando arriva sullo schermo", !stuck && (await page.locator(".is-waiting").count()) === 0, stuck || String(await page.locator(".is-waiting").count()));
   check("homepage: nessuna richiesta verso l'esterno", external.length === 0, [...new Set(external)].join(", "));
   check("homepage: nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
   await ctx.close();
@@ -266,7 +277,7 @@ for (const width of [360, 390]) {
   await page.locator('.legal__body a[href="/privacy/"]').first().click();
   await page.waitForURL(`${BASE}/privacy/`);
   check("cookie: il rimando porta all'informativa sulla privacy", (await page.locator("h1").innerText()) === "Informativa sulla privacy");
-  check("privacy: il rimando all'informativa generale si apre in un'altra scheda", (await page.locator('.legal__body a[target="_blank"][rel="noopener noreferrer"]').first().getAttribute("href")) === "https://tecnomga.com/wp-content/uploads/2025/12/Informativaprivacytecno-1_1.pdf");
+  check("privacy: il rimando all'informativa generale si apre in un'altra scheda", (await page.locator('.legal__body a[target="_blank"][rel="noopener noreferrer"]').first().getAttribute("href")) === "/documenti/informativa-privacy.pdf");
   check("pagine legali: nessun errore JS", pageErrors.length === 0, pageErrors.join(" | "));
   await ctx.close();
 }
