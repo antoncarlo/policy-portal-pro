@@ -2,6 +2,8 @@
 // il modulo e' ricevuto dalla funzione del portale (regione dub1, vercel.json), salvato nella tabella
 // contact_requests (cancellazione dopo 24 mesi), inoltrato per email; l'indirizzo IP non si salva (contatori con
 // impronta a chiave); la scelta sui cookie dura 180 giorni (src/site/consent-core.ts).
+// Vercel Web Analytics (17/11/2026, pagina «Privacy and Compliance» della documentazione di Vercel): nessun cookie,
+// chi visita e' distinto da un codice ricavato dalla richiesta e cancellato dopo 24 ore, solo dati aggregati.
 import type { CorpLegal } from "./index";
 
 const when = <T>(condition: boolean, ...items: T[]): T[] => (condition ? items : []);
@@ -29,6 +31,7 @@ export const legalIt = (measurement: boolean): CorpLegal => ({
         list: [
           "Dati che scrivi nel modulo di richiesta preventivo: nome e cognome, email, il testo del messaggio e, se li indichi, società, telefono e prodotto. Registriamo anche la lingua e la pagina da cui hai inviato la richiesta.",
           "Dati di navigazione: indirizzo IP, tipo di browser, pagine richieste, data e ora. Li registrano in modo automatico i sistemi che ospitano il sito, per farlo funzionare e proteggerlo.",
+          "Statistiche di visita con Vercel Web Analytics, senza cookie e senza salvare nulla nel tuo browser: pagina visitata, pagina di provenienza, Paese, regione e città, sistema operativo, browser e tipo di dispositivo. Chi visita è distinto da un codice ricavato dalla richiesta, che viene cancellato dopo 24 ore: i dati si usano solo in forma aggregata e non sono collegati a te né al tuo indirizzo IP. Prima dell'invio togliamo dall'indirizzo della pagina tutto ciò che non serve alle statistiche.",
           measurement ? "Preferenze salvate nel tuo browser: la scelta sui cookie e quella sulla lingua." : "Preferenze salvate nel tuo browser: la scelta sulla lingua.",
           ...when(measurement, "Dati raccolti da Google Analytics, solo se hai dato il consenso: sono descritti nella pagina {cookie}."),
         ],
@@ -42,6 +45,7 @@ export const legalIt = (measurement: boolean): CorpLegal => ({
         list: [
           "Rispondere alla tua richiesta e preparare la quotazione che chiedi: sono misure precontrattuali adottate su tua richiesta (art. 6, par. 1, lett. b, del Regolamento UE 2016/679).",
           "Far funzionare il sito, proteggerlo e impedire gli abusi del modulo: è un nostro legittimo interesse (art. 6, par. 1, lett. f).",
+          "Statistiche di visita in forma aggregata con Vercel Web Analytics, senza cookie, per capire quali pagine servono e migliorare il sito: è un nostro legittimo interesse (art. 6, par. 1, lett. f).",
           ...when(measurement, "Statistiche di visita con Google Analytics: solo con il tuo consenso (art. 6, par. 1, lett. a), che puoi revocare in ogni momento da «Preferenze sui cookie» nel piè di pagina."),
         ],
       },
@@ -52,6 +56,7 @@ export const legalIt = (measurement: boolean): CorpLegal => ({
           "Richieste di preventivo: 24 mesi dall'invio, poi sono cancellate in modo automatico dall'archivio in cui le conserviamo. Se dalla richiesta nasce un rapporto contrattuale, i dati sono trattati secondo l'informativa generale.",
           "Email con la richiesta, nella casella di posta del titolare: per il tempo necessario a gestirla.",
           "Dati di navigazione: per i tempi tecnici dei registri del fornitore che ospita il sito.",
+          "Statistiche di visita: il codice che distingue chi visita è cancellato dopo 24 ore; restano solo dati aggregati.",
           ...when(measurement, "Scelta sui cookie: sei mesi nel tuo browser, poi la chiediamo di nuovo."),
         ],
       },
@@ -63,7 +68,7 @@ export const legalIt = (measurement: boolean): CorpLegal => ({
           "Non vendiamo i tuoi dati e non li comunichiamo ad altri soggetti, salvo che lo richieda la legge o un'autorità. Se dalla richiesta nasce un contratto, i dati necessari sono comunicati alla compagnia di assicurazione, come descritto nell'informativa generale.",
         ],
         list: [
-          "Vercel Inc.: ospita il sito; la funzione che riceve il modulo è eseguita nel suo centro dati di Dublino (Irlanda).",
+          "Vercel Inc.: ospita il sito e fornisce le statistiche di visita (Vercel Web Analytics); la funzione che riceve il modulo è eseguita nel suo centro dati di Dublino (Irlanda).",
           "Supabase Inc.: ospita la banca dati in cui sono salvate le richieste, nel centro dati in Irlanda.",
           "Google (Google Workspace) e Resend: servizi di posta elettronica con cui la richiesta arriva alla casella del titolare.",
           ...when(measurement, "Google Ireland Limited: Google Analytics, solo se hai dato il consenso."),
@@ -101,8 +106,12 @@ export const legalIt = (measurement: boolean): CorpLegal => ({
           ? [
               "Il sito non usa cookie di profilazione propri. Usa strumenti tecnici per ricordare le tue scelte e, solo se acconsenti, Google Analytics per le statistiche di visita.",
               "Prima della tua scelta, e dopo un rifiuto, nessuno script di Google viene caricato. Se rifiuti, il sito funziona allo stesso modo.",
+              "Le statistiche di visita sono raccolte con Vercel Web Analytics, che non usa cookie e non salva nulla nel tuo browser: per questo non compare nell'elenco. Che cosa raccoglie è descritto nella pagina {privacy}.",
             ]
-          : ["Il sito non usa cookie di profilazione né strumenti di misurazione. Salva nel tuo browser soltanto la scelta sulla lingua, per non riproporti l'avviso."],
+          : [
+              "Il sito non usa cookie di profilazione né cookie di misurazione. Salva nel tuo browser soltanto la scelta sulla lingua, per non riproporti l'avviso.",
+              "Le statistiche di visita sono raccolte con Vercel Web Analytics, che non usa cookie e non salva nulla nel tuo browser: per questo non compare nell'elenco. Che cosa raccoglie è descritto nella pagina {privacy}.",
+            ],
         list: [],
       },
     ],
@@ -133,7 +142,7 @@ export const legalIt = (measurement: boolean): CorpLegal => ({
           },
       {
         title: "Chi tratta i dati",
-        paragraphs: [`Il titolare è Tecno Advance MGA Broker Srl.${measurement ? " I dati raccolti da Google Analytics sono trattati anche da Google Ireland Limited." : ""} Per tutto il resto leggi la pagina {privacy}.`],
+        paragraphs: [`Il titolare è Tecno Advance MGA Broker Srl. Le statistiche di visita senza cookie sono fornite da Vercel Inc.${measurement ? " I dati raccolti da Google Analytics sono trattati anche da Google Ireland Limited." : ""} Per tutto il resto leggi la pagina {privacy}.`],
         list: [],
       },
     ],

@@ -90,6 +90,8 @@ Per rifare il video: stesso fotogramma come inizio e fine, movimento lento senza
 
 Senza `VITE_CORP_GA4_ID` il sito non carica nulla di Google, il banner non esiste e le pagine Privacy e Cookie non nominano Google: il sito salva nel browser solo la scelta sulla lingua. Con l'identificativo (solo nella forma `G-…`) compare il banner con un unico consenso, «Accetta» e «Rifiuta» di pari evidenza, e le due pagine elencano la scelta sui cookie e i due cookie di Google Analytics. Il sito aziendale non usa Google Ads.
 
+**Statistiche senza cookie (Vercel Web Analytics).** Su ogni pagina parte lo script di Vercel Web Analytics, solo nelle build fatte su Vercel (`__VERCEL_ANALYTICS__`, vero quando la build ha `VERCEL=1`; in locale e nelle prove lo script non c'è). Lo script arriva dallo stesso dominio (`/_vercel/insights/script.js`), quindi la politica di sicurezza non cambia. Non usa cookie e non salva nulla nel browser: per Vercel chi visita è distinto da un codice ricavato dalla richiesta, cancellato dopo 24 ore, e i dati sono solo aggregati (pagina «Privacy and Compliance» della documentazione di Vercel, letta il 17/11/2026). Per questo parte senza consenso ed è descritto nelle pagine Privacy e Cookie. Prima di ogni invio `analyticsUrl` (`src/site-kit/analytics.ts`) toglie dall'indirizzo il frammento, i parametri diversi da `utm_*` e gli identificativi di pratiche e clienti (`/practices/[id]`, `/clients/[id]`). Le statistiche si leggono nella scheda **Analytics** del progetto Vercel; Web Analytics va attivato una volta in quella scheda, per ogni progetto.
+
 ## SECTION 08 — Variabili d'ambiente
 
 Tutte lette alla build, nel progetto Vercel del sito aziendale: dopo una modifica serve una nuova pubblicazione.
@@ -136,7 +138,7 @@ Il ramo di produzione è `main`: ogni modifica unita su `main` ripubblica il sit
 | `/portale-assicurativo/` (e `/en/`) | `https://portale.tecnomga.com/` |
 | `/wp-content/uploads/2025/12/Informativaprivacytecno-1_1.pdf` (a cui rimanda anche il portale) | `/documenti/informativa-privacy.pdf`, copia identica del documento |
 
-Tutti permanenti (308). Le pagine di servizio di WordPress (autori, categorie, modelli, «hello-world», «test-aj») non vengono riportate e rispondono «non trovato», come i documenti non riportati: il MUP e l'informativa sulla vendita a distanza del vecchio sito sono legati alla collaborazione con l'agenzia Vittoria e a Helpet, indicano il sito `tecnoinsurance.com` e mandano i recessi a Vittoria Assicurazioni; i termini e condizioni sono quelli di Helpet. Le versioni aggiornate si pubblicano in `sites/tecnomga/public/documenti/` quando il titolare le fornisce.
+Tutti permanenti (308). Con `trailingSlash: true` Vercel aggiunge la barra finale prima di cercare la regola: ogni `source` di una pagina finisce quindi con `/` (`/about-us/`), altrimenti l'indirizzo risponde «non trovato»; `tests/server/vercel-config.test.ts` compila le regole con la libreria di Vercel e lo verifica. Le pagine di servizio di WordPress (autori, categorie, modelli, «hello-world», «test-aj») non vengono riportate e rispondono «non trovato», come i documenti non riportati: il MUP e l'informativa sulla vendita a distanza del vecchio sito sono legati alla collaborazione con l'agenzia Vittoria e a Helpet, indicano il sito `tecnoinsurance.com` e mandano i recessi a Vittoria Assicurazioni; i termini e condizioni sono quelli di Helpet. Le versioni aggiornate si pubblicano in `sites/tecnomga/public/documenti/` quando il titolare le fornisce.
 
 ## SECTION 10 — Prove
 

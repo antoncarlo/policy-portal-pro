@@ -6,42 +6,42 @@
   "trailingSlash": true,
   "redirects": [
     {
-      "source": "/about-us",
+      "source": "/about-us/",
       "destination": "/#fondatori",
       "permanent": true
     },
     {
-      "source": "/en/about-us",
+      "source": "/en/about-us/",
       "destination": "/en/#fondatori",
       "permanent": true
     },
     {
-      "source": "/contact",
+      "source": "/contact/",
       "destination": "/#preventivo",
       "permanent": true
     },
     {
-      "source": "/en/contact",
+      "source": "/en/contact/",
       "destination": "/en/#preventivo",
       "permanent": true
     },
     {
-      "source": "/(services|fideiussioni-e-cauzioni|decennale-postuma-e-car|ar-fotovoltaico|business-insurance|home-insurance|vehicle-insurance|health-insurance|life-insurance|travel-insurance)",
+      "source": "/(services|fideiussioni-e-cauzioni|decennale-postuma-e-car|ar-fotovoltaico|business-insurance|home-insurance|vehicle-insurance|health-insurance|life-insurance|travel-insurance)/",
       "destination": "/#prodotti",
       "permanent": true
     },
     {
-      "source": "/en/(services|fideiussioni-e-cauzioni|decennale-postuma-e-car|ar-fotovoltaico|business-insurance|home-insurance|vehicle-insurance|health-insurance|life-insurance|travel-insurance)",
+      "source": "/en/(services|fideiussioni-e-cauzioni|decennale-postuma-e-car|ar-fotovoltaico|business-insurance|home-insurance|vehicle-insurance|health-insurance|life-insurance|travel-insurance)/",
       "destination": "/en/#prodotti",
       "permanent": true
     },
     {
-      "source": "/portale-assicurativo",
+      "source": "/portale-assicurativo/",
       "destination": "https://portale.tecnomga.com/",
       "permanent": true
     },
     {
-      "source": "/en/portale-assicurativo",
+      "source": "/en/portale-assicurativo/",
       "destination": "https://portale.tecnomga.com/",
       "permanent": true
     },

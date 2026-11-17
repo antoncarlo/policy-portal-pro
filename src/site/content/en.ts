@@ -337,6 +337,7 @@ export const en: SiteContent = {
           list: [
             "Data you write in the contact form: full name, company or firm, role, country, email, the text of the message and, if you give them, phone and expected number of applications. We also record the language and the page the request was sent from.",
             "Browsing data: IP address, browser type, pages requested, date and time. They are recorded automatically by the systems hosting the site, to make it work and to protect it.",
+            "Visit statistics with Vercel Web Analytics, without cookies and without saving anything in your browser: page visited, referring page, country, region and city, operating system, browser and device type. Visitors are told apart by a code derived from the request, which is deleted after 24 hours: the data are used only in aggregate form and are not linked to you or to your IP address. Before sending, we remove from the page address everything the statistics do not need.",
             "Preferences saved in your browser: your cookie choice and your language choice.",
             "Data collected by Google's tools, only if you have given consent: they are described on the {cookie} page.",
           ],
@@ -350,6 +351,7 @@ export const en: SiteContent = {
           list: [
             "Answering your request and, if you ask for one, preparing a quotation: these are pre-contractual steps taken at your request (Article 6(1)(b) of Regulation (EU) 2016/679).",
             "Making the site work, protecting it and preventing abuse of the form: this is our legitimate interest (Article 6(1)(f)).",
+            "Visit statistics in aggregate form with Vercel Web Analytics, without cookies, to understand which pages are useful and improve the site: this is our legitimate interest (Article 6(1)(f)).",
             "Visit statistics and measurement of advertising campaigns with Google's tools: only with your consent (Article 6(1)(a)), which you can withdraw at any time from “Cookie preferences” in the footer.",
           ],
         },
@@ -360,6 +362,7 @@ export const en: SiteContent = {
             "Contact requests: 24 months from sending, then they are deleted automatically from the portal's list. If a contract follows from the request, the data are processed under the general privacy notice.",
             "The email carrying the request, in the controller's mailbox: for the time needed to handle it.",
             "Browsing data: for the technical retention of the logs of the provider hosting the site.",
+            "Visit statistics: the code that tells visitors apart is deleted after 24 hours; only aggregate data remain.",
             "Cookie choice: six months in your browser, then we ask again.",
           ],
         },
@@ -371,7 +374,7 @@ export const en: SiteContent = {
             "We do not sell your data and we do not disclose them to anyone else, unless the law or an authority requires it. If the request becomes an application, the necessary data are disclosed to the insurance company, as described in the general privacy notice.",
           ],
           list: [
-            "Vercel Inc.: hosts the site and runs its functions, in the Dublin (Ireland) data centre.",
+            "Vercel Inc.: hosts the site, runs its functions in the Dublin (Ireland) data centre and provides the visit statistics (Vercel Web Analytics).",
             "Supabase Inc.: hosts the database where the requests are saved, in its data centre in Ireland.",
             "Google (Google Workspace) and Resend: email services through which the request reaches the controller's mailbox.",
             "Google Ireland Limited: Google Analytics and Google Ads, only if you have given consent.",
@@ -408,6 +411,7 @@ export const en: SiteContent = {
           paragraphs: [
             "The site uses no profiling cookies of its own. It uses technical tools to remember your choices and, only if you agree, Google's tools for visit statistics and to measure advertising campaigns.",
             "Before your choice, and after a refusal, no Google script is loaded. If you refuse, the site works in the same way.",
+            "Visit statistics are collected with Vercel Web Analytics, which uses no cookies and saves nothing in your browser: this is why it is not in the list. What it collects is described on the {privacy} page.",
           ],
           list: [],
         },
@@ -434,12 +438,12 @@ export const en: SiteContent = {
         },
         {
           title: "The client area",
-          paragraphs: ["After sign-in, the client area of the portal uses its own technical tools to keep the session and remember the language. They are not used for profiling."],
+          paragraphs: ["After sign-in, the client area of the portal uses its own technical tools to keep the session and remember the language. They are not used for profiling.", "In the client area too, the statistics of the pages viewed are collected with Vercel Web Analytics, without cookies: page addresses are sent without the identifiers of practices and clients."],
           list: [],
         },
         {
           title: "Who processes the data",
-          paragraphs: ["The controller is Tecno Advance MGA Broker Srl. The data collected by Google's tools are also processed by Google Ireland Limited. For everything else read the {privacy} page."],
+          paragraphs: ["The controller is Tecno Advance MGA Broker Srl. The cookieless visit statistics are provided by Vercel Inc. The data collected by Google's tools are also processed by Google Ireland Limited. For everything else read the {privacy} page."],
           list: [],
         },
       ],

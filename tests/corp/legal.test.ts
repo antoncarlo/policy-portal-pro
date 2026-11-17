@@ -105,6 +105,27 @@ describe("informativa sulla privacy", () => {
     }
   });
 
+  it("dice che le statistiche di visita si raccolgono con Vercel Web Analytics, senza cookie, con e senza Google Analytics", () => {
+    for (const env of [plain, measured]) {
+      const it_ = text(page("privacy", "it", env));
+      expect(it_).toContain("Vercel Web Analytics");
+      expect(it_).toMatch(/senza cookie e senza salvare nulla nel tuo browser/);
+      expect(it_).toMatch(/cancellato dopo 24 ore/);
+      expect(it_).toMatch(/Vercel Inc\.: ospita il sito e fornisce le statistiche di visita/);
+      const en = text(page("privacy", "en", env));
+      expect(en).toContain("Vercel Web Analytics");
+      expect(en).toMatch(/without cookies and without saving anything in your browser/);
+      expect(en).toMatch(/deleted after 24 hours/);
+      expect(en).toMatch(/Vercel Inc\.: hosts the site and provides the visit statistics/);
+      for (const lang of CORP.langs) {
+        const cookie = page("cookie", lang, env);
+        expect(text(cookie), lang).toContain("Vercel Web Analytics");
+        // Non salva nulla nel browser: nell'elenco non c'e' nessuna sua voce.
+        expect(cookieNames(cookie).join(" "), lang).not.toMatch(/vercel|_va/i);
+      }
+    }
+  });
+
   it("indica i diritti, il tempo di risposta e il Garante", () => {
     for (const lang of CORP.langs) {
       const html = main(page("privacy", lang));
@@ -122,8 +143,8 @@ describe("informativa sui cookie", () => {
       const body = text(html);
       for (const word of ["_ga", "tecno-consent", "Google"]) expect(body, `${lang}: ${word}`).not.toContain(word);
     }
-    expect(text(page("cookie", "it"))).toMatch(/non usa cookie di profilazione né strumenti di misurazione/);
-    expect(text(page("cookie", "en"))).toMatch(/uses no profiling cookies and no measurement tools/);
+    expect(text(page("cookie", "it"))).toMatch(/non usa cookie di profilazione né cookie di misurazione/);
+    expect(text(page("cookie", "en"))).toMatch(/uses no profiling cookies and no measurement cookies/);
   });
 
   it("con la misurazione elenca la scelta sui cookie e i due cookie di Google Analytics, attivi solo con il consenso", () => {
