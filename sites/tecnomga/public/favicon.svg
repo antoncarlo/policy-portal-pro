@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Tecno Advance MGA">
+  <rect width="256" height="256" rx="56" fill="#ffffff"/>
+  <path d="M34 80 L128 32 L222 80 L222 113 L128 65 L34 113 Z" fill="#103657"/>
+  <path d="M34 124 L72 104 L72 194 L34 174 Z" fill="#103657"/>
+  <path d="M88 96 L126 77 L126 221 L88 201 Z" fill="#103657"/>
+  <path d="M142 78 L222 119 L222 174 L186 193 L186 137 L142 115 Z" fill="#ac7e59"/>
+  <path d="M142 128 L174 144 L174 199 L142 218 Z" fill="#ac7e59"/>
+  <path d="M27 231 H229" stroke="#103657" stroke-width="10" stroke-linecap="round" opacity="0.18"/>
+</svg>

@@ -8,7 +8,8 @@ import type { MailMessage, MailResult } from "../../api/_lib/mailer";
 const world = vi.hoisted(() => ({ db: null as unknown }));
 vi.mock("@supabase/supabase-js", () => ({ createClient: () => world.db }));
 
-const { CONTACT_MAX_PER_HOUR, CONTACT_MIN_ELAPSED_MS, CONTACT_ROLES, handleContactRequest, isLikelyBot, validateContact } = await import("../../api/_lib/contact-requests");
+const { CONTACT_MAX_PER_HOUR, CONTACT_MIN_ELAPSED_MS, CONTACT_PRODUCTS, CONTACT_ROLES, allowedOrigin, contactAllowedOrigins, contactInbox, handleContactRequest, isLikelyBot, validateContact } = await import("../../api/_lib/contact-requests");
+const { PRODUCT_IDS } = await import("../../src/corp/products");
 const { resetLocalRateLimits } = await import("../../api/_lib/rate-limit");
 
 /** The fake database plus the counter the limiter asks of it. */
@@ -46,6 +47,22 @@ const valid = (over: Record<string, unknown> = {}) => ({
   page: "/",
   website: "",
   elapsedMs: 8000,
+  ...over,
+});
+
+/** A quote request from the company site (tecnomga.com): no company, role or country, a product instead. */
+const corporate = (over: Record<string, unknown> = {}) => ({
+  site: "corporate",
+  product: "car",
+  name: "Marco Bianchi",
+  email: "marco.bianchi@example.test",
+  phone: "",
+  message: "Vorrei un preventivo per un cantiere a Roma.",
+  consent: true,
+  lang: "it",
+  page: "/",
+  website: "",
+  elapsedMs: 9000,
   ...over,
 });
 
@@ -134,6 +151,123 @@ describe("contact form: what is accepted", () => {
     assert.equal(isLikelyBot({ ...person.value, elapsedMs: CONTACT_MIN_ELAPSED_MS - 1 }), true);
     assert.equal(isLikelyBot({ ...person.value, elapsedMs: undefined }), true);
     assert.equal(isLikelyBot({ ...person.value, elapsedMs: CONTACT_MIN_ELAPSED_MS }), false);
+  });
+});
+
+describe("quote form of the company site: what is accepted", () => {
+  it("takes a request with name, email, message and consent: company, role and country are not asked", () => {
+    const result = validateContact(corporate());
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.value.site, "corporate");
+    assert.equal(result.value.product, "car");
+    assert.equal(result.value.company, undefined);
+    assert.equal(result.value.role, undefined);
+    assert.equal(result.value.country, undefined);
+  });
+
+  it("a company name is welcome but optional; the product may be left out", () => {
+    const withCompany = validateContact(corporate({ company: " Edil  Bianchi Srl " }));
+    assert.equal(withCompany.ok && withCompany.value.company, "Edil Bianchi Srl");
+    const noProduct = validateContact(corporate({ product: "" }));
+    assert.equal(noProduct.ok && noProduct.value.product, undefined);
+  });
+
+  it("names what is missing or wrong, the product and the site included", () => {
+    const empty = validateContact({ site: "corporate" });
+    assert.equal(empty.ok, false);
+    if (!empty.ok) assert.deepEqual(empty.fields.sort(), ["consent", "email", "message", "name"]);
+    const product = validateContact(corporate({ product: "yacht" }));
+    assert.deepEqual(!product.ok && product.fields, ["product"]);
+    const site = validateContact(corporate({ site: "elsewhere" }));
+    assert.deepEqual(!site.ok && site.fields, ["site"]);
+    const company = validateContact(corporate({ company: "x".repeat(121) }));
+    assert.deepEqual(!company.ok && company.fields, ["company"]);
+  });
+
+  it("the products are the eleven of the site plus «altro»", () => {
+    assert.deepEqual([...CONTACT_PRODUCTS], [...PRODUCT_IDS, "altro"]);
+    for (const product of CONTACT_PRODUCTS) assert.equal(validateContact(corporate({ product })).ok, true, product);
+  });
+
+  it("a request with no site is one of the portal, and still needs company, role and country", () => {
+    const portal = validateContact(valid());
+    assert.equal(portal.ok && portal.value.site, "portal");
+    const bare = validateContact(valid({ company: "", role: "", country: "" }));
+    assert.equal(bare.ok, false);
+    if (!bare.ok) assert.deepEqual(bare.fields.sort(), ["company", "country", "role"]);
+  });
+});
+
+describe("quote form of the company site: where a request goes", () => {
+  it("is saved as a request of the company site with its product, and sent to the company mailbox", async () => {
+    const { db, sent, send } = setup();
+    const result = await send(corporate({ company: "Edil Bianchi Srl" }));
+    assert.equal(result.status, 200);
+    const [row] = rows(db);
+    assert.equal(row.site, "corporate");
+    assert.equal(row.product, "car");
+    assert.equal(row.name, "Marco Bianchi");
+    assert.equal(row.company, "Edil Bianchi Srl");
+    assert.equal(row.role, null);
+    assert.equal(row.country, null);
+    assert.equal(row.email_sent, true);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].to, "info@tecnomga.com");
+    assert.equal(sent[0].replyTo, "marco.bianchi@example.test");
+    assert.equal(sent[0].subject, "Richiesta di preventivo dal sito: CAR (Marco Bianchi)");
+    assert.match(sent[0].html, /Richiesta di preventivo dal sito tecnomga\.com/);
+    assert.match(sent[0].html, /Vorrei un preventivo per un cantiere a Roma\./);
+    assert.doesNotMatch(sent[0].html, /VIES/);
+  });
+
+  it("without a company or a product the row holds none, and the email says so", async () => {
+    const { db, sent, send } = setup();
+    await send(corporate({ product: "" }));
+    assert.equal(rows(db)[0].company, null);
+    assert.equal(rows(db)[0].product, null);
+    assert.equal(sent[0].subject, "Richiesta di preventivo dal sito: prodotto non indicato (Marco Bianchi)");
+  });
+
+  it("each site has its mailbox, and each can be changed on its own", async () => {
+    assert.equal(contactInbox("portal"), "vies@tecnomga.com");
+    assert.equal(contactInbox("corporate"), "info@tecnomga.com");
+    vi.stubEnv("CORPORATE_CONTACT_INBOX", "prova-sito@example.test");
+    const { sent, send } = setup();
+    await send(corporate());
+    await send(valid());
+    assert.equal(sent[0].to, "prova-sito@example.test");
+    assert.equal(sent[1].to, "vies@tecnomga.com");
+    vi.unstubAllEnvs();
+  });
+
+  it("a request of the portal is written with the columns the table always had, so it is saved also before the new ones exist", async () => {
+    const { db, send } = setup();
+    await send(valid());
+    assert.equal("site" in rows(db)[0], false);
+    assert.equal("product" in rows(db)[0], false);
+  });
+
+  it("a program is treated like on the portal: same answer, nothing saved, no email", async () => {
+    const { db, sent, send } = setup();
+    assert.equal((await send(corporate({ website: "https://spam.example" }))).status, 200);
+    assert.equal((await send(corporate({ elapsedMs: 500 }))).status, 200);
+    assert.equal(rows(db).length, 0);
+    assert.equal(sent.length, 0);
+  });
+});
+
+describe("quote form of the company site: who may call from a browser", () => {
+  it("only the listed sites, compared as whole origins", () => {
+    const allowed = ["https://tecnomga.com", "https://www.tecnomga.com"];
+    assert.equal(allowedOrigin("https://tecnomga.com", allowed), "https://tecnomga.com");
+    assert.equal(allowedOrigin("https://WWW.tecnomga.com", allowed), "https://www.tecnomga.com");
+    for (const origin of [undefined, "", "null", "http://tecnomga.com", "https://tecnomga.com.evil.example", "https://evil.example/?https://tecnomga.com", "https://tecnomga.com:8443"]) assert.equal(allowedOrigin(origin, allowed), null, String(origin));
+  });
+
+  it("the company's own addresses are always allowed; CONTACT_ALLOWED_ORIGINS adds others, and only whole https origins", () => {
+    assert.deepEqual(contactAllowedOrigins(undefined), ["https://tecnomga.com", "https://www.tecnomga.com"]);
+    assert.deepEqual(contactAllowedOrigins(" https://prova.example.test , http://no.example.test, https://con-percorso.example.test/x, *, https://PROVA.example.test "), ["https://tecnomga.com", "https://www.tecnomga.com", "https://prova.example.test"]);
   });
 });
 
@@ -286,11 +420,52 @@ describe("POST /api/contact", () => {
     return state;
   };
 
-  it("answers only to POST", async () => {
+  it("answers only to POST, and to the question a browser asks before it", async () => {
     const state = await call("GET");
     assert.equal(state.status, 405);
-    assert.equal(state.headers.allow, "POST");
+    assert.equal(state.headers.allow, "POST, OPTIONS");
     assert.equal(rows(db).length, 0);
+  });
+
+  it("the company site may call from a browser: the question before the request is answered with its origin", async () => {
+    const state = await call("OPTIONS", undefined, { origin: "https://tecnomga.com", "access-control-request-method": "POST", "access-control-request-headers": "content-type" });
+    assert.equal(state.status, 204);
+    assert.equal(state.headers["access-control-allow-origin"], "https://tecnomga.com");
+    assert.match(state.headers["access-control-allow-methods"], /POST/);
+    assert.match(state.headers["access-control-allow-headers"], /content-type/i);
+    assert.equal(state.headers["access-control-allow-credentials"], undefined);
+    assert.match(state.headers.vary, /Origin/);
+    assert.equal(rows(db).length, 0);
+  });
+
+  it("another site gets no permission, before the request and after it", async () => {
+    const before = await call("OPTIONS", undefined, { origin: "https://evil.example", "access-control-request-method": "POST" });
+    assert.equal(before.headers["access-control-allow-origin"], undefined);
+    const after = await call("POST", corporate(), { "content-type": "application/json", origin: "https://evil.example" });
+    assert.equal(after.headers["access-control-allow-origin"], undefined);
+    assert.match(after.headers.vary, /Origin/);
+  });
+
+  it("a quote request from the company site is saved and the browser is allowed to read the answer", async () => {
+    const state = await call("POST", corporate(), { "content-type": "application/json", origin: "https://www.tecnomga.com" });
+    assert.equal(state.status, 200);
+    assert.deepEqual(state.body, { ok: true });
+    assert.equal(state.headers["access-control-allow-origin"], "https://www.tecnomga.com");
+    assert.equal(rows(db).length, 1);
+    assert.equal(rows(db)[0].site, "corporate");
+  });
+
+  it("a test address of the company site is allowed once it is listed in CONTACT_ALLOWED_ORIGINS", async () => {
+    const headers = { "content-type": "application/json", origin: "https://prova-sito.example.test" };
+    assert.equal((await call("POST", corporate(), headers)).headers["access-control-allow-origin"], undefined);
+    vi.stubEnv("CONTACT_ALLOWED_ORIGINS", "https://prova-sito.example.test");
+    assert.equal((await call("POST", corporate({ message: "Seconda richiesta di prova dal sito." }), headers)).headers["access-control-allow-origin"], "https://prova-sito.example.test");
+  });
+
+  it("the form of the portal, on its own address, works as before: no permission asked, none given", async () => {
+    const state = await call("POST", valid());
+    assert.equal(state.status, 200);
+    assert.equal(state.headers["access-control-allow-origin"], undefined);
   });
 
   it("saves a valid request and is never cached; without an email service the request stays saved", async () => {

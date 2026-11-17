@@ -8,9 +8,10 @@
 |---|---|---|
 | Lint, tipi (app e API), regressioni | `npm run lint` · `npm run typecheck` · `npm run test:checks` | stile, errori di tipo, script di sorveglianza su VIES, importazioni delle funzioni |
 | Prove sul server | `npm test` (Vitest) | funzioni delle API con un database finto: notifiche email, flusso delle pratiche e callback della compagnia, consegne in uscita, account e recupero password, rate limit, firma dei webhook, registro email, avvisi, rinnovi, termini delle integrazioni, offboarding, monitoraggio |
-| Prove nel browser | `npm run test:e2e` (Playwright) | pagine reali con la rete simulata: accesso e 2FA, sezioni del flusso, lotti, bozza e documenti da firmare, notifiche, offboarding, registro di audit, rinnovi, pagina di errore, adattamento a telefono/iPad/PC, sito pubblico (senza JavaScript, lingue, modulo contatti, cookie, blog, articoli e pagine per pubblico) |
+| Prove nel browser | `npm run test:e2e` (Playwright) | pagine reali con la rete simulata: accesso e 2FA, sezioni del flusso, lotti, bozza e documenti da firmare, notifiche, offboarding, registro di audit, rinnovi, pagina di errore, adattamento a telefono/iPad/PC, sito pubblico (senza JavaScript, lingue, modulo contatti, cookie, blog, articoli e pagine per pubblico), sito aziendale (senza JavaScript, menu, lingue, cookie, homepage, modulo di preventivo, pagine legali, apertura animata e video) |
 | Audit dipendenze, build | `node scripts/audit-gate.mjs` · `npx vite build` | vulnerabilità alte e critiche, compilazione |
 | Sito pubblico generato (dopo la build) | `npm run test:public-site` | tutte le pagine pubbliche come HTML completo (homepage, pagine per pubblico, blog con otto articoli per lingua), feed e sitemap, guscio del portale separato e non indicizzabile, peso di script, immagini e video (`docs/public-site.md`) |
+| Sito aziendale generato (dopo la sua build) | `npm run build:corp` · `npm run test:corp-site` | le pagine di `tecnomga.com` come HTML completo in `sites/tecnomga/dist/`, segnali di indicizzazione coerenti tra pagine e `robots.txt`, nessun file del portale (`docs/corporate-site.md`) |
 | Migrazioni da zero (a mano, come «Supabase Preview») | `scripts/check-migrations-fresh.sh` | applica `supabase/migrations/*.sql` in ordine di nome su un Postgres 16 locale vuoto (cluster in `/tmp/pgsim`, porta 54329) con gli schemi `auth`, `storage` e `cron` simulati; si ferma al primo file che fallisce |
 | Migrazioni da zero come l'anteprima Supabase (a mano, serve Docker) | `npx supabase@2.118.0 start -x realtime,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor` poi `npx supabase@2.118.0 db reset --local` | stack Supabase reale (Postgres 17, Auth e Storage con le loro tabelle): applica le migrazioni con le stesse regole del check, compreso il controllo delle versioni uniche |
 
@@ -27,7 +28,7 @@ npm run test:e2e -- renewals audit         # solo quelli il cui nome contiene qu
 AUDIT=1 ONLY=clienti,utenti VIEWPORT=telefono-390 npm run test:e2e -- responsive   # solo alcune pagine/larghezze, con le schermate in e2e/artifacts/responsive/
 ```
 
-Le prove nel browser avviano da sole il server di sviluppo sulla porta 5300 (`E2E_PORT` per cambiarla) e salvano le schermate in `e2e/artifacts/` (non versionata).
+Le prove nel browser avviano da sole il server di sviluppo sulla porta 5300 (`E2E_PORT` per cambiarla) e salvano le schermate in `e2e/artifacts/` (non versionata). Gli scenari il cui nome comincia con `corp-` avviano anche il server del sito aziendale sulla porta 5301.
 
 ## SECTION 03 — Scrivere una prova
 

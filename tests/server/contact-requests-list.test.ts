@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contactReplyHref, contactStatusChange, countToHandle, type ContactRequestRow } from "../../src/lib/contactRequests";
+import { contactReplyHref, contactRequestHeading, contactStatusChange, countToHandle, type ContactRequestRow } from "../../src/lib/contactRequests";
 
 const row = (over: Partial<ContactRequestRow> = {}): ContactRequestRow => ({
   id: "r1",
@@ -19,8 +19,12 @@ const row = (over: Partial<ContactRequestRow> = {}): ContactRequestRow => ({
   status: "new",
   handled_at: null,
   handled_by: null,
+  site: "portal",
+  product: null,
   ...over,
 });
+/** A quote request from the company site: no company, role or country, a product instead. */
+const quote = (over: Partial<ContactRequestRow> = {}) => row({ id: "q1", name: "Marco Bianchi", company: null, role: null, country: null, email: "marco.bianchi@example.test", site: "corporate", product: "car", ...over });
 
 describe("contact requests: the administrators' list", () => {
   it("marking a request as handled records who did it and when; reopening clears both", () => {
@@ -44,5 +48,18 @@ describe("contact requests: the administrators' list", () => {
     expect(decodeURIComponent(href.split("subject=")[1])).toBe("Richiesta di contatto VIES: Studio Rossi & Associati");
     // An address is never trusted to be only an address.
     expect(contactReplyHref(row({ email: "a@b.c?bcc=victim@example.test&body=x" }))).toBe("mailto:a@b.c%3Fbcc%3Dvictim@example.test%26body%3Dx?subject=Richiesta%20di%20contatto%20VIES%3A%20Studio%20Rossi%20%26%20Associati");
+  });
+
+  it("a request is headed by the company, or by the person when no company was given", () => {
+    expect(contactRequestHeading(row())).toBe("Studio Rossi & Associati");
+    expect(contactRequestHeading(quote())).toBe("Marco Bianchi");
+    expect(contactRequestHeading(quote({ company: "Edil Bianchi Srl" }))).toBe("Edil Bianchi Srl");
+  });
+
+  it("the answer to a quote request of the company site says so, and never mentions VIES", () => {
+    const href = contactReplyHref(quote());
+    expect(href.startsWith("mailto:marco.bianchi@example.test?subject=")).toBe(true);
+    expect(decodeURIComponent(href.split("subject=")[1])).toBe("Richiesta di preventivo: Marco Bianchi");
+    expect(decodeURIComponent(contactReplyHref(quote({ company: "Edil Bianchi Srl" })).split("subject=")[1])).toBe("Richiesta di preventivo: Edil Bianchi Srl");
   });
 });
