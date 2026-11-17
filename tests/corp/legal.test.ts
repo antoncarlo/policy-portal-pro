@@ -66,7 +66,7 @@ describe("informativa sulla privacy", () => {
   });
 
   it("da' il recapito del responsabile della protezione dei dati, lo stesso del portale, come link", () => {
-    expect(COMPANY.dpoEmail).toBe("antoncarlo@tecnomga.com");
+    expect(COMPANY.dpoEmail).toBe("info@tecnomga.com");
     for (const lang of CORP.langs) expect(main(page("privacy", lang)), lang).toContain(`<a href="mailto:${COMPANY.dpoEmail}">${COMPANY.dpoEmail}</a>`);
   });
 

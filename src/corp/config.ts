@@ -75,7 +75,7 @@ export const COMPANY = {
   /** Casella generale: riceve anche le richieste di preventivo e i reclami. */
   email: "info@tecnomga.com",
   /** Responsabile della protezione dei dati (DPO): lo stesso recapito del portale. */
-  dpoEmail: "antoncarlo@tecnomga.com",
+  dpoEmail: "info@tecnomga.com",
   /**
    * L'informativa generale (clienti e rapporti contrattuali), versione dicembre 2025: lo stesso documento a cui
    * rimanda il portale, ospitato dal sito. Il vecchio indirizzo vi porta con un reindirizzamento.

@@ -323,7 +323,7 @@ export const en: SiteContent = {
           title: "Who processes your data",
           paragraphs: [
             "The data controller is Tecno Advance MGA Broker Srl, registered office at Via Po, 102 - 00198 Roma, Italy, VAT no. 17460381001, an insurance intermediary entered in the Italian Single Register of Insurance Intermediaries under no. B000746484.",
-            "For any question about your data you can write to the data protection officer (DPO), antoncarlo@tecnomga.com, or to the registered office.",
+            "For any question about your data you can write to the data protection officer (DPO), info@tecnomga.com, or to the registered office.",
             "This notice covers the public part of the site portale.tecnomga.com and its contact form. Contractual relationships and the client area are covered by the {notice}.",
           ],
           list: [],
@@ -385,7 +385,7 @@ export const en: SiteContent = {
           title: "Your rights",
           paragraphs: [
             "At any time you can ask for access to your data, rectification, erasure, restriction of processing and portability, and you can object to processing based on legitimate interest (Articles 15 to 22 of the Regulation). If you have given consent you can withdraw it, without affecting what was done before.",
-            "To exercise your rights write to antoncarlo@tecnomga.com or to the registered office. We reply within one month, as Article 12 of the Regulation requires.",
+            "To exercise your rights write to info@tecnomga.com or to the registered office. We reply within one month, as Article 12 of the Regulation requires.",
             "If you believe the processing infringes the Regulation you can lodge a complaint with the Italian data protection authority, the Garante per la protezione dei dati personali (https://www.garanteprivacy.it/), or with the supervisory authority of the country where you live or work.",
           ],
           list: [],

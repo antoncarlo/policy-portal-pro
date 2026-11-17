@@ -22,7 +22,7 @@ const NAVY = "#1a2547";
 // Riferimenti dell'intermediario (carta intestata).
 const CO = {
   name: "Tecno Advance MGA Broker Srl",
-  web: "www.tecnoinsurance.com",
+  web: "www.tecnomga.com",
   rui: "B000746484",
   vat: "17460381001",
   legal: "Via Po, 102 - 00198 Roma",
@@ -30,7 +30,7 @@ const CO = {
   tel: "06.97638088",
   pec: "tecnoadvancemgabroker@legalmail.it",
   // Responsabile della protezione dei dati (DPO), nominato dal Titolare ai sensi dell'art. 37 GDPR.
-  privacy: { name: "Anton Carlo Santoro", email: "antoncarlo@tecnomga.com" },
+  privacy: { name: "Anton Carlo Santoro", email: "info@tecnomga.com" },
 };
 
 const CSS = `

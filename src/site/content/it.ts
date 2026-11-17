@@ -324,7 +324,7 @@ export const it: SiteContent = {
           title: "Chi tratta i tuoi dati",
           paragraphs: [
             "Il titolare del trattamento è Tecno Advance MGA Broker Srl, con sede legale in Via Po, 102 - 00198 Roma, P.IVA 17460381001, intermediario assicurativo iscritto al Registro Unico degli Intermediari con il n. B000746484.",
-            "Per qualsiasi domanda sui tuoi dati puoi scrivere al responsabile della protezione dei dati (DPO), antoncarlo@tecnomga.com, o alla sede legale.",
+            "Per qualsiasi domanda sui tuoi dati puoi scrivere al responsabile della protezione dei dati (DPO), info@tecnomga.com, o alla sede legale.",
             "Questa informativa riguarda la parte pubblica del sito portale.tecnomga.com e il suo modulo di contatto. Per i rapporti contrattuali e per l'area riservata vale l'{notice}.",
           ],
           list: [],
@@ -386,7 +386,7 @@ export const it: SiteContent = {
           title: "I tuoi diritti",
           paragraphs: [
             "Puoi chiedere in ogni momento l'accesso ai tuoi dati, la rettifica, la cancellazione, la limitazione del trattamento e la portabilità, e puoi opporti al trattamento fondato sul legittimo interesse (articoli da 15 a 22 del Regolamento). Se hai dato un consenso puoi revocarlo, senza effetti su ciò che è stato fatto prima.",
-            "Per esercitare i tuoi diritti scrivi a antoncarlo@tecnomga.com o alla sede legale. Rispondiamo entro un mese, come prevede l'art. 12 del Regolamento.",
+            "Per esercitare i tuoi diritti scrivi a info@tecnomga.com o alla sede legale. Rispondiamo entro un mese, come prevede l'art. 12 del Regolamento.",
             "Se ritieni che il trattamento violi il Regolamento puoi proporre reclamo al Garante per la protezione dei dati personali (https://www.garanteprivacy.it/) o all'autorità di controllo del Paese in cui vivi o lavori.",
           ],
           list: [],

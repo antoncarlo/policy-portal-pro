@@ -322,7 +322,7 @@ export const zh: SiteContent = {
           title: "谁处理您的数据",
           paragraphs: [
             "数据控制者为 Tecno Advance MGA Broker Srl，注册地址：Via Po, 102 - 00198 Roma（意大利），增值税号 17460381001，是登记于意大利保险中介统一登记册的保险中介，编号 B000746484。",
-            "有关您数据的任何问题，可以写信给数据保护官（DPO）antoncarlo@tecnomga.com，或寄信至注册地址。",
+            "有关您数据的任何问题，可以写信给数据保护官（DPO）info@tecnomga.com，或寄信至注册地址。",
             "本政策适用于 portale.tecnomga.com 网站的公开部分及其联系表单。合同关系和客户登录区域适用{notice}。",
           ],
           list: [],
@@ -384,7 +384,7 @@ export const zh: SiteContent = {
           title: "您的权利",
           paragraphs: [
             "您可以随时要求访问、更正、删除您的数据，限制处理以及数据可携带，并可以反对基于正当利益的处理（条例第15条至第22条）。如果您曾表示同意，可以撤回同意，撤回不影响此前已进行的处理。",
-            "行使权利请写信至 antoncarlo@tecnomga.com 或注册地址。我们将按照条例第12条的规定在一个月内答复。",
+            "行使权利请写信至 info@tecnomga.com 或注册地址。我们将按照条例第12条的规定在一个月内答复。",
             "如果您认为处理违反了条例，可以向意大利个人数据保护局（https://www.garanteprivacy.it/）或您居住或工作所在国家的监管机构投诉。",
           ],
           list: [],
