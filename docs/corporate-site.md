@@ -14,7 +14,7 @@
 | `/llms.txt` | Il sito descritto ai motori basati su IA: chi è l'intermediario, che cosa intermedia, dove sono le pagine |
 | `/intro.js` | Lo script che decide l'apertura animata (SECTION 05) |
 | `/media/*`, `/companies/*`, `/brand/*` | Video e immagine ferma dell'apertura, immagini per i social; loghi delle società; logo Tecno MGA |
-| `/documenti/informativa-privacy.pdf` | Informativa privacy generale della società (versione dicembre 2025), la stessa pubblicata finora sul vecchio sito |
+| `/documenti/informativa-privacy.pdf` | Informativa privacy generale della società, versione novembre 2026: il testo di dicembre 2025 senza le parti che non riguardano Tecno MGA (testo in `scripts/legal/privacy-notice.mjs`, PDF con `node scripts/legal/build-privacy-notice.mjs`) |
 
 Le ancore delle sezioni sono uguali nelle due lingue: `#prodotti`, `#broker`, `#come-funziona`, `#preventivo`.
 
@@ -136,7 +136,7 @@ Il ramo di produzione è `main`: ogni modifica unita su `main` ripubblica il sit
 | `/services/` e le pagine prodotto (`/fideiussioni-e-cauzioni/`, `/decennale-postuma-e-car/`, `/ar-fotovoltaico/`, `/business-insurance/`, `/home-insurance/`, `/vehicle-insurance/`, `/health-insurance/`, `/life-insurance/`, `/travel-insurance/`), anche sotto `/en/` | `/#prodotti` (`/en/#prodotti`) |
 | `/contact/` (e `/en/contact/`) | `/#preventivo` (`/en/#preventivo`) |
 | `/portale-assicurativo/` (e `/en/`) | `https://portale.tecnomga.com/` |
-| `/wp-content/uploads/2025/12/Informativaprivacytecno-1_1.pdf` (a cui rimanda anche il portale) | `/documenti/informativa-privacy.pdf`, copia identica del documento |
+| `/wp-content/uploads/2025/12/Informativaprivacytecno-1_1.pdf` (a cui rimanda anche il portale) | `/documenti/informativa-privacy.pdf`, versione aggiornata del documento |
 
 Tutti permanenti (308). Con `trailingSlash: true` Vercel aggiunge la barra finale prima di cercare la regola: ogni `source` di una pagina finisce quindi con `/` (`/about-us/`), altrimenti l'indirizzo risponde «non trovato»; `tests/server/vercel-config.test.ts` compila le regole con la libreria di Vercel e lo verifica. Le pagine di servizio di WordPress (autori, categorie, modelli, «hello-world», «test-aj») non vengono riportate e rispondono «non trovato», come i documenti non riportati: il MUP e l'informativa sulla vendita a distanza del vecchio sito sono legati alla collaborazione con l'agenzia Vittoria e a Helpet, indicano il sito `tecnoinsurance.com` e mandano i recessi a Vittoria Assicurazioni; i termini e condizioni sono quelli di Helpet. Le versioni aggiornate si pubblicano in `sites/tecnomga/public/documenti/` quando il titolare le fornisce.
 
@@ -157,8 +157,7 @@ Misura in locale del 16/11/2026 con Lighthouse 12 sulla build servita compressa:
 | Dato | Serve per |
 |---|---|
 | Conferma dell'uso dei loghi da parte di ogni società | Loghi in homepage (il titolare ha fornito i file e ha chiesto di pubblicarli) |
-| MUP e informativa sulla vendita a distanza aggiornati | Documenti del sito: quelli del vecchio sito non sono stati riportati (SECTION 09) |
-| Informativa privacy generale aggiornata | Il documento di dicembre 2025 rimanda ancora a `www.tecnoinsurance.com` per i partner commerciali |
+| MUP per i clienti diretti (Tecno intermediario che entra in contatto con il cliente) e informativa sulla vendita a distanza | Documenti del sito: quelli del vecchio sito non sono stati riportati (SECTION 09); il MUP del portale è quello delle polizze VIES, con Italy4VAT come intermediario in contatto, e non va pubblicato qui. Il titolare ha deciso di farlo in un secondo momento (17/11/2026) |
 | Identificativo di Google Analytics | Misurazione delle visite |
 | Documenti aggiornati (informativa generale, set informativi) | Pagina Informative, consegna 3 |
 | Quali polizze di responsabilità civile oltre alla professionale, numeri documentabili, persone, profili social | Pagine dei prodotti e Chi siamo, consegne 2 e 3 |

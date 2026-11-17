@@ -113,6 +113,7 @@ Prima versione numerata. Riepilogo di ciò che il portale fa oggi:
 - Rapporto di audit di partenza archiviato in `docs/archive/AUDIT_PRODUCTION_READINESS.md`, con la nota sullo stato dei rilievi.
 
 ### Modificato
+- Sito aziendale, informativa privacy generale (`/documenti/informativa-privacy.pdf`): versione novembre 2026 su carta intestata Tecno, dal testo di dicembre 2025 senza le parti che non riguardano Tecno MGA (App e account personale, sito tecnoinsurance.com, cessione di dati anonimizzati per ricerca epidemiologica, contitolari, nome del DPO e caselle privacy@ e dpo@). Unico recapito, anche per il DPO, info@tecnomga.com; Privacy Shield sostituito dal Data Privacy Framework UE-USA; corretti il CAP della sede legale e i rimandi interni. Testo in `scripts/legal/privacy-notice.mjs`, PDF generato da `scripts/legal/build-privacy-notice.mjs`; il test verifica che il PDF pubblicato sia quello del testo attuale.
 
 - Chi esce dal portale da Impostazioni › Sessioni torna alla pagina di accesso (prima alla radice del sito, che ora è la homepage pubblica). Il logo del portale porta alla dashboard.
 - Il servizio di posta accetta un indirizzo di risposta (`replyTo`), con Gmail e con Resend.
