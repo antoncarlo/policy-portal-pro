@@ -41,3 +41,22 @@ describe("informativa privacy generale (PDF del sito aziendale)", () => {
     expect(pdf.getTitle()).toBe("Informativa per il trattamento dei dati personali · Tecno Advance MGA Broker Srl");
   });
 });
+
+describe("un solo recapito per la privacy in tutti i documenti di Tecno MGA", () => {
+  it("le pagine Privacy dei due siti, l'informativa generale e i modelli da firmare usano info@tecnomga.com; nessuno indica tecnoinsurance.com", () => {
+    for (const file of ["src/corp/content/legal/it.ts", "src/corp/content/legal/en.ts", "src/site/content/it.ts", "src/site/content/en.ts", "src/site/content/zh.ts", "scripts/signing-templates/build.mjs"]) {
+      const source = readFileSync(file, "utf8");
+      expect(source, file).not.toContain("antoncarlo@tecnomga.com");
+      expect(source, file).not.toMatch(/tecnoinsurance/i);
+    }
+    expect(readFileSync("scripts/signing-templates/build.mjs", "utf8")).toContain('web: "www.tecnomga.com"');
+  });
+
+  it("il portale rimanda direttamente all'informativa sul sito aziendale e a nessun documento del vecchio sito WordPress (i termini e condizioni erano di Helpet)", () => {
+    for (const file of ["src/site/config.ts", "src/pages/Auth.tsx"]) {
+      const source = readFileSync(file, "utf8");
+      expect(source, file).toContain("https://tecnomga.com/documenti/informativa-privacy.pdf");
+      expect(source, file).not.toContain("wp-content");
+    }
+  });
+});

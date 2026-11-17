@@ -76,8 +76,8 @@ export const COMPANY = {
   phoneE164: "+390697638088",
   pec: "tecnoadvancemgabroker@legalmail.it",
   email: "vies@tecnomga.com",
-  /** Responsabile della protezione dei dati (DPO): lo stesso recapito dei documenti che il portale fa firmare ai clienti (scripts/signing-templates/build.mjs). */
-  dpoEmail: "antoncarlo@tecnomga.com",
+  /** Recapito per la privacy, anche per il responsabile della protezione dei dati (DPO): info@tecnomga.com, come nell'informativa generale e nei documenti che il portale fa firmare ai clienti (decisione del titolare, 17/11/2026). */
+  dpoEmail: "info@tecnomga.com",
   /** L'informativa generale (clienti, rapporti contrattuali, area riservata). */
-  privacyNoticeUrl: "https://tecnomga.com/wp-content/uploads/2025/12/Informativaprivacytecno-1_1.pdf",
+  privacyNoticeUrl: "https://tecnomga.com/documenti/informativa-privacy.pdf",
 } as const;

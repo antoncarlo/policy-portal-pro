@@ -71,7 +71,7 @@ describe("privacy page", () => {
       const body = main(html);
       for (const fact of [COMPANY.name, COMPANY.legalSeat.street, COMPANY.vat, COMPANY.dpoEmail, "DPO", "Vercel", "Supabase", "Google", "Resend", "24"]) expect(body, `${lang}: ${fact}`).toContain(fact);
       // The same data protection officer as in the documents the portal gives its clients to sign.
-      expect(COMPANY.dpoEmail).toBe("antoncarlo@tecnomga.com");
+      expect(COMPANY.dpoEmail).toBe("info@tecnomga.com");
       expect(readFileSync("scripts/signing-templates/build.mjs", "utf8")).toContain(`email: "${COMPANY.dpoEmail}"`);
       expect(body, lang).toContain(`href="mailto:${COMPANY.dpoEmail}"`);
       expect(body, lang).not.toMatch(/privacy@tecnomga\.com|dpo@tecnomga\.com/);

@@ -19,8 +19,7 @@ import { recordLoginOnce } from "@/lib/audit";
 import { mustChangePassword } from "@/lib/passwordPolicy";
 
 // Documenti pubblicati sul sito della società
-const PRIVACY_URL = "https://tecnomga.com/wp-content/uploads/2025/12/Informativaprivacytecno-1_1.pdf";
-const TERMS_URL = "https://tecnomga.com/wp-content/uploads/2025/12/terms-and-conditions.pdf";
+const PRIVACY_URL = "https://tecnomga.com/documenti/informativa-privacy.pdf";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -174,12 +173,9 @@ const Auth = () => {
 
         <div className="mt-6 space-y-2 text-center text-xs text-muted-foreground">
           <p>{m.storageNotice}</p>
-          <p className="space-x-3">
+          <p>
             <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">
               {m.privacy}
-            </a>
-            <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">
-              {m.terms}
             </a>
           </p>
         </div>

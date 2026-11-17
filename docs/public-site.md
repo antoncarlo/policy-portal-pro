@@ -167,7 +167,7 @@ Nessuno di questi punti blocca la pubblicazione: il sito è indicizzabile anche 
 | Conferma dell'avvertenza pubblicitaria e del testo sui reclami | Requisiti IVASS sulla pubblicità dei prodotti assicurativi | — |
 | Conferma delle lingue in cui l'ufficio risponde | I dati strutturati indicano italiano, inglese e cinese | — |
 
-Decisioni del titolare (15/11/2026): consenso unico ai cookie (SECTION 05); recapito del responsabile della protezione dei dati `antoncarlo@tecnomga.com`, lo stesso dei documenti del portale.
+Decisioni del titolare (15/11/2026): consenso unico ai cookie (SECTION 05); recapito del responsabile della protezione dei dati `antoncarlo@tecnomga.com`, lo stesso dei documenti del portale. Il 17/11/2026 il titolare l'ha cambiato: per la privacy, anche per il DPO, l'unico recapito è `info@tecnomga.com`, in tutte le pagine e nei documenti.
 
 ## SECTION 10 — Norme verificate
 
