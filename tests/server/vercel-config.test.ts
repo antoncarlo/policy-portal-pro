@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { getTransformedRoutes } from "@vercel/routing-utils";
 import { describe, expect, it } from "vitest";
 import { listPages } from "../../src/site/routes";
 
@@ -128,8 +129,33 @@ describe("sites/tecnomga/vercel.json: the company site", () => {
     functions?: unknown;
     crons?: unknown;
   };
-  /** Dove porta un indirizzo del vecchio sito WordPress: la destinazione del primo reindirizzamento che lo copre. */
-  const redirectOf = (path: string) => (corp.redirects ?? []).find((rule) => matches(rule.source, path));
+  // I reindirizzamenti si provano come li compila Vercel, con la sua libreria: con la barra finale attiva Vercel
+  // aggiunge prima la barra (/about-us -> /about-us/) e solo dopo cerca la regola, che deve coprire il percorso esatto.
+  const compiled = getTransformedRoutes({ trailingSlash: corp.trailingSlash, redirects: corp.redirects ?? [] });
+  if (compiled.error) throw new Error(compiled.error.message);
+  const routes = (compiled.routes ?? []) as Array<{ src: string; status?: number; headers?: Record<string, string> }>;
+  /** Il primo passo di instradamento per un percorso: un reindirizzamento con la sua destinazione, oppure nessuno. */
+  const step = (path: string) => {
+    for (const route of routes) {
+      const found = new RegExp(route.src).exec(path);
+      if (!found) continue;
+      if (!route.status) return undefined;
+      const location = (route.headers?.Location ?? "").replace(/\$(\d)/g, (_, n: string) => found[Number(n)] ?? "");
+      return { status: route.status, location };
+    }
+    return undefined;
+  };
+  /** Dove porta un indirizzo del vecchio sito WordPress, seguendo i reindirizzamenti fino alla fine. */
+  const redirectOf = (path: string) => {
+    const hops: Array<{ status: number; location: string }> = [];
+    let current = path;
+    for (let next = step(current); next && hops.length < 5; next = step(current)) {
+      hops.push(next);
+      if (!next.location.startsWith("/") || next.location.includes("#")) break;
+      current = next.location;
+    }
+    return hops.length ? { destination: hops[hops.length - 1].location, permanent: hops.every((hop) => hop.status === 308), hops } : undefined;
+  };
   const corpValues = (path: string, key: string) =>
     corp.headers
       .filter((rule) => matches(rule.source, path))
@@ -201,6 +227,8 @@ describe("sites/tecnomga/vercel.json: the company site", () => {
       "/wp-content/uploads/2025/12/MUP-TECNO-1-1.pdf", "/wp-content/uploads/2025/12/vendita-a-distanza-tecno.pdf", "/wp-content/uploads/2025/12/terms-and-conditions.pdf",
       "/", "/en/", "/privacy/", "/cookie/", "/en/privacy/", "/media/apertura.webp", "/documenti/informativa-privacy.pdf",
     ]) expect(redirectOf(path), path).toBeUndefined();
+    // Senza la barra finale si aggiunge solo la barra: la pagina resta quella chiesta, e se non esiste risponde 404.
+    for (const path of ["/hello-world", "/privacy", "/en"]) expect(redirectOf(path)?.destination, path).toBe(`${path}/`);
   });
 
   it("every address ends with a slash, like the routes of the site", () => {
